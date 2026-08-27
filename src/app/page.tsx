@@ -3669,6 +3669,11 @@ export default function SupportV8Dashboard() {
           <GovernanceMembersView
             members={members}
             onOpenInviteModal={() => setIsInviteModalOpen(true)}
+            onUpdateMember={(updated) => {
+              setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+              setActionNotice({ text: `Updated account profile for ${updated.name}`, type: "success" });
+            }}
+            onUpdateMembers={(newList) => setMembers(newList)}
           />
         )}
 

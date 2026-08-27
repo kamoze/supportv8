@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@servicev8/agentic-runtime": path.resolve(__dirname, "./src/lib/agentic-runtime/index.ts"),
     },
   },
 });

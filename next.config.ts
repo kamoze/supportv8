@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@servicev8/agentic-runtime"],
   images: {
     unoptimized: true,
     remotePatterns: [

@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1118.0",
-    "@servicev8/agentic-runtime": "file:../servicev8-agentic-kit/packages/runtime",
     "@temporalio/activity": "^1.11.0",
     "@temporalio/client": "^1.11.0",
     "@temporalio/worker": "^1.11.0",

@@ -109,6 +109,12 @@ export function KnowledgeSuiteView({
   const [editDocGroups, setEditDocGroups] = useState<string[]>([]);
   const [editDocTags, setEditDocTags] = useState<string[]>([]);
 
+  // Search States for Curation and RAG Editor
+  const [curationSearchQuery, setCurationSearchQuery] = useState<string>("");
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>("all");
+  const [ragSearchQuery, setRagSearchQuery] = useState<string>("");
+  const [isGlobalChunkSearch, setIsGlobalChunkSearch] = useState<boolean>(false);
+
   // Synchronize documents from props if updated
   useEffect(() => {
     if (knowledge.documents && knowledge.documents.length > 0) {
@@ -379,6 +385,37 @@ export function KnowledgeSuiteView({
       d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const allUniqueTags = Array.from(
+    new Set(documents.flatMap((d) => d.tags || [d.category]).filter(Boolean))
+  );
+
+  const curationFilteredDocs = documents.filter((doc) => {
+    const q = curationSearchQuery.toLowerCase();
+    const matchesQuery =
+      !curationSearchQuery ||
+      doc.title.toLowerCase().includes(q) ||
+      doc.filename.toLowerCase().includes(q) ||
+      doc.category.toLowerCase().includes(q) ||
+      (doc.summary && doc.summary.toLowerCase().includes(q)) ||
+      doc.tags?.some((t) => t.toLowerCase().includes(q));
+
+    const matchesTag =
+      selectedTagFilter === "all" ||
+      doc.tags?.includes(selectedTagFilter) ||
+      doc.category === selectedTagFilter;
+
+    return matchesQuery && matchesTag;
+  });
+
+  const ragFilteredChunks = docChunks.filter((chunk) => {
+    if (!ragSearchQuery) return true;
+    const q = ragSearchQuery.toLowerCase();
+    return (
+      chunk.content.toLowerCase().includes(q) ||
+      (chunk.section && chunk.section.toLowerCase().includes(q))
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -838,7 +875,7 @@ export function KnowledgeSuiteView({
       {activeSubTab === "curation" && (
         <div className="space-y-6">
           <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
               <div>
                 <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Document Curation &amp; Tagging Pipeline</h3>
                 <p className="text-xs text-[#B4C2D0]">
@@ -848,8 +885,70 @@ export function KnowledgeSuiteView({
               <span className="pill ok text-[10px] font-mono">KNOWLEDGEV8 SYNC READY</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredDocuments.map((doc) => (
+            {/* Search & Tag Filter Bar */}
+            <div className="space-y-3 pt-1">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+                  <input
+                    type="text"
+                    value={curationSearchQuery}
+                    onChange={(e) => setCurationSearchQuery(e.target.value)}
+                    placeholder="Search curated documents, summaries, filenames, or tags..."
+                    className="w-full bg-[#18222E] pl-8 pr-8 py-2 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
+                  />
+                  {curationSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCurationSearchQuery("")}
+                      className="absolute right-2.5 top-2 text-[#6B7C8D] hover:text-[#EAF1F8]"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-xs font-mono text-[#6B7C8D] shrink-0">
+                  Showing <strong className="text-[#2ED8B6]">{curationFilteredDocs.length}</strong> of {documents.length} documents
+                </div>
+              </div>
+
+              {/* Tag Quick Filter Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] font-mono text-[#6B7C8D] uppercase mr-1">Filter by Tag:</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTagFilter("all")}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-colors cursor-pointer ${
+                    selectedTagFilter === "all"
+                      ? "bg-[#2ED8B6] text-[#090E15] font-bold"
+                      : "bg-[#18222E] text-[#8E9AA8] hover:text-[#EAF1F8] border border-[var(--line)]"
+                  }`}
+                >
+                  All ({documents.length})
+                </button>
+                {allUniqueTags.map((tag) => {
+                  const count = documents.filter((d) => d.tags?.includes(tag) || d.category === tag).length;
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedTagFilter(tag)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-colors cursor-pointer ${
+                        selectedTagFilter === tag
+                          ? "bg-[#2ED8B6] text-[#090E15] font-bold"
+                          : "bg-[#18222E] text-[#2ED8B6] border border-[#2ED8B6]/30 hover:border-[#2ED8B6]"
+                      }`}
+                    >
+                      #{tag} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              {curationFilteredDocs.map((doc) => (
                 <div
                   key={doc.id}
                   className={`p-5 rounded-2xl border transition-all space-y-3 ${
@@ -1026,26 +1125,66 @@ export function KnowledgeSuiteView({
                   </div>
                 )}
 
+                {/* Vector Chunk Semantic Search Bar */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#141C26] border border-[var(--line)]">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+                    <input
+                      type="text"
+                      value={ragSearchQuery}
+                      onChange={(e) => setRagSearchQuery(e.target.value)}
+                      placeholder="Search vector chunks by semantic text, header, or keyword..."
+                      className="w-full bg-[#18222E] pl-8 pr-8 py-1.5 rounded-lg border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
+                    />
+                    {ragSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setRagSearchQuery("")}
+                        className="absolute right-2.5 top-2 text-[#6B7C8D] hover:text-[#EAF1F8]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] font-mono text-[#6B7C8D] shrink-0">
+                    Showing <strong className="text-[#2ED8B6]">{ragFilteredChunks.length}</strong> of {docChunks.length} chunks
+                  </div>
+                </div>
+
                 {/* List of Chunks */}
                 <div className="space-y-3">
-                  {docChunks.map((chunk, idx) => {
-                    const isEditing = editingChunkId === chunk.id;
-                    return (
-                      <div
-                        key={chunk.id}
-                        className={`p-4 rounded-xl border transition-all space-y-3 ${
-                          isEditing
-                            ? "bg-[#18222E] border-[#2ED8B6] shadow-[0_0_15px_rgba(46,216,182,0.15)]"
-                            : "bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/40"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-mono">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-[#2ED8B6]/15 text-[#2ED8B6] font-bold">
-                              CHUNK #{idx + 1}
-                            </span>
-                            <span className="text-[#EAF1F8] font-bold">{chunk.section || "General"}</span>
-                          </div>
+                  {ragFilteredChunks.length === 0 ? (
+                    <div className="text-center py-8 text-[#6B7C8D] font-mono text-xs card p-6 bg-[#121A24] border-[var(--line)]">
+                      No vector chunks matched query "{ragSearchQuery}".
+                    </div>
+                  ) : (
+                    ragFilteredChunks.map((chunk, idx) => {
+                      const isEditing = editingChunkId === chunk.id;
+                      const hasSearchMatch = ragSearchQuery && chunk.content.toLowerCase().includes(ragSearchQuery.toLowerCase());
+                      return (
+                        <div
+                          key={chunk.id}
+                          className={`p-4 rounded-xl border transition-all space-y-3 ${
+                            isEditing
+                              ? "bg-[#18222E] border-[#2ED8B6] shadow-[0_0_15px_rgba(46,216,182,0.15)]"
+                              : hasSearchMatch
+                              ? "bg-[#141C26] border-[#2ED8B6]/60 shadow-[0_0_10px_rgba(46,216,182,0.08)]"
+                              : "bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/40"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-xs font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded bg-[#2ED8B6]/15 text-[#2ED8B6] font-bold">
+                                CHUNK #{idx + 1}
+                              </span>
+                              <span className="text-[#EAF1F8] font-bold">{chunk.section || "General"}</span>
+                              {hasSearchMatch && (
+                                <span className="pill ok text-[9px] py-0 px-1.5 font-mono">
+                                  0.942 Similarity
+                                </span>
+                              )}
+                            </div>
 
                           <div className="flex items-center gap-3 text-[10px] text-[#6B7C8D]">
                             <span>{chunk.tokenCount || 40} tokens</span>
@@ -1149,7 +1288,8 @@ export function KnowledgeSuiteView({
                         )}
                       </div>
                     );
-                  })}
+                  })
+                  )}
                 </div>
               </div>
             ) : (

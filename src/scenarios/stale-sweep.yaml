@@ -1,0 +1,19 @@
+id: stale-sweep
+name: Stale Work Sweeper Automation
+version: "1.0.0"
+role: stale_sweeper_intern
+vertical: supportv8
+trigger:
+  type: schedule
+  cron: "0 2 * * *"
+compute:
+  handler: sweep_stale_external_tickets
+autonomy:
+  rule: threshold
+  auto_execute_max_risk: medium
+narration:
+  enabled: false
+marketplace:
+  summary: Daily scan of external helpdesks to close dormant customer tickets
+  author: ServiceV8 Operations
+  subscribable: true

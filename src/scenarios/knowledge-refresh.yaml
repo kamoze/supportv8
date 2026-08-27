@@ -1,0 +1,20 @@
+id: knowledge-refresh
+name: Continuous Knowledge Refresh
+version: "1.0.0"
+role: knowledge_refresh_analyst
+vertical: supportv8
+trigger:
+  type: schedule
+  cron: "0 4 * * *"
+compute:
+  handler: detect_knowledge_gaps
+autonomy:
+  rule: threshold
+  auto_execute_max_risk: medium
+narration:
+  enabled: true
+  max_tokens: 500
+marketplace:
+  summary: Mines resolved customer conversations to synthesize reusable Knowledge Base articles
+  author: ServiceV8 Knowledge Team
+  subscribable: true

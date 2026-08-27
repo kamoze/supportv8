@@ -1,0 +1,20 @@
+id: support-triage
+name: Customer Support Triage and Resolution
+version: "1.0.0"
+role: support_analyst
+vertical: supportv8
+trigger:
+  type: event
+  event: interaction.message.received
+compute:
+  handler: triage_support_interaction
+autonomy:
+  rule: threshold
+  auto_execute_max_risk: low
+narration:
+  enabled: true
+  max_tokens: 300
+marketplace:
+  summary: Real-time sentiment analysis, intent categorization, and automated ticket tagging
+  author: ServiceV8 Support Team
+  subscribable: true

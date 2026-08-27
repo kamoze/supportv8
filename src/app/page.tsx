@@ -118,6 +118,10 @@ import { GovernanceAuditLogsView } from "@/components/views/GovernanceAuditLogsV
 import { AutonomousStudioView } from "@/components/views/AutonomousStudioView";
 import { KnowledgeSuiteView } from "@/components/views/KnowledgeSuiteView";
 import { FloatingPageGuide } from "@/components/FloatingPageGuide";
+import { GlobalLandingView } from "@/components/GlobalLandingView";
+import { TenantLandingView } from "@/components/TenantLandingView";
+import { SignupModal } from "@/components/SignupModal";
+import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 
 export interface ChatMessage {
   id: string;
@@ -133,6 +137,11 @@ export interface ChatMessage {
 }
 
 export default function SupportV8Dashboard() {
+  // Global View Mode & Multi-Tenant Routing
+  const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("cockpit");
+  const [currentTenantSlug, setCurrentTenantSlug] = useState<string>("acme");
+  const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
+
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -397,6 +406,30 @@ export default function SupportV8Dashboard() {
 
   useEffect(() => {
     fetchData();
+
+    // Detect Subdomain & URL parameters for tenant vs global landing
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tenantParam = params.get("tenant");
+      const landingParam = params.get("landing");
+      const host = window.location.hostname;
+
+      if (landingParam === "global") {
+        setViewMode("global_landing");
+      } else if (tenantParam) {
+        setCurrentTenantSlug(tenantParam);
+        setViewMode("tenant_landing");
+      } else if (
+        host.includes(".support.") &&
+        !host.startsWith("www.") &&
+        !host.startsWith("support.")
+      ) {
+        const slug = host.split(".")[0];
+        setCurrentTenantSlug(slug);
+        setViewMode("tenant_landing");
+      }
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -901,6 +934,50 @@ export default function SupportV8Dashboard() {
     },
   ];
 
+  if (viewMode === "global_landing") {
+    return (
+      <>
+        <GlobalLandingView
+          onEnterCockpit={() => setViewMode("cockpit")}
+          onOpenTenantPortal={(slug) => {
+            if (slug) setCurrentTenantSlug(slug);
+            setViewMode("tenant_landing");
+          }}
+          onOpenSignup={() => setIsSignupModalOpen(true)}
+        />
+        <SignupModal
+          isOpen={isSignupModalOpen}
+          onClose={() => setIsSignupModalOpen(false)}
+          onSuccess={(slug) => {
+            setCurrentTenantSlug(slug);
+            setViewMode("tenant_landing");
+          }}
+        />
+      </>
+    );
+  }
+
+  if (viewMode === "tenant_landing") {
+    return (
+      <>
+        <TenantLandingView
+          tenantSlug={currentTenantSlug}
+          onEnterCockpit={() => setViewMode("cockpit")}
+          onOpenGlobalLanding={() => setViewMode("global_landing")}
+          onOpenSignup={() => setIsSignupModalOpen(true)}
+        />
+        <SignupModal
+          isOpen={isSignupModalOpen}
+          onClose={() => setIsSignupModalOpen(false)}
+          onSuccess={(slug) => {
+            setCurrentTenantSlug(slug);
+            setViewMode("tenant_landing");
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
       {/* Toast Notification */}
@@ -1082,6 +1159,33 @@ export default function SupportV8Dashboard() {
                   <span className="hidden md:inline">{mode}</span>
                 </button>
               ))}
+            </div>
+
+            {/* Surface Mode Switchers */}
+            <div className="hidden xl:flex items-center gap-1.5 bg-[#141C26] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
+              <button
+                type="button"
+                onClick={() => setViewMode("global_landing")}
+                className="px-2.5 py-1 rounded-lg text-[#8E9AA8] hover:text-[#EAF1F8] hover:bg-[#1C2836] transition-colors cursor-pointer"
+              >
+                Global Landing
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("tenant_landing")}
+                className="px-2.5 py-1 rounded-lg text-[#4D9FFF] hover:bg-[#1C2836] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <Globe className="w-3 h-3" />
+                <span>Tenant ({currentTenantSlug})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSignupModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 hover:bg-[#2ED8B6]/25 transition-colors cursor-pointer font-bold flex items-center gap-1"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>+ Provision</span>
+              </button>
             </div>
 
             {/* Quick Ask Chat Button */}
@@ -4238,6 +4342,22 @@ export default function SupportV8Dashboard() {
       <FloatingPageGuide
         activeTab={activeTab}
         onNotify={(text, type) => setActionNotice({ text, type: type || "info" })}
+      />
+
+      {/* Floating Support Chat Widget */}
+      <SupportChatWidget
+        tenantSlug={currentTenantSlug}
+        tenantName={currentTenantSlug.charAt(0).toUpperCase() + currentTenantSlug.slice(1) + " Corp"}
+      />
+
+      {/* GrowthV8-Inspired Tenant Provisioning & Signup Modal */}
+      <SignupModal
+        isOpen={isSignupModalOpen}
+        onClose={() => setIsSignupModalOpen(false)}
+        onSuccess={(slug) => {
+          setCurrentTenantSlug(slug);
+          setViewMode("tenant_landing");
+        }}
       />
     </div>
   );

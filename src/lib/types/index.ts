@@ -365,3 +365,94 @@ export interface OverviewMetrics {
     avatar: string;
   }>;
 }
+
+// -----------------------------------------------------------------------------
+// Omnichannel Multi-Option Chat Workflow, Groups & AI Guardrails
+// -----------------------------------------------------------------------------
+
+export type ChatStreamType = "contractors" | "enquiries" | "customers";
+
+export interface PreChatIntakeField {
+  id: string;
+  name: string;
+  label: string;
+  type: "text" | "email" | "select" | "textarea" | "number";
+  placeholder?: string;
+  required: boolean;
+  options?: string[];
+}
+
+export interface ChatWorkflowConfig {
+  stream: ChatStreamType;
+  title: string;
+  subtitle: string;
+  icon: string;
+  badgeColor: string;
+  description: string;
+  intakeFields: PreChatIntakeField[];
+  defaultAssignedGroupId: string;
+  defaultAiEmployeeId: string;
+  autoEscalateKeywords: string[];
+}
+
+export interface CustomerChatMessage {
+  id: string;
+  sender: "customer" | "agent" | "ai_employee" | "system";
+  senderName: string;
+  senderAvatar?: string;
+  content: string;
+  timestamp: string;
+  citations?: Array<{
+    id: string;
+    title: string;
+    snippet: string;
+  }>;
+  suggestedActions?: Array<{
+    label: string;
+    actionId: string;
+    payload?: Record<string, unknown>;
+  }>;
+}
+
+export interface CustomerChatSession {
+  id: string;
+  tenantDomain: string;
+  stream: ChatStreamType;
+  customerName: string;
+  customerEmail: string;
+  intakeData: Record<string, string>;
+  assignedType: "human" | "ai";
+  assignedId: string;
+  assignedName: string;
+  assignedAvatar?: string;
+  status: "queued" | "active" | "escalated" | "resolved";
+  priority: PriorityLevel;
+  unreadCount: number;
+  createdAt: string;
+  updatedAt: string;
+  messages: CustomerChatMessage[];
+}
+
+export interface MemberGroup {
+  id: string;
+  name: string;
+  streamType: ChatStreamType | "all";
+  description: string;
+  color: string;
+  permissions: string[];
+  memberEmails: string[];
+  isSystem: boolean;
+  createdAt: string;
+}
+
+export interface AiChatGuardrailConfig {
+  enabledStreams: ChatStreamType[];
+  maxAutonomousRefundAmount: number;
+  escalateOnSentimentBelow: number;
+  bannedTopics: string[];
+  escalationKeywords: string[];
+  requireHumanForBilling: boolean;
+  requireHumanForContractorPayout: boolean;
+  enableRAGGrounding: boolean;
+}
+

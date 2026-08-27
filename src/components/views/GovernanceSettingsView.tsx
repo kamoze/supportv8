@@ -27,6 +27,8 @@ import {
   FileCode,
 } from "lucide-react";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
+import type { ChatStreamType } from "@/lib/types";
+import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
 
 interface GovernanceSettingsViewProps {
   settings: TenantSettingConfig;
@@ -37,7 +39,11 @@ export function GovernanceSettingsView({
   settings,
   onUpdateSettings,
 }: GovernanceSettingsViewProps) {
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"byom" | "embeddings" | "forgegw" | "general">("byom");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"byom" | "embeddings" | "forgegw" | "guardrails" | "general">("byom");
+
+  // AI Chat Guardrails State
+  const [guardrails, setGuardrails] = useState(ChatWorkflowService.getGuardrails());
+  const [newKeyword, setNewKeyword] = useState("");
 
   // General & Security
   const [workspaceName, setWorkspaceName] = useState<string>(settings.workspaceName || "Acme Enterprise");
@@ -203,6 +209,7 @@ export function GovernanceSettingsView({
           { id: "byom", label: "BYOM (Custom LLMs)", icon: Cpu },
           { id: "embeddings", label: "Embeddings & Vectors", icon: Database },
           { id: "forgegw", label: "ForgeGW Action Gateway", icon: Zap },
+          { id: "guardrails", label: "AI Chat Guardrails", icon: Bot },
           { id: "general", label: "Workspace & Security", icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -691,7 +698,196 @@ export function GovernanceSettingsView({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: WORKSPACE & SECURITY GENERAL */}
+      {/* TAB 4: AI CHAT GUARDRAILS & ROUTING RULES */}
+      {/* ========================================================================= */}
+      {activeSettingsTab === "guardrails" && (
+        <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-6">
+          <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
+                <Bot className="w-4 h-4 text-[#2ED8B6]" />
+                <span>AI Chat Employee Guardrails &amp; Routing Policies</span>
+              </h3>
+              <p className="text-xs text-[#B4C2D0]">
+                Control which channels AI employees respond to, set strict autonomous financial dispatch caps, and define automatic human escalation rules.
+              </p>
+            </div>
+            <span className="pill ok text-[10px] font-mono">Guardrails Active</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            {/* Enabled Streams */}
+            <div className="space-y-3">
+              <label className="text-[#6B7C8D] font-mono block uppercase text-[10px]">
+                Autonomous AI Channels
+              </label>
+              <div className="space-y-2">
+                {[
+                  { id: "contractors", label: "Contractors & Vendors Desk", desc: "Work order triage & emergency lockbox PINs" },
+                  { id: "enquiries", label: "General Enquiries Desk", desc: "Knowledge graph citations & pre-sales" },
+                  { id: "customers", label: "Customers & Clients Desk", desc: "OrderV8 refund tokens & account support" },
+                ].map((st) => {
+                  const isEnabled = guardrails.enabledStreams.includes(st.id as any);
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => {
+                        const next = isEnabled
+                          ? guardrails.enabledStreams.filter((s) => s !== st.id)
+                          : [...guardrails.enabledStreams, st.id as ChatStreamType];
+                        const updated = ChatWorkflowService.updateGuardrails({ enabledStreams: next });
+                        setGuardrails({ ...updated });
+                      }}
+                      className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                        isEnabled
+                          ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8]"
+                          : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D]"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded border mt-0.5 flex items-center justify-center shrink-0 ${
+                        isEnabled ? "bg-[#2ED8B6] border-[#2ED8B6] text-[#090E15]" : "border-[#6B7C8D]"
+                      }`}>
+                        {isEnabled && <Check className="w-3 h-3" />}
+                      </div>
+                      <div>
+                        <div className="font-bold">{st.label}</div>
+                        <div className="text-[10px] text-[#8E9AA8]">{st.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Thresholds & Controls */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 font-mono">
+                  Max Autonomous Refund Cap ($ USD)
+                </label>
+                <input
+                  type="number"
+                  value={guardrails.maxAutonomousRefundAmount}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    const updated = ChatWorkflowService.updateGuardrails({ maxAutonomousRefundAmount: val });
+                    setGuardrails({ ...updated });
+                  }}
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] font-mono focus:outline-none focus:border-[#2ED8B6]"
+                />
+                <span className="text-[10px] text-[#6B7C8D] font-mono mt-1 block">
+                  Refunds above this value require mandatory supervisor approval.
+                </span>
+              </div>
+
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 font-mono">
+                  Sentiment Escalation Floor: <strong className="text-[#2ED8B6]">{guardrails.escalateOnSentimentBelow}</strong>
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="0.9"
+                  step="0.05"
+                  value={guardrails.escalateOnSentimentBelow}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    const updated = ChatWorkflowService.updateGuardrails({ escalateOnSentimentBelow: val });
+                    setGuardrails({ ...updated });
+                  }}
+                  className="w-full accent-[#2ED8B6]"
+                />
+                <span className="text-[10px] text-[#6B7C8D] font-mono mt-1 block">
+                  Auto-escalates chat to human queue if customer sentiment drops below floor.
+                </span>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={guardrails.requireHumanForContractorPayout}
+                    onChange={(e) => {
+                      const updated = ChatWorkflowService.updateGuardrails({ requireHumanForContractorPayout: e.target.checked });
+                      setGuardrails({ ...updated });
+                    }}
+                    className="accent-[#2ED8B6]"
+                  />
+                  <span className="text-xs text-[#EAF1F8]">Mandatory Human Review for Contractor Invoice Payouts</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={guardrails.enableRAGGrounding}
+                    onChange={(e) => {
+                      const updated = ChatWorkflowService.updateGuardrails({ enableRAGGrounding: e.target.checked });
+                      setGuardrails({ ...updated });
+                    }}
+                    className="accent-[#2ED8B6]"
+                  />
+                  <span className="text-xs text-[#EAF1F8]">Enforce 1536-Dim Vector Topology Grounding on AI Responses</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Auto-Escalation Keywords */}
+          <div className="space-y-2 pt-2 border-t border-[var(--line)]">
+            <label className="text-[#6B7C8D] font-mono block uppercase text-[10px]">
+              Live Escalation Trigger Keywords (Forces Human Handover)
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {guardrails.escalationKeywords.map((kw, i) => (
+                <span
+                  key={i}
+                  className="px-2.5 py-1 rounded-lg bg-[#E5484D]/10 border border-[#E5484D]/30 text-[11px] font-mono text-[#EAF1F8] flex items-center gap-1.5"
+                >
+                  <span>{kw}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = guardrails.escalationKeywords.filter((_, idx) => idx !== i);
+                      const updated = ChatWorkflowService.updateGuardrails({ escalationKeywords: next });
+                      setGuardrails({ ...updated });
+                    }}
+                    className="text-[#E5484D] hover:text-white cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 max-w-sm">
+              <input
+                type="text"
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                placeholder="Add trigger keyword..."
+                className="flex-1 bg-[#18222E] text-[#EAF1F8] p-2 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newKeyword.trim()) return;
+                  const next = [...guardrails.escalationKeywords, newKeyword.trim().toLowerCase()];
+                  const updated = ChatWorkflowService.updateGuardrails({ escalationKeywords: next });
+                  setGuardrails({ ...updated });
+                  setNewKeyword("");
+                }}
+                className="btn btn-secondary px-3 py-2 text-xs font-mono cursor-pointer"
+              >
+                + Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: WORKSPACE & SECURITY GENERAL */}
       {/* ========================================================================= */}
       {activeSettingsTab === "general" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

@@ -39,7 +39,64 @@ export function GovernanceSettingsView({
   settings,
   onUpdateSettings,
 }: GovernanceSettingsViewProps) {
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"byom" | "embeddings" | "forgegw" | "guardrails" | "general">("byom");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"byom" | "embeddings" | "forgegw" | "guardrails" | "api_tokens" | "general">("byom");
+
+  // Issued Tokens & API Credentials State
+  const [issuedTokens, setIssuedTokens] = useState<Array<{
+    id: string;
+    name: string;
+    tokenSecret: string;
+    maskedSecret: string;
+    scopes: string[];
+    expiresAt: string;
+    createdAt: string;
+    lastUsedAt: string;
+    status: "active" | "revoked";
+  }>>([
+    {
+      id: "tok_sv8_01",
+      name: "GrowthV8 Omnichannel Ingress Token",
+      tokenSecret: "sv8_live_sec_9942a1b78c43de90fa12",
+      maskedSecret: "sv8_live_sec_••••••••••••fa12",
+      scopes: ["support:write", "triage:execute", "spine:orchestrate"],
+      expiresAt: "2027-08-25T00:00:00Z",
+      createdAt: "2026-08-25T12:00:00Z",
+      lastUsedAt: "Just now",
+      status: "active",
+    },
+    {
+      id: "tok_sv8_02",
+      name: "OrderV8 Refund & Order Dispatcher",
+      tokenSecret: "sv8_live_sec_1189c4d299f01ab78832",
+      maskedSecret: "sv8_live_sec_••••••••••••8832",
+      scopes: ["support:read", "support:write", "triage:execute"],
+      expiresAt: "2027-01-01T00:00:00Z",
+      createdAt: "2026-08-20T10:30:00Z",
+      lastUsedAt: "4 mins ago",
+      status: "active",
+    },
+    {
+      id: "tok_sv8_03",
+      name: "KnowledgeV8 Vector RAG Ingest Bot",
+      tokenSecret: "sv8_live_sec_7731f2c019dae8902144",
+      maskedSecret: "sv8_live_sec_••••••••••••2144",
+      scopes: ["support:read", "support:admin"],
+      expiresAt: "Never",
+      createdAt: "2026-08-15T08:00:00Z",
+      lastUsedAt: "12 mins ago",
+      status: "active",
+    },
+  ]);
+
+  const [isIssuingToken, setIsIssuingToken] = useState(false);
+  const [newTokenName, setNewTokenName] = useState("");
+  const [newTokenExpiry, setNewTokenExpiry] = useState<"30d" | "90d" | "1y" | "never">("90d");
+  const [newTokenScopes, setNewTokenScopes] = useState<string[]>(["support:read", "support:write"]);
+  const [newlyCreatedToken, setNewlyCreatedToken] = useState<string | null>(null);
+  const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
+  const [webhookSigningSecret, setWebhookSigningSecret] = useState<string>("whsec_sv8_live_772189bbfa1029c3d4e5");
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [copiedWebhookSecret, setCopiedWebhookSecret] = useState(false);
 
   // AI Chat Guardrails State
   const [guardrails, setGuardrails] = useState(ChatWorkflowService.getGuardrails());
@@ -210,6 +267,7 @@ export function GovernanceSettingsView({
           { id: "embeddings", label: "Embeddings & Vectors", icon: Database },
           { id: "forgegw", label: "ForgeGW Action Gateway", icon: Zap },
           { id: "guardrails", label: "AI Chat Guardrails", icon: Bot },
+          { id: "api_tokens", label: "API Keys & Issue Tokens", icon: Key },
           { id: "general", label: "Workspace & Security", icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -887,38 +945,317 @@ export function GovernanceSettingsView({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 5: WORKSPACE & SECURITY GENERAL */}
+      {/* TAB 5: API KEYS & ISSUE TOKENS (SUPPORTV8 INBOUND & SERVICE TOKENS) */}
       {/* ========================================================================= */}
-      {activeSettingsTab === "general" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Workspace Identity */}
-          <div className="card p-5 rounded-2xl border-[var(--line)] space-y-4 bg-[#121A24]">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#EAF1F8] border-b border-[var(--line)] pb-2">
-              <Globe className="w-4 h-4 text-[#2ED8B6]" />
-              <span>Workspace Identity &amp; Domain</span>
+      {activeSettingsTab === "api_tokens" && (
+        <div className="space-y-6">
+          <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
+                  <Key className="w-4 h-4 text-[#2ED8B6]" />
+                  <span>SupportV8 API Credentials &amp; Issue Tokens</span>
+                </h3>
+                <p className="text-xs text-[#B4C2D0] mt-0.5">
+                  Issue scoped Bearer tokens for external service apps (GrowthV8, OrderV8, KnowledgeV8) and automated workers to authenticate with SupportV8.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsIssuingToken(true);
+                  setNewlyCreatedToken(null);
+                }}
+                className="btn btn-primary text-xs flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Issue New Token</span>
+              </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            {/* Newly Created Token Alert Banner */}
+            {newlyCreatedToken && (
+              <div className="p-4 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/40 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#2ED8B6]">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Token Issued Successfully! Copy it now.</span>
+                </div>
+                <p className="text-[11px] text-[#B4C2D0]">
+                  This token will never be displayed in full again. Store it securely in your secret manager or environment variables.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    readOnly
+                    value={newlyCreatedToken}
+                    className="flex-1 bg-[#0B1017] p-2.5 rounded-lg border border-[#2ED8B6]/50 font-mono text-xs text-[#2ED8B6] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(newlyCreatedToken);
+                      setCopiedTokenId("new");
+                      setTimeout(() => setCopiedTokenId(null), 2000);
+                    }}
+                    className="btn btn-primary text-xs px-4 py-2 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {copiedTokenId === "new" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedTokenId === "new" ? "Copied!" : "Copy Token"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Issue New Token Form / Modal */}
+            {isIssuingToken && (
+              <div className="p-5 rounded-2xl bg-[#18222E] border border-[var(--line-2)] space-y-4 text-xs">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                  <div className="font-bold text-[#EAF1F8] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#2ED8B6]" />
+                    <span>Issue New SupportV8 Token</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsIssuingToken(false)}
+                    className="text-[#6B7C8D] hover:text-[#EAF1F8] text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[#6B7C8D] block mb-1 font-mono uppercase text-[10px]">Token Description / Client Name</label>
+                    <input
+                      type="text"
+                      value={newTokenName}
+                      onChange={(e) => setNewTokenName(e.target.value)}
+                      placeholder="e.g. GrowthV8 Omnichannel Ingress"
+                      className="w-full bg-[#121A24] p-2.5 rounded-xl border border-[var(--line)] text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[#6B7C8D] block mb-1 font-mono uppercase text-[10px]">Expiration Period</label>
+                    <select
+                      value={newTokenExpiry}
+                      onChange={(e) => setNewTokenExpiry(e.target.value as any)}
+                      className="w-full bg-[#121A24] p-2.5 rounded-xl border border-[var(--line)] text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    >
+                      <option value="30d">30 Days</option>
+                      <option value="90d">90 Days (Recommended)</option>
+                      <option value="1y">1 Year</option>
+                      <option value="never">No Expiration (Internal Service)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1.5 font-mono uppercase text-[10px]">Granted Scopes &amp; Permissions</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { id: "support:read", label: "support:read", desc: "Read tickets & problems" },
+                      { id: "support:write", label: "support:write", desc: "Create/update tickets & replies" },
+                      { id: "support:admin", label: "support:admin", desc: "Full tenant administration" },
+                      { id: "triage:execute", label: "triage:execute", desc: "Action Gateway execution" },
+                      { id: "spine:orchestrate", label: "spine:orchestrate", desc: "Workforce Spine actions" },
+                      { id: "voice:stream", label: "voice:stream", desc: "Realtime voice sessions" },
+                    ].map((scope) => {
+                      const isSelected = newTokenScopes.includes(scope.id);
+                      return (
+                        <button
+                          key={scope.id}
+                          type="button"
+                          onClick={() => {
+                            setNewTokenScopes(
+                              isSelected
+                                ? newTokenScopes.filter((s) => s !== scope.id)
+                                : [...newTokenScopes, scope.id]
+                            );
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-[#2ED8B6]/15 border-[#2ED8B6]/60 text-[#2ED8B6]"
+                              : "bg-[#121A24] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                          }`}
+                        >
+                          <div className="font-mono font-bold text-[11px]">{scope.label}</div>
+                          <div className="text-[10px] opacity-75">{scope.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsIssuingToken(false)}
+                    className="btn btn-secondary text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateToken}
+                    disabled={!newTokenName.trim()}
+                    className="btn btn-primary text-xs px-5 py-2 disabled:opacity-50"
+                  >
+                    Generate &amp; Issue Token
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Issued Tokens Table */}
+            <div className="space-y-3">
+              <div className="text-xs font-bold text-[#EAF1F8] font-mono flex items-center justify-between">
+                <span>Active Issued Tokens ({issuedTokens.filter((t) => t.status === "active").length})</span>
+                <span className="text-[10px] text-[#6B7C8D]">Cryptographically Signed SHA-256</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse font-mono">
+                  <thead>
+                    <tr className="border-b border-[var(--line)] text-[#6B7C8D] text-[10px] uppercase">
+                      <th className="py-2.5 px-3">Token Name &amp; Client</th>
+                      <th className="py-2.5 px-3">Masked Secret</th>
+                      <th className="py-2.5 px-3">Scopes</th>
+                      <th className="py-2.5 px-3">Expires</th>
+                      <th className="py-2.5 px-3">Last Active</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--line)]">
+                    {issuedTokens.map((tok) => {
+                      const isRevoked = tok.status === "revoked";
+                      return (
+                        <tr key={tok.id} className={`hover:bg-[#18222E]/50 ${isRevoked ? "opacity-40" : ""}`}>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-[#EAF1F8] font-sans">{tok.name}</div>
+                            <div className="text-[10px] text-[#6B7C8D] font-mono">{tok.id}</div>
+                          </td>
+                          <td className="py-3 px-3 text-[#2ED8B6] font-mono text-[11px]">
+                            {tok.maskedSecret}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex flex-wrap gap-1">
+                              {tok.scopes.map((s) => (
+                                <span key={s} className="pill route text-[9px] py-0 px-1.5">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-[#B4C2D0] text-[11px]">
+                            {tok.expiresAt}
+                          </td>
+                          <td className="py-3 px-3 text-[#6B7C8D] text-[11px]">
+                            {tok.lastUsedAt}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            {!isRevoked ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyToken(tok.id, tok.tokenSecret)}
+                                  title="Copy Token Secret"
+                                  className="p-1.5 rounded-lg bg-[#18222E] border border-[var(--line)] text-[#6B7C8D] hover:text-[#2ED8B6] cursor-pointer"
+                                >
+                                  {copiedTokenId === tok.id ? <Check className="w-3.5 h-3.5 text-[#2ED8B6]" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeToken(tok.id)}
+                                  title="Revoke Token"
+                                  className="p-1.5 rounded-lg bg-[#18222E] border border-[var(--line)] text-[#6B7C8D] hover:text-[#E5484D] cursor-pointer"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="pill err text-[9px]">REVOKED</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Inbound Webhook Signing Secret */}
+            <div className="pt-4 border-t border-[var(--line)] space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>Inbound Webhook Verification Secret</span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7C8D]">
+                    External vertical webhooks sending events to <code className="text-[#2ED8B6]">/api/ingress/webhook</code> must sign payload with this HMAC SHA-256 secret.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type={showWebhookSecret ? "text" : "password"}
+                  readOnly
+                  value={webhookSigningSecret}
+                  className="flex-1 bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] font-mono text-xs focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                  className="btn btn-secondary text-xs px-3"
+                >
+                  {showWebhookSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyWebhookSecret}
+                  className="btn btn-secondary text-xs px-3 flex items-center gap-1"
+                >
+                  {copiedWebhookSecret ? <Check className="w-3.5 h-3.5 text-[#2ED8B6]" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedWebhookSecret ? "Copied" : "Copy Secret"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 6: GENERAL WORKSPACE & RETENTION */}
+      {/* ========================================================================= */}
+      {activeSettingsTab === "general" && (
+        <div className="space-y-6">
+          {/* General Workspace Info */}
+          <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#2ED8B6]" />
+                <span>Workspace Information</span>
+              </h3>
+              <span className="pill ok text-[10px]">ORGANIZATION LEVEL</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
-                <label className="text-[#6B7C8D] block mb-1 font-mono">Workspace Display Name</label>
+                <label className="text-[#6B7C8D] block mb-1">Organization Name</label>
                 <input
                   type="text"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
-                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2 rounded-lg border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
 
               <div>
-                <label className="text-[#6B7C8D] block mb-1 font-mono">Isolated Subdomain</label>
-                <div className="p-2.5 rounded-xl bg-[#0C121A] border border-[var(--line)] font-mono text-xs text-[#2ED8B6] flex items-center justify-between">
-                  <span>{settings.workspaceSlug || "acme-enterprise"}.supportv8.com</span>
-                  <span className="pill ok text-[9px] py-0 font-mono">RLS ACTIVE</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[#6B7C8D] block mb-1 font-mono">Global Ingress Webhook</label>
+                <label className="text-[#6B7C8D] block mb-1">Global Webhook Ingress URL</label>
                 <input
                   type="text"
                   value={webhookUrl}

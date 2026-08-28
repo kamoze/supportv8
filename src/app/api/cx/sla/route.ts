@@ -11,12 +11,20 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { ticketId } = await req.json();
+    const body = await req.json();
+    const { ticketId, assignee, assigneeType, escalationReason, priority } = body;
     if (!ticketId) {
       return NextResponse.json({ success: false, error: "ticketId is required" }, { status: 400 });
     }
 
-    const result = slaEngine.escalateAtRiskTicket(ticketId);
+    const result = slaEngine.escalateAtRiskTicket({
+      ticketId,
+      assignee,
+      assigneeType,
+      escalationReason,
+      priority,
+    });
+
     return NextResponse.json({
       success: true,
       message: result.message,

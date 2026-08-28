@@ -12,7 +12,17 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { action, memberId, task } = await req.json();
+    const { action, memberId, task, employeeId, issueDescription } = await req.json();
+
+    if (action === "hire") {
+      const result = workforceManager.hireEmployee(employeeId || memberId);
+      return NextResponse.json({ success: result.success, message: result.message, data: result.member });
+    }
+
+    if (action === "assign_work") {
+      const result = workforceManager.assignWork(memberId || employeeId, issueDescription || task);
+      return NextResponse.json({ success: result.success, message: result.message, supervisor: result.supervisor });
+    }
 
     if (action === "delegate") {
       const result = workforceManager.delegateTask(memberId, task);

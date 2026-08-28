@@ -202,6 +202,14 @@ export default function SupportV8Dashboard() {
   const [verticalDispatchResult, setVerticalDispatchResult] = useState<any | null>(null);
   const [verticalDispatchLoading, setVerticalDispatchLoading] = useState<boolean>(false);
 
+  // AI Workforce Roster & Work Assignment States
+  const [workforceFilter, setWorkforceFilter] = useState<"all" | "employees" | "interns" | "catalog">("all");
+  const [isWorkAssignModalOpen, setIsWorkAssignModalOpen] = useState<boolean>(false);
+  const [selectedEmployeeForAssign, setSelectedEmployeeForAssign] = useState<any | null>(null);
+  const [assignTicketId, setAssignTicketId] = useState<string>("");
+  const [assignDescription, setAssignDescription] = useState<string>("");
+  const [isAssigningWork, setIsAssigningWork] = useState<boolean>(false);
+
   // CX Manager Cockpit States (6 Core Pillars + Performance Funnel)
   const [cxSubView, setCxSubView] = useState<"funnel" | "sla" | "health" | "qa" | "voc" | "queue" | "standup">("funnel");
   const [slaData, setSlaData] = useState<{
@@ -752,6 +760,69 @@ export default function SupportV8Dashboard() {
       }
     } catch (err) {
       notify("Failed to hire AI agent", "error");
+    }
+  };
+
+  const handleHireWorkforceEmployee = async (empId: string) => {
+    try {
+      const res = await fetch("/api/workforce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "hire", employeeId: empId }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || "Employee hired successfully!", "success");
+        fetchData();
+      } else {
+        notify(res.error || "Failed to hire employee", "error");
+      }
+    } catch (err) {
+      notify("Failed to hire employee", "error");
+    }
+  };
+
+  const handleOpenAssignWorkModal = (emp: any) => {
+    if (!emp.hired && emp.hired !== undefined) {
+      notify(`Architectural Rule: ${emp.name} must be HIRED first before receiving work assignments.`, "error");
+      return;
+    }
+    if (emp.level === "ai_intern") {
+      const supervisor = workforce.find((w) => w.id === emp.supervisorId);
+      notify(`Architectural Rule: Interns are paired sub-agents and cannot receive direct work. Please assign work to supervising AI Employee (${supervisor?.name || "Alex"}), who will delegate sub-tasks.`, "error");
+      return;
+    }
+    setSelectedEmployeeForAssign(emp);
+    setAssignTicketId(issues[0]?.id || "TKT-8812");
+    setAssignDescription(issues[0]?.title || "Triage and resolve customer inquiry with pgvector knowledge grounding.");
+    setIsWorkAssignModalOpen(true);
+  };
+
+  const handleConfirmAssignWork = async () => {
+    if (!selectedEmployeeForAssign) return;
+    setIsAssigningWork(true);
+    try {
+      const res = await fetch("/api/workforce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "assign_work",
+          employeeId: selectedEmployeeForAssign.id,
+          issueDescription: assignDescription,
+        }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || `Work assigned to ${selectedEmployeeForAssign.name}!`, "success");
+        setIsWorkAssignModalOpen(false);
+        fetchData();
+      } else {
+        notify(res.message || res.error || "Failed to assign work", "error");
+      }
+    } catch (err) {
+      notify("Failed to assign work", "error");
+    } finally {
+      setIsAssigningWork(false);
     }
   };
 
@@ -3249,81 +3320,397 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: AI WORKFORCE (GROWTHV8 WORKFORCE HIERARCHY) */}
+        {/* TAB: AI WORKFORCE (ORDERV8 CANONICAL WORKFORCE HIERARCHY) */}
         {/* ========================================================================= */}
         {activeTab === "workforce" && (
           <div className="space-y-6">
-            <div className="card p-5 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-[#EAF1F8]">AI Workforce Hierarchy (Employees &amp; Interns)</h2>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Governed workforce spine delegating tasks with supervisory escalation and autonomy gates.
+            {/* Top Overview & Roster Header */}
+            <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
+                    <Users className="w-5 h-5" />
+                  </span>
+                  <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">AI Workforce Hierarchy &amp; Roster</h1>
+                </div>
+                <p className="text-xs text-[#B4C2D0]">
+                  OrderV8 canonical workforce architecture: AI Employees are hired first to receive work; Specialized Interns operate as paired sub-agents.
+                </p>
+              </div>
+
+              {/* Roster Filter Strip */}
+              <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
+                {[
+                  { id: "all", label: "All Workforce", count: workforce.length },
+                  {
+                    id: "employees",
+                    label: "Hired AI Employees",
+                    count: workforce.filter((w) => w.level === "ai_employee" && (w.hired === undefined || w.hired)).length,
+                  },
+                  {
+                    id: "interns",
+                    label: "Paired Sub-Agents",
+                    count: workforce.filter((w) => w.level === "ai_intern").length,
+                  },
+                  {
+                    id: "catalog",
+                    label: "Available to Hire",
+                    count: workforce.filter((w) => w.level === "ai_employee" && w.hired === false).length,
+                  },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setWorkforceFilter(f.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      workforceFilter === f.id
+                        ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                        : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                    }`}
+                  >
+                    <span>{f.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      workforceFilter === f.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
+                    }`}>
+                      {f.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Architectural Policy Banner */}
+            <div className="card p-4 bg-[#121A24] border border-[#2ED8B6]/30 rounded-2xl flex items-start gap-3.5 shadow-sm">
+              <div className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
+                    CANONICAL WORKFORCE HIERARCHY &amp; INTERN DISPATCH POLICY
+                  </h4>
+                  <span className="pill ok text-[9px] font-mono">ORDERV8 SPEC</span>
+                </div>
+                <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">
+                  <strong>1. Hiring Precedence:</strong> AI Employees must first be <strong>hired / provisioned</strong> before they can be assigned customer tickets or execute workflows.
+                  <br />
+                  <strong>2. Intern Pairing Constraint:</strong> Specialized Interns are <strong>paired to AI Employees</strong> and execute delegated micro-tasks (auto-tagging, sweeps, transcriptions, OCR). <strong>Interns cannot work or be assigned work directly</strong> by users or external systems.
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {workforce.map((emp) => (
-                <div key={emp.id} className="card p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
-                        alt={emp.name}
-                        className="w-12 h-12 rounded-2xl object-cover border-2 border-[#2ED8B6]/40 shadow-md shrink-0"
-                      />
-                      <div>
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">{emp.name}</h3>
-                        <span className="text-[11px] text-[#6B7C8D]">{emp.role}</span>
-                      </div>
-                    </div>
-                    <span
-                      className={`pill ${
-                        emp.level === "ai_employee"
-                          ? "ok"
-                          : ""
-                      }`}
-                    >
-                      <i className="dot"></i>
-                      {emp.level.replace("_", " ")}
-                    </span>
+            {/* SECTION 1: Hired AI Employees (Supervisors & Work Assignees) */}
+            {(workforceFilter === "all" || workforceFilter === "employees") && (
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-[#2ED8B6]" />
+                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                      Hired AI Employees (Supervisors &amp; Work Receivers)
+                    </h3>
                   </div>
-
-                  <p className="text-xs text-[#B4C2D0] leading-relaxed">{emp.description}</p>
-
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-[#18222E] p-3 rounded-lg border border-[var(--line)]">
-                    <div>
-                      <span className="text-[10px] text-[#6B7C8D] block">VARR</span>
-                      <span className="font-bold text-[#2ED8B6]">{emp.varr}%</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#6B7C8D] block">CSAT</span>
-                      <span className="font-bold text-[#EAF1F8]">{emp.csat}%</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[#6B7C8D] block">HANDLED</span>
-                      <span className="font-bold text-[#4D9FFF]">{emp.assignedCount}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between text-xs">
-                    <span className="text-[#6B7C8D] font-mono text-[11px]">
-                      Autonomy: <strong className="uppercase text-[#2ED8B6]">{emp.autonomyLevel}</strong>
-                    </span>
-                    <button
-                      onClick={() => {
-                        setSelectedEmployeeId(emp.id);
-                        setIsChatOpen(true);
-                      }}
-                      className="btn btn-primary text-xs"
-                    >
-                      <MessageSquare className="w-3 h-3" />
-                      <span>Chat / Delegate</span>
-                    </button>
-                  </div>
+                  <span className="text-[11px] font-mono text-[#6B7C8D]">
+                    Eligible for Direct Ticket &amp; Workflow Assignment
+                  </span>
                 </div>
-              ))}
-            </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  {workforce
+                    .filter((w) => w.level === "ai_employee" && (w.hired === undefined || w.hired))
+                    .map((emp) => {
+                      const pairedInterns = workforce.filter(
+                        (i) => i.level === "ai_intern" && i.supervisorId === emp.id
+                      );
+                      return (
+                        <div
+                          key={emp.id}
+                          className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6]/40 transition-all shadow-md flex flex-col justify-between"
+                        >
+                          <div className="space-y-3.5">
+                            {/* Employee Header */}
+                            <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
+                                  alt={emp.name}
+                                  className="w-12 h-12 rounded-2xl object-cover border-2 border-[#2ED8B6]/50 shadow-md shrink-0"
+                                />
+                                <div>
+                                  <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight">
+                                    {emp.name}
+                                  </h4>
+                                  <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                                    {emp.role}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="pill ok text-[9px] font-mono uppercase shrink-0">
+                                <i className="dot"></i>
+                                HIRED &amp; ACTIVE
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">
+                              {emp.description}
+                            </p>
+
+                            {/* Performance Grid */}
+                            <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono bg-[#18222E] p-2.5 rounded-xl border border-[var(--line)]">
+                              <div>
+                                <span className="text-[9px] text-[#6B7C8D] block">VARR</span>
+                                <span className="font-bold text-[#2ED8B6]">{emp.varr}%</span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-[#6B7C8D] block">CSAT</span>
+                                <span className="font-bold text-[#EAF1F8]">{emp.csat}%</span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-[#6B7C8D] block">ASSIGNED</span>
+                                <span className="font-bold text-[#4D9FFF]">{emp.assignedCount}</span>
+                              </div>
+                            </div>
+
+                            {/* Nested Paired Interns Strip */}
+                            <div className="space-y-1.5 pt-1">
+                              <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
+                                <span className="uppercase font-bold text-[#2ED8B6] flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>Paired Specialized Interns ({pairedInterns.length}):</span>
+                                </span>
+                                <span>Sub-Agents</span>
+                              </div>
+
+                              {pairedInterns.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  {pairedInterns.map((intern) => (
+                                    <div
+                                      key={intern.id}
+                                      className="p-2 rounded-xl bg-[#18222E] border border-[var(--line-2)] flex items-center justify-between text-xs font-mono"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <img
+                                          src={intern.avatarUrl || "/avatars/beaver-intern.jpg"}
+                                          alt={intern.name}
+                                          className="w-5 h-5 rounded-lg object-cover border border-[#2ED8B6]/30 shrink-0"
+                                        />
+                                        <span className="text-[#EAF1F8] text-[11px] font-bold">
+                                          {intern.name.split(" — ")[0]}
+                                        </span>
+                                      </div>
+                                      <span className="pill text-[8.5px] py-0 px-1.5 bg-[#121A24]">
+                                        {intern.role.split(" ")[0]}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="p-2 rounded-xl bg-[#18222E]/50 border border-[var(--line)] text-[10px] font-mono text-[#6B7C8D] text-center">
+                                  No specialized interns currently paired
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Footer */}
+                          <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAssignWorkModal(emp)}
+                              className="btn btn-primary py-1.5 px-3 text-xs font-bold flex-1 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                            >
+                              <Briefcase className="w-3.5 h-3.5" />
+                              <span>Assign Work</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmployeeId(emp.id);
+                                setIsChatOpen(true);
+                              }}
+                              className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                              <span>Chat</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 2: Specialized Interns Matrix (Paired Sub-Agents) */}
+            {(workforceFilter === "all" || workforceFilter === "interns") && (
+              <div className="space-y-3.5 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#F5A623]" />
+                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                      Specialized Interns (Paired Sub-Agents)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-mono text-[#E5484D] flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    <span>Direct Assignment Disabled (Sub-Agent Only)</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {workforce
+                    .filter((w) => w.level === "ai_intern")
+                    .map((intern) => {
+                      const supervisor = workforce.find((w) => w.id === intern.supervisorId);
+                      return (
+                        <div
+                          key={intern.id}
+                          className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[var(--line-2)] transition-all shadow-md flex flex-col justify-between"
+                        >
+                          <div className="space-y-3.5">
+                            <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={intern.avatarUrl || "/avatars/beaver-intern.jpg"}
+                                  alt={intern.name}
+                                  className="w-12 h-12 rounded-2xl object-cover border-2 border-[#F5A623]/40 shadow-md shrink-0"
+                                />
+                                <div>
+                                  <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight">
+                                    {intern.name}
+                                  </h4>
+                                  <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                                    {intern.role}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="pill warn text-[9px] font-mono uppercase shrink-0">
+                                PAIRED SUB-AGENT
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">
+                              {intern.description}
+                            </p>
+
+                            {/* Supervisor Pairing Badge */}
+                            <div className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                              <span className="text-[9px] text-[#6B7C8D] uppercase font-mono block font-bold">
+                                Supervising AI Employee:
+                              </span>
+                              <div className="flex items-center gap-2 text-xs font-mono text-[#2ED8B6] font-bold">
+                                <Bot className="w-3.5 h-3.5" />
+                                <span>{supervisor?.name || "Alex — Support Lead"}</span>
+                              </div>
+                            </div>
+
+                            {/* Micro-Action Grants */}
+                            <div className="space-y-1">
+                              <span className="text-[9px] text-[#6B7C8D] uppercase font-mono block">
+                                Sub-Task Grants:
+                              </span>
+                              <div className="flex flex-wrap gap-1 font-mono text-[10px]">
+                                {intern.grants?.length > 0 ? (
+                                  intern.grants.map((g: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 rounded-md bg-[#18222E] border border-[var(--line)] text-[#B4C2D0]">
+                                      {g}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-[#6B7C8D] text-[10px]">Read-only transcription stream</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Disabled Direct Work Badge */}
+                          <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
+                            <span className="text-[#E5484D] flex items-center gap-1 font-bold">
+                              <span>🔒 No Direct Assignment</span>
+                            </span>
+                            <span>Delegated Runs: <strong className="text-[#EAF1F8]">{intern.assignedCount}</strong></span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 3: Marketplace & Available Roles to Hire */}
+            {(workforceFilter === "all" || workforceFilter === "catalog") && (
+              <div className="space-y-3.5 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Plus className="w-4 h-4 text-[#4CC38A]" />
+                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                      Available AI Employees in Catalog (Hire to Assign Work)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-mono text-[#6B7C8D]">
+                    1-Click Provisioning to Active Roster
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {workforce
+                    .filter((w) => w.level === "ai_employee" && w.hired === false)
+                    .map((emp) => (
+                      <div
+                        key={emp.id}
+                        className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#4CC38A]/40 transition-all shadow-md flex flex-col justify-between"
+                      >
+                        <div className="space-y-3.5">
+                          <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={emp.avatarUrl || "/avatars/beaver-sophia.jpg"}
+                                alt={emp.name}
+                                className="w-12 h-12 rounded-2xl object-cover border-2 border-[var(--line-2)] shadow-md shrink-0"
+                              />
+                              <div>
+                                <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight">
+                                  {emp.name}
+                                </h4>
+                                <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                                  {emp.role}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="pill text-[9px] font-mono uppercase shrink-0">
+                              AVAILABLE TO HIRE
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">
+                            {emp.description}
+                          </p>
+
+                          <div className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
+                            <span>Autonomy: <strong className="text-[#2ED8B6] uppercase">{emp.autonomyLevel}</strong></span>
+                            <span>Target CSAT: <strong className="text-[#EAF1F8]">{emp.csat}%</strong></span>
+                            <span>Est VARR: <strong className="text-[#4CC38A]">{emp.varr}%</strong></span>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-[#6B7C8D]">
+                            Hiring assigns initial token budget &amp; unlocks task dispatch
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleHireWorkforceEmployee(emp.id)}
+                            className="btn btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span>⚡ Hire AI Employee</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -5206,6 +5593,108 @@ export default function SupportV8Dashboard() {
                   <span>Dispatch Proactive Broadcast</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DIRECT WORK ASSIGNMENT MODAL (AI EMPLOYEE ONLY) */}
+      {/* ========================================================================= */}
+      {isWorkAssignModalOpen && selectedEmployeeForAssign && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg card shadow-2xl p-5 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2.5">
+                <Briefcase className="w-5 h-5 text-[#2ED8B6]" />
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Assign Work to AI Employee</h3>
+                  <span className="text-[10px] font-mono text-[#6B7C8D]">Hired Roster Dispatch</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWorkAssignModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Target Employee Info */}
+            <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center gap-3">
+              <img
+                src={selectedEmployeeForAssign.avatarUrl || "/avatars/beaver-manager.jpg"}
+                alt={selectedEmployeeForAssign.name}
+                className="w-10 h-10 rounded-xl object-cover border border-[#2ED8B6]/40 shrink-0"
+              />
+              <div>
+                <div className="text-xs font-bold text-[#EAF1F8]">{selectedEmployeeForAssign.name}</div>
+                <div className="text-[10px] text-[#2ED8B6] font-mono uppercase">
+                  {selectedEmployeeForAssign.role} • Autonomy: {selectedEmployeeForAssign.autonomyLevel}
+                </div>
+              </div>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-3 text-xs font-mono">
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  Select Customer Issue / Ticket Queue
+                </label>
+                <select
+                  value={assignTicketId}
+                  onChange={(e) => {
+                    setAssignTicketId(e.target.value);
+                    const iss = issues.find((i) => i.id === e.target.value);
+                    if (iss) setAssignDescription(iss.title);
+                  }}
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                >
+                  {issues.map((iss) => (
+                    <option key={iss.id} value={iss.id}>
+                      [{iss.id}] {iss.title} ({iss.customerTier || "Enterprise"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  Resolution Mission / Task Scope
+                </label>
+                <textarea
+                  rows={3}
+                  value={assignDescription}
+                  onChange={(e) => setAssignDescription(e.target.value)}
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-[#121A24] border border-[var(--line)] text-[10px] text-[#4CC38A] flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Supervising AI Employee will coordinate sub-tasks across paired specialized interns.</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => setIsWorkAssignModalOpen(false)}
+                className="btn btn-secondary text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAssignWork}
+                disabled={isAssigningWork || !assignDescription.trim()}
+                className="btn btn-primary text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>{isAssigningWork ? "Dispatching..." : "Confirm & Assign Work"}</span>
+              </button>
             </div>
           </div>
         </div>

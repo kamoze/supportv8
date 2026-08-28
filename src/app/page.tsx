@@ -117,6 +117,7 @@ import { GovernanceReportsView } from "@/components/views/GovernanceReportsView"
 import { GovernanceAuditLogsView } from "@/components/views/GovernanceAuditLogsView";
 import { AutonomousStudioView } from "@/components/views/AutonomousStudioView";
 import { KnowledgeSuiteView } from "@/components/views/KnowledgeSuiteView";
+import { PoliciesAndRulesView } from "@/components/views/PoliciesAndRulesView";
 import { FloatingPageGuide } from "@/components/FloatingPageGuide";
 import { GlobalLandingView } from "@/components/GlobalLandingView";
 import { TenantLandingView } from "@/components/TenantLandingView";
@@ -4616,50 +4617,14 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: POLICIES (GROWTHV8 POLICIES) */}
+        {/* TAB: POLICIES & RULES (EXPANSIVE GOVERNANCE MATRIX) */}
         {/* ========================================================================= */}
         {activeTab === "policies" && policy && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="card p-5 space-y-4 text-xs">
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Tenant Governance</h3>
-              <div>
-                <label className="text-[#6B7C8D] block mb-1">Max Auto-Execute Risk Level</label>
-                <select
-                  value={policy.autonomyThreshold}
-                  onChange={(e) => setPolicy({ ...policy, autonomyThreshold: e.target.value as any })}
-                  className="w-full bg-[#18222E] text-[#EAF1F8] px-3 py-1.5 rounded-lg border border-[var(--line-2)] focus:outline-none cursor-pointer"
-                >
-                  <option value="none">None (Deny all autonomous actions)</option>
-                  <option value="read">Read-only</option>
-                  <option value="low">Low risk</option>
-                  <option value="medium">Medium risk</option>
-                  <option value="high">High risk</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="card p-5 space-y-3 text-xs">
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Policy Simulator</h3>
-              <textarea
-                value={policySimMessage}
-                onChange={(e) => setPolicySimMessage(e.target.value)}
-                rows={2}
-                className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-lg border border-[var(--line-2)] font-mono focus:outline-none"
-              />
-              <button
-                onClick={handleRunPolicySim}
-                className="btn btn-primary text-xs"
-              >
-                Simulate Policy
-              </button>
-              {policySimResult && (
-                <div className="p-3 rounded-lg bg-[#18222E] border border-[var(--line)] font-mono text-[11px] space-y-1">
-                  <div className="text-[#EAF1F8] font-bold">Decision: {policySimResult.autonomyDecision}</div>
-                  <div className="text-[#6B7C8D]">{policySimResult.explanation}</div>
-                </div>
-              )}
-            </div>
-          </div>
+          <PoliciesAndRulesView
+            policy={policy}
+            onUpdatePolicy={setPolicy}
+            onNotify={notify}
+          />
         )}
 
         {/* ========================================================================= */}

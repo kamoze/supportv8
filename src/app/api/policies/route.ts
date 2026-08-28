@@ -12,11 +12,23 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, policyUpdates, sampleMessage, customerTier } = body;
+    const { action, policyUpdates, sampleMessage, customerTier, rule, ruleId, ruleUpdates, preset } = body;
 
     if (action === "update") {
       const updated = policyEngine.updatePolicy(policyUpdates);
-      return NextResponse.json({ success: true, data: updated });
+      return NextResponse.json({ success: true, message: "Policy settings updated", data: updated });
+    } else if (action === "add_rule") {
+      const newRule = policyEngine.addRule(rule);
+      return NextResponse.json({ success: true, message: `Rule '${newRule.name}' created`, data: newRule });
+    } else if (action === "update_rule") {
+      const updatedRule = policyEngine.updateRule(ruleId, ruleUpdates);
+      return NextResponse.json({ success: true, message: `Rule '${updatedRule.name}' updated`, data: updatedRule });
+    } else if (action === "delete_rule") {
+      const deleted = policyEngine.deleteRule(ruleId);
+      return NextResponse.json({ success: true, message: "Rule deleted", data: { deleted } });
+    } else if (action === "apply_preset") {
+      const updatedPolicy = policyEngine.applyPresetProfile(preset);
+      return NextResponse.json({ success: true, message: `Applied preset profile '${preset}'`, data: updatedPolicy });
     } else if (action === "simulate") {
       const simulation = policyEngine.simulate(
         sampleMessage || "I demand an immediate refund for double charge on checkout!",

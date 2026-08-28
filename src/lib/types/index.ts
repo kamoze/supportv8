@@ -316,6 +316,22 @@ export interface SupportPolicy {
   proactiveCommsApprovalRequired: boolean;
   retentionRawContextHours: number;
   retentionDerivedMonths: number;
+  rules?: PolicyRule[];
+}
+
+export interface PolicyRule {
+  id: string;
+  name: string;
+  category: "autonomy_risk" | "financial_refund" | "safety_pii" | "sla_escalation" | "voice_telephony" | "security_rbac";
+  description: string;
+  riskLevel: "low" | "medium" | "high" | "critical";
+  priority: number;
+  condition: string;
+  actionType: "auto_execute" | "require_approval" | "escalate_to_lead" | "block_and_log";
+  actionDetails: string;
+  enabled: boolean;
+  matchCount: number;
+  lastTriggeredAt?: string;
 }
 
 export interface ActionAuditRecord {

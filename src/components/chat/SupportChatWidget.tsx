@@ -43,6 +43,7 @@ export function SupportChatWidget({
   defaultStream,
 }: SupportChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPromptMinimized, setIsPromptMinimized] = useState(false);
   const [activeStep, setActiveStep] = useState<"select_stream" | "intake_form" | "chat">("select_stream");
   const [selectedStream, setSelectedStream] = useState<ChatStreamType>(defaultStream || "customers");
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -166,16 +167,35 @@ export function SupportChatWidget({
     <>
       {/* Floating Launcher Button */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 bg-[#121A24]/90 backdrop-blur-md border border-[#2ED8B6]/40 px-3 py-1.5 rounded-2xl shadow-xl shadow-black/40 text-[11px] font-medium text-[#EAF1F8] animate-bounce">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-ping" />
-            <span>Need Support or Dispatch? Chat with AI & Staff</span>
-          </div>
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5">
+          {!isPromptMinimized && (
+            <div className="hidden md:flex items-center gap-2 bg-[#121A24]/95 backdrop-blur-md border border-[#2ED8B6]/50 pl-3.5 pr-2 py-1.5 rounded-2xl shadow-xl shadow-black/50 text-[11px] font-medium text-[#EAF1F8] animate-in fade-in slide-in-from-right-4 duration-300 group">
+              <span className="w-2 h-2 rounded-full bg-[#2ED8B6] animate-ping shrink-0" />
+              <span
+                onClick={() => setIsOpen(true)}
+                className="cursor-pointer hover:text-[#2ED8B6] transition-colors font-sans"
+              >
+                Need Support or Dispatch? Chat with AI &amp; Staff
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPromptMinimized(true);
+                }}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] rounded-lg transition-colors cursor-pointer ml-1"
+                title="Minimize prompt"
+                aria-label="Minimize prompt"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           <button
             onClick={() => setIsOpen(true)}
             aria-label="Open support chat"
-            className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#00F2FE] via-[#2ED8B6] to-[#059669] text-[#090E15] flex items-center justify-center shadow-2xl shadow-[#2ED8B6]/30 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+            className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#00F2FE] via-[#2ED8B6] to-[#059669] text-[#090E15] flex items-center justify-center shadow-2xl shadow-[#2ED8B6]/30 hover:scale-105 active:scale-95 transition-all cursor-pointer group shrink-0"
           >
             <MessageSquare className="w-5 h-5 group-hover:rotate-6 transition-transform" />
           </button>

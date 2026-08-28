@@ -141,7 +141,7 @@ export interface ChatMessage {
 
 export default function SupportV8Dashboard() {
   // Global View Mode & Multi-Tenant Routing
-  const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("cockpit");
+  const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("global_landing");
   const [currentTenantSlug, setCurrentTenantSlug] = useState<string>("acme");
   const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
 
@@ -448,17 +448,22 @@ export default function SupportV8Dashboard() {
   useEffect(() => {
     fetchData();
 
-    // Detect Subdomain & URL parameters for tenant vs global landing
+    // Detect Subdomain & URL parameters for tenant vs global landing vs cockpit
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const tenantParam = params.get("tenant");
+      const viewParam = params.get("view");
+      const adminParam = params.get("admin");
+      const tenantParam = params.get("tenant") || params.get("slug");
       const landingParam = params.get("landing");
       const host = window.location.hostname;
 
-      if (landingParam === "global") {
+      if (viewParam === "cockpit" || adminParam === "true" || params.has("tab")) {
+        setViewMode("cockpit");
+        if (tenantParam) setCurrentTenantSlug(tenantParam);
+      } else if (landingParam === "global" || viewParam === "global") {
         setViewMode("global_landing");
-      } else if (tenantParam) {
-        setCurrentTenantSlug(tenantParam);
+      } else if (tenantParam || viewParam === "tenant") {
+        if (tenantParam) setCurrentTenantSlug(tenantParam);
         setViewMode("tenant_landing");
       } else if (
         host.includes(".support.") &&
@@ -466,8 +471,12 @@ export default function SupportV8Dashboard() {
         !host.startsWith("support.")
       ) {
         const slug = host.split(".")[0];
-        setCurrentTenantSlug(slug);
-        setViewMode("tenant_landing");
+        if (slug && slug !== "support" && slug !== "localhost") {
+          setCurrentTenantSlug(slug);
+          setViewMode("tenant_landing");
+        }
+      } else {
+        setViewMode("global_landing");
       }
     }
 

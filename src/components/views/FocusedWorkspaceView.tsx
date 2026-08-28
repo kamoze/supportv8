@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search,
   Filter,
@@ -23,6 +23,14 @@ import {
   Flame,
   ArrowRight,
   DollarSign,
+  Mail,
+  Phone,
+  FileText,
+  Sliders,
+  Wand2,
+  RefreshCw,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { Issue } from "@/lib/types";
 
@@ -41,18 +49,74 @@ export function FocusedWorkspaceView({
   onTriggerHandoff,
   onNotify,
 }: FocusedWorkspaceViewProps) {
-  const [channelMode, setChannelMode] = useState<"chat" | "email" | "voice" | "screenshare">("chat");
   const [selectedIssueId, setSelectedIssueId] = useState<string>(issues[0]?.id || "ISS-1001");
   const [filterType, setFilterType] = useState<"all" | "enterprise" | "urgent" | "at_risk">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [replyText, setReplyText] = useState<string>(
-    "Hello! I have thoroughly investigated your issue with our engineering backend. The pending transaction has been reconciled and the duplicate hold has been released immediately."
-  );
+
+  // Communication & AI Mode State
+  const [commChannel, setCommChannel] = useState<"chat" | "email" | "whatsapp" | "voice" | "internal_note">("chat");
+  const [workWithAi, setWorkWithAi] = useState<boolean>(true);
+  const [aiTone, setAiTone] = useState<"empathetic" | "technical" | "concise" | "executive">("empathetic");
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+  const [replyText, setReplyText] = useState<string>("");
   const [refundAmount, setRefundAmount] = useState<string>("49.00");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [screenShareActive, setScreenShareActive] = useState<boolean>(false);
+  const [copiedNote, setCopiedNote] = useState<boolean>(false);
 
   const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
+
+  // Generate contextual AI response based on issue & parameters
+  const generateContextualReply = (issue: Issue, tone: typeof aiTone, channel: typeof commChannel) => {
+    const customer = issue.customerName;
+    const isEnterprise = issue.customerTier === "enterprise";
+
+    if (channel === "internal_note") {
+      return `[INTERNAL SRE NOTE] ${issue.id} linked to problem ${issue.problemId || "PRB-218"}. Root cause investigated with ${issue.product} v${issue.version}. Autonomous verification confirmed safe. Recommend approving refund and closing ticket.`;
+    }
+
+    if (channel === "whatsapp" || channel === "chat") {
+      if (tone === "concise") {
+        return `Hi ${customer.split(" ")[0]}, we have investigated the ${issue.category.replace("_", " ")} on your account. The pending hold has been released and your access is fully restored. Let us know if you need anything else!`;
+      }
+      if (tone === "technical") {
+        return `Hello ${customer.split(" ")[0]}, our telemetry confirmed a 504 timeout during gateway verification. The authorization hold was voided via our payment service and the transaction state is reconciled.`;
+      }
+      return `Hello ${customer.split(" ")[0]}! We sincerely apologize for the inconvenience caused by the ${issue.category.replace("_", " ")}. We have verified your account and reconciled the transaction immediately. Your service is operating normally.`;
+    }
+
+    if (channel === "email") {
+      if (tone === "executive" || isEnterprise) {
+        return `Dear ${customer},\n\nThank you for contacting Acme Enterprise Support regarding your recent inquiry (${issue.externalId}).\n\nOur engineering team has thoroughly investigated the incident. A priority resolution has been executed on our backend to restore full system functionality without delay.\n\nWe have credited your account and updated our continuous monitoring SLA. Please let us know if we can assist further.\n\nSincerely,\nAcme Enterprise Operations Team`;
+      }
+      return `Hi ${customer},\n\nThank you for reaching out to us. We have investigated the ${issue.summary.toLowerCase()} and applied an immediate fix to your account.\n\nEverything is now resolved and verified in our systems. Please reply to this email if you experience any further questions.\n\nBest regards,\nCustomer Support Team`;
+    }
+
+    if (channel === "voice") {
+      return `Hello ${customer.split(" ")[0]}, this is Sophia from Acme Support following up on your recent inquiry. I'm calling to confirm that your issue has been resolved and your account is in good standing.`;
+    }
+
+    return `Hello ${customer}, we have addressed your issue regarding ${issue.summary}. Your resolution has been verified and confirmed.`;
+  };
+
+  // Update default reply when selected issue changes
+  useEffect(() => {
+    if (selectedIssue) {
+      if (workWithAi) {
+        setReplyText(generateContextualReply(selectedIssue, aiTone, commChannel));
+      }
+    }
+  }, [selectedIssueId, commChannel, aiTone, workWithAi]);
+
+  const handleTriggerGenerateAi = () => {
+    if (!selectedIssue) return;
+    setIsGeneratingAi(true);
+    setTimeout(() => {
+      setReplyText(generateContextualReply(selectedIssue, aiTone, commChannel));
+      setIsGeneratingAi(false);
+      onNotify(`Generated ${aiTone.toUpperCase()} AI reply for ${commChannel.toUpperCase()} stream`, "success");
+    }, 450);
+  };
 
   const filteredIssues = issues.filter((i) => {
     const matchesSearch =
@@ -78,6 +142,11 @@ export function FocusedWorkspaceView({
     }
   };
 
+  const handleSendReply = () => {
+    if (!selectedIssue || !replyText.trim()) return;
+    onNotify(`Dispatched ${commChannel.toUpperCase()} reply to ${selectedIssue.customerName} via Vertical Mesh`, "success");
+  };
+
   const handleRefund = () => {
     if (!selectedIssue) return;
     onProcessRefund(selectedIssue.id, refundAmount);
@@ -89,24 +158,42 @@ export function FocusedWorkspaceView({
       <div className="bg-[#121A24] border-b border-[var(--line)] px-6 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
-            <i className="fi fi-rr-briefcase text-base"></i>
+            <Zap className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-[#EAF1F8]">Agentic Resolution Work Desk</h2>
-              <span className="pill ok text-[10px]"><i className="dot"></i> LIVE TRIAGE</span>
+              <span className="pill ok text-[10px]"><i className="dot"></i> OMNICHANNEL REPLIES</span>
             </div>
             <p className="text-[11px] text-[#6B7C8D]">
-              Focused high-velocity workspace with autonomous copilot assistance and multi-vertical order operations.
+              Stream tickets on the left, investigate telemetry in the center, and generate omnichannel replies on the right with or without AI.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <span className="text-[#6B7C8D]">Queue Velocity:</span>
-          <span className="text-[#2ED8B6] font-bold">14.2 ms avg triage</span>
-          <span className="text-[#6B7C8D] mx-1">•</span>
-          <span className="text-[#4CC38A] font-bold">94.8% Copilot Confidence</span>
+        <div className="flex items-center gap-3 font-mono text-xs">
+          <div className="flex items-center gap-1 bg-[#18222E] p-1 rounded-xl border border-[var(--line)] text-[11px]">
+            <button
+              type="button"
+              onClick={() => setWorkWithAi(true)}
+              className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                workWithAi ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm" : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+              }`}
+            >
+              <Bot className="w-3.5 h-3.5" />
+              <span>AI Copilot Mode</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkWithAi(false)}
+              className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                !workWithAi ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm" : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Direct Human Mode</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -198,9 +285,9 @@ export function FocusedWorkspaceView({
         </div>
 
         {/* ========================================================================= */}
-        {/* PANE 2: Conversation Thread & Customer 360 (Width: 5 cols) */}
+        {/* PANE 2: Conversation Thread & Customer 360 (Width: 4 cols) */}
         {/* ========================================================================= */}
-        <div className="col-span-12 lg:col-span-5 border-r border-[var(--line)] bg-[#0B1017] flex flex-col overflow-hidden">
+        <div className="col-span-12 lg:col-span-4 border-r border-[var(--line)] bg-[#0B1017] flex flex-col overflow-hidden">
           {selectedIssue ? (
             <>
               {/* Customer 360 Header Card */}
@@ -215,109 +302,64 @@ export function FocusedWorkspaceView({
                         <span className="text-xs font-bold text-[#EAF1F8]">{selectedIssue.customerName}</span>
                         <span className="pill ok text-[9px] py-0 font-mono uppercase">{selectedIssue.customerTier}</span>
                       </div>
-                      <span className="text-[10px] text-[#6B7C8D] font-mono">Customer ID: CUST-8821 • ARR: $420,000</span>
+                      <span className="text-[10px] text-[#6B7C8D] font-mono">Ref: {selectedIssue.customerRef} • Channel: {selectedIssue.source.toUpperCase()}</span>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-xs font-bold text-[#4CC38A] font-mono">Health: 88/100</div>
-                    <span className="text-[9px] text-[#6B7C8D] font-mono">142 Lifetime Tickets</span>
+                    <div className="text-xs font-bold text-[#4CC38A] font-mono">Health: 92/100</div>
+                    <span className="text-[9px] text-[#6B7C8D] font-mono">{selectedIssue.category}</span>
                   </div>
                 </div>
 
-                {/* Linked Order History Context (from OrderV8) */}
-                <div className="p-2.5 rounded-lg bg-[#0C121A] border border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
-                  <div className="flex items-center gap-2 text-[#B4C2D0]">
-                    <CreditCard className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                    <span>Order: <strong>#ORD-99412</strong> ($240.00)</span>
+                {/* Problem Correlation Badge */}
+                {selectedIssue.problemId && (
+                  <div className="p-2 rounded-lg bg-[#E5484D]/10 border border-[#E5484D]/30 flex items-center justify-between text-[10px] font-mono">
+                    <div className="flex items-center gap-1.5 text-[#E5484D]">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Correlated Incident: <strong>{selectedIssue.problemId}</strong></span>
+                    </div>
+                    <span className="pill err text-[8.5px]">REVENUE IMPACT</span>
                   </div>
-                  <span className="text-[#F5A623] font-semibold">Hold: $49.00 (Pending Release)</span>
-                </div>
-              </div>
-
-              {/* Omnichannel Channel Mode Bar */}
-              <div className="flex items-center justify-between px-4 py-2 bg-[#0E1520] border-b border-[var(--line)] shrink-0">
-                <div className="flex items-center gap-1">
-                  {[
-                    { id: "chat", label: "Live Chat Widget", icon: "fi fi-rr-comment-alt-dots" },
-                    { id: "email", label: "Email Thread", icon: "fi fi-rr-envelope" },
-                    { id: "voice", label: "Voice SIP Call", icon: "fi fi-rr-headset" },
-                    { id: "screenshare", label: "Screen Share", icon: "fi fi-rr-computer" },
-                  ].map((mode) => (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => {
-                        setChannelMode(mode.id as any);
-                        onNotify(`Switched active interaction stream to ${mode.label}`, "info");
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-                        channelMode === mode.id
-                          ? "bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 font-bold"
-                          : "text-[#6B7C8D] hover:text-[#EAF1F8] border border-transparent"
-                      }`}
-                    >
-                      <i className={mode.icon} />
-                      <span className="hidden sm:inline">{mode.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {channelMode === "screenshare" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScreenShareActive(!screenShareActive);
-                      onNotify(screenShareActive ? "Ended co-browsing session" : "Sent Co-Browsing invite link to customer", "success");
-                    }}
-                    className={`btn text-[10px] py-1 px-2.5 font-mono cursor-pointer ${screenShareActive ? "btn-primary" : "btn-secondary"}`}
-                  >
-                    {screenShareActive ? "● Co-Browsing Live" : "+ Send Screen Share Invite"}
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-[#4CC38A] font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4CC38A] animate-pulse" />
-                    SOCKET STREAM CONNECTED
-                  </span>
                 )}
               </div>
 
               {/* Message Transcript Stream */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 <div className="text-center text-[10px] text-[#6B7C8D] font-mono">
-                  Session started via {channelMode.toUpperCase()} Ingress • Case {selectedIssue.externalId}
+                  Ticket #{selectedIssue.externalId} • Ingress Stream from {selectedIssue.source.toUpperCase()}
                 </div>
 
                 {/* Customer Message */}
-                <div className="flex items-start gap-2.5 max-w-[85%]">
+                <div className="flex items-start gap-2.5 max-w-[90%]">
                   <div className="w-7 h-7 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-center justify-center text-xs text-[#E5484D] shrink-0">
                     <User className="w-3.5 h-3.5" />
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-[10px] font-mono text-[#6B7C8D]">
                       <span>{selectedIssue.customerName}</span>
-                      <span>10:42 AM</span>
+                      <span>{selectedIssue.createdAt || "Just now"}</span>
                     </div>
                     <div className="p-3 rounded-2xl rounded-tl-none bg-[#18222E] border border-[var(--line-2)] text-xs text-[#EAF1F8] leading-relaxed">
-                      {selectedIssue.summary}
-                      <p className="mt-2 text-[11px] text-[#B4C2D0]">
-                        "I am noticing duplicate authorizations of $49.00 on my billing portal after yesterday's checkout glitch. Please refund the duplicate hold immediately."
+                      <p className="font-semibold text-white mb-1">{selectedIssue.summary}</p>
+                      <p className="text-[11px] text-[#B4C2D0]">
+                        "We are experiencing disruption with {selectedIssue.product} on version {selectedIssue.version}. Please advise on resolution."
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* AI Employee Analysis Note */}
+                {/* AI Employee Context Analysis */}
                 <div className="p-3 rounded-xl bg-[#2ED8B6]/8 border border-[#2ED8B6]/25 space-y-1.5 font-mono text-xs">
                   <div className="flex items-center justify-between text-[#2ED8B6] font-bold text-[11px]">
                     <span className="flex items-center gap-1.5">
                       <Bot className="w-3.5 h-3.5" />
-                      <span>Alex (Support Intelligence Lead) Analysis</span>
+                      <span>AI Workforce Spine Analysis</span>
                     </span>
-                    <span className="text-[10px] text-[#4CC38A]">Correlation Confidence: 96.4%</span>
+                    <span className="text-[10px] text-[#4CC38A]">{(selectedIssue.confidence * 100).toFixed(0)}% Confidence</span>
                   </div>
                   <p className="text-[11px] text-[#B4C2D0] leading-relaxed">
-                    Identified correlation with Problem <strong>PRB-401</strong> (Payment Gateway 504 Timeouts). OrderV8 ledger confirms double authorization hold. Safe to release hold and dispatch satisfaction confirmation.
+                    {selectedIssue.recommendedAction}
                   </p>
                 </div>
               </div>
@@ -330,77 +372,173 @@ export function FocusedWorkspaceView({
         </div>
 
         {/* ========================================================================= */}
-        {/* PANE 3: AI Copilot & Action Dispatcher (Width: 4 cols) */}
+        {/* PANE 3: Omnichannel Replies & Dispatch Station (Width: 5 cols) */}
         {/* ========================================================================= */}
-        <div className="col-span-12 lg:col-span-4 bg-[#121A24] flex flex-col overflow-y-auto p-4 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[var(--line)]">
-            <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5 font-mono">
-              <Zap className="w-3.5 h-3.5 text-[#2ED8B6]" />
-              <span>AI Copilot &amp; Multi-Vertical Actions</span>
-            </span>
-            <span className="pill ok text-[10px]">AUTONOMOUS READY</span>
+        <div className="col-span-12 lg:col-span-5 bg-[#121A24] flex flex-col overflow-y-auto p-5 space-y-4">
+          {/* Channel Selector Header */}
+          <div className="space-y-2 pb-3 border-b border-[var(--line)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5 font-mono">
+                <Send className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <span>Customer Reply &amp; Dispatch Station</span>
+              </span>
+              <span className={`pill ${workWithAi ? "ok" : "route"} text-[10px] font-mono`}>
+                {workWithAi ? "AI ASSISTED" : "MANUAL MODE"}
+              </span>
+            </div>
+
+            {/* Omnichannel Selector Buttons */}
+            <div className="grid grid-cols-5 gap-1 bg-[#18222E] p-1 rounded-xl border border-[var(--line)] text-xs">
+              {[
+                { id: "chat", label: "Chat", icon: MessageSquare },
+                { id: "email", label: "Email", icon: Mail },
+                { id: "whatsapp", label: "WhatsApp", icon: Phone },
+                { id: "voice", label: "Voice", icon: Zap },
+                { id: "internal_note", label: "Note", icon: FileText },
+              ].map((ch) => {
+                const Icon = ch.icon;
+                const isActive = commChannel === ch.id;
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => {
+                      setCommChannel(ch.id as any);
+                      onNotify(`Switched target response channel to ${ch.label}`, "info");
+                    }}
+                    className={`py-1.5 px-2 rounded-lg font-mono text-[10px] font-bold flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                        : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{ch.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* AI Response Draft */}
+          {/* AI Tone & Copilot Toolbar (When in AI Mode) */}
+          {workWithAi && (
+            <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7C8D] font-mono text-[10px] uppercase font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-[#2ED8B6]" />
+                  <span>AI Reply Tone &amp; Style</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleTriggerGenerateAi}
+                  disabled={isGeneratingAi}
+                  className="btn btn-secondary py-1 px-2.5 text-[10px] font-mono flex items-center gap-1.5 cursor-pointer text-[#2ED8B6]"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isGeneratingAi ? "animate-spin" : ""}`} />
+                  <span>Regenerate AI Draft</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono">
+                {[
+                  { id: "empathetic", label: "Empathetic" },
+                  { id: "technical", label: "Technical" },
+                  { id: "concise", label: "Concise" },
+                  { id: "executive", label: "Executive" },
+                ].map((tone) => (
+                  <button
+                    key={tone.id}
+                    type="button"
+                    onClick={() => setAiTone(tone.id as any)}
+                    className={`py-1 rounded-lg border text-center transition-all cursor-pointer ${
+                      aiTone === tone.id
+                        ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#2ED8B6] font-bold"
+                        : "bg-[#121A24] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                    }`}
+                  >
+                    {tone.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reply Composition Box */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold text-[#B4C2D0]">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>AI Proposed Response</span>
+              <span className="font-mono text-[11px] text-[#EAF1F8]">
+                {commChannel === "internal_note" ? "Internal Team Note" : `Reply to Customer (${commChannel.toUpperCase()})`}
               </span>
-              <span className="text-[10px] font-mono text-[#4CC38A]">94.8% Match</span>
+              <span className="text-[10px] font-mono text-[#6B7C8D]">
+                {replyText.length} characters
+              </span>
             </div>
 
             <textarea
-              rows={4}
+              rows={5}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
+              placeholder={workWithAi ? "AI draft will appear here..." : "Type your manual response to the customer..."}
               className="w-full bg-[#18222E] p-3 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-sans leading-relaxed"
             />
           </div>
 
-          {/* Quick Macro Buttons */}
-          <div className="flex items-center gap-1.5">
-            {[
-              { label: "Add apology macro", text: "We sincerely apologize for the checkout disruption. " },
-              { label: "Attach order ID", text: " Regarding order #ORD-99412: " },
-            ].map((macro, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => setReplyText((prev) => macro.text + prev)}
-                className="btn btn-secondary py-1 px-2 text-[10px] font-mono"
-              >
-                + {macro.label}
-              </button>
-            ))}
+          {/* Quick Macro Insert Strip */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold text-[#6B7C8D] font-mono uppercase">Quick Response Snippets</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { label: "+ Apology & SLA Update", text: "We sincerely apologize for the disruption and have escalated this to ensure full SLA compliance. " },
+                { label: "+ Credit Voucher Attached", text: "We have credited your account with a service token voucher for the inconvenience. " },
+                { label: "+ Request System Logs", text: "Could you please attach the corresponding HTTP response headers or console logs? " },
+              ].map((macro, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setReplyText((prev) => macro.text + prev)}
+                  className="btn btn-secondary py-1 px-2 text-[10px] font-mono text-[#B4C2D0] hover:text-[#2ED8B6]"
+                >
+                  {macro.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* 1-Click Action Dispatchers */}
-          <div className="space-y-2 pt-2 border-t border-[var(--line)]">
-            <span className="text-[10px] font-bold text-[#6B7C8D] uppercase font-mono tracking-wider">
-              Autonomous Execution Panel
-            </span>
+          {/* Action Execution & Dispatch Controls */}
+          <div className="space-y-2.5 pt-3 border-t border-[var(--line)]">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleSendReply}
+                disabled={!replyText.trim()}
+                className="btn btn-secondary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <span>Send {commChannel.toUpperCase()} Reply</span>
+              </button>
 
-            {/* 1-Click Autonomous Resolve */}
-            <button
-              type="button"
-              onClick={handleExecuteAutonomousResolution}
-              disabled={isProcessing}
-              className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md"
-            >
-              <Zap className="w-4 h-4" />
-              <span>⚡ Execute 1-Click Autonomous Resolution</span>
-            </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  handleSendReply();
+                  await handleExecuteAutonomousResolution();
+                }}
+                disabled={isProcessing || !replyText.trim()}
+                className="btn btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>⚡ Send &amp; Auto-Resolve</span>
+              </button>
+            </div>
 
-            {/* 1-Click Refund via OrderV8 */}
+            {/* 1-Click Multi-Vertical OrderV8 Refund Action */}
             <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-[#EAF1F8]">
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 font-mono text-[11px]">
                   <CreditCard className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>OrderV8 Instant Refund API</span>
+                  <span>OrderV8 Multi-Vertical Action</span>
                 </span>
-                <span className="text-[10px] font-mono text-[#2ED8B6]">$49.00</span>
+                <span className="text-[10px] font-mono text-[#2ED8B6]">Forge Gateway Active</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -415,28 +553,28 @@ export function FocusedWorkspaceView({
                 <button
                   type="button"
                   onClick={handleRefund}
-                  className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
+                  className="btn btn-secondary text-xs py-1.5 px-4 font-bold cursor-pointer"
                 >
-                  Disburse
+                  Issue Refund
                 </button>
               </div>
             </div>
 
-            {/* Cross-Vertical Handoff */}
+            {/* Cross-Vertical Handoff Action */}
             <button
               type="button"
               onClick={() => onTriggerHandoff(selectedIssue)}
               className="btn btn-secondary w-full py-2 text-xs flex items-center justify-center gap-2 font-mono"
             >
               <Share2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
-              <span>Issue Cross-Vertical Token</span>
+              <span>Initiate Cross-Vertical Handoff</span>
             </button>
           </div>
 
           {/* Autonomy Safety Policy Guarantee */}
-          <div className="p-3 rounded-xl bg-[#0B1017] border border-[var(--line)] flex items-center gap-2 text-[10px] text-[#6B7C8D] font-mono">
-            <Shield className="w-4 h-4 text-[#4CC38A] shrink-0" />
-            <span>Actions governed by Temporal SRE Orchestration with automatic idempotency check.</span>
+          <div className="p-2.5 rounded-xl bg-[#0B1017] border border-[var(--line)] flex items-center gap-2 text-[10px] text-[#6B7C8D] font-mono">
+            <Shield className="w-3.5 h-3.5 text-[#4CC38A] shrink-0" />
+            <span>Actions governed by Temporal Workforce Spine with automatic idempotency check.</span>
           </div>
         </div>
       </div>

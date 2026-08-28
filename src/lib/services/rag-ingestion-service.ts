@@ -8,7 +8,10 @@ import { s3Storage } from "../storage/s3-client";
 import { ragService } from "./rag-service";
 import { chunkBody } from "../rag/chunker";
 import { db } from "../db/mock-data";
-import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle } from "../types";
+import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle, KnowledgeS3Source } from "../types";
+
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file — aligned with knowledgev8 pod memory guard
+export const MAX_BATCH_BYTES = 60 * 1024 * 1024;  // 60MB per batch upload request
 
 export interface IngestionResult {
   document: KnowledgeDocument;
@@ -312,6 +315,103 @@ export class RagIngestionService {
     }
 
     return { document: { ...doc }, article };
+  }
+
+  // --- S3 Source Connector for Large Datasets & Bulk Storage Sync ---
+  private initialS3Sources: KnowledgeS3Source[] = [
+    {
+      id: "s3_src_01",
+      tenantId: "tenant_default",
+      bucketName: "supportv8-kb-documents",
+      prefix: "enterprise-runbooks/",
+      region: "us-east-1",
+      endpoint: "http://minio.default.svc.cluster.local:9000",
+      fileCount: 24,
+      totalSizeBytes: 345 * 1024 * 1024, // 345MB
+      status: "connected",
+      lastSyncedAt: new Date(Date.now() - 3600000).toISOString(),
+      targetCategory: "auth_sso",
+      groups: ["support-tier1", "infra-ops"],
+    },
+    {
+      id: "s3_src_02",
+      tenantId: "tenant_default",
+      bucketName: "acme-engineering-vault",
+      prefix: "postmortems/2026/",
+      region: "us-east-1",
+      fileCount: 88,
+      totalSizeBytes: 1240 * 1024 * 1024, // 1.24GB
+      status: "connected",
+      lastSyncedAt: new Date(Date.now() - 86400000).toISOString(),
+      targetCategory: "checkout_failure",
+      groups: ["support-tier1", "vip-escalations"],
+    },
+  ];
+
+  public getS3Sources(tenantId: string): KnowledgeS3Source[] {
+    return this.initialS3Sources.filter((s) => s.tenantId === tenantId);
+  }
+
+  public connectS3Source(params: {
+    tenantId: string;
+    bucketName: string;
+    prefix?: string;
+    region?: string;
+    endpoint?: string;
+    targetCategory?: string;
+    groups?: string[];
+  }): KnowledgeS3Source {
+    const newSource: KnowledgeS3Source = {
+      id: `s3_src_${Date.now()}`,
+      tenantId: params.tenantId,
+      bucketName: params.bucketName,
+      prefix: params.prefix || "",
+      region: params.region || "us-east-1",
+      endpoint: params.endpoint,
+      fileCount: 12,
+      totalSizeBytes: 156 * 1024 * 1024,
+      status: "connected",
+      lastSyncedAt: new Date().toISOString(),
+      targetCategory: params.targetCategory || "general",
+      groups: params.groups || ["support-tier1"],
+    };
+    this.initialS3Sources.unshift(newSource);
+    return newSource;
+  }
+
+  public async syncS3Source(sourceId: string): Promise<{ success: boolean; syncedCount: number; message: string }> {
+    const source = this.initialS3Sources.find((s) => s.id === sourceId);
+    if (!source) throw new Error(`S3 Source ${sourceId} not found`);
+
+    source.status = "syncing";
+    
+    // Simulate streaming ingestion of objects under S3 prefix without buffering full archive into pod heap
+    const simulatedFiles = [
+      { name: `s3_${source.bucketName}_arch_01.md`, size: 14 * 1024 * 1024, title: "Okta Federation & SAML IdP Failover Architecture" },
+      { name: `s3_${source.bucketName}_arch_02.pdf`, size: 48 * 1024 * 1024, title: "OrderV8 High Volume Transaction Reconciliation Runbook" },
+    ];
+
+    for (const f of simulatedFiles) {
+      await this.ingestDocument({
+        tenantId: source.tenantId,
+        filename: f.name,
+        content: `# ${f.title}\n\nIngested from S3 bucket ${source.bucketName}/${source.prefix}.\n\nContains architectural guidelines, disaster recovery procedures, and deep telemetry references.`,
+        category: source.targetCategory,
+        title: f.title,
+        groups: source.groups,
+        tags: [source.targetCategory, "s3_bulk_sync"],
+      });
+    }
+
+    source.status = "connected";
+    source.lastSyncedAt = new Date().toISOString();
+    source.fileCount += simulatedFiles.length;
+
+    return {
+      success: true,
+      syncedCount: simulatedFiles.length,
+      message: `Successfully synced ${simulatedFiles.length} objects from s3://${source.bucketName}/${source.prefix} and indexed into pgvector chunks.`,
+    };
   }
 }
 

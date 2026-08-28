@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ragIngestion } from "@/lib/services/rag-ingestion-service";
+import { ragIngestion, MAX_UPLOAD_BYTES } from "@/lib/services/rag-ingestion-service";
 import { db } from "@/lib/db/mock-data";
+
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const documents = ragIngestion.getDocuments(db.tenant.tenantId);
@@ -25,6 +28,19 @@ export async function POST(req: NextRequest) {
 
       if (!file) {
         return NextResponse.json({ success: false, error: "No file provided in form data" }, { status: 400 });
+      }
+
+      // Memory & Pod Safety Guard: Enforce 25MB max upload file size (aligned with knowledgev8)
+      if (file.size > MAX_UPLOAD_BYTES) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        return NextResponse.json(
+          {
+            success: false,
+            error: `File size (${sizeMb}MB) exceeds maximum direct upload limit of 25MB. For high-volume or large files, please use the S3 Storage Source connector.`,
+            maxUploadBytes: MAX_UPLOAD_BYTES,
+          },
+          { status: 413 }
+        );
       }
 
       const groups = rawGroups ? (rawGroups.startsWith("[") ? JSON.parse(rawGroups) : rawGroups.split(",").map((s) => s.trim()).filter(Boolean)) : ["support-tier1"];
@@ -56,6 +72,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "filename and content are required in JSON body" },
         { status: 400 }
+      );
+    }
+
+    if (typeof content === "string" && content.length > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Payload size exceeds maximum upload limit of 25MB. Please use the S3 Storage Source connector.",
+          maxUploadBytes: MAX_UPLOAD_BYTES,
+        },
+        { status: 413 }
       );
     }
 

@@ -215,6 +215,21 @@ export interface KnowledgeWebSource {
   summary: string;
 }
 
+export interface KnowledgeS3Source {
+  id: string;
+  tenantId: string;
+  bucketName: string;
+  prefix: string;
+  region: string;
+  endpoint?: string;
+  fileCount: number;
+  totalSizeBytes: number;
+  status: "connected" | "syncing" | "idle" | "error";
+  lastSyncedAt: string;
+  targetCategory: string;
+  groups: string[];
+}
+
 export interface KnowledgeArticle {
   id: string;
   source: string;

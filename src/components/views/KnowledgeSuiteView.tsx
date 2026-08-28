@@ -73,6 +73,44 @@ export function KnowledgeSuiteView({
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // S3 Storage Source States (for Large Files & Bulk Repositories)
+  const [s3Sources, setS3Sources] = useState<any[]>([
+    {
+      id: "s3_src_01",
+      bucketName: "supportv8-kb-documents",
+      prefix: "enterprise-runbooks/",
+      region: "us-east-1",
+      endpoint: "http://minio.default.svc.cluster.local:9000",
+      fileCount: 24,
+      totalSizeBytes: 345 * 1024 * 1024,
+      status: "connected",
+      lastSyncedAt: "1 hour ago",
+      targetCategory: "auth_sso",
+      groups: ["support-tier1", "infra-ops"],
+    },
+    {
+      id: "s3_src_02",
+      bucketName: "acme-engineering-vault",
+      prefix: "postmortems/2026/",
+      region: "us-east-1",
+      fileCount: 88,
+      totalSizeBytes: 1240 * 1024 * 1024,
+      status: "connected",
+      lastSyncedAt: "Yesterday",
+      targetCategory: "checkout_failure",
+      groups: ["support-tier1", "vip-escalations"],
+    },
+  ]);
+  const [isS3ModalOpen, setIsS3ModalOpen] = useState<boolean>(false);
+  const [s3BucketName, setS3BucketName] = useState<string>("supportv8-kb-documents");
+  const [s3Prefix, setS3Prefix] = useState<string>("docs/");
+  const [s3Region, setS3Region] = useState<string>("us-east-1");
+  const [s3Endpoint, setS3Endpoint] = useState<string>("http://minio.default.svc.cluster.local:9000");
+  const [s3Category, setS3Category] = useState<string>("auth_sso");
+  const [s3Groups, setS3Groups] = useState<string[]>(["support-tier1"]);
+  const [s3SyncingId, setS3SyncingId] = useState<string | null>(null);
+  const [isConnectingS3, setIsConnectingS3] = useState<boolean>(false);
+
   // Web Crawler States
   const [crawlUrl, setCrawlUrl] = useState<string>("https://docs.acme.com/identity/sso-saml");
   const [crawlCategory, setCrawlCategory] = useState<string>("auth_sso");
@@ -177,11 +215,21 @@ export function KnowledgeSuiteView({
     setEditDocTags(doc.tags || [doc.category]);
   };
 
-  // Direct Document Upload Handler
+  // Direct Document Upload Handler (25MB Limit Enforced)
   const handleDirectUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadFile) {
       onNotify("Please select a document file to upload", "error");
+      return;
+    }
+
+    // Client-side 25MB Guard (Aligned with knowledgev8 Pod Memory Guard)
+    if (uploadFile.size > 25 * 1024 * 1024) {
+      const sizeMb = (uploadFile.size / (1024 * 1024)).toFixed(1);
+      onNotify(
+        `File '${uploadFile.name}' (${sizeMb}MB) exceeds the 25MB direct upload cap. Please use the S3 Storage Source connector below for high-volume or large-file ingestion.`,
+        "error"
+      );
       return;
     }
 
@@ -214,6 +262,62 @@ export function KnowledgeSuiteView({
       onNotify(err instanceof Error ? err.message : "Document upload failed", "error");
     } finally {
       setUploadLoading(false);
+    }
+  };
+
+  // Connect S3 Storage Source Handler
+  const handleConnectS3 = async () => {
+    if (!s3BucketName.trim()) {
+      onNotify("Bucket name is required", "error");
+      return;
+    }
+    setIsConnectingS3(true);
+    try {
+      const res = await fetch("/api/knowledge/s3-source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bucketName: s3BucketName,
+          prefix: s3Prefix,
+          region: s3Region,
+          endpoint: s3Endpoint || undefined,
+          targetCategory: s3Category,
+          groups: s3Groups,
+        }),
+      }).then((r) => r.json());
+      if (res.success) {
+        setS3Sources((prev) => [res.data, ...prev]);
+        onNotify(res.message || "S3 Storage Source connected successfully!", "success");
+        setIsS3ModalOpen(false);
+      } else {
+        onNotify(res.error || "Failed to connect S3 source", "error");
+      }
+    } catch (err) {
+      onNotify("Failed to connect S3 source", "error");
+    } finally {
+      setIsConnectingS3(false);
+    }
+  };
+
+  // Sync S3 Storage Source Handler
+  const handleSyncS3 = async (sourceId: string) => {
+    setS3SyncingId(sourceId);
+    try {
+      const res = await fetch("/api/knowledge/s3-source", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", sourceId }),
+      }).then((r) => r.json());
+      if (res.success) {
+        onNotify(res.message || "S3 bucket objects synced into pgvector chunks!", "success");
+        onSyncKv8();
+      } else {
+        onNotify(res.error || "Failed to sync S3 bucket", "error");
+      }
+    } catch (err) {
+      onNotify("Failed to sync S3 source", "error");
+    } finally {
+      setS3SyncingId(null);
     }
   };
 
@@ -497,6 +601,11 @@ export function KnowledgeSuiteView({
                   setIsDragOver(false);
                   if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                     const f = e.dataTransfer.files[0];
+                    if (f.size > 25 * 1024 * 1024) {
+                      const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+                      onNotify(`File '${f.name}' (${sizeMb}MB) exceeds the 25MB direct upload cap. Use the S3 Storage Source connector below.`, "error");
+                      return;
+                    }
                     setUploadFile(f);
                     setUploadTitle(f.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "));
                   }
@@ -516,6 +625,11 @@ export function KnowledgeSuiteView({
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       const f = e.target.files[0];
+                      if (f.size > 25 * 1024 * 1024) {
+                        const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+                        onNotify(`File '${f.name}' (${sizeMb}MB) exceeds the 25MB direct upload cap. Use the S3 Storage Source connector below.`, "error");
+                        return;
+                      }
                       setUploadFile(f);
                       setUploadTitle(f.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "));
                     }
@@ -532,7 +646,7 @@ export function KnowledgeSuiteView({
                   <div className="space-y-1">
                     <div className="text-xs font-bold text-[#EAF1F8] font-mono">{uploadFile.name}</div>
                     <div className="text-[11px] text-[#2ED8B6] font-mono">
-                      {(uploadFile.size / 1024).toFixed(1)} KB &bull; Ready to ingest &amp; chunk
+                      {(uploadFile.size / 1024).toFixed(1)} KB &bull; Ready to ingest &amp; chunk (Max 25MB)
                     </div>
                   </div>
                 ) : (
@@ -541,7 +655,7 @@ export function KnowledgeSuiteView({
                       Click to browse or drag &amp; drop document files here
                     </div>
                     <div className="text-[11px] text-[#6B7C8D] font-mono">
-                      PDF, DOCX, Markdown, CSV, JSON, TXT &bull; Chunked into 1536-dim vectors automatically
+                      PDF, DOCX, Markdown, CSV, JSON, TXT &bull; Max 25MB per file &bull; 1536-dim pgvector
                     </div>
                   </div>
                 )}
@@ -655,6 +769,85 @@ export function KnowledgeSuiteView({
                 </button>
               </div>
             </form>
+          </div>
+
+          {/* S3 Storage Sources for Large Datasets (>25MB) & Bulk Bucket Sync */}
+          <div className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[#2ED8B6]" />
+                  <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                    S3 Bucket Sources (High-Volume &amp; Large File Ingestion &gt;25MB)
+                  </h3>
+                </div>
+                <p className="text-[11px] text-[#6B7C8D]">
+                  Ingest multi-GB documentation archives, runbook repositories, and bulk PDF vaults directly from Amazon S3 / MinIO via stream chunking without buffering into web pod memory.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsS3ModalOpen(true)}
+                className="btn btn-primary py-1.5 px-3.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>+ Connect S3 Bucket</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {s3Sources.map((src) => (
+                <div
+                  key={src.id}
+                  className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6]/40 transition-all space-y-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-[#2ED8B6]">
+                          s3://{src.bucketName}/{src.prefix}
+                        </span>
+                        <span className="pill text-[9px] uppercase font-mono">
+                          {src.endpoint ? "MINIO S3" : "AWS S3"}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                        Region: {src.region} &bull; Category: {src.targetCategory}
+                      </span>
+                    </div>
+                    <span className="pill ok text-[9px] font-mono uppercase">
+                      <i className="dot"></i>
+                      {src.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono bg-[#121A24] p-2.5 rounded-lg border border-[var(--line)] text-[#6B7C8D]">
+                    <div>
+                      <span>Objects: </span>
+                      <strong className="text-[#EAF1F8]">{src.fileCount} Files</strong>
+                    </div>
+                    <div>
+                      <span>Total Volume: </span>
+                      <strong className="text-[#2ED8B6]">{(src.totalSizeBytes / (1024 * 1024)).toFixed(0)} MB</strong>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between border-t border-[var(--line)] text-[10px] font-mono text-[#6B7C8D]">
+                    <span>Last synced: <strong className="text-[#EAF1F8]">{src.lastSyncedAt}</strong></span>
+                    <button
+                      type="button"
+                      disabled={s3SyncingId === src.id}
+                      onClick={() => handleSyncS3(src.id)}
+                      className="btn btn-secondary py-1 px-2.5 text-xs font-mono flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 text-[#2ED8B6] ${s3SyncingId === src.id ? "animate-spin" : ""}`} />
+                      <span>{s3SyncingId === src.id ? "Syncing..." : "Sync S3"}</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Web Crawler & KV8 Sync Row */}
@@ -1630,6 +1823,140 @@ export function KnowledgeSuiteView({
                 className="btn btn-primary text-xs font-bold"
               >
                 Save &amp; Propagate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CONNECT S3 STORAGE SOURCE MODAL */}
+      {/* ========================================================================= */}
+      {isS3ModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg card shadow-2xl p-6 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2.5">
+                <Database className="w-5 h-5 text-[#2ED8B6]" />
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Connect S3 Storage Source</h3>
+                  <span className="text-[10px] font-mono text-[#6B7C8D]">
+                    High-Volume Multi-GB Repository &amp; Archive Ingestion
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsS3ModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs font-mono">
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  S3 Bucket Name
+                </label>
+                <input
+                  type="text"
+                  value={s3BucketName}
+                  onChange={(e) => setS3BucketName(e.target.value)}
+                  placeholder="supportv8-kb-documents"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs font-mono focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    Folder Prefix
+                  </label>
+                  <input
+                    type="text"
+                    value={s3Prefix}
+                    onChange={(e) => setS3Prefix(e.target.value)}
+                    placeholder="enterprise-runbooks/"
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs font-mono focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    AWS Region
+                  </label>
+                  <input
+                    type="text"
+                    value={s3Region}
+                    onChange={(e) => setS3Region(e.target.value)}
+                    placeholder="us-east-1"
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs font-mono focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  Custom S3 Endpoint (Optional / MinIO)
+                </label>
+                <input
+                  type="text"
+                  value={s3Endpoint}
+                  onChange={(e) => setS3Endpoint(e.target.value)}
+                  placeholder="http://minio.default.svc.cluster.local:9000"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs font-mono focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    Target Category
+                  </label>
+                  <select
+                    value={s3Category}
+                    onChange={(e) => setS3Category(e.target.value)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="auth_sso">Authentication &amp; SAML SSO</option>
+                    <option value="checkout_failure">Billing, Stripe &amp; OrderV8</option>
+                    <option value="voice_telephony">Voice SIP &amp; Telephony Hub</option>
+                    <option value="infrastructure">Infrastructure &amp; API Status</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    RBAC Visibility
+                  </label>
+                  <select
+                    value={s3Groups[0] || "support-tier1"}
+                    onChange={(e) => setS3Groups([e.target.value])}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="support-tier1">support-tier1 (All Agents &amp; AI)</option>
+                    <option value="finance-billing">finance-billing (OrderV8)</option>
+                    <option value="infra-ops">infra-ops (DevOps SRE)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => setIsS3ModalOpen(false)}
+                className="btn btn-secondary text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConnectS3}
+                disabled={isConnectingS3}
+                className="btn btn-primary text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>{isConnectingS3 ? "Connecting..." : "Connect S3 Source"}</span>
               </button>
             </div>
           </div>

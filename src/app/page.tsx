@@ -1502,129 +1502,149 @@ export default function SupportV8Dashboard() {
             </div>
 
             {/* ========================================================================= */}
+            {/* ========================================================================= */}
             {/* PERFORMANCE FUNNEL & EXECUTIVE INVOLVEMENT SCORECARD */}
             {/* ========================================================================= */}
-            {cxSubView === "funnel" && (
-              <div className="space-y-6">
-                {/* Executive KPI Scorecard */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                      <span>AI INVOLVEMENT RATE</span>
-                      <span className="pill ok text-[9px]">ACTIVE</span>
+            {cxSubView === "funnel" && (() => {
+              const totalFunnelVolume = issues.length || 16;
+              const aiInvolvedFunnelCount = issues.filter((i) => (i.confidence && i.confidence > 0) || (i.assignedTo && i.assignedTo.includes("AI"))).length;
+              const aiInvolvementFunnelRate = Number(((aiInvolvedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+
+              const autonomousFunnelCount = issues.filter(
+                (i) => i.status === "resolved" || i.tags?.includes("autonomous_resolved") || i.confidence >= 0.85
+              ).length;
+              const varrFunnelRate = overviewMetrics.varrRate || Number(((autonomousFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+
+              const aiTriagedFunnelCount = issues.filter((i) => i.confidence >= 0.65).length;
+              const aiTriagedFunnelRate = Number(((aiTriagedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+
+              const humanEscalatedFunnelCount = Math.max(0, totalFunnelVolume - autonomousFunnelCount);
+              const humanEscalatedFunnelRate = Number(((humanEscalatedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+
+              const csatVal = overviewMetrics.csat || 93.8;
+
+              return (
+                <div className="space-y-6">
+                  {/* Executive KPI Scorecard */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
+                        <span>AI INVOLVEMENT RATE</span>
+                        <span className="pill ok text-[9px]">ACTIVE</span>
+                      </div>
+                      <div className="text-2xl font-extrabold font-mono text-[#2ED8B6]">{aiInvolvementFunnelRate}%</div>
+                      <div className="text-[11px] text-[#B4C2D0]">{aiInvolvedFunnelCount} of {totalFunnelVolume} tickets touched by AI</div>
                     </div>
-                    <div className="text-2xl font-extrabold font-mono text-[#2ED8B6]">88.4%</div>
-                    <div className="text-[11px] text-[#B4C2D0]">16,280 of 18,420 tickets touched by AI</div>
+
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
+                        <span>RESOLUTION RATE (VARR)</span>
+                        <span className="pill ok text-[9px]">+4.8% WOW</span>
+                      </div>
+                      <div className="text-2xl font-extrabold font-mono text-[#4CC38A]">{varrFunnelRate}%</div>
+                      <div className="text-[11px] text-[#B4C2D0]">{autonomousFunnelCount} tickets resolved autonomously without human</div>
+                    </div>
+
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
+                        <span>CX CSAT SCORE</span>
+                        <span className="pill ok text-[9px]">EXCELLENT</span>
+                      </div>
+                      <div className="text-2xl font-extrabold font-mono text-[#EAF1F8]">{csatVal} <span className="text-xs text-[#6B7C8D]">/ 100</span></div>
+                      <div className="text-[11px] text-[#B4C2D0]">Post-resolution customer feedback</div>
+                    </div>
+
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
+                        <span>AVG FIRST RESPONSE TIME</span>
+                        <span className="pill text-[9px]">P1/P2 SPEED</span>
+                      </div>
+                      <div className="text-2xl font-extrabold font-mono text-[#4D9FFF]">1.2 <span className="text-xs text-[#6B7C8D]">mins</span></div>
+                      <div className="text-[11px] text-[#B4C2D0]">94.2% faster than human queue</div>
+                    </div>
                   </div>
 
-                  <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                      <span>RESOLUTION RATE (VARR)</span>
-                      <span className="pill ok text-[9px]">+4.8% WOW</span>
-                    </div>
-                    <div className="text-2xl font-extrabold font-mono text-[#4CC38A]">74.8%</div>
-                    <div className="text-[11px] text-[#B4C2D0]">Fully resolved autonomously without human</div>
-                  </div>
+                  {/* Autonomous Resolution Funnel Card */}
+                  <div className="card p-6 bg-[#121A24] border-[var(--line)] space-y-5 rounded-2xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
+                          <Target className="w-4 h-4 text-[#2ED8B6]" />
+                          <span>Autonomous Ingress-to-Resolution Conversion Funnel</span>
+                        </h3>
+                        <p className="text-xs text-[#B4C2D0] mt-0.5">
+                          End-to-end telemetry conversion from omnichannel ingress lines down to autonomous resolution.
+                        </p>
+                      </div>
 
-                  <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                      <span>CX CSAT SCORE</span>
-                      <span className="pill ok text-[9px]">EXCELLENT</span>
+                      <button
+                        type="button"
+                        onClick={() => notify("Generated Executive Performance & Audit Report package (PDF/CSV)", "success")}
+                        className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Generate Performance Report</span>
+                      </button>
                     </div>
-                    <div className="text-2xl font-extrabold font-mono text-[#EAF1F8]">91.4 <span className="text-xs text-[#6B7C8D]">/ 100</span></div>
-                    <div className="text-[11px] text-[#B4C2D0]">Post-resolution customer feedback</div>
-                  </div>
 
-                  <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                      <span>AVG FIRST RESPONSE TIME</span>
-                      <span className="pill text-[9px]">P1/P2 SPEED</span>
+                    {/* Visual 4-Stage Funnel Bars */}
+                    <div className="space-y-4 font-mono text-xs">
+                      {/* Stage 1: Total Ingress */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#EAF1F8]">1. Total Ingress Volume</span>
+                          <span className="text-[#B4C2D0]">{totalFunnelVolume} Tickets (100%)</span>
+                        </div>
+                        <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
+                          <div className="h-full bg-gradient-to-r from-[#2ED8B6] to-[#20C997] rounded-lg w-full flex items-center px-3 text-[11px] font-bold text-[#04201C]">
+                            Omnichannel Ingress (Email, Live Chat, Voice, Slack, WhatsApp)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stage 2: AI Triage & Routing */}
+                      <div className="space-y-1.5 pl-4 border-l-2 border-[#2ED8B6]/40">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#EAF1F8]">2. AI Triage &amp; Intent Categorization</span>
+                          <span className="text-[#2ED8B6]">{aiTriagedFunnelCount} Tickets ({aiTriagedFunnelRate}%)</span>
+                        </div>
+                        <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
+                          <div className="h-full bg-[#2ED8B6]/80 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(20, aiTriagedFunnelRate)}%` }}>
+                            Sophia, Chip &amp; Alex Categorized, Root-Cause Tagged, SLA Gated
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stage 3: Autonomous Resolution */}
+                      <div className="space-y-1.5 pl-8 border-l-2 border-[#4CC38A]/40">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#4CC38A]">3. Autonomous Resolution (VARR)</span>
+                          <span className="text-[#4CC38A] font-bold">{autonomousFunnelCount} Tickets ({varrFunnelRate}%)</span>
+                        </div>
+                        <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
+                          <div className="h-full bg-gradient-to-r from-[#4CC38A] to-[#10B981] rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(20, varrFunnelRate)}%` }}>
+                            Zero Human Intervention (Reconciled, Refunded, Self-Served)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stage 4: Human Escalations */}
+                      <div className="space-y-1.5 pl-12 border-l-2 border-[#F5A623]/40">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#F5A623]">4. Tier 2 Human Escalation &amp; Handoff</span>
+                          <span className="text-[#F5A623]">{humanEscalatedFunnelCount} Tickets ({humanEscalatedFunnelRate}%)</span>
+                        </div>
+                        <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
+                          <div className="h-full bg-[#F5A623]/70 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(15, humanEscalatedFunnelRate)}%` }}>
+                            Transferred with Pre-drafted Handoff Tokens
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-2xl font-extrabold font-mono text-[#4D9FFF]">1.2 <span className="text-xs text-[#6B7C8D]">mins</span></div>
-                    <div className="text-[11px] text-[#B4C2D0]">94.2% faster than human queue</div>
                   </div>
                 </div>
-
-                {/* Autonomous Resolution Funnel Card */}
-                <div className="card p-6 bg-[#121A24] border-[var(--line)] space-y-5 rounded-2xl">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
-                        <Target className="w-4 h-4 text-[#2ED8B6]" />
-                        <span>Autonomous Ingress-to-Resolution Conversion Funnel</span>
-                      </h3>
-                      <p className="text-xs text-[#B4C2D0] mt-0.5">
-                        End-to-end telemetry conversion from omnichannel ingress lines down to autonomous resolution.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => notify("Generated Executive Performance & Audit Report package (PDF/CSV)", "success")}
-                      className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Generate Performance Report</span>
-                    </button>
-                  </div>
-
-                  {/* Visual 4-Stage Funnel Bars */}
-                  <div className="space-y-4 font-mono text-xs">
-                    {/* Stage 1: Total Ingress */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-[#EAF1F8]">1. Total Ingress Volume</span>
-                        <span className="text-[#B4C2D0]">18,420 Tickets (100%)</span>
-                      </div>
-                      <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                        <div className="h-full bg-gradient-to-r from-[#2ED8B6] to-[#20C997] rounded-lg w-full flex items-center px-3 text-[11px] font-bold text-[#04201C]">
-                          Omnichannel Tickets Ingested (Zendesk, Intercom, Twilio, Webhook)
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stage 2: AI Triage & Routing */}
-                    <div className="space-y-1.5 pl-4 border-l-2 border-[#2ED8B6]/40">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-[#EAF1F8]">2. AI Triage &amp; Intent Categorization</span>
-                        <span className="text-[#2ED8B6]">17,314 Tickets (94.0%)</span>
-                      </div>
-                      <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                        <div className="h-full bg-[#2ED8B6]/80 rounded-lg w-[94%] flex items-center px-3 text-[11px] font-bold text-[#04201C]">
-                          Chip &amp; Alex Categorized, Root-Cause Tagged, SLA Gated
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stage 3: Autonomous Resolution */}
-                    <div className="space-y-1.5 pl-8 border-l-2 border-[#4CC38A]/40">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-[#4CC38A]">3. Autonomous Resolution (VARR)</span>
-                        <span className="text-[#4CC38A] font-bold">13,780 Tickets (74.8%)</span>
-                      </div>
-                      <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                        <div className="h-full bg-gradient-to-r from-[#4CC38A] to-[#10B981] rounded-lg w-[74.8%] flex items-center px-3 text-[11px] font-bold text-[#04201C]">
-                          Zero Human Intervention (Reconciled, Refunded, Self-Served)
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stage 4: Human Escalations */}
-                    <div className="space-y-1.5 pl-12 border-l-2 border-[#F5A623]/40">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-[#F5A623]">4. Tier 2 Human Escalation &amp; Handoff</span>
-                        <span className="text-[#F5A623]">4,640 Tickets (25.2%)</span>
-                      </div>
-                      <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                        <div className="h-full bg-[#F5A623]/70 rounded-lg w-[25.2%] flex items-center px-3 text-[11px] font-bold text-[#04201C]">
-                          Transferred with Pre-drafted Handoff Tokens
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ========================================================================= */}
             {/* PILLAR 1: SLA ENGINE & REAL-TIME AT-RISK WARNING SYSTEM */}

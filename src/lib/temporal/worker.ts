@@ -40,6 +40,19 @@ async function main() {
   const healthPort = parseInt(process.env.HEALTH_PORT || "8080", 10);
   const healthServer = startHealthServer(healthPort, () => healthy);
 
+  const isDebug = process.env.LOG_LEVEL === "debug" || process.env.DEBUG === "*";
+  if (isDebug) {
+    console.log("[supportv8-worker][DEBUG] Running with debug mode active:", {
+      address,
+      namespace: TEMPORAL_NAMESPACE,
+      taskQueue: TASK_QUEUE,
+      healthPort,
+      nodeEnv: process.env.NODE_ENV,
+      logLevel: process.env.LOG_LEVEL,
+      debug: process.env.DEBUG,
+    });
+  }
+
   console.log(`[supportv8-worker] connecting to Temporal cluster at ${address}...`);
   const connection = await NativeConnection.connect({ address });
 

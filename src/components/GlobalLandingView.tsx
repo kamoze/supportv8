@@ -223,19 +223,19 @@ export function GlobalLandingView({
           </button>
 
           <button
-            onClick={onOpenSignup}
-            className="btn btn-primary px-4 py-2 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>Sign Up / Provision</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          <button
             onClick={onEnterCockpit}
             className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-2 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Admin Cockpit</span>
-            <ExternalLink className="w-3.5 h-3.5 text-[#2ED8B6]" />
+            <UserCheck className="w-3.5 h-3.5 text-[#2ED8B6]" />
+            <span>Sign In</span>
+          </button>
+
+          <button
+            onClick={onOpenSignup}
+            className="btn btn-primary px-4 py-2 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>Sign Up</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -267,7 +267,7 @@ export function GlobalLandingView({
               onClick={onOpenSignup}
               className="btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-bold shadow-2xl shadow-[#2ED8B6]/30 flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform"
             >
-              <span>Provision Instant Tenant Portal</span>
+              <span>Get Started Free</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -493,7 +493,7 @@ export function GlobalLandingView({
             Ready to Deploy Autonomous AI Customer Support?
           </h2>
           <p className="text-sm text-[#8E9AA8] max-w-xl mx-auto">
-            Provision your dedicated tenant subdomain, configure custom BYOM model routing, and launch your omnichannel desk in under 2 minutes.
+            Launch your dedicated tenant subdomain, configure custom BYOM model routing, and deploy your omnichannel desk in under 2 minutes.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">

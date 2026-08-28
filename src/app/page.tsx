@@ -1178,14 +1178,6 @@ export default function SupportV8Dashboard() {
                 <Globe className="w-3 h-3" />
                 <span>Tenant ({currentTenantSlug})</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setIsSignupModalOpen(true)}
-                className="px-2.5 py-1 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 hover:bg-[#2ED8B6]/25 transition-colors cursor-pointer font-bold flex items-center gap-1"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>+ Provision</span>
-              </button>
             </div>
 
             {/* Quick Ask Chat Button */}

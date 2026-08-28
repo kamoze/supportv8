@@ -126,7 +126,7 @@ export default function SignupPage() {
               <span className="p-1.5 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6]">
                 <Shield className="w-4 h-4" />
               </span>
-              <span className="text-[#EAF1F8] font-bold">New Tenant Provisioning</span>
+              <span className="text-[#EAF1F8] font-bold">Create New Workspace</span>
             </div>
             <div className="text-[#6B7C8D]">
               Step <strong className="text-[#2ED8B6]">{step}</strong> of 4
@@ -355,7 +355,7 @@ export default function SignupPage() {
                 {captchaVerified && (
                   <div className="text-[11px] text-[#4CC38A] font-mono flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Identity verified. Ready for cloud cluster provisioning.</span>
+                    <span>Identity verified. Ready to create cloud workspace.</span>
                   </div>
                 )}
               </div>
@@ -375,22 +375,22 @@ export default function SignupPage() {
                   className="btn btn-primary py-2.5 px-6 text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Provision Cloud Workspace</span>
+                  <span>Create Cloud Workspace</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: Live Provisioning Stepper */}
+          {/* STEP 3: Live Workspace Setup Stepper */}
           {step === 3 && (
             <div className="space-y-6 py-4">
               <div className="text-center space-y-1">
                 <div className="inline-flex p-3 rounded-2xl bg-[#2ED8B6]/15 text-[#2ED8B6] mb-2 border border-[#2ED8B6]/30">
                   <RefreshCw className="w-7 h-7 animate-spin" />
                 </div>
-                <h2 className="text-base font-bold text-[#EAF1F8]">Provisioning Isolated Cloud Stack...</h2>
+                <h2 className="text-base font-bold text-[#EAF1F8]">Setting Up Isolated Cloud Stack...</h2>
                 <p className="text-xs text-[#6B7C8D]">
-                  Spinning up dedicated PostgreSQL schema, Redis cluster cache, and Keycloak realm for {workspaceSlug}
+                  Configuring dedicated PostgreSQL schema, Redis cluster cache, and Keycloak realm for {workspaceSlug}
                 </p>
               </div>
 

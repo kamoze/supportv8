@@ -125,8 +125,8 @@ export function SignupModal({ isOpen, onClose, onSuccess }: SignupModalProps) {
           <div className="flex items-center gap-3">
             <SupportV8Logo size={28} />
             <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Provision New SupportV8 Tenant</h3>
-              <p className="text-[10px] font-mono text-[#6B7C8D]">GrowthV8 Enterprise Tenant Architecture</p>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">Create SupportV8 Workspace</h3>
+              <p className="text-[10px] font-mono text-[#6B7C8D]">Enterprise Multi-Tenant Architecture</p>
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export function SignupModal({ isOpen, onClose, onSuccess }: SignupModalProps) {
                 )}
 
                 <h4 className="text-base font-bold text-[#EAF1F8]">
-                  {isProvisioning ? "Deploying Isolated Tenant Environment..." : "Tenant Successfully Provisioned!"}
+                  {isProvisioning ? "Setting Up Isolated Cloud Workspace..." : "Workspace Successfully Created!"}
                 </h4>
                 <p className="text-xs font-mono text-[#2ED8B6]">
                   https://{slug}.support.servicev8.com
@@ -355,7 +355,7 @@ export function SignupModal({ isOpen, onClose, onSuccess }: SignupModalProps) {
                 />
               </div>
 
-              {/* Provisioning Terminal Log */}
+              {/* Terminal Log */}
               <div className="p-3.5 rounded-2xl bg-[#090E15] border border-[var(--line)] font-mono text-[11px] text-[#6B7C8D] space-y-1.5 max-h-36 overflow-y-auto">
                 {provisionLogs.map((log, i) => (
                   <div key={i} className="text-[#2ED8B6]">
@@ -403,7 +403,7 @@ export function SignupModal({ isOpen, onClose, onSuccess }: SignupModalProps) {
                 form="step2-form"
                 className="btn btn-primary px-6 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#2ED8B6]/20"
               >
-                <span>Provision Workspace</span>
+                <span>Create Workspace</span>
                 <Sparkles className="w-4 h-4" />
               </button>
             </>

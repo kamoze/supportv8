@@ -37,6 +37,7 @@ export default function SignupPage() {
   const [adminName, setAdminName] = useState<string>("Elena Rostova");
   const [adminEmail, setAdminEmail] = useState<string>("elena@acme.com");
   const [password, setPassword] = useState<string>("SupportV8#2026!Secure");
+  const [confirmPassword, setConfirmPassword] = useState<string>("SupportV8#2026!Secure");
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // Interactive CAPTCHA State
@@ -311,6 +312,36 @@ export default function SignupPage() {
                     <span className={/[0-9]/.test(password) ? "text-[#2ED8B6]" : ""}>✓ Numbers Included</span>
                     <span className={/[^A-Za-z0-9]/.test(password) ? "text-[#2ED8B6]" : ""}>✓ Special Character</span>
                   </div>
+                </div>
+
+                {/* Confirm Password Field */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[#B4C2D0] font-semibold flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                      <span>Confirm Master Password</span>
+                    </label>
+                    {password && confirmPassword && (
+                      <span className="text-[10px] font-mono">
+                        {password === confirmPassword ? (
+                          <span className="text-[#4CC38A] font-bold">✓ Passwords Match</span>
+                        ) : (
+                          <span className="text-[#E5484D]">✕ Passwords Do Not Match</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter master password"
+                    className={`w-full bg-[#18222E] text-[#EAF1F8] p-3 rounded-xl border font-mono text-xs focus:outline-none ${
+                      confirmPassword && password !== confirmPassword
+                        ? "border-[#E5484D]"
+                        : "border-[var(--line-2)] focus:border-[#2ED8B6]"
+                    }`}
+                  />
                 </div>
               </div>
 

@@ -17,6 +17,16 @@ import {
   Sparkles,
   MessageSquare,
   AlertCircle,
+  UserCheck,
+  Globe,
+  Truck,
+  KeyRound,
+  MapPin,
+  Check,
+  Radio,
+  RefreshCw,
+  PhoneCall,
+  Lock,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
@@ -24,27 +34,64 @@ import type { ChatStreamType } from "@/lib/types";
 
 interface TenantLandingViewProps {
   tenantSlug?: string;
-  onEnterCockpit: () => void;
+  onOpenSignIn: () => void;
   onOpenGlobalLanding: () => void;
   onOpenSignup: () => void;
 }
 
 export function TenantLandingView({
   tenantSlug = "acme",
-  onEnterCockpit,
+  onOpenSignIn,
   onOpenGlobalLanding,
   onOpenSignup,
 }: TenantLandingViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [ticketSearchId, setTicketSearchId] = useState("");
+  const [trackerTab, setTrackerTab] = useState<"ticket" | "dispatch">("ticket");
+
+  // Ticket Lookup State
+  const [ticketSearchId, setTicketSearchId] = useState("TCK-8821");
   const [ticketResult, setTicketResult] = useState<{
     id: string;
     status: string;
     subject: string;
     assignedTo: string;
     updatedAt: string;
-  } | null>(null);
+    eta: string;
+    priority: string;
+    channel: string;
+  } | null>({
+    id: "TCK-8821",
+    status: "in_progress",
+    subject: "Autonomous OrderV8 Token Sync & Refund Request #892",
+    assignedTo: "Sophia (Customer Success Lead)",
+    updatedAt: "3 mins ago",
+    eta: "< 5 mins",
+    priority: "High",
+    channel: "Omnichannel Desk",
+  });
+
+  // Dispatch / Work Order Lookup State
+  const [workOrderSearchId, setWorkOrderSearchId] = useState("WO-7741");
+  const [workOrderResult, setWorkOrderResult] = useState<{
+    id: string;
+    status: string;
+    contractorName: string;
+    siteAddress: string;
+    lockboxPin: string;
+    etaMinutes: number;
+    sowTask: string;
+  } | null>({
+    id: "WO-7741",
+    status: "en_route",
+    contractorName: "Dave Miller (Apex Telecom HVAC)",
+    siteAddress: "Building B • 4th Floor Telecom Closet",
+    lockboxPin: "8492-X",
+    etaMinutes: 14,
+    sowTask: "Emergency Fiber Splicing & Secondary Gateway Check",
+  });
+
   const [defaultStream, setDefaultStream] = useState<ChatStreamType>("customers");
+  const isDemo = tenantSlug.toLowerCase() === "acme";
 
   const formattedName =
     tenantSlug
@@ -92,297 +139,408 @@ export function TenantLandingView({
     },
   ];
 
-  const filteredArticles = kbArticles.filter(
-    (a) =>
-      a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.snippet.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleSearchTicket = (e: React.FormEvent) => {
+  const handleTicketLookup = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketSearchId.trim()) return;
 
-    if (ticketSearchId.toUpperCase().includes("WO") || ticketSearchId.toUpperCase().includes("VND")) {
+    if (ticketSearchId.toUpperCase().includes("8821")) {
       setTicketResult({
-        id: ticketSearchId.toUpperCase(),
-        status: "In Progress (On-Site Active)",
-        subject: "Field Access Lockbox PIN Generation - Building B",
-        assignedTo: "Alex (Contractor Dispatch Lead)",
-        updatedAt: "5 minutes ago",
+        id: "TCK-8821",
+        status: "in_progress",
+        subject: "Autonomous OrderV8 Token Sync & Refund Request #892",
+        assignedTo: "Sophia (Customer Success Lead)",
+        updatedAt: "Just now",
+        eta: "< 5 mins",
+        priority: "High",
+        channel: "Omnichannel Desk",
       });
     } else {
       setTicketResult({
         id: ticketSearchId.toUpperCase(),
-        status: "Resolved (Refund Dispatched)",
-        subject: "Order #ORD-94021 Replacement Sensor Credit",
-        assignedTo: "Sophia (Customer Success Lead)",
-        updatedAt: "12 minutes ago",
+        status: "under_review",
+        subject: `Live Support Request: ${ticketSearchId.toUpperCase()}`,
+        assignedTo: "Alex (Support Intelligence Lead)",
+        updatedAt: "1 min ago",
+        eta: "10-15 mins",
+        priority: "Normal",
+        channel: "Knowledge Suite RAG",
+      });
+    }
+  };
+
+  const handleWorkOrderLookup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workOrderSearchId.trim()) return;
+
+    if (workOrderSearchId.toUpperCase().includes("7741")) {
+      setWorkOrderResult({
+        id: "WO-7741",
+        status: "en_route",
+        contractorName: "Dave Miller (Apex Telecom HVAC)",
+        siteAddress: "Building B • 4th Floor Telecom Closet",
+        lockboxPin: "8492-X",
+        etaMinutes: 14,
+        sowTask: "Emergency Fiber Splicing & Secondary Gateway Check",
+      });
+    } else {
+      setWorkOrderResult({
+        id: workOrderSearchId.toUpperCase(),
+        status: "dispatched",
+        contractorName: "Regional Contractor Team #4",
+        siteAddress: "Main Distribution Center • Lockbox 03",
+        lockboxPin: "1940-A",
+        etaMinutes: 28,
+        sowTask: "Scheduled Site Inspection & Diagnostic Telemetry",
       });
     }
   };
 
   return (
     <div className="min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[#2ED8B6]">
-      {/* Branded Tenant Header */}
-      <header className="sticky top-0 z-40 bg-[#090E15]/85 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#00F2FE] via-[#2ED8B6] to-[#059669] flex items-center justify-center text-[#090E15] font-black text-sm shadow-md shadow-[#2ED8B6]/20">
-            {formattedName.charAt(0)}
+      {/* Real-Time Live Status Ticker Bar */}
+      <div className="bg-[#0D1520] border-b border-[var(--line)] px-4 lg:px-12 py-1.5 text-[11px] font-mono flex items-center justify-between text-[#8E9CAE] overflow-x-auto whitespace-nowrap">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-1.5 text-[#2ED8B6]">
+            <Radio className="w-3 h-3 animate-pulse" />
+            <span className="font-bold text-[10px] uppercase">Live Status:</span>
+            <span>All Systems Operational</span>
           </div>
+          <span className="text-[10px] text-[#6B7C8D]">Telephony Ingress: Normal</span>
+          <span className="text-[10px] text-[#6B7C8D]">AI Workforce: Active (Alex &amp; Sophia)</span>
+          <span className="text-[10px] text-[#6B7C8D]">Field Dispatch SLA: 99.8%</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-[#2ED8B6]">
+            Tenant: <strong>{tenantSlug}.support.servicev8.com</strong>
+          </span>
+        </div>
+      </div>
+
+      {/* Demo Sandbox Alert Header Banner (When viewing preview) */}
+      {isDemo && (
+        <div className="bg-gradient-to-r from-[#F5A623]/15 via-[#2ED8B6]/10 to-[#F5A623]/15 border-b border-[#F5A623]/30 px-6 lg:px-12 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2 text-[#F5A623]">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>
+              <strong>Demo Tenant Preview:</strong> You are viewing the seeded sandbox for <strong>{formattedName}</strong>.
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onOpenSignup}
+              className="text-[#2ED8B6] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Create Your Own Isolated Workspace</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tenant Portal Header */}
+      <header className="sticky top-0 z-40 bg-[#090E15]/90 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <SupportV8Logo size={32} />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-base tracking-tight text-[#EAF1F8]">
-                {formattedName} Support Center
+                {formattedName} <span className="text-[#2ED8B6]">Help &amp; Dispatch Desk</span>
               </span>
-              <span className="pill text-[9px] font-mono uppercase bg-[#18222E] border-[#2ED8B6]/40 text-[#2ED8B6]">
-                {tenantSlug}.support.servicev8.com
-              </span>
+              <span className="pill ok text-[9.5px] font-mono"><i className="dot"></i> ONLINE</span>
             </div>
-            <p className="text-[10px] font-mono text-[#6B7C8D]">Customer Help Hub & AI Omnichannel Desk</p>
+            <p className="text-[10px] font-mono text-[#6B7C8D]">{tenantSlug}.support.servicev8.com</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={onOpenGlobalLanding}
-            className="text-xs font-mono text-[#6B7C8D] hover:text-[#2ED8B6] transition-colors cursor-pointer hidden sm:block"
+            className="btn btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
-            ← Global Landing
+            <Globe className="w-3.5 h-3.5 text-[#4D9FFF]" />
+            <span>Platform Overview</span>
           </button>
 
           <button
-            onClick={onEnterCockpit}
-            className="btn btn-secondary px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            onClick={onOpenSignIn}
+            className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Agent Workspace</span>
-            <ExternalLink className="w-3.5 h-3.5 text-[#2ED8B6]" />
-          </button>
-
-          <button
-            onClick={onOpenSignup}
-            className="btn btn-primary px-3.5 py-1.5 text-xs font-bold shadow-md shadow-[#2ED8B6]/20 cursor-pointer"
-          >
-            Create New Tenant
+            <Lock className="w-3.5 h-3.5 text-[#2ED8B6]" />
+            <span>Staff Sign In</span>
           </button>
         </div>
       </header>
 
-      {/* Hero Help Search */}
-      <section className="relative pt-16 pb-20 px-6 lg:px-12 border-b border-[var(--line)] bg-gradient-to-b from-[#0E1520] to-[#090E15]">
-        <div className="max-w-4xl mx-auto text-center space-y-5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121A24] border border-[var(--line)] text-xs font-mono text-[#2ED8B6]">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>24/7 AI-Powered Grounded Knowledge & Triage</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-[#EAF1F8] tracking-tight">
-            How can we help you at <span className="text-[#2ED8B6]">{formattedName}</span>?
+      {/* Main Tenant Portal Content */}
+      <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+        {/* Hero Search & Quick Action Channels */}
+        <div className="text-center space-y-4 max-w-2xl mx-auto">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#EAF1F8]">
+            How can {formattedName} assist you today?
           </h1>
-
-          <p className="text-sm text-[#8E9AA8] max-w-2xl mx-auto">
-            Search our verified knowledge repository, look up live dispatch work orders, or connect directly with our live support staff and AI specialists.
+          <p className="text-xs sm:text-sm text-[#8E9AA8]">
+            Search verified knowledge documents, verify on-site contractor PINs, or track your live ticket.
           </p>
 
-          {/* Search Input Box */}
-          <div className="relative max-w-2xl mx-auto pt-3">
-            <div className="relative flex items-center">
-              <Search className="absolute left-4 w-5 h-5 text-[#6B7C8D]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search articles, refund policies, lockbox codes, W9 compliance..."
-                className="w-full bg-[#121A24] border-2 border-[var(--line-2)] focus:border-[#2ED8B6] rounded-2xl pl-12 pr-4 py-3.5 text-sm text-[#EAF1F8] placeholder:text-[#6B7C8D] focus:outline-none shadow-xl shadow-black/40 transition-colors"
-              />
-            </div>
-
-            {/* Popular Search Chips */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mt-3 text-[11px] font-mono text-[#6B7C8D]">
-              <span>Popular:</span>
-              <button
-                onClick={() => setSearchQuery("Lockbox PIN")}
-                className="px-2.5 py-1 rounded-lg bg-[#121A24] border border-[var(--line)] hover:border-[#2ED8B6] text-[#B4C2D0] hover:text-[#2ED8B6] transition-colors cursor-pointer"
-              >
-                Lockbox PIN
-              </button>
-              <button
-                onClick={() => setSearchQuery("Refund Token")}
-                className="px-2.5 py-1 rounded-lg bg-[#121A24] border border-[var(--line)] hover:border-[#2ED8B6] text-[#B4C2D0] hover:text-[#2ED8B6] transition-colors cursor-pointer"
-              >
-                Refund Token
-              </button>
-              <button
-                onClick={() => setSearchQuery("W9 Compliance")}
-                className="px-2.5 py-1 rounded-lg bg-[#121A24] border border-[var(--line)] hover:border-[#2ED8B6] text-[#B4C2D0] hover:text-[#2ED8B6] transition-colors cursor-pointer"
-              >
-                W9 Compliance
-              </button>
-            </div>
+          <div className="relative max-w-xl mx-auto pt-2">
+            <Search className="w-4 h-4 text-[#6B7C8D] absolute left-4 top-5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search knowledge base, refund guidelines, PINs, work orders..."
+              className="w-full bg-[#121A24] border border-[var(--line-2)] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] shadow-xl"
+            />
           </div>
         </div>
-      </section>
 
-      {/* 3 Quick Channel Cards */}
-      <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Contractors Card */}
-          <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] hover:border-[#F5A623]/60 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/40 flex items-center justify-center">
-                <HardHat className="w-5 h-5" />
-              </div>
-              <span className="pill text-[9px] font-mono bg-[#F5A623]/10 text-[#F5A623]">Contractors</span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Field Contractor Portal</h3>
-              <p className="text-xs text-[#8E9AA8] mt-1">
-                Dispatch work orders, get on-site gate PINs, and submit invoice payment disputes.
-              </p>
-            </div>
-            <div className="pt-2 text-xs font-mono text-[#F5A623] flex items-center gap-1">
-              <span>Open live widget below</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </div>
-          </div>
-
-          {/* Enquiries Card */}
-          <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] hover:border-[#4D9FFF]/60 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-[#4D9FFF]/15 text-[#4D9FFF] border border-[#4D9FFF]/40 flex items-center justify-center">
-                <HelpCircle className="w-5 h-5" />
-              </div>
-              <span className="pill text-[9px] font-mono bg-[#4D9FFF]/10 text-[#4D9FFF]">General</span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Product & Solutions Desk</h3>
-              <p className="text-xs text-[#8E9AA8] mt-1">
-                Explore platform integrations, security whitepapers, and enterprise SLA packages.
-              </p>
-            </div>
-            <div className="pt-2 text-xs font-mono text-[#4D9FFF] flex items-center gap-1">
-              <span>Instant AI Knowledge</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </div>
-          </div>
-
-          {/* Customers Card */}
-          <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/60 transition-all space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 flex items-center justify-center">
-                <Users className="w-5 h-5" />
-              </div>
-              <span className="pill text-[9px] font-mono bg-[#2ED8B6]/10 text-[#2ED8B6]">Subscribers</span>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Client Care & Billing</h3>
-              <p className="text-xs text-[#8E9AA8] mt-1">
-                Account management, OrderV8 refund token vouchers, and high-priority bug reports.
-              </p>
-            </div>
-            <div className="pt-2 text-xs font-mono text-[#2ED8B6] flex items-center gap-1">
-              <span>Priority Triage Queue</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Knowledge Base Articles & Ticket Tracker Grid */}
-      <section className="py-8 px-6 lg:px-12 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: KB Articles */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[var(--line)]">
+        {/* ========================================================================= */}
+        {/* TICKET & CONTRACTOR DISPATCH TRACKER STATION */}
+        {/* ========================================================================= */}
+        <div className="card p-6 bg-[#0E1520] border-[var(--line)] rounded-3xl space-y-5 shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
             <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-[#2ED8B6]" />
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Knowledge Base & Protocols</h3>
+              <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]">
+                <Clock className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Live Status &amp; Dispatch Tracker</h3>
+                <p className="text-[10px] font-mono text-[#6B7C8D]">Track Customer Tickets &amp; Contractor Work Orders</p>
+              </div>
             </div>
-            <span className="text-xs font-mono text-[#6B7C8D]">{filteredArticles.length} articles</span>
+
+            {/* Tracker Segment Switcher */}
+            <div className="flex items-center gap-1 bg-[#141C26] p-1 rounded-xl border border-[var(--line)] font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setTrackerTab("ticket")}
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  trackerTab === "ticket"
+                    ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm"
+                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Customer Ticket</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTrackerTab("dispatch")}
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  trackerTab === "dispatch"
+                    ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm"
+                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Contractor Dispatch</span>
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {filteredArticles.map((article) => (
-              <div
-                key={article.id}
-                className="card p-4 rounded-2xl bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/40 transition-all space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="pill text-[9px] font-mono uppercase bg-[#18222E] text-[#B4C2D0]">
-                    {article.category}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#6B7C8D]">Updated {article.updated}</span>
+          {/* TAB 1: Customer Ticket Tracker */}
+          {trackerTab === "ticket" && (
+            <div className="space-y-4">
+              <form onSubmit={handleTicketLookup} className="flex gap-2">
+                <input
+                  type="text"
+                  value={ticketSearchId}
+                  onChange={(e) => setTicketSearchId(e.target.value)}
+                  placeholder="Enter Ticket ID (e.g. TCK-8821)"
+                  className="flex-1 bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                />
+                <button type="submit" className="btn btn-primary px-4 py-2.5 text-xs font-bold font-mono cursor-pointer">
+                  <span>Track Ticket</span>
+                </button>
+              </form>
+
+              {ticketResult && (
+                <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[#EAF1F8] text-sm">{ticketResult.id}</span>
+                      <span className="pill ok uppercase text-[9px]"><i className="dot"></i> {ticketResult.status.replace("_", " ")}</span>
+                    </div>
+                    <span className="text-[#F5A623] text-[11px] font-bold">Est. Resolution: {ticketResult.eta}</span>
+                  </div>
+
+                  <p className="text-xs text-[#B4C2D0] font-sans">{ticketResult.subject}</p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-[var(--line)] text-[11px] text-[#6B7C8D]">
+                    <div>
+                      <span>Assigned Agent:</span>
+                      <div className="text-[#EAF1F8] font-bold">{ticketResult.assignedTo}</div>
+                    </div>
+                    <div>
+                      <span>Priority:</span>
+                      <div className="text-[#2ED8B6] font-bold">{ticketResult.priority}</div>
+                    </div>
+                    <div>
+                      <span>Last Update:</span>
+                      <div className="text-[#EAF1F8]">{ticketResult.updatedAt}</div>
+                    </div>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-[#EAF1F8] hover:text-[#2ED8B6] transition-colors cursor-pointer">
-                  {article.title}
-                </h4>
-                <p className="text-xs text-[#8E9AA8] line-clamp-2">{article.snippet}</p>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: Contractor Field Dispatch Tracker */}
+          {trackerTab === "dispatch" && (
+            <div className="space-y-4">
+              <form onSubmit={handleWorkOrderLookup} className="flex gap-2">
+                <input
+                  type="text"
+                  value={workOrderSearchId}
+                  onChange={(e) => setWorkOrderSearchId(e.target.value)}
+                  placeholder="Enter Work Order # (e.g. WO-7741)"
+                  className="flex-1 bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                />
+                <button type="submit" className="btn btn-primary px-4 py-2.5 text-xs font-bold font-mono cursor-pointer">
+                  <span>Verify Dispatch</span>
+                </button>
+              </form>
+
+              {workOrderResult && (
+                <div className="p-4 rounded-2xl bg-[#121A24] border border-[#F5A623]/40 space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-[#F5A623]" />
+                      <span className="font-bold text-[#EAF1F8] text-sm">{workOrderResult.id}</span>
+                      <span className="pill warn uppercase text-[9px]"><i className="dot"></i> {workOrderResult.status.replace("_", " ")}</span>
+                    </div>
+                    <span className="text-[#2ED8B6] text-[11px] font-bold">Technician ETA: {workOrderResult.etaMinutes} mins</span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#8E9AA8]">Contractor:</span>
+                      <strong className="text-[#EAF1F8]">{workOrderResult.contractorName}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#8E9AA8]">Site Location:</span>
+                      <span className="text-[#B4C2D0] flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-[#E5484D]" />
+                        {workOrderResult.siteAddress}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-[var(--line)]">
+                      <span className="text-[#8E9AA8]">Emergency Lockbox PIN:</span>
+                      <span className="px-2 py-0.5 rounded bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 text-[#2ED8B6] font-bold tracking-wider">
+                        {workOrderResult.lockboxPin}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-[#6B7C8D]">
+                    SOW Scope: <span className="text-[#EAF1F8]">{workOrderResult.sowTask}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3 Audience Support Channels */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div
+            onClick={() => setDefaultStream("contractors")}
+            className={`card p-5 rounded-2xl border transition-all cursor-pointer ${
+              defaultStream === "contractors"
+                ? "bg-[#18222E] border-[#F5A623] shadow-lg shadow-[#F5A623]/10"
+                : "bg-[#121A24] border-[var(--line)] hover:border-[#F5A623]/40"
+            }`}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#F5A623]/15 text-[#F5A623] flex items-center justify-center mb-3">
+              <HardHat className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-[#EAF1F8]">Contractors &amp; Field Dispatch</h3>
+            <p className="text-xs text-[#8E9AA8] mt-1">
+              Verify digital site PINs, check work order status, and upload COI compliance proofs.
+            </p>
+          </div>
+
+          <div
+            onClick={() => setDefaultStream("customers")}
+            className={`card p-5 rounded-2xl border transition-all cursor-pointer ${
+              defaultStream === "customers"
+                ? "bg-[#18222E] border-[#2ED8B6] shadow-lg shadow-[#2ED8B6]/10"
+                : "bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/40"
+            }`}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center mb-3">
+              <Users className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-[#EAF1F8]">Customer Care &amp; Billing</h3>
+            <p className="text-xs text-[#8E9AA8] mt-1">
+              Request OrderV8 refund tokens, subscription upgrades, and view resolution timers.
+            </p>
+          </div>
+
+          <div
+            onClick={() => setDefaultStream("enquiries")}
+            className={`card p-5 rounded-2xl border transition-all cursor-pointer ${
+              defaultStream === "enquiries"
+                ? "bg-[#18222E] border-[#4D9FFF] shadow-lg shadow-[#4D9FFF]/10"
+                : "bg-[#121A24] border-[var(--line)] hover:border-[#4D9FFF]/40"
+            }`}
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#4D9FFF]/15 text-[#4D9FFF] flex items-center justify-center mb-3">
+              <HelpCircle className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-[#EAF1F8]">Product Consultations</h3>
+            <p className="text-xs text-[#8E9AA8] mt-1">
+              Explore enterprise SLA guarantees, custom feature proposals, and security audits.
+            </p>
+          </div>
+        </div>
+
+        {/* Knowledge Articles Grid */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-[#EAF1F8] flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-[#2ED8B6]" />
+              <span>Verified Knowledge Base Documents</span>
+            </h3>
+            <span className="text-xs font-mono text-[#6B7C8D]">
+              {filteredArticles.length} documents matching
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredArticles.map((art) => (
+              <div
+                key={art.id}
+                onClick={() => setDefaultStream(art.stream)}
+                className="card p-5 bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/50 rounded-2xl transition-all cursor-pointer space-y-2"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="pill text-[10px] font-mono bg-[#18222E] text-[#2ED8B6]">
+                    {art.category}
+                  </span>
+                  <span className="text-[#6B7C8D] text-[10px] font-mono">{art.updated}</span>
+                </div>
+                <h4 className="text-xs font-bold text-[#EAF1F8]">{art.title}</h4>
+                <p className="text-[11px] text-[#8E9AA8] line-clamp-2">{art.snippet}</p>
+                <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] pt-2 border-t border-[var(--line)]">
+                  <span>{art.views} views</span>
+                  <span className="text-[#2ED8B6] flex items-center gap-1">
+                    <span>Ask AI Assistant</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </span>
+                </div>
               </div>
             ))}
           </div>
         </div>
+      </main>
 
-        {/* Right Col: Ticket & Dispatch Status Tracker */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-[var(--line)]">
-            <Clock className="w-4 h-4 text-[#4D9FFF]" />
-            <h3 className="text-sm font-bold text-[#EAF1F8]">Ticket & Dispatch Tracker</h3>
-          </div>
-
-          <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-4">
-            <p className="text-xs text-[#8E9AA8]">
-              Enter your Ticket ID, Order Number, or Work Order reference to check live status:
-            </p>
-
-            <form onSubmit={handleSearchTicket} className="space-y-2.5">
-              <input
-                type="text"
-                value={ticketSearchId}
-                onChange={(e) => setTicketSearchId(e.target.value)}
-                placeholder="e.g. ORD-94021 or WO-90412"
-                className="w-full bg-[#18222E] border border-[var(--line)] rounded-xl px-3.5 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
-              />
-              <button
-                type="submit"
-                className="btn btn-secondary w-full py-2 text-xs font-mono flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Search className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Track Status</span>
-              </button>
-            </form>
-
-            {ticketResult && (
-              <div className="p-3.5 rounded-xl bg-[#18222E] border border-[#2ED8B6]/40 space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#EAF1F8]">{ticketResult.id}</span>
-                  <span className="pill ok text-[9px] font-mono">{ticketResult.status}</span>
-                </div>
-                <p className="text-xs text-[#B4C2D0]">{ticketResult.subject}</p>
-                <div className="text-[10px] font-mono text-[#6B7C8D] pt-1 border-t border-[var(--line)] flex items-center justify-between">
-                  <span>Assigned: {ticketResult.assignedTo}</span>
-                  <span>{ticketResult.updatedAt}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Security Box */}
-          <div className="p-4 rounded-2xl bg-[#121A24]/60 border border-[var(--line)] space-y-2 text-xs text-[#8E9AA8]">
-            <div className="flex items-center gap-1.5 text-[#2ED8B6] font-bold text-xs">
-              <Shield className="w-4 h-4" />
-              <span>Enterprise RBAC Active</span>
-            </div>
-            <p className="text-[11px] leading-relaxed">
-              All communications on {formattedName} are protected under ServiceV8 tenant isolation and audited with SHA-256 integrity logs.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Embedded Floating Support Chat Widget */}
+      {/* Embedded Tenant-Scoped Support Chat Widget */}
       <SupportChatWidget
-        tenantSlug={tenantSlug}
-        tenantName={formattedName}
         defaultStream={defaultStream}
+        tenantDomain={tenantSlug}
       />
     </div>
   );

@@ -22,24 +22,30 @@ import {
   HardHat,
   HelpCircle,
   UserCheck,
+  Server,
+  FileCheck,
+  Workflow,
+  Radio,
+  ShoppingBag,
+  Plug,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 
 interface GlobalLandingViewProps {
-  onEnterCockpit: () => void;
+  onOpenSignIn: () => void;
   onOpenTenantPortal: (slug?: string) => void;
   onOpenSignup: () => void;
 }
 
 export function GlobalLandingView({
-  onEnterCockpit,
+  onOpenSignIn,
   onOpenTenantPortal,
   onOpenSignup,
 }: GlobalLandingViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [activeDemoTab, setActiveDemoTab] = useState<"omnichannel" | "knowledge" | "governance">("omnichannel");
 
-  // GrowthV8-inspired interactive signal particle network
+  // Signal particle network animation
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -101,75 +107,69 @@ export function GlobalLandingView({
       });
     }
 
-    const handleResize = () => {
-      if (!canvas) return;
-      w = canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
-      h = canvas.height = canvas.parentElement?.clientHeight || 650;
-    };
-    window.addEventListener("resize", handleResize);
-
-    const render = () => {
+    const draw = () => {
       ctx.clearRect(0, 0, w, h);
 
-      // Update and draw node links
       for (let i = 0; i < nodes.length; i++) {
-        const n1 = nodes[i];
-        n1.x += n1.vx;
-        n1.y += n1.vy;
-        if (n1.x < 0 || n1.x > w) n1.vx *= -1;
-        if (n1.y < 0 || n1.y > h) n1.vy *= -1;
-
         for (let j = i + 1; j < nodes.length; j++) {
-          const n2 = nodes[j];
-          const dist = Math.hypot(n1.x - n2.x, n1.y - n2.y);
-          if (dist < 150) {
-            ctx.strokeStyle = `rgba(46, 216, 182, ${0.18 * (1 - dist / 150)})`;
-            ctx.lineWidth = 1;
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const maxDist = 130;
+          if (dist < maxDist) {
+            const alpha = (1 - dist / maxDist) * 0.15;
+            ctx.strokeStyle = `rgba(46, 216, 182, ${alpha})`;
+            ctx.lineWidth = 0.8;
             ctx.beginPath();
-            ctx.moveTo(n1.x, n1.y);
-            ctx.lineTo(n2.x, n2.y);
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
             ctx.stroke();
           }
         }
       }
 
-      // Draw traveling telemetry signal packets
-      packets.forEach((pkt) => {
-        pkt.progress += pkt.speed;
-        if (pkt.progress >= 1) {
-          pkt.progress = 0;
-          pkt.from = Math.floor(Math.random() * nodes.length);
-          pkt.to = (pkt.from + 1 + Math.floor(Math.random() * (nodes.length - 1))) % nodes.length;
+      packets.forEach((p) => {
+        const from = nodes[p.from];
+        const to = nodes[p.to];
+        if (!from || !to) return;
+        p.progress += p.speed;
+        if (p.progress >= 1) {
+          p.progress = 0;
+          p.from = Math.floor(Math.random() * nodes.length);
+          p.to = Math.floor(Math.random() * nodes.length);
         }
-
-        const n1 = nodes[pkt.from];
-        const n2 = nodes[pkt.to];
-        if (!n1 || !n2) return;
-
-        const px = n1.x + (n2.x - n1.x) * pkt.progress;
-        const py = n1.y + (n2.y - n1.y) * pkt.progress;
-
-        ctx.fillStyle = pkt.color;
-        ctx.shadowColor = pkt.color;
-        ctx.shadowBlur = 8;
+        const px = from.x + (to.x - from.x) * p.progress;
+        const py = from.y + (to.y - from.y) * p.progress;
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.arc(px, py, 2.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
       });
 
-      // Draw node circles
       nodes.forEach((n) => {
-        ctx.fillStyle = n.color.hex;
+        n.x += n.vx;
+        n.y += n.vy;
+        if (n.x < 0 || n.x > w) n.vx *= -1;
+        if (n.y < 0 || n.y > h) n.vy *= -1;
+        ctx.fillStyle = `rgba(${n.color.r}, ${n.color.g}, ${n.color.b}, 0.7)`;
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.baseRadius, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      animFrame = requestAnimationFrame(render);
+      animFrame = requestAnimationFrame(draw);
     };
 
-    render();
+    draw();
+
+    const handleResize = () => {
+      w = canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
+      h = canvas.height = canvas.parentElement?.clientHeight || 650;
+    };
+    window.addEventListener("resize", handleResize);
 
     return () => {
       cancelAnimationFrame(animFrame);
@@ -180,52 +180,43 @@ export function GlobalLandingView({
   return (
     <div className="min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[#2ED8B6]">
       {/* Top Header Navigation */}
-      <header className="sticky top-0 z-40 bg-[#090E15]/80 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-[#090E15]/85 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SupportV8Logo size={32} />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-[#EAF1F8] via-[#2ED8B6] to-[#00F2FE] bg-clip-text text-transparent">
-                supportV8
-              </span>
-              <span className="pill text-[9px] font-mono uppercase bg-[#18222E] border-[#2ED8B6]/40 text-[#2ED8B6]">
-                v0.3.0 Production
-              </span>
-            </div>
-            <p className="text-[10px] font-mono text-[#6B7C8D]">ServiceV8 Agentic Operating System</p>
-          </div>
+          <span className="font-extrabold text-xl tracking-tight text-[#EAF1F8]">
+            Support<span className="text-[#2ED8B6]">V8</span>
+          </span>
         </div>
 
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-[#8E9AA8]">
-          <button
-            onClick={() => onOpenTenantPortal("acme")}
-            className="hover:text-[#2ED8B6] transition-colors cursor-pointer"
-          >
-            Tenant Help Hub
-          </button>
+          <a href="#capabilities" className="hover:text-[#2ED8B6] transition-colors">
+            Capabilities
+          </a>
           <a href="#workforce" className="hover:text-[#2ED8B6] transition-colors">
             AI Workforce
           </a>
           <a href="#architecture" className="hover:text-[#2ED8B6] transition-colors">
             Architecture
           </a>
-          <a href="#governance" className="hover:text-[#2ED8B6] transition-colors">
-            Zero-Trust Security
+          <a href="#security" className="hover:text-[#2ED8B6] transition-colors">
+            Security
           </a>
         </nav>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => onOpenTenantPortal("acme")}
-            className="btn btn-secondary px-3.5 py-2 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            className="btn btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            title="Preview live seeded Acme Corp sandbox tenant"
           >
             <Globe className="w-3.5 h-3.5 text-[#4D9FFF]" />
-            <span>Tenant Preview</span>
+            <span>Acme Demo</span>
+            <span className="pill text-[9px] py-0 px-1 font-mono text-[#F5A623]">Sandbox</span>
           </button>
 
           <button
-            onClick={onEnterCockpit}
-            className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-2 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            onClick={onOpenSignIn}
+            className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
             <UserCheck className="w-3.5 h-3.5 text-[#2ED8B6]" />
             <span>Sign In</span>
@@ -233,7 +224,7 @@ export function GlobalLandingView({
 
           <button
             onClick={onOpenSignup}
-            className="btn btn-primary px-4 py-2 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
+            className="btn btn-primary px-4 py-1.5 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
           >
             <span>Sign Up</span>
             <ChevronRight className="w-4 h-4" />
@@ -252,7 +243,7 @@ export function GlobalLandingView({
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-[#EAF1F8]">
-            Governed AI Support Intelligence & <br />
+            Governed AI Support Intelligence &amp; <br />
             <span className="bg-gradient-to-r from-[#00F2FE] via-[#2ED8B6] to-[#059669] bg-clip-text text-transparent">
               Autonomous Omnichannel Triage
             </span>
@@ -276,8 +267,8 @@ export function GlobalLandingView({
               onClick={() => onOpenTenantPortal("acme")}
               className="btn btn-secondary px-6 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer"
             >
-              <Users className="w-4 h-4 text-[#4D9FFF]" />
-              <span>Launch Customer Chat Widget</span>
+              <Globe className="w-4 h-4 text-[#4D9FFF]" />
+              <span>Explore Live Tenant Demo (Acme Corp)</span>
             </button>
           </div>
 
@@ -304,14 +295,14 @@ export function GlobalLandingView({
             <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
               <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Safety Guarantee</div>
               <div className="text-2xl font-bold text-[#F5A623] mt-1">Zero-Trust</div>
-              <div className="text-[10px] text-[#F5A623] font-mono mt-0.5">mTLS & SHA-256 Audit</div>
+              <div className="text-[10px] text-[#F5A623] font-mono mt-0.5">mTLS &amp; SHA-256 Audit</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3 Omnichannel Customer Channels */}
-      <section className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
+      {/* SECTION 1: Capabilities & Omnichannel Architecture */}
+      <section id="capabilities" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
           <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#2ED8B6]">
             Omnichannel Triaging Architecture
@@ -330,7 +321,7 @@ export function GlobalLandingView({
             <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
               <HardHat className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8]">1. Contractors & Vendors</h3>
+            <h3 className="text-lg font-bold text-[#EAF1F8]">1. Contractors &amp; Vendors</h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
               Field work order dispatch, W9/COI compliance checks, lockbox code generation, and invoice payout dispute workflows with strict verification.
             </p>
@@ -341,7 +332,7 @@ export function GlobalLandingView({
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
-                <span>Automated Invoice & Payout Verification</span>
+                <span>Automated Invoice &amp; Payout Verification</span>
               </li>
             </ul>
           </div>
@@ -358,11 +349,11 @@ export function GlobalLandingView({
             <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
-                <span>Knowledge Graph Citations & Whitepapers</span>
+                <span>Knowledge Graph Citations &amp; Whitepapers</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
-                <span>Lead Qualification & Handoff</span>
+                <span>Lead Qualification &amp; Handoff</span>
               </li>
             </ul>
           </div>
@@ -372,7 +363,7 @@ export function GlobalLandingView({
             <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
               <Users className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8]">3. Customers & Clients</h3>
+            <h3 className="text-lg font-bold text-[#EAF1F8]">3. Customers &amp; Clients</h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
               High-priority subscriber desk with $420k ARR customer context, 1-click OrderV8 refund token dispatching, and automated SLA incident tracking.
             </p>
@@ -383,14 +374,14 @@ export function GlobalLandingView({
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Live Human Takeover & Presence</span>
+                <span>Live Human Takeover &amp; Presence</span>
               </li>
             </ul>
           </div>
         </div>
       </section>
 
-      {/* AI Workforce Section */}
+      {/* SECTION 2: AI Workforce */}
       <section id="workforce" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
           <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#2ED8B6]">
@@ -408,14 +399,12 @@ export function GlobalLandingView({
           {/* Alex */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <img
-                src="/avatars/beaver-manager.jpg"
-                alt="Alex"
-                className="w-12 h-12 rounded-xl object-cover border-2 border-[#2ED8B6]/40 shadow-md"
-              />
+              <div className="w-12 h-12 rounded-xl bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+                <Bot className="w-6 h-6" />
+              </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Alex</h4>
-                <p className="text-[11px] text-[#2ED8B6] font-mono">Contractor & CX Lead</p>
+                <p className="text-[11px] text-[#2ED8B6] font-mono">Contractor &amp; CX Lead</p>
               </div>
             </div>
             <p className="text-xs text-[#8E9AA8]">Specializes in contractor work order triage, site access locks, and team coordination.</p>
@@ -428,11 +417,9 @@ export function GlobalLandingView({
           {/* Sophia */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <img
-                src="/avatars/beaver-sophia.jpg"
-                alt="Sophia"
-                className="w-12 h-12 rounded-xl object-cover border-2 border-[#2ED8B6]/40 shadow-md"
-              />
+              <div className="w-12 h-12 rounded-xl bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+                <Bot className="w-6 h-6" />
+              </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Sophia</h4>
                 <p className="text-[11px] text-[#2ED8B6] font-mono">Customer Success Lead</p>
@@ -448,11 +435,9 @@ export function GlobalLandingView({
           {/* Barnaby */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <img
-                src="/avatars/beaver-curator.jpg"
-                alt="Barnaby"
-                className="w-12 h-12 rounded-xl object-cover border-2 border-[#4D9FFF]/40 shadow-md"
-              />
+              <div className="w-12 h-12 rounded-xl bg-[#4D9FFF]/20 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
+                <Bot className="w-6 h-6" />
+              </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Barnaby</h4>
                 <p className="text-[11px] text-[#4D9FFF] font-mono">Knowledge Intelligence</p>
@@ -468,11 +453,9 @@ export function GlobalLandingView({
           {/* Arthur */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <img
-                src="/avatars/beaver-analyst.jpg"
-                alt="Arthur"
-                className="w-12 h-12 rounded-xl object-cover border-2 border-[#F5A623]/40 shadow-md"
-              />
+              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/20 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
+                <Bot className="w-6 h-6" />
+              </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Arthur</h4>
                 <p className="text-[11px] text-[#F5A623] font-mono">Technical Triage Lead</p>
@@ -483,6 +466,112 @@ export function GlobalLandingView({
               <span>Autonomy: Supervised</span>
               <span className="text-[#F5A623]">Root-Cause AI</span>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 3: 3-Tier Marketplace & Action Gateway Architecture */}
+      <section id="architecture" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
+        <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
+          <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#4D9FFF]">
+            Platform Infrastructure
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
+            3-Tier Marketplace &amp; Action Dispatch Topology
+          </h2>
+          <p className="text-sm text-[#8E9AA8]">
+            Decoupled commercial entitlement, central capability registry, and zero-trust side-effect dispatchers.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
+          <div className="card p-6 rounded-3xl bg-[#121A24] border border-[var(--line)] space-y-3">
+            <div className="flex items-center justify-between text-[#4D9FFF] font-bold">
+              <span>TIER 1: SURFACES</span>
+              <ShoppingBag className="w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">StudioV8 &amp; Partner Portal</h4>
+            <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
+              Marketplace discovery and acquisition. Provision AI Employees, Scenarios, and external Connectors with 1-click SSO handshake.
+            </p>
+            <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#2ED8B6]">
+              Surface: /marketplace
+            </div>
+          </div>
+
+          <div className="card p-6 rounded-3xl bg-[#121A24] border border-[#2ED8B6]/40 space-y-3 shadow-lg shadow-[#2ED8B6]/5">
+            <div className="flex items-center justify-between text-[#2ED8B6] font-bold">
+              <span>TIER 2: CONTROL PLANE</span>
+              <Server className="w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">servicev8-registry</h4>
+            <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
+              Standalone Kubernetes microservice managing SemVer product manifests, tenant entitlement ledgers, and compatibility checks.
+            </p>
+            <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#4CC38A]">
+              HPA 3 &rarr; 20 Replicas &bull; PgBouncer
+            </div>
+          </div>
+
+          <div className="card p-6 rounded-3xl bg-[#121A24] border border-[var(--line)] space-y-3">
+            <div className="flex items-center justify-between text-[#F5A623] font-bold">
+              <span>TIER 3: DISPATCH &amp; SPINES</span>
+              <Zap className="w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Action Gateway &amp; Spines</h4>
+            <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
+              Executes all external side-effects (Email, SMS, Voice, Stripe, SOW PINs) with KMS/SSM envelope encryption and Temporal workflows.
+            </p>
+            <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#F5A623]">
+              action-gateway &bull; temporal
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 4: Zero-Trust Security & Governance */}
+      <section id="security" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
+        <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
+          <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#F5A623]">
+            Enterprise Security Standards
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
+            Zero-Trust ForgeGW &amp; Cryptographic Guardrails
+          </h2>
+          <p className="text-sm text-[#8E9AA8]">
+            Hard limits on automated refunds, deterministic action verification, and cryptographically signed audit trails.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="card p-6 rounded-3xl bg-[#121A24] border-[var(--line)] space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center">
+              <Lock className="w-5 h-5" />
+            </div>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Financial Cap Guardrails</h4>
+            <p className="text-xs text-[#8E9AA8]">
+              Automated refund tokens strictly gated at &lt; $500 per transaction and $2,500 daily tenant cap with required human escalation.
+            </p>
+          </div>
+
+          <div className="card p-6 rounded-3xl bg-[#121A24] border-[var(--line)] space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-[#4D9FFF]/15 text-[#4D9FFF] flex items-center justify-center">
+              <Shield className="w-5 h-5" />
+            </div>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Tenant Namespace Isolation</h4>
+            <p className="text-xs text-[#8E9AA8]">
+              Dedicated vector collections, segregated S3 document vaults, and per-tenant cryptographic salts for compliance.
+            </p>
+          </div>
+
+          <div className="card p-6 rounded-3xl bg-[#121A24] border-[var(--line)] space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-[#F5A623]/15 text-[#F5A623] flex items-center justify-center">
+              <FileCheck className="w-5 h-5" />
+            </div>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Tamper-Proof Audit Chaining</h4>
+            <p className="text-xs text-[#8E9AA8]">
+              Every AI action execution is hashed with SHA-256 and written to persistent append-only database ledgers.
+            </p>
           </div>
         </div>
       </section>
@@ -507,11 +596,11 @@ export function GlobalLandingView({
             </button>
 
             <button
-              onClick={onEnterCockpit}
+              onClick={onOpenSignIn}
               className="btn bg-[#18222E] border border-[var(--line)] text-[#EAF1F8] px-6 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:bg-[#1E2B3A]"
             >
-              <span>Open Admin Interface</span>
-              <ExternalLink className="w-4 h-4 text-[#2ED8B6]" />
+              <UserCheck className="w-4 h-4 text-[#2ED8B6]" />
+              <span>Sign In to Cockpit</span>
             </button>
           </div>
         </div>
@@ -521,7 +610,7 @@ export function GlobalLandingView({
       <footer className="px-6 lg:px-12 py-8 border-t border-[var(--line)] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#6B7C8D]">
         <div className="flex items-center gap-2">
           <SupportV8Logo size={20} />
-          <span>© 2026 supportV8 • ServiceV8 Enterprise Infrastructure</span>
+          <span>© 2026 SupportV8 • Enterprise Autonomous Customer Intelligence</span>
         </div>
 
         <div className="flex items-center gap-6">

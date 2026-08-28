@@ -123,6 +123,7 @@ import { FloatingPageGuide } from "@/components/FloatingPageGuide";
 import { GlobalLandingView } from "@/components/GlobalLandingView";
 import { TenantLandingView } from "@/components/TenantLandingView";
 import { SignupModal } from "@/components/SignupModal";
+import { SignInModal } from "@/components/SignInModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 
@@ -144,6 +145,7 @@ export default function SupportV8Dashboard() {
   const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("global_landing");
   const [currentTenantSlug, setCurrentTenantSlug] = useState<string>("acme");
   const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState<boolean>(false);
 
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -1103,12 +1105,25 @@ export default function SupportV8Dashboard() {
     return (
       <>
         <GlobalLandingView
-          onEnterCockpit={() => setViewMode("cockpit")}
+          onOpenSignIn={() => setIsSignInModalOpen(true)}
           onOpenTenantPortal={(slug) => {
             if (slug) setCurrentTenantSlug(slug);
             setViewMode("tenant_landing");
           }}
           onOpenSignup={() => setIsSignupModalOpen(true)}
+        />
+        <SignInModal
+          isOpen={isSignInModalOpen}
+          onClose={() => setIsSignInModalOpen(false)}
+          onSuccess={(slug, email) => {
+            if (slug) setCurrentTenantSlug(slug);
+            setViewMode("cockpit");
+            notify(`Authenticated as operator (${email}) for ${slug}.support.servicev8.com`, "success");
+          }}
+          onOpenSignup={() => {
+            setIsSignInModalOpen(false);
+            setIsSignupModalOpen(true);
+          }}
         />
         <SignupModal
           isOpen={isSignupModalOpen}
@@ -1116,6 +1131,10 @@ export default function SupportV8Dashboard() {
           onSuccess={(slug) => {
             setCurrentTenantSlug(slug);
             setViewMode("tenant_landing");
+          }}
+          onOpenSignIn={() => {
+            setIsSignupModalOpen(false);
+            setIsSignInModalOpen(true);
           }}
         />
       </>
@@ -1127,9 +1146,22 @@ export default function SupportV8Dashboard() {
       <>
         <TenantLandingView
           tenantSlug={currentTenantSlug}
-          onEnterCockpit={() => setViewMode("cockpit")}
+          onOpenSignIn={() => setIsSignInModalOpen(true)}
           onOpenGlobalLanding={() => setViewMode("global_landing")}
           onOpenSignup={() => setIsSignupModalOpen(true)}
+        />
+        <SignInModal
+          isOpen={isSignInModalOpen}
+          onClose={() => setIsSignInModalOpen(false)}
+          onSuccess={(slug, email) => {
+            if (slug) setCurrentTenantSlug(slug);
+            setViewMode("cockpit");
+            notify(`Authenticated as operator (${email}) for ${slug}.support.servicev8.com`, "success");
+          }}
+          onOpenSignup={() => {
+            setIsSignInModalOpen(false);
+            setIsSignupModalOpen(true);
+          }}
         />
         <SignupModal
           isOpen={isSignupModalOpen}
@@ -1137,6 +1169,10 @@ export default function SupportV8Dashboard() {
           onSuccess={(slug) => {
             setCurrentTenantSlug(slug);
             setViewMode("tenant_landing");
+          }}
+          onOpenSignIn={() => {
+            setIsSignupModalOpen(false);
+            setIsSignInModalOpen(true);
           }}
         />
       </>

@@ -98,6 +98,19 @@ export interface EphemeralSupportContext {
   createdAt: string;
 }
 
+export interface ContractorDetails {
+  company: string;
+  contactName: string;
+  phone?: string;
+  trade: string;
+  workOrderId: string;
+  siteLocation: string;
+  dispatchStatus: "assigned" | "dispatched" | "en_route" | "on_site" | "completed" | "parts_needed";
+  eta?: string;
+  assignedVehicle?: string;
+  accessCode?: string;
+}
+
 export interface Issue {
   id: string;
   tenantId: string;
@@ -124,6 +137,8 @@ export interface Issue {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  entityType?: "customer" | "contractor" | "field_dispatch";
+  contractor?: ContractorDetails;
 }
 
 export interface Problem {

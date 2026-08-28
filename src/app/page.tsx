@@ -227,6 +227,10 @@ export default function SupportV8Dashboard() {
     accounts: any[];
   }>({ avgHealthScore: 78, totalArrAtRisk: 420000, criticalCount: 1, concerningCount: 1, healthyCount: 2, activeVipChurnAlerts: [], accounts: [] });
 
+  const [healthViewMode, setHealthViewMode] = useState<"card" | "list">("card");
+  const [selectedAccountForForm, setSelectedAccountForForm] = useState<any | null>(null);
+  const [accountRetentionNote, setAccountRetentionNote] = useState<string>("");
+
   const [qaData, setQaData] = useState<{
     overallQaAverage: number;
     aiEmployeeAverage: number;
@@ -1828,6 +1832,9 @@ export default function SupportV8Dashboard() {
             {/* ========================================================================= */}
             {/* PILLAR 2: 360° CUSTOMER HEALTH SCORE & CHURN RISK RADAR */}
             {/* ========================================================================= */}
+            {/* ========================================================================= */}
+            {/* PILLAR 2: 360° CUSTOMER HEALTH SCORE & CHURN RISK RADAR */}
+            {/* ========================================================================= */}
             {cxSubView === "health" && (
               <div className="space-y-6">
                 {/* Real-time VIP Churn Alert Banner */}
@@ -1903,123 +1910,539 @@ export default function SupportV8Dashboard() {
                   </div>
                 </div>
 
-                {/* 360° Account Health Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {customerHealthData.accounts.map((acc: any) => (
-                    <div key={acc.accountId} className="card p-5 space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-[#EAF1F8]">{acc.accountName}</h3>
-                            <span className="pill">
-                              {acc.tier}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs font-mono">
-                            <span className="text-[#F5A623] font-bold">${acc.arrExposure.toLocaleString()} ARR</span>
-                            <span className="text-[#6B7C8D]">•</span>
-                            <span className="text-[#6B7C8D]">{acc.lifetimeTicketVolume} Lifetime Tickets</span>
-                          </div>
-                        </div>
+                {/* View Switcher & Actions Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#121A24] p-4 rounded-xl border border-[var(--line)]">
+                  <div className="flex items-center gap-2">
+                    <HeartPulse className="w-4 h-4 text-[#2ED8B6]" />
+                    <span className="text-xs font-bold text-[#EAF1F8] font-mono">
+                      {selectedAccountForForm ? `Embedded Account Dossier: ${selectedAccountForForm.accountName}` : "Customer 360° Portfolio Accounts"}
+                    </span>
+                    <span className="text-[10px] text-[#6B7C8D] font-mono">
+                      ({customerHealthData.accounts.length} Accounts Monitored)
+                    </span>
+                  </div>
 
-                        <span
-                          className={`pill ${
-                            acc.riskLevel === "critical_at_risk"
-                              ? "err"
-                              : acc.riskLevel === "concerning"
-                              ? "warn"
-                              : "ok"
+                  <div className="flex items-center gap-2">
+                    {selectedAccountForForm ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAccountForForm(null)}
+                        className="btn btn-secondary text-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Back to Accounts Overview</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1 bg-[#18222E] p-1 rounded-lg border border-[var(--line)] text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setHealthViewMode("card")}
+                          className={`px-3 py-1 rounded font-mono text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            healthViewMode === "card"
+                              ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                              : "text-[#6B7C8D] hover:text-[#EAF1F8]"
                           }`}
                         >
-                          <i className="dot"></i>
-                          {acc.riskLevel.replace("_", " ")}
-                        </span>
-                      </div>
-
-                      {/* Health Score Bar */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs font-mono">
-                          <span className="text-[#6B7C8D]">Account Health Score:</span>
-                          <span
-                            className={`font-bold ${
-                              acc.healthScore < 60
-                                ? "text-[#E5484D]"
-                                : acc.healthScore < 80
-                                ? "text-[#F5A623]"
-                                : "text-[#2ED8B6]"
-                            }`}
-                          >
-                            {acc.healthScore}/100
-                          </span>
-                        </div>
-                        <div className="w-full bg-[#18222E] h-2 rounded-full overflow-hidden border border-[var(--line)]">
-                          <div
-                            className={`h-full rounded-full ${
-                              acc.healthScore < 60
-                                ? "bg-[#E5484D]"
-                                : acc.healthScore < 80
-                                ? "bg-[#F5A623]"
-                                : "bg-[#2ED8B6]"
-                            }`}
-                            style={{ width: `${acc.healthScore}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-2 text-xs font-mono bg-[#18222E] p-3 rounded-lg border border-[var(--line)] text-center">
-                        <div>
-                          <span className="text-[#6B7C8D] block text-[10px]">CHURN RISK</span>
-                          <span className="font-bold text-[#E5484D]">{(acc.churnProbability * 100).toFixed(0)}%</span>
-                        </div>
-                        <div>
-                          <span className="text-[#6B7C8D] block text-[10px]">AVG CSAT</span>
-                          <span className="font-bold text-[#EAF1F8]">{acc.csatAverage}%</span>
-                        </div>
-                        <div>
-                          <span className="text-[#6B7C8D] block text-[10px]">OPEN CASES</span>
-                          <span className="font-bold text-[#2ED8B6]">{acc.openIssuesCount}</span>
-                        </div>
-                        <div>
-                          <span className="text-[#6B7C8D] block text-[10px]">48H FRUSTRATED</span>
-                          <span className="font-bold text-[#F5A623]">{acc.recentFrustratedCount48h || 0}</span>
-                        </div>
-                      </div>
-
-                      {acc.primaryFrustrationDriver && (
-                        <p className="text-xs text-[#B4C2D0] bg-[#18222E] p-3 rounded-lg border border-[var(--line)] leading-relaxed">
-                          <strong className="text-[#EAF1F8]">Frustration Driver:</strong> {acc.primaryFrustrationDriver}
-                        </p>
-                      )}
-
-                      <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <span className="text-[#6B7C8D] font-mono text-[11px]">
-                          Assigned CSM: <strong className="text-[#EAF1F8]">{acc.assignedCsm}</strong>
-                        </span>
+                          <LayoutGrid className="w-3.5 h-3.5" />
+                          <span>Card View</span>
+                        </button>
                         <button
-                          onClick={async () => {
-                            try {
-                              const res = await fetch("/api/cx/customer-health", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ accountId: acc.accountId }),
-                              }).then((r) => r.json());
-
-                              if (res.success) {
-                                notify(res.message, "success");
-                              }
-                            } catch (err) {
-                              notify("VIP Outreach failed", "error");
-                            }
-                          }}
-                          className="btn btn-primary text-xs"
+                          type="button"
+                          onClick={() => setHealthViewMode("list")}
+                          className={`px-3 py-1 rounded font-mono text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            healthViewMode === "list"
+                              ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                              : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                          }`}
                         >
-                          <Send className="w-3 h-3" />
-                          <span>Trigger VIP CSM Outreach</span>
+                          <List className="w-3.5 h-3.5" />
+                          <span>List View</span>
                         </button>
                       </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
+
+                {/* ========================================================================= */}
+                {/* 1. EMBEDDED ACCOUNT FORM & CASES DOSSIER VIEW */}
+                {/* ========================================================================= */}
+                {selectedAccountForForm ? (
+                  <div className="space-y-6">
+                    {/* Account Dossier Form Header */}
+                    <div className="card p-6 bg-[#121A24] border-[var(--line)] space-y-5 rounded-2xl">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+                        <div>
+                          <div className="flex items-center gap-2.5">
+                            <h3 className="text-base font-bold text-[#EAF1F8]">{selectedAccountForForm.accountName}</h3>
+                            <span className="pill ok uppercase text-[10px] font-mono">{selectedAccountForForm.tier} TIER</span>
+                            <span
+                              className={`pill text-[10px] font-mono ${
+                                selectedAccountForForm.riskLevel === "critical_at_risk"
+                                  ? "err"
+                                  : selectedAccountForForm.riskLevel === "concerning"
+                                  ? "warn"
+                                  : "ok"
+                              }`}
+                            >
+                              <i className="dot"></i>
+                              {selectedAccountForForm.riskLevel.replace("_", " ").toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#6B7C8D] font-mono mt-1">
+                            Account ID: {selectedAccountForForm.accountId} • Assigned CSM: <strong className="text-[#EAF1F8]">{selectedAccountForForm.assignedCsm}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch("/api/cx/customer-health", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ accountId: selectedAccountForForm.accountId }),
+                                }).then((r) => r.json());
+
+                                if (res.success) {
+                                  notify(res.message, "success");
+                                }
+                              } catch (err) {
+                                notify("VIP Outreach failed", "error");
+                              }
+                            }}
+                            className="btn btn-primary text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Trigger VIP CSM Outreach</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Account Health Metrics Summary */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono text-center">
+                        <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                          <span className="text-[#6B7C8D] text-[10px]">HEALTH SCORE</span>
+                          <div className={`text-lg font-bold ${selectedAccountForForm.healthScore < 60 ? "text-[#E5484D]" : selectedAccountForForm.healthScore < 80 ? "text-[#F5A623]" : "text-[#2ED8B6]"}`}>
+                            {selectedAccountForForm.healthScore}/100
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                          <span className="text-[#6B7C8D] text-[10px]">ARR EXPOSURE</span>
+                          <div className="text-lg font-bold text-[#F5A623]">
+                            ${selectedAccountForForm.arrExposure.toLocaleString()}
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                          <span className="text-[#6B7C8D] text-[10px]">CHURN RISK</span>
+                          <div className="text-lg font-bold text-[#E5484D]">
+                            {(selectedAccountForForm.churnProbability * 100).toFixed(0)}%
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                          <span className="text-[#6B7C8D] text-[10px]">AVG CSAT</span>
+                          <div className="text-lg font-bold text-[#EAF1F8]">
+                            {selectedAccountForForm.csatAverage}%
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                          <span className="text-[#6B7C8D] text-[10px]">48H FRUSTRATED</span>
+                          <div className="text-lg font-bold text-[#F5A623]">
+                            {selectedAccountForForm.recentFrustratedCount48h || 0}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Primary Frustration Driver & Incident Context */}
+                      {selectedAccountForForm.primaryFrustrationDriver && (
+                        <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1 text-xs">
+                          <div className="text-[#F5A623] font-bold font-mono flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>Primary Customer Frustration Driver</span>
+                          </div>
+                          <p className="text-[#B4C2D0] leading-relaxed">
+                            {selectedAccountForForm.primaryFrustrationDriver}
+                          </p>
+                          {selectedAccountForForm.lastIncidentImpacted && (
+                            <div className="text-[11px] text-[#6B7C8D] font-mono pt-1">
+                              Impacted Incident: <strong className="text-[#2ED8B6]">{selectedAccountForForm.lastIncidentImpacted}</strong>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Embedded Account Retention Note Editor */}
+                      <div className="space-y-2 pt-2 border-t border-[var(--line)] text-xs">
+                        <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
+                          CSM Account Retention Strategy &amp; Notes
+                        </label>
+                        <textarea
+                          rows={2}
+                          defaultValue={selectedAccountForForm.primaryFrustrationDriver ? `Action plan: Deliver SLA credit rebate for ${selectedAccountForForm.accountName} and schedule emergency architecture review.` : "Account health is stable. Routine quarterly business review scheduled."}
+                          className="w-full bg-[#18222E] p-3 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] font-sans focus:outline-none focus:border-[#2ED8B6]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Embedded Live Cases & Ticket History Section */}
+                    <div className="card p-6 bg-[#121A24] border-[var(--line)] space-y-4 rounded-2xl">
+                      <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-[#2ED8B6]" />
+                          <h4 className="text-sm font-bold text-[#EAF1F8] font-mono">
+                            Live Support Cases for {selectedAccountForForm.accountName}
+                          </h4>
+                        </div>
+                        <span className="pill ok text-[10px] font-mono">
+                          {issues.filter((i) => i.customerName.toLowerCase().includes(selectedAccountForForm.accountName.toLowerCase()) || selectedAccountForForm.accountName.toLowerCase().includes(i.customerName.toLowerCase())).length} CASES FOUND
+                        </span>
+                      </div>
+
+                      {/* Cases Table */}
+                      <div className="overflow-x-auto">
+                        <table className="gv8-table font-mono text-xs">
+                          <thead>
+                            <tr>
+                              <th>Case ID / Summary</th>
+                              <th>Priority</th>
+                              <th>Ingress Line</th>
+                              <th>AI Confidence</th>
+                              <th>Status</th>
+                              <th>Assigned Agent</th>
+                              <th className="text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {issues
+                              .filter((i) =>
+                                i.customerName.toLowerCase().includes(selectedAccountForForm.accountName.toLowerCase()) ||
+                                selectedAccountForForm.accountName.toLowerCase().includes(i.customerName.toLowerCase())
+                              )
+                              .map((issue) => (
+                                <tr key={issue.id} className="hover:bg-[#18222E]/50">
+                                  <td>
+                                    <div className="font-bold text-[#EAF1F8] font-sans">{issue.summary}</div>
+                                    <div className="text-[10px] text-[#2ED8B6] font-mono">{issue.externalId} • {issue.category}</div>
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`pill uppercase text-[9px] ${
+                                        issue.priority === "urgent" ? "err" : issue.priority === "high" ? "warn" : "ok"
+                                      }`}
+                                    >
+                                      {issue.priority}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className="pill text-[9px] uppercase">{issue.source}</span>
+                                  </td>
+                                  <td className="text-[#4CC38A]">
+                                    {(issue.confidence * 100).toFixed(0)}%
+                                  </td>
+                                  <td>
+                                    <span className={`pill ${issue.status === "resolved" ? "ok" : "warn"} text-[9px] uppercase`}>
+                                      <i className="dot"></i>
+                                      {issue.status}
+                                    </span>
+                                  </td>
+                                  <td className="text-[#B4C2D0]">
+                                    {issue.assignedTo || "Sophia (AI)"}
+                                  </td>
+                                  <td className="text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setWorkspaceSelectedIssueId(issue.id);
+                                        setActiveTab("workspace");
+                                        notify(`Opened ticket ${issue.externalId} in Workspace`, "info");
+                                      }}
+                                      className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6]"
+                                    >
+                                      Open in Workspace →
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+
+                            {issues.filter((i) =>
+                              i.customerName.toLowerCase().includes(selectedAccountForForm.accountName.toLowerCase()) ||
+                              selectedAccountForForm.accountName.toLowerCase().includes(i.customerName.toLowerCase())
+                            ).length === 0 && (
+                              <tr>
+                                <td colSpan={7} className="py-6 text-center text-xs text-[#6B7C8D]">
+                                  No active open cases for {selectedAccountForForm.accountName}. All previous issues resolved.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* ========================================================================= */}
+                    {/* 2. CARD GRID VIEW */}
+                    {/* ========================================================================= */}
+                    {healthViewMode === "card" && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {customerHealthData.accounts.map((acc: any) => (
+                          <div key={acc.accountId} className="card p-5 space-y-4 hover:border-[#2ED8B6]/50 transition-all">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-base font-bold text-[#EAF1F8]">{acc.accountName}</h3>
+                                  <span className="pill">
+                                    {acc.tier}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-xs font-mono">
+                                  <span className="text-[#F5A623] font-bold">${acc.arrExposure.toLocaleString()} ARR</span>
+                                  <span className="text-[#6B7C8D]">•</span>
+                                  <span className="text-[#6B7C8D]">{acc.lifetimeTicketVolume} Lifetime Tickets</span>
+                                </div>
+                              </div>
+
+                              <span
+                                className={`pill ${
+                                  acc.riskLevel === "critical_at_risk"
+                                    ? "err"
+                                    : acc.riskLevel === "concerning"
+                                    ? "warn"
+                                    : "ok"
+                                }`}
+                              >
+                                <i className="dot"></i>
+                                {acc.riskLevel.replace("_", " ")}
+                              </span>
+                            </div>
+
+                            {/* Health Score Bar */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs font-mono">
+                                <span className="text-[#6B7C8D]">Account Health Score:</span>
+                                <span
+                                  className={`font-bold ${
+                                    acc.healthScore < 60
+                                      ? "text-[#E5484D]"
+                                      : acc.healthScore < 80
+                                      ? "text-[#F5A623]"
+                                      : "text-[#2ED8B6]"
+                                  }`}
+                                >
+                                  {acc.healthScore}/100
+                                </span>
+                              </div>
+                              <div className="w-full bg-[#18222E] h-2 rounded-full overflow-hidden border border-[var(--line)]">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    acc.healthScore < 60
+                                      ? "bg-[#E5484D]"
+                                      : acc.healthScore < 80
+                                      ? "bg-[#F5A623]"
+                                      : "bg-[#2ED8B6]"
+                                  }`}
+                                  style={{ width: `${acc.healthScore}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2 text-xs font-mono bg-[#18222E] p-3 rounded-lg border border-[var(--line)] text-center">
+                              <div>
+                                <span className="text-[#6B7C8D] block text-[10px]">CHURN RISK</span>
+                                <span className="font-bold text-[#E5484D]">{(acc.churnProbability * 100).toFixed(0)}%</span>
+                              </div>
+                              <div>
+                                <span className="text-[#6B7C8D] block text-[10px]">AVG CSAT</span>
+                                <span className="font-bold text-[#EAF1F8]">{acc.csatAverage}%</span>
+                              </div>
+                              <div>
+                                <span className="text-[#6B7C8D] block text-[10px]">OPEN CASES</span>
+                                <span className="font-bold text-[#2ED8B6]">{acc.openIssuesCount}</span>
+                              </div>
+                              <div>
+                                <span className="text-[#6B7C8D] block text-[10px]">48H FRUSTRATED</span>
+                                <span className="font-bold text-[#F5A623]">{acc.recentFrustratedCount48h || 0}</span>
+                              </div>
+                            </div>
+
+                            {acc.primaryFrustrationDriver && (
+                              <p className="text-xs text-[#B4C2D0] bg-[#18222E] p-3 rounded-lg border border-[var(--line)] leading-relaxed">
+                                <strong className="text-[#EAF1F8]">Frustration Driver:</strong> {acc.primaryFrustrationDriver}
+                              </p>
+                            )}
+
+                            <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                              <span className="text-[#6B7C8D] font-mono text-[11px]">
+                                CSM: <strong className="text-[#EAF1F8]">{acc.assignedCsm}</strong>
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAccountForForm(acc)}
+                                  className="btn btn-secondary text-xs flex items-center gap-1 cursor-pointer hover:border-[#2ED8B6]"
+                                >
+                                  <FileText className="w-3 h-3 text-[#2ED8B6]" />
+                                  <span>View Cases (Form)</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch("/api/cx/customer-health", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ accountId: acc.accountId }),
+                                      }).then((r) => r.json());
+
+                                      if (res.success) {
+                                        notify(res.message, "success");
+                                      }
+                                    } catch (err) {
+                                      notify("VIP Outreach failed", "error");
+                                    }
+                                  }}
+                                  className="btn btn-primary text-xs flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Send className="w-3 h-3" />
+                                  <span>VIP Outreach</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ========================================================================= */}
+                    {/* 3. LIST / TABLE VIEW */}
+                    {/* ========================================================================= */}
+                    {healthViewMode === "list" && (
+                      <div className="card p-5 space-y-4 rounded-2xl bg-[#121A24] border-[var(--line)]">
+                        <div className="overflow-x-auto">
+                          <table className="gv8-table font-mono text-xs">
+                            <thead>
+                              <tr>
+                                <th>Account Name / Tier</th>
+                                <th>Health Score</th>
+                                <th>Risk Level</th>
+                                <th>ARR Exposure</th>
+                                <th>Open Cases</th>
+                                <th>48h Frustrated</th>
+                                <th>Churn Prob</th>
+                                <th>Assigned CSM</th>
+                                <th className="text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {customerHealthData.accounts.map((acc: any) => (
+                                <tr key={acc.accountId} className="hover:bg-[#18222E]/50">
+                                  <td>
+                                    <div className="font-bold text-[#EAF1F8] font-sans">{acc.accountName}</div>
+                                    <span className="pill text-[9px] uppercase">{acc.tier}</span>
+                                  </td>
+                                  <td>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`font-bold ${
+                                          acc.healthScore < 60
+                                            ? "text-[#E5484D]"
+                                            : acc.healthScore < 80
+                                            ? "text-[#F5A623]"
+                                            : "text-[#2ED8B6]"
+                                        }`}
+                                      >
+                                        {acc.healthScore}%
+                                      </span>
+                                      <div className="w-16 bg-[#18222E] h-1.5 rounded-full overflow-hidden border border-[var(--line)]">
+                                        <div
+                                          className={`h-full rounded-full ${
+                                            acc.healthScore < 60
+                                              ? "bg-[#E5484D]"
+                                              : acc.healthScore < 80
+                                              ? "bg-[#F5A623]"
+                                              : "bg-[#2ED8B6]"
+                                          }`}
+                                          style={{ width: `${acc.healthScore}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`pill text-[9px] ${
+                                        acc.riskLevel === "critical_at_risk"
+                                          ? "err"
+                                          : acc.riskLevel === "concerning"
+                                          ? "warn"
+                                          : "ok"
+                                      }`}
+                                    >
+                                      <i className="dot"></i>
+                                      {acc.riskLevel.replace("_", " ")}
+                                    </span>
+                                  </td>
+                                  <td className="text-[#F5A623] font-bold">
+                                    ${acc.arrExposure.toLocaleString()}
+                                  </td>
+                                  <td className="text-[#2ED8B6] font-bold">
+                                    {acc.openIssuesCount}
+                                  </td>
+                                  <td className="text-[#F5A623]">
+                                    {acc.recentFrustratedCount48h || 0}
+                                  </td>
+                                  <td className="text-[#E5484D] font-bold">
+                                    {(acc.churnProbability * 100).toFixed(0)}%
+                                  </td>
+                                  <td className="text-[#B4C2D0]">
+                                    {acc.assignedCsm}
+                                  </td>
+                                  <td className="text-right">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedAccountForForm(acc)}
+                                        className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:border-[#2ED8B6]"
+                                      >
+                                        Inspect (Form)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          try {
+                                            const res = await fetch("/api/cx/customer-health", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ accountId: acc.accountId }),
+                                            }).then((r) => r.json());
+
+                                            if (res.success) {
+                                              notify(res.message, "success");
+                                            }
+                                          } catch (err) {
+                                            notify("VIP Outreach failed", "error");
+                                          }
+                                        }}
+                                        className="btn btn-primary text-xs py-1 px-2 font-mono"
+                                      >
+                                        Outreach
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

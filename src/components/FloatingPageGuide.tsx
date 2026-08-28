@@ -29,12 +29,12 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     actions: [
       "Monitor the Autonomous Resolution percentage — healthy baseline is > 70%.",
       "Watch active problem clusters to identify upstream outage blast radii.",
-      "Jump straight to the Focused Work Desk or CX Cockpit using top action cards.",
+      "Jump straight to the Workspace or CX Cockpit using top action cards.",
     ],
     tip: "A sharp drop in sentiment across multiple tickets usually precedes major webhook or gateway outages.",
   },
   workspace: {
-    label: "Focused Work Desk",
+    label: "Workspace",
     what: "High-velocity 3-pane agentic workstation: live queue triage, multi-turn customer thread, Customer 360 ARR context, and AI 1-click action dispatcher.",
     actions: [
       "Review AI-suggested confidence match and 1-click resolve routine inquiries.",

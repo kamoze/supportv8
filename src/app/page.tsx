@@ -331,7 +331,7 @@ export default function SupportV8Dashboard() {
   const [isConnectorConfigOpen, setIsConnectorConfigOpen] = useState<boolean>(false);
   const [selectedConnectorForConfig, setSelectedConnectorForConfig] = useState<MarketplaceConnector | null>(null);
 
-  // Focused Work Desk States
+  // Workspace States
   const [workspaceSelectedIssueId, setWorkspaceSelectedIssueId] = useState<string>("ISS-1001");
   const [workspaceReplyText, setWorkspaceReplyText] = useState<string>("Hello, I have reviewed your request. Our autonomous resolution engine has approved the mitigation.");
   const [workspaceRefundAmount, setWorkspaceRefundAmount] = useState<string>("49.00");
@@ -889,7 +889,7 @@ export default function SupportV8Dashboard() {
       title: "Core Intelligence",
       items: [
         { id: "overview", label: "Overview", icon: LayoutDashboard, flaticon: "fi fi-rr-dashboard" },
-        { id: "workspace", label: "Focused Work Desk", icon: Briefcase, flaticon: "fi fi-rr-briefcase", badge: issues.length },
+        { id: "workspace", label: "Workspace", icon: Briefcase, flaticon: "fi fi-rr-briefcase", badge: issues.length },
         { id: "cx_cockpit", label: "CX Cockpit", icon: Target, flaticon: "fi fi-rr-target", badge: slaData.atRiskCount, badgeColor: "warn" },
         { id: "issues", label: "Derived Issues", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-middle", badge: issues.length },
         { id: "problems", label: "Problem Matrix", icon: AlertTriangle, flaticon: "fi fi-rr-triangle-warning", badge: problems.length, badgeColor: "err" },

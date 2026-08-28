@@ -39,7 +39,7 @@ interface FocusedWorkspaceViewProps {
   problems?: any[];
   insights?: any[];
   onResolve: (issueId: string) => void;
-  onProcessRefund: (issueId: string, amount: string) => void;
+  onProcessRefund?: (issueId: string, amount: string) => void;
   onEscalate?: (issue: Issue) => void;
   onNavigateToProblems?: () => void;
   onExecuteInsight?: (insightId: string) => void;
@@ -69,7 +69,6 @@ export function FocusedWorkspaceView({
   const [aiTone, setAiTone] = useState<"empathetic" | "technical" | "concise" | "executive">("empathetic");
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
   const [replyText, setReplyText] = useState<string>("");
-  const [refundAmount, setRefundAmount] = useState<string>("49.00");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [screenShareActive, setScreenShareActive] = useState<boolean>(false);
   const [copiedNote, setCopiedNote] = useState<boolean>(false);
@@ -155,11 +154,6 @@ export function FocusedWorkspaceView({
   const handleSendReply = () => {
     if (!selectedIssue || !replyText.trim()) return;
     onNotify(`Dispatched ${commChannel.toUpperCase()} reply to ${selectedIssue.customerName} via Vertical Mesh`, "success");
-  };
-
-  const handleRefund = () => {
-    if (!selectedIssue) return;
-    onProcessRefund(selectedIssue.id, refundAmount);
   };
 
   return (
@@ -659,35 +653,6 @@ export function FocusedWorkspaceView({
                 <Zap className="w-3.5 h-3.5" />
                 <span>⚡ Send &amp; Auto-Resolve</span>
               </button>
-            </div>
-
-            {/* 1-Click Multi-Vertical OrderV8 Refund Action */}
-            <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#EAF1F8]">
-                <span className="flex items-center gap-1.5 font-mono text-[11px]">
-                  <CreditCard className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>OrderV8 Multi-Vertical Action</span>
-                </span>
-                <span className="text-[10px] font-mono text-[#2ED8B6]">Forge Gateway Active</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-2 text-[#6B7C8D] font-mono text-xs">$</span>
-                  <input
-                    type="text"
-                    value={refundAmount}
-                    onChange={(e) => setRefundAmount(e.target.value)}
-                    className="w-full bg-[#121A24] pl-7 pr-3 py-1.5 rounded-lg border border-[var(--line-2)] text-xs font-mono text-[#EAF1F8] focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleRefund}
-                  className="btn btn-secondary text-xs py-1.5 px-4 font-bold cursor-pointer"
-                >
-                  Issue Refund
-                </button>
-              </div>
             </div>
 
             {/* Direct Escalation Action */}

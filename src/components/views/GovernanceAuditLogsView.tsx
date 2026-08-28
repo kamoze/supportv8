@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ShieldCheck,
   Search,
@@ -15,6 +15,9 @@ import {
   Cpu,
   ArrowUpRight,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   X,
   FileCode,
   Copy,
@@ -22,6 +25,9 @@ import {
   RefreshCw,
   Hash,
   ExternalLink,
+  Maximize2,
+  Minimize2,
+  SlidersHorizontal,
 } from "lucide-react";
 import type { TenantAuditLog } from "@/lib/types/marketplace-types";
 
@@ -42,6 +48,12 @@ export function GovernanceAuditLogsView({
   const [isVerifying, setIsVerifying] = useState(false);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
+  // Pagination & Window Expansion States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [isTableExpanded, setIsTableExpanded] = useState(false);
+  const [isDetailExpanded, setIsDetailExpanded] = useState(false);
+
   // Filtered Logs
   const filteredLogs = useMemo(() => {
     return auditLogs.filter((log) => {
@@ -61,6 +73,18 @@ export function GovernanceAuditLogsView({
       return true;
     });
   }, [auditLogs, categoryFilter, riskFilter, statusFilter, searchQuery]);
+
+  // Reset page when filter criteria change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter, riskFilter, statusFilter, pageSize]);
+
+  // Paginated Slices
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedLogs = useMemo(() => {
+    return filteredLogs.slice(startIndex, startIndex + pageSize);
+  }, [filteredLogs, startIndex, pageSize]);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -245,49 +269,110 @@ export function GovernanceAuditLogsView({
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] font-mono text-[#6B7C8D] pt-1">
-          <span>Showing {filteredLogs.length} of {auditLogs.length} audit records</span>
-          {(searchQuery || categoryFilter !== "all" || riskFilter !== "all" || statusFilter !== "all") && (
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setCategoryFilter("all");
-                setRiskFilter("all");
-                setStatusFilter("all");
-              }}
-              className="text-[#2ED8B6] hover:underline cursor-pointer"
-            >
-              Reset Filters
-            </button>
-          )}
+        <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-[#6B7C8D] pt-1 gap-2">
+          <div>
+            Showing <strong className="text-[#EAF1F8]">{filteredLogs.length > 0 ? startIndex + 1 : 0}</strong> - <strong className="text-[#EAF1F8]">{Math.min(startIndex + pageSize, filteredLogs.length)}</strong> of <strong className="text-[#EAF1F8]">{filteredLogs.length}</strong> filtered records ({auditLogs.length} total)
+          </div>
+
+          <div className="flex items-center gap-3">
+            {(searchQuery || categoryFilter !== "all" || riskFilter !== "all" || statusFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setCategoryFilter("all");
+                  setRiskFilter("all");
+                  setStatusFilter("all");
+                }}
+                className="text-[#2ED8B6] hover:underline cursor-pointer"
+              >
+                Reset Filters
+              </button>
+            )}
+
+            {/* Page Size Selector */}
+            <div className="flex items-center gap-1.5">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="bg-[#18222E] text-[#EAF1F8] px-2 py-0.5 rounded border border-[var(--line-2)] text-[11px] focus:outline-none cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Audit Log Table */}
-      <div className="card rounded-2xl border-[var(--line)] overflow-hidden bg-[#121A24]">
-        <div className="overflow-x-auto">
-          <table className="gv8-table">
-            <thead>
+      {/* Audit Log Table Container (with Expand Window & Sticky Header) */}
+      <div
+        className={`card rounded-2xl border-[var(--line)] bg-[#121A24] transition-all flex flex-col ${
+          isTableExpanded
+            ? "fixed inset-3 md:inset-6 z-50 p-6 shadow-2xl border-2 border-[#2ED8B6]/60 bg-[#0C121A] overflow-hidden"
+            : "overflow-hidden"
+        }`}
+      >
+        {/* Table Header Bar with Expand / Shrink Controls */}
+        <div className="p-3.5 border-b border-[var(--line)] bg-[#18222E]/80 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-[#EAF1F8] uppercase tracking-wider">
+              {isTableExpanded ? "Expanded Full-Window Audit Log Viewer" : "Audit Records Trail"}
+            </span>
+            <span className="pill ok text-[9px] font-mono">
+              Page {currentPage} of {totalPages}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsTableExpanded(!isTableExpanded)}
+              className="btn btn-secondary py-1 px-2.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer text-[#2ED8B6] hover:bg-[#2ED8B6]/10"
+              title={isTableExpanded ? "Restore compact window" : "Expand window for wider view"}
+            >
+              {isTableExpanded ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>Restore View</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>+ Expand Window</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Table Area */}
+        <div className={`overflow-x-auto overflow-y-auto ${isTableExpanded ? "flex-1 min-h-0" : "max-h-[560px]"}`}>
+          <table className="gv8-table w-full">
+            <thead className="sticky top-0 bg-[#121A24] z-10 border-b border-[var(--line)] shadow-sm">
               <tr>
-                <th>Timestamp</th>
-                <th>Actor / Entity</th>
-                <th>Operation &amp; Category</th>
-                <th>Target Entity</th>
-                <th>Risk</th>
-                <th>Status</th>
-                <th>SHA-256 Hash</th>
-                <th>Action</th>
+                <th className="whitespace-nowrap">Timestamp</th>
+                <th className="whitespace-nowrap">Actor / Entity</th>
+                <th className="whitespace-nowrap">Operation &amp; Category</th>
+                <th className="whitespace-nowrap">Target Entity</th>
+                <th className="whitespace-nowrap">Risk</th>
+                <th className="whitespace-nowrap">Status</th>
+                <th className="whitespace-nowrap">SHA-256 Hash</th>
+                <th className="whitespace-nowrap text-right">Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.length === 0 ? (
+              {paginatedLogs.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-[#6B7C8D] font-mono text-xs">
                     No audit records match the current filter criteria.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => {
+                paginatedLogs.map((log) => {
                   const isCopied = copiedHash === log.id;
                   return (
                     <tr
@@ -401,14 +486,14 @@ export function GovernanceAuditLogsView({
                       </td>
 
                       {/* Action */}
-                      <td>
+                      <td className="text-right">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedLog(log);
                           }}
-                          className="btn btn-secondary py-1 px-2.5 text-xs font-mono flex items-center gap-1 cursor-pointer"
+                          className="btn btn-secondary py-1 px-2.5 text-xs font-mono inline-flex items-center gap-1 cursor-pointer"
                         >
                           <span>Inspect</span>
                           <ChevronRight className="w-3 h-3" />
@@ -421,12 +506,99 @@ export function GovernanceAuditLogsView({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer Controls */}
+        <div className="p-3.5 border-t border-[var(--line)] bg-[#18222E]/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="text-xs font-mono text-[#6B7C8D]">
+            Page <strong className="text-[#EAF1F8]">{currentPage}</strong> of <strong className="text-[#EAF1F8]">{totalPages}</strong> &bull; Total {filteredLogs.length} Records
+          </div>
+
+          <div className="flex items-center gap-1 font-mono text-xs">
+            {/* First Page */}
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(1)}
+              className="p-1.5 rounded-lg border border-[var(--line)] bg-[#121A24] text-[#B4C2D0] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              title="First Page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+
+            {/* Previous Page */}
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="p-1.5 rounded-lg border border-[var(--line)] bg-[#121A24] text-[#B4C2D0] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 px-2.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Prev</span>
+            </button>
+
+            {/* Page Number Pills */}
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p = i + 1;
+                if (totalPages > 5) {
+                  if (currentPage > 3 && currentPage < totalPages - 2) {
+                    p = currentPage - 2 + i;
+                  } else if (currentPage >= totalPages - 2) {
+                    p = totalPages - 4 + i;
+                  }
+                }
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setCurrentPage(p)}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === p
+                        ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-extrabold"
+                        : "bg-[#121A24] text-[#6B7C8D] hover:text-[#EAF1F8] border border-[var(--line)]"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Next Page */}
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="p-1.5 rounded-lg border border-[var(--line)] bg-[#121A24] text-[#B4C2D0] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 px-2.5"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {/* Last Page */}
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="p-1.5 rounded-lg border border-[var(--line)] bg-[#121A24] text-[#B4C2D0] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              title="Last Page"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Slide-Out Detail Modal / Drawer */}
+      {/* Slide-Out Detail Modal / Drawer with Expand Option */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
-          <div className="w-full max-w-2xl max-h-[90vh] bg-[#0C121A] border-2 border-[#2ED8B6] shadow-[0_0_35px_rgba(46,216,182,0.2)] ring-1 ring-[#2ED8B6]/40 rounded-2xl flex flex-col overflow-hidden">
+          <div
+            className={`bg-[#0C121A] border-2 border-[#2ED8B6] shadow-[0_0_35px_rgba(46,216,182,0.2)] ring-1 ring-[#2ED8B6]/40 rounded-2xl flex flex-col overflow-hidden transition-all ${
+              isDetailExpanded
+                ? "w-[96vw] h-[94vh]"
+                : "w-full max-w-2xl max-h-[90vh]"
+            }`}
+          >
             {/* Modal Header */}
             <div className="p-4 border-b border-[#2ED8B6]/30 bg-[#121A24] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -439,13 +611,27 @@ export function GovernanceAuditLogsView({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedLog(null)}
-                className="p-1.5 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsDetailExpanded(!isDetailExpanded)}
+                  className="p-1.5 text-[#6B7C8D] hover:text-[#2ED8B6] rounded-lg hover:bg-[#18222E] cursor-pointer"
+                  title={isDetailExpanded ? "Restore modal size" : "Expand modal"}
+                >
+                  {isDetailExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLog(null);
+                    setIsDetailExpanded(false);
+                  }}
+                  className="p-1.5 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Body */}
@@ -518,7 +704,10 @@ export function GovernanceAuditLogsView({
 
               <button
                 type="button"
-                onClick={() => setSelectedLog(null)}
+                onClick={() => {
+                  setSelectedLog(null);
+                  setIsDetailExpanded(false);
+                }}
                 className="btn btn-secondary py-1.5 px-4 text-xs font-mono cursor-pointer"
               >
                 Close

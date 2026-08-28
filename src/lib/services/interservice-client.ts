@@ -151,6 +151,19 @@ export class DominionClient {
       timestamp: new Date().toISOString(),
     };
   }
+
+  static async emitTelemetry(params: {
+    tenantId: string;
+    event: string;
+    metrics?: Record<string, unknown>;
+  }): Promise<InterServiceResponse<{ status: string }>> {
+    return {
+      success: true,
+      service: "dominion",
+      data: { status: "telemetry_emitted" },
+      timestamp: new Date().toISOString(),
+    };
+  }
 }
 
 // -----------------------------------------------------------------------------

@@ -20,6 +20,7 @@ export interface SupportTriageWorkflowInput {
 
 export interface SupportTriageWorkflowResult {
   sessionId: string;
+  workflowId?: string;
   triageStatus: "autonomous_resolved" | "escalated_to_human" | "routed_to_group";
   assignedTarget: string;
   ragCitations: QueryKnowledgeOutput["citations"];

@@ -24,6 +24,9 @@ import {
   Key,
   Smartphone,
   FileCheck,
+  Layers,
+  AlertTriangle,
+  Users,
 } from "lucide-react";
 import type { Issue } from "@/lib/types";
 
@@ -274,24 +277,28 @@ export function FocusedWorkspaceView({
             {/* Audience Tabs: All, Customers, Contractors, Urgent */}
             <div className="flex items-center gap-1 bg-[#161F2C] p-0.5 rounded-md border border-[var(--line)]">
               {[
-                { id: "all", label: "All" },
-                { id: "customers", label: "Customers" },
-                { id: "contractors", label: "Contractors" },
-                { id: "urgent", label: "Urgent" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setFilterType(tab.id as any)}
-                  className={`flex-1 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer text-center ${
-                    filterType === tab.id
-                      ? "bg-[#2ED8B6]/20 text-[#2ED8B6] font-semibold"
-                      : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                { id: "all", label: "All", icon: Layers },
+                { id: "customers", label: "Customers", icon: Users },
+                { id: "contractors", label: "Contractors", icon: HardHat },
+                { id: "urgent", label: "Urgent", icon: AlertTriangle },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilterType(tab.id as any)}
+                    className={`flex-1 py-1 rounded text-[10px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      filterType === tab.id
+                        ? "bg-[#2ED8B6]/20 text-[#2ED8B6] font-semibold"
+                        : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                    }`}
+                  >
+                    <Icon className="w-3 h-3" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

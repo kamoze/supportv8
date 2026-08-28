@@ -123,6 +123,7 @@ import { GlobalLandingView } from "@/components/GlobalLandingView";
 import { TenantLandingView } from "@/components/TenantLandingView";
 import { SignupModal } from "@/components/SignupModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
+import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 
 export interface ChatMessage {
   id: string;
@@ -3728,7 +3729,8 @@ export default function SupportV8Dashboard() {
                           {/* Disabled Direct Work Badge */}
                           <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
                             <span className="text-[#E5484D] flex items-center gap-1 font-bold">
-                              <span>🔒 No Direct Assignment</span>
+                              <Lock className="w-3 h-3" />
+                              <span>No Direct Assignment</span>
                             </span>
                             <span>Delegated Runs: <strong className="text-[#EAF1F8]">{intern.assignedCount}</strong></span>
                           </div>
@@ -3805,7 +3807,7 @@ export default function SupportV8Dashboard() {
                             className="btn btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                           >
                             <Zap className="w-3.5 h-3.5" />
-                            <span>⚡ Hire AI Employee</span>
+                            <span>Hire AI Employee</span>
                           </button>
                         </div>
                       </div>
@@ -5249,9 +5251,12 @@ export default function SupportV8Dashboard() {
                 // Assistant message
                 return (
                   <div key={msg.id} className="flex gap-3 max-w-[92%] sm:max-w-[85%]">
-                    <div className="w-8 h-8 rounded-xl bg-[#121A24] border border-[var(--line)] flex items-center justify-center text-base shrink-0 shadow-sm">
-                      {msg.employeeAvatar || "🤖"}
-                    </div>
+                    <WorkforceAvatar
+                      name={msg.employeeName}
+                      avatar={msg.employeeAvatar}
+                      role={msg.employeeRole}
+                      size="sm"
+                    />
                     <div className="flex-1 bg-[#121A24] border border-[var(--line)] text-[#EAF1F8] p-4 rounded-2xl rounded-tl-sm text-xs space-y-3 shadow-md">
                       <div className="flex items-center justify-between pb-2 border-b border-[var(--line)] text-[11px]">
                         <div className="flex items-center gap-2">
@@ -5892,8 +5897,8 @@ export default function SupportV8Dashboard() {
                 disabled={isProvisioningVoice}
                 className="btn btn-primary text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
               >
-                <Zap className="w-3.5 h-3.5" />
-                <span>{isProvisioningVoice ? "Provisioning via API..." : "🚀 Provision Voice Bot via API"}</span>
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>{isProvisioningVoice ? "Provisioning via API..." : "Provision Voice Bot via API"}</span>
               </button>
             </div>
           </div>

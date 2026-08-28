@@ -452,7 +452,7 @@ export function MarketplaceConnectorsView({
                 className="btn btn-primary py-2.5 px-5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span>{verticalDispatchLoading ? "Dispatching API Call..." : "🚀 Dispatch Vertical API"}</span>
+                <span>{verticalDispatchLoading ? "Dispatching API Call..." : "Dispatch Vertical API"}</span>
               </button>
             </div>
 

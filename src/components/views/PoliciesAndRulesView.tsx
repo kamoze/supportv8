@@ -737,7 +737,7 @@ export function PoliciesAndRulesView({
                 className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
               >
                 <Play className={`w-3.5 h-3.5 ${simLoading ? "animate-spin" : ""}`} />
-                <span>{simLoading ? "Evaluating Policy Tree..." : "⚡ Run Sandbox Simulation"}</span>
+                <span>{simLoading ? "Evaluating Policy Tree..." : "Run Sandbox Simulation"}</span>
               </button>
             </div>
 

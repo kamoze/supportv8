@@ -60,7 +60,7 @@ export function FocusedWorkspaceView({
   const [selectedIssueId, setSelectedIssueId] = useState<string>(issues[0]?.id || "");
   const [filterType, setFilterType] = useState<"all" | "enterprise" | "urgent" | "at_risk">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [showInsightsDrawer, setShowInsightsDrawer] = useState<boolean>(true);
+  const [showInsightsDrawer, setShowInsightsDrawer] = useState<boolean>(false);
   const [executingInsightId, setExecutingInsightId] = useState<string | null>(null);
 
   // Communication & AI Mode State
@@ -219,101 +219,7 @@ export function FocusedWorkspaceView({
         </div>
       </div>
 
-      {/* Action Insights Intervention Queue Banner */}
-      {showInsightsDrawer && insights.length > 0 && (
-        <div className="bg-[#0B1017] border-b border-[var(--line)] p-3.5 shrink-0 space-y-2.5 transition-all">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="p-1 rounded-lg bg-[#F5A623]/20 text-[#F5A623]">
-                <Wand2 className="w-3.5 h-3.5" />
-              </span>
-              <span className="font-bold text-[#EAF1F8] uppercase tracking-wider">
-                Action Insights &amp; AI Intervention Queue
-              </span>
-              <span className="text-[10px] text-[#6B7C8D]">
-                (Derived from Trend Radar &amp; Outage Telemetry)
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowInsightsDrawer(false)}
-              className="text-[11px] font-mono text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-            >
-              Hide Queue ✕
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {insights.map((ins) => (
-              <div
-                key={ins.id}
-                className="p-3 rounded-xl bg-[#121A24] border border-[var(--line)] hover:border-[#F5A623]/40 space-y-2 text-xs transition-all shadow-sm flex flex-col justify-between"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-bold text-[#EAF1F8] text-[11.5px] leading-snug">
-                      {ins.title}
-                    </h4>
-                    <span className="pill ok text-[8.5px] font-mono shrink-0">
-                      {(ins.confidence * 100).toFixed(0)}% AI Confidence
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#B4C2D0] leading-relaxed line-clamp-2">
-                    {ins.finding}
-                  </p>
-                  <div className="p-2 rounded-lg bg-[#18222E] border border-[var(--line-2)] text-[10.5px] text-[#EAF1F8] font-mono">
-                    <span className="text-[#F5A623] font-bold">Action: </span>
-                    <span>{ins.recommendation}</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (ins.title.toLowerCase().includes("saml") || ins.finding.toLowerCase().includes("saml")) {
-                        setSearchQuery("SAML");
-                      } else if (ins.title.toLowerCase().includes("refund")) {
-                        setSearchQuery("Refund");
-                      } else {
-                        setSearchQuery(ins.affectedSegment || "");
-                      }
-                      onNotify(`Filtered Work Desk queue to tickets matching insight: ${ins.title}`, "info");
-                    }}
-                    className="text-[10px] font-mono text-[#4D9FFF] hover:underline cursor-pointer flex items-center gap-1"
-                  >
-                    <span>Filter Queue</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={executingInsightId === ins.id}
-                    onClick={async () => {
-                      setExecutingInsightId(ins.id);
-                      try {
-                        if (onExecuteInsight) {
-                          await onExecuteInsight(ins.id);
-                        } else {
-                          onNotify(`Executed insight '${ins.title}' via Action Gateway`, "success");
-                        }
-                      } finally {
-                        setExecutingInsightId(null);
-                      }
-                    }}
-                    className="btn btn-primary py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-50"
-                  >
-                    <Zap className="w-3 h-3" />
-                    <span>{executingInsightId === ins.id ? "Executing..." : "Execute Action"}</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 3-Pane Body Grid */}
+      {/* 3-Pane Body Grid (Full Height Customer Triage & Resolution Workspace) */}
       <div className="flex-1 grid grid-cols-12 overflow-hidden">
         {/* ========================================================================= */}
         {/* PANE 1: Ingress Queue Stream (Width: 3 cols) */}
@@ -673,6 +579,103 @@ export function FocusedWorkspaceView({
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* ACTION INSIGHTS & AI INTERVENTION QUEUE (BOTTOM COLLAPSIBLE DRAWER) */}
+      {/* ========================================================================= */}
+      {showInsightsDrawer && insights.length > 0 && (
+        <div className="bg-[#0B1017] border-t-2 border-[#F5A623]/60 p-4 shrink-0 space-y-3 transition-all max-h-[300px] overflow-y-auto z-20 shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="p-1.5 rounded-lg bg-[#F5A623]/20 text-[#F5A623] border border-[#F5A623]/30">
+                <Wand2 className="w-4 h-4" />
+              </span>
+              <span className="font-bold text-[#EAF1F8] uppercase tracking-wider">
+                Action Insights &amp; AI Intervention Queue
+              </span>
+              <span className="text-[10px] text-[#6B7C8D]">
+                (Aggregated from Trend Radar &amp; Outage Telemetry)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowInsightsDrawer(false)}
+              className="text-[11px] font-mono text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>Hide Queue</span>
+              <span>✕</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {insights.map((ins) => (
+              <div
+                key={ins.id}
+                className="p-3.5 rounded-xl bg-[#121A24] border border-[var(--line)] hover:border-[#F5A623]/60 space-y-2 text-xs transition-all shadow-md flex flex-col justify-between"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-bold text-[#EAF1F8] text-[11.5px] leading-snug">
+                      {ins.title}
+                    </h4>
+                    <span className="pill ok text-[8.5px] font-mono shrink-0">
+                      {(ins.confidence * 100).toFixed(0)}% AI Confidence
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#B4C2D0] leading-relaxed line-clamp-2">
+                    {ins.finding}
+                  </p>
+                  <div className="p-2 rounded-lg bg-[#18222E] border border-[var(--line-2)] text-[10.5px] text-[#EAF1F8] font-mono">
+                    <span className="text-[#F5A623] font-bold">Action: </span>
+                    <span>{ins.recommendation}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (ins.title.toLowerCase().includes("saml") || ins.finding.toLowerCase().includes("saml")) {
+                        setSearchQuery("SAML");
+                      } else if (ins.title.toLowerCase().includes("refund")) {
+                        setSearchQuery("Refund");
+                      } else {
+                        setSearchQuery(ins.affectedSegment || "");
+                      }
+                      onNotify(`Filtered Work Desk queue to tickets matching insight: ${ins.title}`, "info");
+                    }}
+                    className="text-[10px] font-mono text-[#4D9FFF] hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Filter Queue</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={executingInsightId === ins.id}
+                    onClick={async () => {
+                      setExecutingInsightId(ins.id);
+                      try {
+                        if (onExecuteInsight) {
+                          await onExecuteInsight(ins.id);
+                        } else {
+                          onNotify(`Executed insight '${ins.title}' via Action Gateway`, "success");
+                        }
+                      } finally {
+                        setExecutingInsightId(null);
+                      }
+                    }}
+                    className="btn btn-primary py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    <Zap className="w-3 h-3" />
+                    <span>{executingInsightId === ins.id ? "Executing..." : "Execute Action"}</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

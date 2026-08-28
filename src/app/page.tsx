@@ -1221,7 +1221,7 @@ export default function SupportV8Dashboard() {
           className={
             activeTab === "ask" || activeTab === "workspace"
               ? "flex-1 flex flex-col min-h-0 w-full overflow-hidden"
-              : "flex-1 p-6 max-w-7xl w-full mx-auto space-y-6"
+              : "flex-1 p-4 sm:p-6 md:p-8 max-w-[1680px] w-full mx-auto space-y-6"
           }
         >
         {/* ========================================================================= */}
@@ -3001,34 +3001,34 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: ISSUES EXPLORER (GROWTHV8 LAYOUT) */}
+        {/* TAB: DERIVED ISSUES EXPLORER (EXPANDED FULL-WIDTH TABLE WITH FLOATING PANEL) */}
         {/* ========================================================================= */}
         {activeTab === "issues" && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 card p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 card p-5 rounded-2xl">
               <div>
                 <h2 className="text-lg font-bold text-[#EAF1F8]">Derived Issues Explorer</h2>
                 <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  External ticket intelligence with source deep-links and non-destructive linking.
+                  External ticket intelligence with non-destructive linking and real-time triage reasoning.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-64">
+                <div className="relative flex-1 sm:w-72">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
                   <input
                     type="text"
                     value={issueSearch}
                     onChange={(e) => setIssueSearch(e.target.value)}
-                    placeholder="Search issues, tags, summaries..."
-                    className="w-full bg-[#18222E] text-xs text-[#EAF1F8] pl-8 pr-3 py-1.5 rounded-lg border border-[var(--line-2)] focus:outline-none transition-colors"
+                    placeholder="Search issues, tags, customers..."
+                    className="w-full bg-[#18222E] text-xs text-[#EAF1F8] pl-8 pr-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
                   />
                 </div>
 
                 <select
                   value={issueSentimentFilter}
                   onChange={(e) => setIssueSentimentFilter(e.target.value)}
-                  className="bg-[#18222E] text-xs text-[#EAF1F8] px-3 py-1.5 rounded-lg border border-[var(--line-2)] focus:outline-none cursor-pointer"
+                  className="bg-[#18222E] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer"
                 >
                   <option value="all">All Sentiments</option>
                   <option value="urgent">Urgent</option>
@@ -3040,130 +3040,243 @@ export default function SupportV8Dashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className={`${selectedIssue ? "lg:col-span-2" : "lg:col-span-3"} card p-5 overflow-hidden`}>
-                <div className="overflow-x-auto">
-                  <table className="gv8-table">
-                    <thead>
-                      <tr>
-                        <th>Source Ref</th>
-                        <th>Customer / Tier</th>
-                        <th>Summary</th>
-                        <th>Sentiment</th>
-                        <th>Confidence</th>
-                        <th>Problem Link</th>
-                        <th>Deep Link</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredIssues.map((issue) => (
-                        <tr
-                          key={issue.id}
-                          onClick={() => setSelectedIssue(issue)}
-                          className={`cursor-pointer transition-colors ${
-                            selectedIssue?.id === issue.id ? "bg-[#18222E] border-l-2 border-[#2ED8B6]" : ""
-                          }`}
-                        >
-                          <td className="font-mono">
-                            <span className="font-semibold text-[#EAF1F8]">{issue.externalId}</span>
-                            <span className="block text-[10px] text-[#6B7C8D] uppercase">{issue.source}</span>
-                          </td>
-                          <td>
-                            <span className="font-medium text-[#EAF1F8]">{issue.customerName}</span>
-                            <span className="ml-1.5 pill">
-                              {issue.customerTier}
-                            </span>
-                          </td>
-                          <td className="max-w-xs">
-                            <div className="font-medium text-[#EAF1F8] truncate">{issue.summary}</div>
-                            <div className="text-[10px] text-[#6B7C8D] mt-0.5">{issue.category}</div>
-                          </td>
-                          <td>
-                            <span
-                              className={`pill ${
-                                issue.sentiment === "urgent" || issue.sentiment === "angry"
-                                  ? "err"
-                                  : issue.sentiment === "frustrated"
-                                  ? "warn"
-                                  : "ok"
-                              }`}
-                            >
+            {/* Full-Width Issues Table */}
+            <div className="card p-5 overflow-hidden w-full rounded-2xl bg-[#121A24] border-[var(--line)]">
+              <div className="overflow-x-auto">
+                <table className="gv8-table w-full">
+                  <thead>
+                    <tr>
+                      <th>Source / Issue ID</th>
+                      <th>Customer &amp; Tier</th>
+                      <th>Summary &amp; Category</th>
+                      <th>Sentiment</th>
+                      <th>AI Confidence</th>
+                      <th>Problem Link</th>
+                      <th>Assigned Agent</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredIssues.map((issue) => (
+                      <tr
+                        key={issue.id}
+                        onClick={() => setSelectedIssue(issue)}
+                        className={`cursor-pointer transition-colors hover:bg-[#18222E]/60 ${
+                          selectedIssue?.id === issue.id ? "bg-[#18222E] border-l-2 border-[#2ED8B6]" : ""
+                        }`}
+                      >
+                        <td className="font-mono">
+                          <span className="font-bold text-[#EAF1F8] text-xs block">{issue.externalId}</span>
+                          <span className="pill text-[9px] uppercase mt-0.5 inline-block">{issue.source}</span>
+                        </td>
+                        <td>
+                          <div className="font-bold text-[#EAF1F8] text-xs">{issue.customerName}</div>
+                          <span className="text-[10px] text-[#6B7C8D] font-mono">{issue.customerTier} Tier</span>
+                        </td>
+                        <td>
+                          <div className="font-medium text-[#EAF1F8] text-xs leading-snug">{issue.summary}</div>
+                          <div className="text-[10px] text-[#2ED8B6] font-mono mt-0.5">{issue.category}</div>
+                        </td>
+                        <td>
+                          <span
+                            className={`pill text-[10px] ${
+                              issue.sentiment === "urgent" || issue.sentiment === "angry"
+                                ? "err"
+                                : issue.sentiment === "frustrated"
+                                ? "warn"
+                                : "ok"
+                            }`}
+                          >
+                            <i className="dot"></i>
+                            {issue.sentiment}
+                          </span>
+                        </td>
+                        <td className="font-mono text-xs font-bold text-[#4CC38A]">
+                          {(issue.confidence * 100).toFixed(0)}%
+                        </td>
+                        <td className="font-mono text-xs">
+                          {issue.problemId ? (
+                            <span className="pill ok text-[10px]">
                               <i className="dot"></i>
-                              {issue.sentiment}
+                              {issue.problemId}
                             </span>
-                          </td>
-                          <td className="font-mono text-[11px] text-[#B4C2D0]">
-                            {(issue.confidence * 100).toFixed(0)}%
-                          </td>
-                          <td className="font-mono">
-                            {issue.problemId ? (
-                              <span className="pill ok">
-                                <i className="dot"></i>
-                                {issue.problemId}
-                              </span>
-                            ) : (
-                              <span className="text-[#6B7C8D]">—</span>
-                            )}
-                          </td>
-                          <td>
+                          ) : (
+                            <span className="text-[#6B7C8D] text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="text-xs text-[#B4C2D0] font-mono">
+                          {issue.assignedTo || "Sophia (AI)"}
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedIssue(issue)}
+                              className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] hover:border-[#2ED8B6]"
+                            >
+                              Inspect Details →
+                            </button>
                             <a
                               href={issue.sourceUrl}
                               target="_blank"
                               rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="btn btn-secondary p-1.5 rounded-lg inline-flex items-center"
+                              className="btn btn-secondary p-1.5 rounded-lg inline-flex items-center text-[#6B7C8D] hover:text-[#EAF1F8]"
+                              title="Open Raw Source"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            </div>
 
-              {selectedIssue && (
-                <div className="card p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-                    <div>
-                      <span className="eyebrow">Issue Details</span>
-                      <h3 className="text-base font-bold text-[#EAF1F8] mt-0.5">{selectedIssue.externalId}</h3>
+            {/* ========================================================================= */}
+            {/* FLOATING SLIDE-OVER SIDE PANEL FOR ISSUE DETAILS */}
+            {/* ========================================================================= */}
+            {selectedIssue && (
+              <>
+                {/* Backdrop Blur Overlay */}
+                <div
+                  className="fixed inset-0 z-40 bg-[#0B1017]/70 backdrop-blur-sm transition-opacity"
+                  onClick={() => setSelectedIssue(null)}
+                />
+
+                {/* Floating Slide-over Drawer Panel */}
+                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-6 overflow-y-auto flex flex-col justify-between space-y-6 animate-in slide-in-from-right duration-200">
+                  <div className="space-y-5">
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-[#2ED8B6]">{selectedIssue.externalId}</span>
+                          <span className="pill uppercase text-[10px] font-mono">{selectedIssue.category}</span>
+                          <span className={`pill ${selectedIssue.status === "resolved" ? "ok" : "warn"} text-[10px] uppercase font-mono`}>
+                            <i className="dot"></i>
+                            {selectedIssue.status}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-bold text-[#EAF1F8] mt-1.5 leading-snug">
+                          {selectedIssue.summary}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIssue(null)}
+                        className="p-1.5 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
-                    <button onClick={() => setSelectedIssue(null)} className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer">
-                      <X className="w-4 h-4" />
-                    </button>
+
+                    {/* Customer 360 & Account Snapshot */}
+                    <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-[#EAF1F8] text-sm">{selectedIssue.customerName}</span>
+                        <span className="pill ok uppercase text-[10px]">{selectedIssue.customerTier} Tier</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B7C8D] font-mono pt-1">
+                        <div>
+                          <span>Customer Ref:</span> <strong className="text-[#EAF1F8]">{selectedIssue.customerRef || "CUST-9921"}</strong>
+                        </div>
+                        <div>
+                          <span>Risk Score:</span> <strong className="text-[#F5A623]">{selectedIssue.resolutionRiskScore || "Low Risk (0.18)"}</strong>
+                        </div>
+                        <div>
+                          <span>Ingress Line:</span> <strong className="text-[#2ED8B6] uppercase">{selectedIssue.source}</strong>
+                        </div>
+                        <div>
+                          <span>Assigned Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Sophia (AI)"}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Triage & Reasoning */}
+                    <div className="space-y-2 text-xs">
+                      <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
+                        AI Recommended Action &amp; Triage Rationale
+                      </label>
+                      <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] text-[#B4C2D0] leading-relaxed">
+                        {selectedIssue.recommendedAction}
+                      </div>
+                    </div>
+
+                    {/* AI Confidence Meter */}
+                    <div className="space-y-1 text-xs font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-[#6B7C8D]">Autonomous Confidence Score:</span>
+                        <span className="text-[#4CC38A] font-bold">{(selectedIssue.confidence * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="w-full bg-[#18222E] h-2 rounded-full overflow-hidden border border-[var(--line)]">
+                        <div
+                          className="h-full rounded-full bg-[#4CC38A]"
+                          style={{ width: `${selectedIssue.confidence * 100}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Correlated Problem Incident */}
+                    {selectedIssue.problemId && (
+                      <div className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#E5484D] font-bold font-mono">Correlated Systemic Problem</span>
+                          <span className="pill err text-[9px]">{selectedIssue.problemId}</span>
+                        </div>
+                        <p className="text-[#B4C2D0] text-[11px]">
+                          This ticket is correlated to active systemic incident <strong className="text-[#EAF1F8]">{selectedIssue.problemId}</strong>. Root-cause mitigations are in progress.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="p-3.5 rounded-lg bg-[#18222E] border border-[var(--line)] space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-[#EAF1F8]">{selectedIssue.customerName}</span>
-                      <span className="pill uppercase">{selectedIssue.customerTier}</span>
-                    </div>
-                    <div className="text-[11px] text-[#6B7C8D] font-mono">
-                      <span>Ref: {selectedIssue.customerRef} | Risk: {selectedIssue.resolutionRiskScore}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-xs">
-                    <span className="font-semibold text-[#EAF1F8]">Triage Rationale</span>
-                    <p className="text-[#B4C2D0] bg-[#18222E] p-3 rounded-lg border border-[var(--line)] leading-relaxed">
-                      {selectedIssue.recommendedAction}
-                    </p>
-                  </div>
-
-                  <div className="pt-2 flex flex-col gap-2">
+                  {/* Actions Footer */}
+                  <div className="pt-4 border-t border-[var(--line)] flex flex-col gap-2.5">
                     <button
-                      onClick={() => openHandoffModal(selectedIssue)}
-                      className="btn btn-primary w-full py-2 text-xs font-semibold"
+                      type="button"
+                      onClick={() => {
+                        setWorkspaceSelectedIssueId(selectedIssue.id);
+                        setSelectedIssue(null);
+                        setActiveTab("workspace");
+                        notify(`Opened ${selectedIssue.externalId} in Workspace`, "info");
+                      }}
+                      className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer"
                     >
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>Cross-Vertical SSO Handoff</span>
+                      <Layers className="w-4 h-4" />
+                      <span>Open in Workspace Desk →</span>
                     </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          selectedIssue.status = "resolved";
+                          notify(`Marked ${selectedIssue.externalId} as Resolved`, "success");
+                          setSelectedIssue({ ...selectedIssue });
+                          fetchData();
+                        }}
+                        className="btn btn-secondary flex-1 py-2 text-xs flex items-center justify-center gap-1.5 cursor-pointer hover:text-[#4CC38A] hover:border-[#4CC38A]"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Mark Resolved</span>
+                      </button>
+
+                      <a
+                        href={selectedIssue.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary py-2 px-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Source Link</span>
+                      </a>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         )}
 

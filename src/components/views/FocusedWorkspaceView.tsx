@@ -559,16 +559,6 @@ export function FocusedWorkspaceView({
                 </button>
               </div>
             </div>
-
-            {/* Cross-Vertical Handoff Action */}
-            <button
-              type="button"
-              onClick={() => onTriggerHandoff(selectedIssue)}
-              className="btn btn-secondary w-full py-2 text-xs flex items-center justify-center gap-2 font-mono"
-            >
-              <Share2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
-              <span>Initiate Cross-Vertical Handoff</span>
-            </button>
           </div>
 
           {/* Autonomy Safety Policy Guarantee */}

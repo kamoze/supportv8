@@ -7,6 +7,7 @@
     "dev": "next dev --port 3005",
     "build": "next build",
     "start": "next start --port 3005",
+    "worker": "tsx src/lib/temporal/worker.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -24,7 +25,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.1",
-    "tailwind-merge": "^3.0.1"
+    "tailwind-merge": "^3.0.1",
+    "tsx": "^4.19.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.9",

@@ -183,11 +183,6 @@ export default function SupportV8Dashboard() {
   const [broadcastDraft, setBroadcastDraft] = useState<any | null>(null);
   const [broadcastSuccessMsg, setBroadcastSuccessMsg] = useState<string | null>(null);
 
-  // Cross-Vertical Handoff Modal
-  const [isHandoffModalOpen, setIsHandoffModalOpen] = useState<boolean>(false);
-  const [handoffTargetVertical, setHandoffTargetVertical] = useState<string>("orderv8");
-  const [handoffContext, setHandoffContext] = useState<any | null>(null);
-  const [handoffResult, setHandoffResult] = useState<any | null>(null);
 
   // Data States
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
@@ -714,34 +709,6 @@ export default function SupportV8Dashboard() {
     }
   };
 
-  const openHandoffModal = (contextData: any) => {
-    setHandoffContext(contextData);
-    setHandoffResult(null);
-    setIsHandoffModalOpen(true);
-  };
-
-  const handleTriggerHandoff = async () => {
-    if (!handoffContext) return;
-    try {
-      const res = await fetch("/api/handoff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetVertical: handoffTargetVertical,
-          customerRef: handoffContext.customerRef || "C-1920",
-          issueId: handoffContext.id || handoffContext.externalId,
-          summary: handoffContext.summary || handoffContext.title,
-        }),
-      }).then((r) => r.json());
-
-      if (res.success) {
-        setHandoffResult(res.data);
-        notify(`Cross-vertical handoff token issued for ${handoffTargetVertical}!`, "success");
-      }
-    } catch (err) {
-      notify("Handoff failed", "error");
-    }
-  };
 
   const handleToggleConnector = async (connectorId: string, isSubscribed: boolean) => {
     try {
@@ -899,18 +866,18 @@ export default function SupportV8Dashboard() {
 
   const navSections = [
     {
-      title: "Core Intelligence",
+      title: "Work Desk",
       items: [
-        { id: "overview", label: "Overview", icon: LayoutDashboard, flaticon: "fi fi-rr-dashboard" },
-        { id: "workspace", label: "Workspace", icon: Briefcase, flaticon: "fi fi-rr-briefcase", badge: issues.length },
-        { id: "cx_cockpit", label: "CX Cockpit", icon: Target, flaticon: "fi fi-rr-target", badge: slaData.atRiskCount, badgeColor: "warn" },
-        { id: "issues", label: "Derived Issues", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-middle", badge: issues.length },
+        { id: "workspace", label: "Work Desk", icon: Briefcase, flaticon: "fi fi-rr-briefcase", badge: issues.length },
         { id: "problems", label: "Problem Matrix", icon: AlertTriangle, flaticon: "fi fi-rr-triangle-warning", badge: problems.length, badgeColor: "err" },
+        { id: "issues", label: "Derived Issues", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-middle", badge: issues.length },
+        { id: "cx_cockpit", label: "CX Cockpit", icon: Target, flaticon: "fi fi-rr-target", badge: slaData.atRiskCount, badgeColor: "warn" },
       ],
     },
     {
-      title: "Voice & AI",
+      title: "Core Intelligence",
       items: [
+        { id: "overview", label: "Overview", icon: LayoutDashboard, flaticon: "fi fi-rr-dashboard" },
         { id: "ask", label: "Ask supportV8", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-dots" },
         { id: "studio", label: "Autonomous Studio", icon: Cpu, flaticon: "fi fi-rr-microchip" },
         { id: "workforce", label: "AI Workforce", icon: Users, flaticon: "fi fi-rr-users-alt", badge: workforce.length },
@@ -3678,74 +3645,145 @@ export default function SupportV8Dashboard() {
           </div>
         )}
         {/* ========================================================================= */}
-        {/* TAB: PROBLEMS (GROWTHV8 PROBLEM MATRIX) */}
+        {/* TAB: PROBLEMS (SYSTEMIC PROBLEM CORRELATION MATRIX - WORK DESK) */}
         {/* ========================================================================= */}
         {activeTab === "problems" && (
           <div className="space-y-6">
-            <div className="card p-5 flex items-center justify-between">
+            <div className="card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl">
               <div>
-                <h2 className="text-lg font-bold text-[#EAF1F8]">Problem Correlation Matrix</h2>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">Multi-channel root cause clustering and business impact calculations.</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-[#EAF1F8]">Problem Correlation Matrix</h2>
+                  <span className="pill ok text-[9px] font-mono uppercase"><i className="dot"></i> WORK DESK HUB</span>
+                </div>
+                <p className="text-xs text-[#B4C2D0] mt-0.5">
+                  SupportV8 is the terminal resolution hub. Root cause clusters end here with autonomous mitigation, proactive customer broadcasts, or direct human escalation.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => setActiveTab("workspace")}
+                  className="btn btn-secondary text-xs cursor-pointer"
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Open Work Desk Stream</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("cx_cockpit")}
+                  className="btn btn-primary text-xs cursor-pointer"
+                >
+                  <Target className="w-3.5 h-3.5" />
+                  <span>CX Cockpit</span>
+                </button>
               </div>
             </div>
 
             <div className="space-y-4">
               {problems.map((prob) => (
-                <div key={prob.id} className="card p-5 space-y-4">
+                <div key={prob.id} className="card p-5 space-y-4 rounded-2xl bg-[#121A24] border-[var(--line)] shadow-lg">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs font-bold text-[#2ED8B6]">{prob.id}</span>
                         <span
                           className={`pill ${
-                            prob.impact === "critical" ? "err" : "warn"
+                            prob.impact === "critical" || prob.severity === "critical" ? "err" : "warn"
                           }`}
                         >
                           <i className="dot"></i>
-                          {prob.impact} IMPACT
+                          {prob.impact || prob.severity || "HIGH"} IMPACT
                         </span>
                         <span className="text-xs text-[#6B7C8D] font-mono">
-                          {(prob.confidence * 100).toFixed(0)}% Confidence
+                          {((prob.confidence || 0.94) * 100).toFixed(0)}% Confidence
                         </span>
+                        {prob.status === "resolved" && (
+                          <span className="pill ok text-[9px] font-mono uppercase">RESOLVED</span>
+                        )}
                       </div>
                       <h3 className="text-base font-bold text-[#EAF1F8] mt-1">{prob.title}</h3>
                     </div>
 
                     <div className="flex items-center gap-3 text-xs font-mono">
-                      <div className="bg-[#18222E] px-3.5 py-1.5 rounded-lg border border-[var(--line)] text-right">
-                        <span className="text-[#6B7C8D] block text-[10px]">EXPOSURE</span>
-                        <span className="font-bold text-[#F5A623]">${prob.estimatedRevenueExposure.toLocaleString()}</span>
+                      <div className="bg-[#18222E] px-3.5 py-1.5 rounded-xl border border-[var(--line)] text-right">
+                        <span className="text-[#6B7C8D] block text-[10px]">REVENUE EXPOSURE</span>
+                        <span className="font-bold text-[#F5A623]">${(prob.estimatedRevenueExposure || 142000).toLocaleString()}</span>
                       </div>
-                      <div className="bg-[#18222E] px-3.5 py-1.5 rounded-lg border border-[var(--line)] text-right">
-                        <span className="text-[#6B7C8D] block text-[10px]">AFFECTED</span>
-                        <span className="font-bold text-[#EAF1F8]">{prob.affectedCustomerCount}</span>
+                      <div className="bg-[#18222E] px-3.5 py-1.5 rounded-xl border border-[var(--line)] text-right">
+                        <span className="text-[#6B7C8D] block text-[10px]">AFFECTED ACCOUNTS</span>
+                        <span className="font-bold text-[#EAF1F8]">{prob.affectedCustomerCount || 12}</span>
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-xs text-[#B4C2D0] bg-[#18222E] p-3 rounded-lg border border-[var(--line)] leading-relaxed">
-                    <strong className="text-[#EAF1F8]">Root Cause:</strong> {prob.suspectedCause}
+                  <p className="text-xs text-[#B4C2D0] bg-[#18222E] p-3.5 rounded-xl border border-[var(--line)] leading-relaxed">
+                    <strong className="text-[#EAF1F8] font-mono">Root Cause Diagnostic:</strong> {prob.suspectedCause}
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-between pt-2 gap-3 text-xs">
-                    <span className="text-[#6B7C8D] font-mono">
-                      Owner: <strong className="text-[#EAF1F8]">{prob.owner}</strong>
+                  <div className="flex flex-wrap items-center justify-between pt-2 gap-3 text-xs border-t border-[var(--line)]">
+                    <span className="text-[#6B7C8D] font-mono text-xs">
+                      Incident Lead: <strong className="text-[#EAF1F8]">{prob.owner || "Barnaby (SRE AI)"}</strong>
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
+                        type="button"
+                        onClick={() => {
+                          const linked = issues.find((i) => i.problemId === prob.id);
+                          if (linked) setWorkspaceSelectedIssueId(linked.id);
+                          setActiveTab("workspace");
+                          notify(`Inspecting cases linked to ${prob.id} in Work Desk`, "info");
+                        }}
+                        className="btn btn-secondary text-xs flex items-center gap-1.5 cursor-pointer font-mono hover:text-[#2ED8B6] hover:border-[#2ED8B6]"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>Inspect in Work Desk →</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTicketForEscalation({
+                            ticketId: prob.id,
+                            externalId: prob.id,
+                            customerName: `${prob.title} (${prob.affectedCustomerCount || 12} Affected Accounts)`,
+                            assignedAgent: prob.owner || "Barnaby (SRE AI)",
+                            remainingMinutes: 30,
+                            status: "at_risk",
+                          });
+                          setIsEscalateModalOpen(true);
+                        }}
+                        className="btn btn-secondary text-xs flex items-center gap-1.5 cursor-pointer font-mono hover:text-[#F5A623] hover:border-[#F5A623]"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-[#F5A623]" />
+                        <span>Escalate Incident</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => openBroadcastModal(prob)}
-                        className="btn btn-primary text-xs"
+                        className="btn btn-primary text-xs flex items-center gap-1.5 cursor-pointer"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>Trigger Proactive Broadcast</span>
+                        <span>Proactive Broadcast</span>
                       </button>
-                      <button
-                        onClick={() => openHandoffModal(prob)}
-                        className="btn btn-secondary text-xs"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span>Handoff to Vertical</span>
-                      </button>
+
+                      {prob.status !== "resolved" && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await fetch("/api/problems", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ problemId: prob.id, status: "resolved" }),
+                            });
+                            notify(`Marked ${prob.id} as Root Cause Resolved!`, "success");
+                            fetchData();
+                          }}
+                          className="btn btn-secondary text-xs flex items-center gap-1.5 cursor-pointer font-mono hover:text-[#4CC38A] hover:border-[#4CC38A]"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#4CC38A]" />
+                          <span>Mark Resolved</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -4202,9 +4240,21 @@ export default function SupportV8Dashboard() {
         {activeTab === "workspace" && (
           <FocusedWorkspaceView
             issues={issues}
+            problems={problems}
             onResolve={handleWorkspaceAutonomousResolve}
             onProcessRefund={handleWorkspaceProcessRefund}
-            onTriggerHandoff={openHandoffModal}
+            onNavigateToProblems={() => setActiveTab("problems")}
+            onEscalate={(issue) => {
+              setSelectedTicketForEscalation({
+                ticketId: issue.id,
+                externalId: issue.externalId,
+                customerName: issue.customerName,
+                assignedAgent: issue.assignedTo || "Sophia (AI)",
+                remainingMinutes: 45,
+                status: "at_risk",
+              });
+              setIsEscalateModalOpen(true);
+            }}
             onNotify={notify}
           />
         )}
@@ -5061,68 +5111,6 @@ export default function SupportV8Dashboard() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* CROSS-VERTICAL SSO & HANDOFF MODAL */}
-      {/* ========================================================================= */}
-      {isHandoffModalOpen && handoffContext && (
-        <div className="fixed inset-0 z-50 bg-[#0B1017]/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg card shadow-2xl p-5 space-y-4 border-[var(--line)]">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-              <div className="flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-base font-bold text-[#EAF1F8]">Cross-Vertical Context Handoff</h3>
-              </div>
-              <button onClick={() => setIsHandoffModalOpen(false)} className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="text-[#6B7C8D] block mb-1">Target Vertical App</label>
-                <select
-                  value={handoffTargetVertical}
-                  onChange={(e) => setHandoffTargetVertical(e.target.value)}
-                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2 rounded-lg border border-[var(--line-2)] cursor-pointer"
-                >
-                  <option value="orderv8">orderv8 (Orders &amp; Commerce)</option>
-                  <option value="carev8">carev8 (Healthcare &amp; Appointments)</option>
-                  <option value="propv8">propv8 (Property Management)</option>
-                  <option value="growthv8">growthv8 (Lead Pipeline &amp; Attribution)</option>
-                  <option value="dominion">dominion (Platform Control Plane)</option>
-                </select>
-              </div>
-
-              <div className="p-3.5 rounded-lg bg-[#18222E] border border-[var(--line)] text-[#EAF1F8] font-mono text-[11px] space-y-1">
-                <div>Customer: {handoffContext.customerName || handoffContext.customerRef || "C-1920"}</div>
-                <div>Issue / Context: {handoffContext.summary || handoffContext.title}</div>
-              </div>
-
-              {handoffResult && (
-                <div className="p-3 rounded-lg bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 text-[#2ED8B6] font-mono text-[11px] space-y-1">
-                  <div>Token: {handoffResult.token}</div>
-                  <div className="truncate">URL: {handoffResult.targetUrl}</div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setIsHandoffModalOpen(false)}
-                  className="btn btn-secondary text-xs"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={handleTriggerHandoff}
-                  className="btn btn-primary text-xs"
-                >
-                  Generate Handoff Token
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* PROACTIVE BROADCAST MODAL */}

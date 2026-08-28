@@ -36,20 +36,24 @@ import type { Issue } from "@/lib/types";
 
 interface FocusedWorkspaceViewProps {
   issues: Issue[];
+  problems?: any[];
   onResolve: (issueId: string) => void;
   onProcessRefund: (issueId: string, amount: string) => void;
-  onTriggerHandoff: (context: any) => void;
+  onEscalate?: (issue: Issue) => void;
+  onNavigateToProblems?: () => void;
   onNotify: (text: string, type: "success" | "error" | "info") => void;
 }
 
 export function FocusedWorkspaceView({
   issues,
+  problems = [],
   onResolve,
   onProcessRefund,
-  onTriggerHandoff,
+  onEscalate,
+  onNavigateToProblems,
   onNotify,
 }: FocusedWorkspaceViewProps) {
-  const [selectedIssueId, setSelectedIssueId] = useState<string>(issues[0]?.id || "ISS-1001");
+  const [selectedIssueId, setSelectedIssueId] = useState<string>(issues[0]?.id || "");
   const [filterType, setFilterType] = useState<"all" | "enterprise" | "urgent" | "at_risk">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -314,13 +318,21 @@ export function FocusedWorkspaceView({
 
                 {/* Problem Correlation Badge */}
                 {selectedIssue.problemId && (
-                  <div className="p-2 rounded-lg bg-[#E5484D]/10 border border-[#E5484D]/30 flex items-center justify-between text-[10px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToProblems?.()}
+                    className="w-full p-2 rounded-lg bg-[#E5484D]/10 border border-[#E5484D]/30 flex items-center justify-between text-[10px] font-mono hover:bg-[#E5484D]/20 transition-all cursor-pointer text-left"
+                    title="Inspect in Problem Matrix"
+                  >
                     <div className="flex items-center gap-1.5 text-[#E5484D]">
-                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                       <span>Correlated Incident: <strong>{selectedIssue.problemId}</strong></span>
                     </div>
-                    <span className="pill err text-[8.5px]">REVENUE IMPACT</span>
-                  </div>
+                    <span className="pill err text-[8.5px] flex items-center gap-1">
+                      <span>VIEW MATRIX</span>
+                      <ArrowRight className="w-2.5 h-2.5" />
+                    </span>
+                  </button>
                 )}
               </div>
 
@@ -559,12 +571,22 @@ export function FocusedWorkspaceView({
                 </button>
               </div>
             </div>
+
+            {/* Direct Escalation Action */}
+            <button
+              type="button"
+              onClick={() => onEscalate && selectedIssue && onEscalate(selectedIssue)}
+              className="btn btn-secondary w-full py-2 text-xs flex items-center justify-center gap-2 font-mono hover:text-[#F5A623] hover:border-[#F5A623] cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span>Escalate Priority &amp; Re-assign Personnel</span>
+            </button>
           </div>
 
           {/* Autonomy Safety Policy Guarantee */}
           <div className="p-2.5 rounded-xl bg-[#0B1017] border border-[var(--line)] flex items-center gap-2 text-[10px] text-[#6B7C8D] font-mono">
             <Shield className="w-3.5 h-3.5 text-[#4CC38A] shrink-0" />
-            <span>Actions governed by Temporal Workforce Spine with automatic idempotency check.</span>
+            <span>SupportV8 Terminal Resolution: All customer issues and systemic incidents end here. Governed by Temporal Workforce Spine.</span>
           </div>
         </div>
       </div>

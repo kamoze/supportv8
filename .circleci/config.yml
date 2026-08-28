@@ -41,9 +41,10 @@ jobs:
             git clone "https://${GITHUB_TOKEN}@github.com/kamoze/servicev8-devops.git" devops
             cd devops
             sed -i "s|image: redoosolutions/supportv8:.*|image: redoosolutions/supportv8:$IMAGE_TAG|g" apps/supportv8/deployment.yaml
+            sed -i "s|image: redoosolutions/supportv8:.*|image: redoosolutions/supportv8:$IMAGE_TAG|g" apps/supportv8/worker.yaml
             git config user.email "ci@servicev8.com"
             git config user.name "CircleCI Runner"
-            git add apps/supportv8/deployment.yaml
+            git add apps/supportv8/deployment.yaml apps/supportv8/worker.yaml
             git commit -m "ci: update supportv8 image tag to $IMAGE_TAG" || echo "No changes to commit"
             git remote set-url origin "https://${GITHUB_TOKEN}@github.com/kamoze/servicev8-devops.git"
             git push origin main

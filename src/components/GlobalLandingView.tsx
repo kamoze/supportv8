@@ -21,6 +21,7 @@ import {
   Users,
   HardHat,
   HelpCircle,
+  UserCheck,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 

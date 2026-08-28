@@ -26,11 +26,23 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    const ssoToken = `sso_tk_${tenantId}_${Date.now().toString(36)}`;
+    const studioMarketplaceUrl = `http://studiov8.servicev8.internal:3000/marketplace?tenantId=${encodeURIComponent(tenantId)}&ssoToken=${encodeURIComponent(ssoToken)}`;
+
     return NextResponse.json({
       success: true,
       message: `Tenant '${name}' successfully onboarded with ID ${tenantId}`,
       tenant: db.tenant,
       adminEmail,
+      ssoToken,
+      studioMarketplaceUrl,
+      provisionedCapabilities: [
+        "ticket.read",
+        "ticket.write",
+        "ticket.triage",
+        "customer.health.read",
+        "knowledge.query",
+      ],
     });
   } catch (err: unknown) {
     return NextResponse.json(

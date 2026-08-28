@@ -109,6 +109,7 @@ import {
 import { FocusedWorkspaceView } from "@/components/views/FocusedWorkspaceView";
 import { AskWorkspaceView } from "@/components/views/AskWorkspaceView";
 import { MarketplaceConnectorsView } from "@/components/views/MarketplaceConnectorsView";
+import { StudioMarketplaceHubView } from "@/components/views/StudioMarketplaceHubView";
 import { MarketplaceWorkforceView } from "@/components/views/MarketplaceWorkforceView";
 import { MarketplacePlansView } from "@/components/views/MarketplacePlansView";
 import { GovernanceSettingsView } from "@/components/views/GovernanceSettingsView";
@@ -1070,11 +1071,11 @@ export default function SupportV8Dashboard() {
       ],
     },
     {
-      title: "Marketplace",
+      title: "Marketplace & Registry",
       items: [
-        { id: "market_connectors", label: "Connectors & Mesh", icon: Plug, flaticon: "fi fi-rr-network", badge: connectors.filter((c) => c.isSubscribed).length + (verticals.length || 6) },
-        { id: "market_workforce", label: "Workforce", icon: ShoppingBag, flaticon: "fi fi-rr-shopping-bag" },
-        { id: "market_plans", label: "Plans", icon: CreditCard, flaticon: "fi fi-rr-credit-card" },
+        { id: "studio_marketplace", label: "Studio Marketplace", icon: ShoppingBag, flaticon: "fi fi-rr-shopping-bag" },
+        { id: "market_workforce", label: "Active Capabilities", icon: Users, flaticon: "fi fi-rr-users-alt" },
+        { id: "market_plans", label: "Plans & Credits", icon: CreditCard, flaticon: "fi fi-rr-credit-card" },
       ],
     },
     {
@@ -4603,17 +4604,12 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: CONNECTORS & VERTICAL MESH */}
+        {/* TAB: STUDIO MARKETPLACE & CAPABILITY HUB */}
         {/* ========================================================================= */}
-        {(activeTab === "sources" || activeTab === "market_connectors") && (
-          <MarketplaceConnectorsView
-            connectors={connectors}
-            verticals={verticals}
-            onToggleConnector={handleToggleConnector}
-            onOpenConfig={(conn) => {
-              setSelectedConnectorForConfig(conn);
-              setIsConnectorConfigOpen(true);
-            }}
+        {(activeTab === "studio_marketplace" || activeTab === "sources" || activeTab === "market_connectors") && (
+          <StudioMarketplaceHubView
+            tenantId={currentTenantSlug}
+            tenantName={currentTenantSlug === "acme" ? "Acme Corp" : currentTenantSlug}
             onNotify={notify}
           />
         )}

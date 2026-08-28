@@ -410,15 +410,30 @@ export function SignupModal({ isOpen, onClose, onSuccess }: SignupModalProps) {
           )}
 
           {step === 3 && (
-            <button
-              type="button"
-              disabled={isProvisioning}
-              onClick={handleComplete}
-              className="btn btn-primary w-full py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-[#2ED8B6]/30 disabled:opacity-50"
-            >
-              <span>Launch Tenant Help Hub &amp; Chat Widget</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2 w-full">
+              <button
+                type="button"
+                disabled={isProvisioning}
+                onClick={() => {
+                  window.open(`http://studiov8.servicev8.internal:3000/marketplace?tenantId=${encodeURIComponent(slug || "acme")}&ssoToken=sso_tk_${slug || "acme"}`, "_blank", "noopener,noreferrer");
+                  handleComplete();
+                }}
+                className="btn btn-secondary flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-[#2ED8B6] border-[#2ED8B6]/40"
+              >
+                <span>Studio Marketplace</span>
+                <Sparkles className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                disabled={isProvisioning}
+                onClick={handleComplete}
+                className="btn btn-primary flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xl shadow-[#2ED8B6]/30 disabled:opacity-50"
+              >
+                <span>Enter Work Desk</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
       </div>

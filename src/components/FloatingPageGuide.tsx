@@ -145,7 +145,7 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     tip: "Curating a document immediately updates the pgvector index so Ask and AI Employees cite the latest steps.",
   },
   stale_work: {
-    label: "Stale Work Sweep",
+    label: "Work Sweep",
     what: "Autonomous sweep queue managed by Rusty: surfaces abandoned tickets, stalled customer replies, and unassigned escalations.",
     actions: [
       "Review tickets inactive for > 24 hours.",

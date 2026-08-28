@@ -910,7 +910,7 @@ export default function SupportV8Dashboard() {
         { id: "trends", label: "Trend Radar", icon: TrendingUp, flaticon: "fi fi-rr-chart-line-up" },
         { id: "insights", label: "Action Insights", icon: Lightbulb, flaticon: "fi fi-rr-bulb", badge: insights.filter((i) => i.status === "new").length },
         { id: "knowledge", label: "Knowledge Suite", icon: Brain, flaticon: "fi fi-rr-brain" },
-        { id: "stale_work", label: "Stale Work Sweep", icon: Clock, flaticon: "fi fi-rr-time-past", badge: 43 },
+        { id: "stale_work", label: "Work Sweep", icon: Clock, flaticon: "fi fi-rr-time-past", badge: 43 },
         { id: "sources", label: "Vertical Mesh", icon: Server, flaticon: "fi fi-rr-network", badge: connectors.filter((c) => c.isSubscribed).length + (verticals.length || 5) },
       ],
     },
@@ -4135,10 +4135,10 @@ export default function SupportV8Dashboard() {
                 <>
                   <button
                     type="button"
-                    onClick={() => handleAskChat(undefined, "Run stale work sweep analysis")}
+                    onClick={() => handleAskChat(undefined, "Run work sweep analysis")}
                     className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
                   >
-                    &ldquo;Run stale work sweep analysis&rdquo;
+                    &ldquo;Run work sweep analysis&rdquo;
                   </button>
                   <button
                     type="button"

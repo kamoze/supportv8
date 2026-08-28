@@ -50,7 +50,7 @@ export class StaleWorkSweeper {
         actor: {
           id: actorId,
           type: "automation",
-          name: "Stale Work Sweep Worker",
+          name: "Work Sweep Worker",
         },
         operationId: OP_ZD_CLOSE,
         input: {

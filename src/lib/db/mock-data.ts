@@ -594,7 +594,7 @@ export const INITIAL_OVERVIEW_METRICS: OverviewMetrics = {
       title: "43 Stale Tickets Safe to Close",
       description: "Dormant external helpdesk tickets ready for automated sweep.",
       confidence: 0.98,
-      actionText: "Run Stale Work Sweep",
+      actionText: "Run Work Sweep",
       targetTab: "stale_work",
     },
   ],

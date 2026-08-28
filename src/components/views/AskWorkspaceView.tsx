@@ -11,6 +11,7 @@ import {
   Shield,
   Search,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import type { ChatMessage } from "@/app/page";
 
@@ -36,6 +37,7 @@ export function AskWorkspaceView({
   loading,
 }: AskWorkspaceViewProps) {
   const [inputQuery, setInputQuery] = useState<string>("");
+  const [showPrompts, setShowPrompts] = useState<boolean>(true);
 
   const activeEmployee = workforce.find((w) => w.id === selectedEmployeeId) || workforce[0];
 
@@ -241,21 +243,49 @@ export function AskWorkspaceView({
       </div>
 
       {/* Suggested Prompt Chips */}
-      <div className="bg-[#121A24] border-t border-[#2ED8B6]/20 px-4 sm:px-6 py-2.5 shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <span className="text-[10px] font-mono text-[#2ED8B6] font-bold uppercase tracking-wider shrink-0">Prompts:</span>
-          {suggestions.map((sug, idx) => (
+      {showPrompts ? (
+        <div className="bg-[#121A24] border-t border-[#2ED8B6]/20 px-4 sm:px-6 py-2.5 shrink-0 transition-all">
+          <div className="max-w-4xl mx-auto flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <span className="text-[10px] font-mono text-[#2ED8B6] font-bold uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                <span>Prompts:</span>
+              </span>
+              {suggestions.map((sug, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onSendMessage(sug)}
+                  className="px-3 py-1.5 rounded-full bg-[#18222E] hover:bg-[#2ED8B6]/20 hover:text-[#2ED8B6] border border-[var(--line)] hover:border-[#2ED8B6]/50 text-[11px] text-[#B4C2D0] transition-all cursor-pointer shadow-sm text-left leading-tight"
+                >
+                  {sug}
+                </button>
+              ))}
+            </div>
             <button
-              key={idx}
               type="button"
-              onClick={() => onSendMessage(sug)}
-              className="px-3 py-1 rounded-full bg-[#18222E] hover:bg-[#2ED8B6]/20 hover:text-[#2ED8B6] border border-[var(--line)] hover:border-[#2ED8B6]/50 text-[11px] text-[#B4C2D0] transition-all whitespace-nowrap cursor-pointer shadow-sm"
+              onClick={() => setShowPrompts(false)}
+              className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer shrink-0 mt-0.5"
+              title="Close prompt suggestions"
             >
-              {sug}
+              <X className="w-3.5 h-3.5" />
             </button>
-          ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-[#121A24] border-t border-[#2ED8B6]/10 px-4 sm:px-6 py-1 shrink-0">
+          <div className="max-w-4xl mx-auto flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowPrompts(true)}
+              className="text-[10px] font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer py-0.5"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Show Prompts</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Query Input Bar with Drag-to-Resize Support */}
       <form onSubmit={handleSend} className="p-3 sm:p-4 bg-[#0E1520] border-t border-[#2ED8B6]/30 shrink-0">

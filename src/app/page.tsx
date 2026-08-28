@@ -151,6 +151,7 @@ export default function SupportV8Dashboard() {
 
   // Search & Multi-Turn Chat Modal with AI Employee selector
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [showModalPrompts, setShowModalPrompts] = useState<boolean>(true);
   const [chatQuery, setChatQuery] = useState<string>("");
   const [chatLoading, setChatLoading] = useState<boolean>(false);
   const [chatResponse, setChatResponse] = useState<any | null>(null);
@@ -4943,131 +4944,161 @@ export default function SupportV8Dashboard() {
             </div>
 
             {/* Dynamic Suggestion Chips */}
-            <div className="px-4 py-2 border-t border-[var(--line)] bg-[#0E1520] flex items-center gap-2 overflow-x-auto shrink-0">
-              <span className="text-[10px] font-mono text-[#6B7C8D] uppercase shrink-0">Prompts:</span>
-              {selectedEmployeeId === "emp_support_lead" && (
-                <>
+            {showModalPrompts ? (
+              <div className="px-4 py-2.5 border-t border-[var(--line)] bg-[#0E1520] shrink-0 transition-all">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2 flex-1">
+                    <span className="text-[10px] font-mono text-[#2ED8B6] font-bold uppercase shrink-0 mr-1 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Prompts:</span>
+                    </span>
+                    {selectedEmployeeId === "emp_support_lead" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Why did billing CSAT drop?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Why did billing CSAT drop?&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "What active problems are threatening SLA?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;What active problems are threatening SLA?&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Summarize today's VARR performance")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Summarize today's VARR performance&rdquo;
+                        </button>
+                      </>
+                    )}
+                    {selectedEmployeeId === "emp_incident_analyst" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Calculate active revenue exposure")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Calculate active revenue exposure&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "What is active problem PRB-218?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;What is active problem PRB-218?&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Which Enterprise accounts are impacted?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Which Enterprise accounts are impacted?&rdquo;
+                        </button>
+                      </>
+                    )}
+                    {selectedEmployeeId === "emp_kb_refresh" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Show knowledge deficit gaps")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Show knowledge deficit gaps&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "What article proposals are ready to publish?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;What article proposals are ready?&rdquo;
+                        </button>
+                      </>
+                    )}
+                    {selectedEmployeeId === "intern_tagger" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Show intent classification breakdown")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Show intent classification breakdown&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "What triage tags were applied today?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;What tags were applied today?&rdquo;
+                        </button>
+                      </>
+                    )}
+                    {selectedEmployeeId === "intern_stale_sweeper" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Run work sweep analysis")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Run work sweep analysis&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "How many dormant tickets can be closed?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;How many dormant tickets can be closed?&rdquo;
+                        </button>
+                      </>
+                    )}
+                    {selectedEmployeeId === "intern_summarizer" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Show recent voice call transcript and sentiment")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Show recent voice call transcript&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Check IVR refund execution")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Check IVR refund execution&rdquo;
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => handleAskChat(undefined, "Why did billing CSAT drop?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
+                    onClick={() => setShowModalPrompts(false)}
+                    className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer shrink-0 mt-0.5"
+                    title="Close prompt suggestions"
                   >
-                    &ldquo;Why did billing CSAT drop?&rdquo;
+                    <X className="w-3.5 h-3.5" />
                   </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 py-1 border-t border-[var(--line)] bg-[#0E1520] shrink-0">
+                <div className="flex justify-end">
                   <button
                     type="button"
-                    onClick={() => handleAskChat(undefined, "What active problems are threatening SLA?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
+                    onClick={() => setShowModalPrompts(true)}
+                    className="text-[10px] font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer py-0.5"
                   >
-                    &ldquo;What active problems are threatening SLA?&rdquo;
+                    <Sparkles className="w-3 h-3" />
+                    <span>Show Prompts</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Summarize today's VARR performance")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Summarize today's VARR performance&rdquo;
-                  </button>
-                </>
-              )}
-              {selectedEmployeeId === "emp_incident_analyst" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Calculate active revenue exposure")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Calculate active revenue exposure&rdquo;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "What is active problem PRB-218?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;What is active problem PRB-218?&rdquo;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Which Enterprise accounts are impacted?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Which Enterprise accounts are impacted?&rdquo;
-                  </button>
-                </>
-              )}
-              {selectedEmployeeId === "emp_kb_refresh" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Show knowledge deficit gaps")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Show knowledge deficit gaps&rdquo;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "What article proposals are ready to publish?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;What article proposals are ready?&rdquo;
-                  </button>
-                </>
-              )}
-              {selectedEmployeeId === "intern_tagger" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Show intent classification breakdown")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Show intent classification breakdown&rdquo;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "What triage tags were applied today?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;What tags were applied today?&rdquo;
-                  </button>
-                </>
-              )}
-              {selectedEmployeeId === "intern_stale_sweeper" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Run work sweep analysis")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Run work sweep analysis&rdquo;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "How many dormant tickets can be closed?")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;How many dormant tickets can be closed?&rdquo;
-                  </button>
-                </>
-              )}
-              {selectedEmployeeId === "intern_summarizer" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Show recent voice call transcript and sentiment")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Show recent voice call transcript&rdquo;
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAskChat(undefined, "Check IVR refund execution")}
-                    className="pill cursor-pointer hover:border-[#2ED8B6] text-[11px] whitespace-nowrap"
-                  >
-                    &ldquo;Check IVR refund execution&rdquo;
-                  </button>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
 
             {/* Chat Input Bar with Drag-to-Resize Support */}
             <div className="p-4 border-t border-[var(--line)] bg-[#121A24] shrink-0">

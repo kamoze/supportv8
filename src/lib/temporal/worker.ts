@@ -29,12 +29,46 @@ function startHealthServer(port: number, isHealthy: () => boolean) {
   return server;
 }
 
-async function main() {
-  const address = TEMPORAL_ADDRESS || process.env.TEMPORAL_ADDRESS;
-  if (!address) {
-    console.error("[supportv8-worker] TEMPORAL_ADDRESS is required to run the worker process");
-    process.exit(1);
+async function connectWithRetry(
+  initialAddress: string,
+  maxAttempts = 10
+): Promise<{ connection: NativeConnection; resolvedAddress: string }> {
+  const candidateAddresses = [initialAddress];
+
+  // If initial address is an in-cluster DNS name and running outside or fallback needed:
+  if (initialAddress.includes(".cluster.local") || !process.env.KUBERNETES_SERVICE_HOST) {
+    if (!candidateAddresses.includes("127.0.0.1:7233")) candidateAddresses.push("127.0.0.1:7233");
+    if (!candidateAddresses.includes("temporal-workload.tail703aea.ts.net:7233")) {
+      candidateAddresses.push("temporal-workload.tail703aea.ts.net:7233");
+    }
+    if (!candidateAddresses.includes("100.91.170.67:7233")) {
+      candidateAddresses.push("100.91.170.67:7233");
+    }
   }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    for (const address of candidateAddresses) {
+      try {
+        console.log(`[supportv8-worker] (attempt ${attempt}/${maxAttempts}) connecting to Temporal at ${address}...`);
+        const connection = await NativeConnection.connect({ address });
+        return { connection, resolvedAddress: address };
+      } catch (err: any) {
+        console.warn(`[supportv8-worker] failed to connect to ${address}: ${err?.message || err}`);
+      }
+    }
+
+    if (attempt < maxAttempts) {
+      const backoffMs = Math.min(attempt * 1500, 10000);
+      console.log(`[supportv8-worker] retrying in ${backoffMs}ms...`);
+      await new Promise((r) => setTimeout(r, backoffMs));
+    }
+  }
+
+  throw new Error(`[supportv8-worker] Could not connect to Temporal cluster after ${maxAttempts} attempts across [${candidateAddresses.join(", ")}]`);
+}
+
+async function main() {
+  const address = TEMPORAL_ADDRESS || process.env.TEMPORAL_ADDRESS || "temporal-workload-frontend.default.svc.cluster.local:7233";
 
   let healthy = false;
   const healthPort = parseInt(process.env.HEALTH_PORT || "8080", 10);
@@ -53,8 +87,7 @@ async function main() {
     });
   }
 
-  console.log(`[supportv8-worker] connecting to Temporal cluster at ${address}...`);
-  const connection = await NativeConnection.connect({ address });
+  const { connection, resolvedAddress } = await connectWithRetry(address);
 
   const worker = await Worker.create({
     connection,
@@ -66,12 +99,12 @@ async function main() {
   });
 
   console.log(
-    `[supportv8-worker] connected to ${address} ns=${TEMPORAL_NAMESPACE} queue=${TASK_QUEUE}`
+    `[supportv8-worker] connected to ${resolvedAddress} ns=${TEMPORAL_NAMESPACE} queue=${TASK_QUEUE}`
   );
 
   // Register periodic Schedules (idempotent)
   try {
-    const clientConnection = await Connection.connect({ address });
+    const clientConnection = await Connection.connect({ address: resolvedAddress });
     const client = new Client({ connection: clientConnection, namespace: TEMPORAL_NAMESPACE });
     const res = await ensureTemporalSchedules(client);
     console.log(

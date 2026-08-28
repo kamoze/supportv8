@@ -1,6 +1,7 @@
 import type { ToolCallDefinition, ToolExecutionResult, AgentContext } from "../types";
 import { ForgeSymphonyClient, KnowledgeV8Client, DominionClient } from "@/lib/services/interservice-client";
 import { enqueueSupportTriage } from "@/lib/temporal/client";
+import { WorkforceSpine } from "@/lib/workforce-spine/orchestrator";
 
 export class ToolPlanner {
   /**
@@ -49,41 +50,18 @@ export class ToolPlanner {
   }
 
   /**
-   * Executes a planned tool call through the Action Gateway or Temporal Engine
+   * Executes a planned tool call through the Workforce Spine
    */
   static async executeTool(tool: ToolCallDefinition, context: AgentContext): Promise<ToolExecutionResult> {
     const startTime = Date.now();
+    const employeeId =
+      context.stream === "contractors"
+        ? "employee_alex"
+        : context.stream === "enquiries"
+        ? "employee_barnaby"
+        : "employee_sophia";
 
     try {
-      if (tool.name === "order_refund") {
-        const res = await ForgeSymphonyClient.dispatchAction({
-          tenantId: context.tenantId,
-          operation: "orderv8.refund",
-          payload: tool.arguments,
-        });
-        return {
-          toolName: tool.name,
-          success: res.success,
-          result: res.data || { status: "refund_staged" },
-          executionTimeMs: Date.now() - startTime,
-        };
-      }
-
-      if (tool.name === "site_access_pin") {
-        const pin = Math.floor(100000 + Math.random() * 900000).toString();
-        return {
-          toolName: tool.name,
-          success: true,
-          result: {
-            pin,
-            expiresInMinutes: 60,
-            gateController: "SYNCED_ONLINE",
-            status: "access_granted",
-          },
-          executionTimeMs: Date.now() - startTime,
-        };
-      }
-
       if (tool.name === "human_escalate") {
         await DominionClient.emitAlert({
           tenantId: context.tenantId,
@@ -104,24 +82,27 @@ export class ToolPlanner {
         };
       }
 
-      if (tool.name === "schedule_task") {
-        const triageRes = await enqueueSupportTriage({
-          tenantId: context.tenantId,
-          sessionId: context.sessionId,
-          stream: context.stream,
-          customerName: context.customer.name,
-          customerEmail: context.customer.email || "customer@example.com",
-          query: "Follow-up task scheduled by Agent Runtime",
-          priority: "normal",
-        });
+      const spineRes = await WorkforceSpine.orchestrateAction({
+        actionId: `act_${Date.now()}`,
+        tenantId: context.tenantId,
+        employeeId,
+        stream: context.stream,
+        operation:
+          tool.name === "order_refund"
+            ? "orderv8.refund"
+            : tool.name === "site_access_pin"
+            ? "contractor.site_pin"
+            : tool.name,
+        payload: tool.arguments,
+        sessionId: context.sessionId,
+      });
 
-        return {
-          toolName: tool.name,
-          success: true,
-          result: { triageStatus: triageRes.triageStatus, target: triageRes.assignedTarget },
-          executionTimeMs: Date.now() - startTime,
-        };
-      }
+      return {
+        toolName: tool.name,
+        success: spineRes.success,
+        result: spineRes.output,
+        executionTimeMs: spineRes.executionTimeMs,
+      };
     } catch (err: any) {
       return {
         toolName: tool.name,
@@ -130,12 +111,5 @@ export class ToolPlanner {
         executionTimeMs: Date.now() - startTime,
       };
     }
-
-    return {
-      toolName: tool.name,
-      success: true,
-      result: { status: "executed" },
-      executionTimeMs: Date.now() - startTime,
-    };
   }
 }

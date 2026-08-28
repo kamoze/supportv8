@@ -303,6 +303,27 @@ export default function SupportV8Dashboard() {
   const [simVoiceLoading, setSimVoiceLoading] = useState<boolean>(false);
   const [selectedVoiceSession, setSelectedVoiceSession] = useState<any | null>(null);
 
+  // Voice Telephony & Bot Provisioning States (GrowthV8 Architecture)
+  const [isVoiceProvisionModalOpen, setIsVoiceProvisionModalOpen] = useState<boolean>(false);
+  const [provEmployeeId, setProvEmployeeId] = useState<string>("emp_voice_specialist");
+  const [provProvider, setProvProvider] = useState<"vapi" | "twilio">("vapi");
+  const [provPhoneNumber, setProvPhoneNumber] = useState<string>("+1 (800) 882-9900");
+  const [provPhoneMode, setProvPhoneMode] = useState<string>("vapi_managed");
+  const [provVoiceId, setProvVoiceId] = useState<string>("jennifer-neural-v2");
+  const [provSystemPrompt, setProvSystemPrompt] = useState<string>("");
+  const [provFirstMessage, setProvFirstMessage] = useState<string>("");
+  const [provMinVerification, setProvMinVerification] = useState<string>("phone_match");
+  const [provPermissionScopes, setProvPermissionScopes] = useState<string[]>([
+    "support.problem.status",
+    "support.ticket.lookup",
+    "support.ticket.create",
+    "knowledge.rag.search",
+  ]);
+  const [isProvisioningVoice, setIsProvisioningVoice] = useState<boolean>(false);
+  const [selectedConfigForPermissions, setSelectedConfigForPermissions] = useState<any | null>(null);
+  const [isEditPermissionsModalOpen, setIsEditPermissionsModalOpen] = useState<boolean>(false);
+  const [editPermissionScopes, setEditPermissionScopes] = useState<string[]>([]);
+
   // Simulator States
   const [simMessage, setSimMessage] = useState<string>("I demand an immediate refund for $49.00 double charge on checkout!");
   const [simTier, setSimTier] = useState<"standard" | "pro" | "enterprise">("enterprise");
@@ -823,6 +844,88 @@ export default function SupportV8Dashboard() {
       notify("Failed to assign work", "error");
     } finally {
       setIsAssigningWork(false);
+    }
+  };
+
+  const handleProvisionVoiceBot = async () => {
+    if (!provPhoneNumber.trim()) {
+      notify("Phone number is required for telephony binding", "error");
+      return;
+    }
+    setIsProvisioningVoice(true);
+    try {
+      const res = await fetch("/api/voice/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "provision",
+          employeeId: provEmployeeId,
+          provider: provProvider,
+          phoneNumber: provPhoneNumber,
+          phoneMode: provPhoneMode,
+          voiceId: provVoiceId,
+          systemPrompt: provSystemPrompt,
+          firstMessage: provFirstMessage,
+          minVerificationLevel: provMinVerification,
+          permissionScopes: provPermissionScopes,
+        }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || "Voice bot provisioned successfully!", "success");
+        setIsVoiceProvisionModalOpen(false);
+        fetchData();
+      } else {
+        notify(res.error || "Failed to provision voice bot", "error");
+      }
+    } catch (err) {
+      notify("Failed to provision voice bot", "error");
+    } finally {
+      setIsProvisioningVoice(false);
+    }
+  };
+
+  const handleSyncVoiceBot = async (configId: string) => {
+    try {
+      const res = await fetch("/api/voice/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", configId }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || "Re-synchronized remote voice agent!", "success");
+        fetchData();
+      } else {
+        notify(res.error || "Failed to sync voice agent", "error");
+      }
+    } catch (err) {
+      notify("Failed to sync voice agent", "error");
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedConfigForPermissions) return;
+    try {
+      const res = await fetch("/api/voice/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_permissions",
+          configId: selectedConfigForPermissions.id,
+          permissionScopes: editPermissionScopes,
+        }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || "Permissions updated successfully!", "success");
+        setIsEditPermissionsModalOpen(false);
+        fetchData();
+      } else {
+        notify(res.error || "Failed to update permissions", "error");
+      }
+    } catch (err) {
+      notify("Failed to update permissions", "error");
     }
   };
 
@@ -3717,62 +3820,214 @@ export default function SupportV8Dashboard() {
         {/* ========================================================================= */}
         {/* TAB: VOICE INTEGRATION (GROWTHV8 VOICE ARCHITECTURE) */}
         {/* ========================================================================= */}
+        {/* ========================================================================= */}
+        {/* TAB: VOICE INTEGRATION (GROWTHV8 VOICE ARCHITECTURE) */}
+        {/* ========================================================================= */}
         {activeTab === "voice" && (
           <div className="space-y-6">
-            <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
+            {/* Top Overview & Provisioning Header */}
+            <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <PhoneCall className="w-5 h-5 text-[#2ED8B6]" />
-                  <h2 className="text-lg font-bold text-[#EAF1F8]">Voice Telephony &amp; AI Call Operations</h2>
+                  <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
+                    <PhoneCall className="w-5 h-5" />
+                  </span>
+                  <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Voice Telephony &amp; AI Bot Operations</h1>
                 </div>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Real-time voice agent pipelines (Vapi, Twilio, Retell) with HMAC-signed context tokens, identity verification gates, and live tool dispatch.
+                <p className="text-xs text-[#B4C2D0]">
+                  GrowthV8 voice architecture: Provision remote voice bots (Vapi &amp; Twilio) matched to local AI Employees with granular permission scopes and HMAC authentication.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="pill ok text-xs">
+
+              <div className="flex items-center gap-3">
+                <span className="pill ok text-xs font-mono">
                   <Radio className="w-3.5 h-3.5" />
-                  <span>2 Telephony Lines Active</span>
+                  <span>{voiceData.phoneConfigs.length} Active Lines Provisioned</span>
                 </span>
+
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceProvisionModalOpen(true)}
+                  className="btn btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Provision New Voice Bot</span>
+                </button>
               </div>
             </div>
 
-            {/* Inbound Voice Numbers */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {voiceData.phoneConfigs.map((cfg: any) => (
-                <div key={cfg.id} className="card p-5 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-[#2ED8B6]">{cfg.phoneNumber}</span>
-                        <span className="pill">
-                          {cfg.provider}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-[#EAF1F8] mt-1">{cfg.agentName}</h4>
-                    </div>
-                    <span className="pill ok">
-                      <i className="dot"></i>
-                      ACTIVE
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">{cfg.systemPrompt}</p>
-
-                  <div className="pt-3 flex items-center justify-between text-xs border-t border-[var(--line)] text-[#6B7C8D] font-mono">
-                    <span>
-                      Voice Model: <strong className="text-[#EAF1F8]">{cfg.voiceId}</strong>
-                    </span>
-                    <span>
-                      Min Auth Gate: <strong className="text-[#2ED8B6] uppercase">{cfg.minVerificationLevel}</strong>
-                    </span>
-                  </div>
+            {/* Inbound Voice Numbers & Remote-to-Local Agent Matching Grid */}
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-[#2ED8B6]" />
+                  <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                    Provisioned Voice Connections (Remote ↔ Local Agent Matching)
+                  </h3>
                 </div>
-              ))}
+                <span className="text-[11px] font-mono text-[#6B7C8D]">
+                  HMAC Webhook Callback: /api/voice/webhook
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {voiceData.phoneConfigs.map((cfg: any) => {
+                  const localEmp = workforce.find((w) => w.id === cfg.employeeId) || {
+                    name: cfg.employeeName || cfg.agentName,
+                    role: "Voice Lead",
+                    avatarUrl: "/avatars/beaver-sophia.jpg",
+                  };
+                  return (
+                    <div
+                      key={cfg.id}
+                      className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6]/40 transition-all shadow-md flex flex-col justify-between"
+                    >
+                      <div className="space-y-3.5">
+                        {/* Header: Phone & Provider */}
+                        <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-[#2ED8B6] tracking-wide">
+                                {cfg.phoneNumber}
+                              </span>
+                              <span className="pill text-[9px] uppercase font-mono bg-[#18222E] border-[var(--line-2)] text-[#4D9FFF]">
+                                {cfg.provider.toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                              Line: {cfg.serviceMode || "customer"} • Last Call: {cfg.lastCallAt || "Active"}
+                            </span>
+                          </div>
+                          <span className="pill ok text-[9px] font-mono uppercase shrink-0">
+                            <i className="dot"></i>
+                            {cfg.syncStatus === "synced" ? "SYNCED & MATCHED" : "PROVISIONED"}
+                          </span>
+                        </div>
+
+                        {/* Remote ↔ Local Agent Matching Box */}
+                        <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
+                          <div className="flex items-center justify-between text-[9px] font-mono text-[#6B7C8D] uppercase font-bold">
+                            <span>Local AI Employee:</span>
+                            <span className="text-[#2ED8B6]">Remote Provider ID</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={localEmp.avatarUrl || "/avatars/beaver-sophia.jpg"}
+                                alt={localEmp.name}
+                                className="w-6 h-6 rounded-lg object-cover border border-[#2ED8B6]/40 shrink-0"
+                              />
+                              <span className="font-bold text-[#EAF1F8] text-[11px] truncate max-w-[140px]">
+                                {localEmp.name?.split("—")[0]?.trim() || "Sophia"}
+                              </span>
+                            </div>
+                            <span className="font-mono text-[10px] text-[#2ED8B6] bg-[#121A24] px-2 py-0.5 rounded border border-[var(--line)] truncate max-w-[130px]" title={cfg.remoteAgentId}>
+                              {cfg.remoteAgentId || `asst_${cfg.provider}_${cfg.id}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* System Prompt & First Message Greeting */}
+                        <div className="space-y-1 text-xs">
+                          {cfg.firstMessage && (
+                            <div className="p-2 rounded-lg bg-[#0E1520] border border-[var(--line-2)] text-[11px] text-[#B4C2D0] italic">
+                              &ldquo;{cfg.firstMessage}&rdquo;
+                            </div>
+                          )}
+                          <p className="text-xs text-[#8E9AA8] leading-relaxed line-clamp-2">
+                            {cfg.systemPrompt}
+                          </p>
+                        </div>
+
+                        {/* Permission Scopes Badges */}
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
+                            <span className="uppercase font-bold text-[#EAF1F8] flex items-center gap-1">
+                              <Shield className="w-3 h-3 text-[#2ED8B6]" />
+                              <span>Granted Tool Permissions ({(cfg.permissionScopes || []).length}):</span>
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1 font-mono text-[9.5px]">
+                            {(cfg.permissionScopes && cfg.permissionScopes.length > 0
+                              ? cfg.permissionScopes
+                              : ["support.problem.status", "support.ticket.lookup"]
+                            ).map((scope: string, i: number) => (
+                              <span
+                                key={i}
+                                className="px-2 py-0.5 rounded-md bg-[#18222E] border border-[var(--line-2)] text-[#2ED8B6]"
+                              >
+                                {scope.replace("support.", "")}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Telephony Specs */}
+                        <div className="pt-2 flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] border-t border-[var(--line)]">
+                          <span>
+                            Voice Model: <strong className="text-[#EAF1F8]">{cfg.voiceId || "jennifer-neural-v2"}</strong>
+                          </span>
+                          <span>
+                            Auth Gate: <strong className="text-[#2ED8B6] uppercase">{cfg.minVerificationLevel}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Card Actions */}
+                      <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSyncVoiceBot(cfg.id)}
+                          className="btn btn-secondary py-1.5 px-2.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer flex-1 justify-center"
+                          title="Re-synchronize remote provider assistant with local AI employee"
+                        >
+                          <RefreshCw className="w-3 h-3 text-[#2ED8B6]" />
+                          <span>Re-Sync API</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedConfigForPermissions(cfg);
+                            setEditPermissionScopes(cfg.permissionScopes || [
+                              "support.problem.status",
+                              "support.ticket.lookup",
+                              "support.ticket.create",
+                              "knowledge.rag.search",
+                            ]);
+                            setIsEditPermissionsModalOpen(true);
+                          }}
+                          className="btn btn-secondary py-1.5 px-2.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+                          title="Edit granted capability scopes"
+                        >
+                          <Sliders className="w-3 h-3 text-[#4D9FFF]" />
+                          <span>Permissions</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSimVoiceNumber(cfg.phoneNumber);
+                            setSimVoiceProvider(cfg.provider);
+                            setSimVoiceVerification(cfg.minVerificationLevel || "phone_match");
+                            const simElement = document.getElementById("voice-call-simulator");
+                            if (simElement) simElement.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="btn btn-primary py-1.5 px-2.5 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          title="Test simulate call with this bot"
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                          <span>Test</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Simulator & Live Session Inspector */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div id="voice-call-simulator" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Voice Call Simulator */}
               <div className="card p-5 space-y-4">
                 <div className="flex items-center gap-2 pb-3 border-b border-[var(--line)]">
@@ -5700,6 +5955,299 @@ export default function SupportV8Dashboard() {
         </div>
       )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* VOICE BOT PROVISIONING MODAL (GROWTHV8 VAPI & TWILIO API) */}
+      {/* ========================================================================= */}
+      {isVoiceProvisionModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl card shadow-2xl p-6 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2.5">
+                <PhoneCall className="w-5 h-5 text-[#2ED8B6]" />
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Provision Voice Bot via API</h3>
+                  <span className="text-[10px] font-mono text-[#6B7C8D]">Vapi AI &amp; Twilio Voice Telephony Matching</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVoiceProvisionModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs font-mono">
+              {/* Step 1: Match Local AI Employee */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  1. Match to Local AI Employee Persona
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {workforce
+                    .filter((w) => w.level === "ai_employee")
+                    .map((emp) => {
+                      const isSelected = provEmployeeId === emp.id;
+                      return (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onClick={() => {
+                            setProvEmployeeId(emp.id);
+                            setProvSystemPrompt(
+                              `You are ${emp.name}, enterprise support voice agent for Acme Cloud. Answer questions concisely, query pgvector knowledge base, and execute authorized tools.`
+                            );
+                            setProvFirstMessage(
+                              `Thank you for calling Acme Support. I am ${emp.name.split("—")[0].trim()}. How can I assist you today?`
+                            );
+                          }}
+                          className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#2ED8B6]"
+                              : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                          }`}
+                        >
+                          <img
+                            src={emp.avatarUrl || "/avatars/beaver-sophia.jpg"}
+                            alt={emp.name}
+                            className="w-8 h-8 rounded-lg object-cover border border-[#2ED8B6]/40 shrink-0"
+                          />
+                          <div className="truncate">
+                            <div className="font-bold text-[11px] text-[#EAF1F8] truncate">{emp.name}</div>
+                            <div className="text-[9.5px] opacity-75 font-mono truncate">{emp.role}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Step 2: Telephony Provider & Number Binding */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    2. Telephony Provider
+                  </label>
+                  <select
+                    value={provProvider}
+                    onChange={(e) => setProvProvider(e.target.value as any)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                  >
+                    <option value="vapi">Vapi.ai (Autonomous Voice)</option>
+                    <option value="twilio">Twilio Voice (SIP Trunk / TwiML)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={provPhoneNumber}
+                    onChange={(e) => setProvPhoneNumber(e.target.value)}
+                    placeholder="+1 (800) 555-0199"
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs font-mono focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                    Min Auth Gate
+                  </label>
+                  <select
+                    value={provMinVerification}
+                    onChange={(e) => setProvMinVerification(e.target.value)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                  >
+                    <option value="phone_match">Phone Match (Tier 1)</option>
+                    <option value="otp_verified">OTP Verified (Tier 2)</option>
+                    <option value="authenticated">Full Authenticated</option>
+                    <option value="anonymous">Anonymous Ingress</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Step 3: Granular Permission Scopes Multi-Select */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1.5 uppercase text-[10px] font-bold">
+                  3. Granted Tool Permission Scopes (Constrained Execution)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: "support.problem.status", label: "Outage & Problem Status" },
+                    { id: "support.ticket.lookup", label: "Ticket Search & Lookup" },
+                    { id: "support.ticket.create", label: "Create & Escalate Ticket" },
+                    { id: "support.account.unlock_request", label: "Account MFA Unlock" },
+                    { id: "knowledge.rag.search", label: "Knowledge RAG Retrieval" },
+                    { id: "orderv8.refund", label: "Autonomous Refund (<$500)" },
+                  ].map((scope) => {
+                    const isChecked = provPermissionScopes.includes(scope.id);
+                    return (
+                      <button
+                        key={scope.id}
+                        type="button"
+                        onClick={() => {
+                          if (isChecked) {
+                            setProvPermissionScopes(provPermissionScopes.filter((s) => s !== scope.id));
+                          } else {
+                            setProvPermissionScopes([...provPermissionScopes, scope.id]);
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left flex items-center justify-between text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#2ED8B6]"
+                            : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                        }`}
+                      >
+                        <span className="text-[10.5px] font-mono">{scope.label}</span>
+                        {isChecked && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 4: First Message Spoken Greeting */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  4. Initial Spoken Greeting (First Message)
+                </label>
+                <input
+                  type="text"
+                  value={provFirstMessage}
+                  onChange={(e) => setProvFirstMessage(e.target.value)}
+                  placeholder="Thank you for calling Acme Support. How can I assist you today?"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              {/* Step 5: System Prompt */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  5. System Prompt &amp; Conversational Guardrails
+                </label>
+                <textarea
+                  rows={2}
+                  value={provSystemPrompt}
+                  onChange={(e) => setProvSystemPrompt(e.target.value)}
+                  placeholder="You are Sophia, frontline conversational support specialist. Triage inbound callers..."
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => setIsVoiceProvisionModalOpen(false)}
+                className="btn btn-secondary text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProvisionVoiceBot}
+                disabled={isProvisioningVoice}
+                className="btn btn-primary text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>{isProvisioningVoice ? "Provisioning via API..." : "🚀 Provision Voice Bot via API"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* EDIT PERMISSION SCOPES MODAL */}
+      {/* ========================================================================= */}
+      {isEditPermissionsModalOpen && selectedConfigForPermissions && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg card shadow-2xl p-5 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2.5">
+                <Sliders className="w-5 h-5 text-[#2ED8B6]" />
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Edit Voice Bot Permission Scopes</h3>
+                  <span className="text-[10px] font-mono text-[#6B7C8D]">
+                    {selectedConfigForPermissions.phoneNumber} • {selectedConfigForPermissions.agentName}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditPermissionsModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs font-mono">
+              <p className="text-xs text-[#B4C2D0]">
+                Configure which tool functions the remote voice agent ({selectedConfigForPermissions.remoteAgentId}) can execute during live phone calls:
+              </p>
+
+              <div className="space-y-2">
+                {[
+                  { id: "support.problem.status", label: "Outage & Systemic Problem Status" },
+                  { id: "support.ticket.lookup", label: "Customer Ticket Lookup" },
+                  { id: "support.ticket.create", label: "Create & Route Support Ticket" },
+                  { id: "support.account.unlock_request", label: "Account MFA Unlock & PIN Check" },
+                  { id: "knowledge.rag.search", label: "Knowledge RAG Vector Search" },
+                  { id: "orderv8.refund", label: "Autonomous Refund Execution (<$500)" },
+                  { id: "comms.broadcast", label: "Incident Broadcast Communication" },
+                ].map((scope) => {
+                  const isChecked = editPermissionScopes.includes(scope.id);
+                  return (
+                    <button
+                      key={scope.id}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setEditPermissionScopes(editPermissionScopes.filter((s) => s !== scope.id));
+                        } else {
+                          setEditPermissionScopes([...editPermissionScopes, scope.id]);
+                        }
+                      }}
+                      className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between cursor-pointer transition-all ${
+                        isChecked
+                          ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#2ED8B6]"
+                          : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                      }`}
+                    >
+                      <span className="text-[11px]">{scope.label}</span>
+                      {isChecked ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border border-[var(--line-2)]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => setIsEditPermissionsModalOpen(false)}
+                className="btn btn-secondary text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePermissions}
+                className="btn btn-primary text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Save Permissions</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KnowledgeV8-Inspired Floating ? Page Guide Dock */}
       <FloatingPageGuide

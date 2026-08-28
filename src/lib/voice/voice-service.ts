@@ -1,13 +1,22 @@
 /**
  * supportV8 Voice Interaction Service
  * Manages voice phone configurations, live telephony sessions,
- * real-time function calling, and post-call issue derivation.
+ * real-time function calling, and remote-to-local agent matching.
+ * References GrowthV8 Vapi & Twilio provisioning architecture.
  */
 
 import { signVoiceContextToken } from "./context-token";
 import { deriveAllowedVoiceTools, SUPPORT_VOICE_CAPABILITIES, verificationMeets } from "./capability-manifest";
-import type { VoicePhoneConfig, VoiceSession, VoiceVerificationLevel } from "./types";
+import type {
+  VoicePhoneConfig,
+  VoiceSession,
+  VoiceVerificationLevel,
+  VoiceProvisioningRequest,
+  VoiceProvisioningResult,
+  VoicePermissionScope,
+} from "./types";
 import { db } from "../db/mock-data";
+import { workforceManager } from "../workforce";
 import { globalActionGateway } from "../runtime/action-gateway-client";
 import { kv8RetrievalEngine } from "../rag/retrieval";
 
@@ -19,9 +28,23 @@ export const INITIAL_PHONE_CONFIGS: VoicePhoneConfig[] = [
     provider: "vapi",
     serviceMode: "customer",
     agentName: "Alex — Support Voice AI",
+    employeeId: "emp_support_lead",
+    employeeName: "Alex — Support Intelligence Lead",
+    remoteAgentId: "asst_vapi_alex_prod_9941a8",
+    remotePhoneNumberId: "phone_vapi_us_88412",
     voiceId: "jennifer-neural-v2",
     systemPrompt: "You are Alex, an enterprise support AI for Acme Cloud. Answer questions concisely, check status outages, and resolve issues or escalate smoothly.",
+    firstMessage: "Thank you for calling Acme Enterprise Support. I am Alex. How can I assist with your infrastructure today?",
     minVerificationLevel: "phone_match",
+    permissionScopes: [
+      "support.problem.status",
+      "support.ticket.lookup",
+      "support.ticket.create",
+      "knowledge.rag.search",
+    ],
+    webhookUrl: "https://api.supportv8.io/api/voice/webhook",
+    syncStatus: "synced",
+    lastSyncedAt: "2026-08-27T22:00:00.000Z",
     isActive: true,
     lastCallAt: "4 mins ago",
   },
@@ -32,11 +55,53 @@ export const INITIAL_PHONE_CONFIGS: VoicePhoneConfig[] = [
     provider: "twilio",
     serviceMode: "official",
     agentName: "Maya — Incident Voice Bot",
+    employeeId: "emp_incident_analyst",
+    employeeName: "Maya — Incident & Business Impact Analyst",
+    remoteAgentId: "flow_tw_maya_inc_8820f1",
+    remotePhoneNumberId: "PN_twilio_sip_19842",
     voiceId: "marcus-telephony-v1",
-    systemPrompt: "You are Maya, Incident Support Voice Assistant for Acme Enterprise customers.",
+    systemPrompt: "You are Maya, Incident Support Voice Assistant for Acme Enterprise customers. Track live incident status and broadcast updates.",
+    firstMessage: "Acme Incident Hotline. I am Maya, monitoring active systemic outages and priority escalations.",
     minVerificationLevel: "otp_verified",
+    permissionScopes: [
+      "support.problem.status",
+      "support.ticket.create",
+      "comms.broadcast",
+    ],
+    webhookUrl: "https://api.supportv8.io/api/voice/webhook",
+    syncStatus: "synced",
+    lastSyncedAt: "2026-08-27T22:15:00.000Z",
     isActive: true,
     lastCallAt: "18 mins ago",
+  },
+  {
+    id: "phone_03",
+    tenantId: "tenant_default",
+    phoneNumber: "+1 (800) 772-9100",
+    provider: "vapi",
+    serviceMode: "customer",
+    agentName: "Sophia — Frontline Conversational Agent",
+    employeeId: "emp_voice_specialist",
+    employeeName: "Sophia — Frontline Voice & Conversational Lead",
+    remoteAgentId: "asst_vapi_sophia_live_4412c9",
+    remotePhoneNumberId: "phone_vapi_tollfree_6621",
+    voiceId: "sophia-conversational-v3",
+    systemPrompt: "You are Sophia, frontline conversational support specialist. Triage inbound callers, perform account unlocks, verify caller PINs, and issue refunds within authorized limits.",
+    firstMessage: "Hi there! I am Sophia from Acme Cloud Support. How can I help you today?",
+    minVerificationLevel: "phone_match",
+    permissionScopes: [
+      "support.problem.status",
+      "support.ticket.lookup",
+      "support.ticket.create",
+      "support.account.unlock_request",
+      "knowledge.rag.search",
+      "orderv8.refund",
+    ],
+    webhookUrl: "https://api.supportv8.io/api/voice/webhook",
+    syncStatus: "synced",
+    lastSyncedAt: "2026-08-27T22:30:00.000Z",
+    isActive: true,
+    lastCallAt: "35 mins ago",
   },
 ];
 
@@ -86,6 +151,128 @@ export class VoiceService {
 
   public getSessions(tenantId: string): VoiceSession[] {
     return [...this.sessions].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  }
+
+  public getPhoneConfigById(configId: string): VoicePhoneConfig | undefined {
+    return this.phoneConfigs.find((p) => p.id === configId);
+  }
+
+  /**
+   * Provision a voice bot connection via Vapi or Twilio API,
+   * matching remote agent to the local AI Employee.
+   */
+  public async provisionVoiceAgent(request: VoiceProvisioningRequest): Promise<VoiceProvisioningResult> {
+    const {
+      tenantId,
+      employeeId,
+      provider,
+      phoneNumber,
+      phoneMode = "vapi_managed",
+      voiceId = "jennifer-neural-v2",
+      systemPrompt,
+      firstMessage,
+      minVerificationLevel = "phone_match",
+      permissionScopes = [
+        "support.problem.status",
+        "support.ticket.lookup",
+        "support.ticket.create",
+        "knowledge.rag.search",
+      ],
+    } = request;
+
+    // 1. Resolve Local AI Employee
+    const localEmployee = workforceManager.getById(employeeId);
+    const employeeName = localEmployee?.name || "AI Employee";
+
+    // 2. Generate Remote Agent Matching ID based on Provider
+    const remoteAgentId =
+      provider === "vapi"
+        ? `asst_vapi_${employeeId.replace("emp_", "")}_${Date.now().toString(36)}`
+        : `flow_tw_${employeeId.replace("emp_", "")}_${Date.now().toString(36)}`;
+
+    const remotePhoneNumberId =
+      provider === "vapi"
+        ? `phone_vapi_${Math.random().toString(36).slice(2, 8)}`
+        : `PN_twilio_sip_${Math.random().toString(36).slice(2, 8)}`;
+
+    const configId = `phone_${Date.now().toString(36)}`;
+    const effectivePrompt =
+      systemPrompt ||
+      `You are ${localEmployee?.name || "Support AI"}, representing Acme Enterprise Support. Handle customer inquiries with pgvector knowledge grounding and tool executions.`;
+    const effectiveFirstMessage =
+      firstMessage ||
+      `Hello! Thank you for calling Acme Support. I am ${localEmployee?.name?.split("—")[0]?.trim() || "your AI Assistant"}. How can I assist you today?`;
+
+    const newConfig: VoicePhoneConfig = {
+      id: configId,
+      tenantId,
+      phoneNumber,
+      provider,
+      serviceMode: "customer",
+      agentName: `${localEmployee?.name?.split("—")[0]?.trim() || "AI"} Voice Agent`,
+      employeeId,
+      employeeName,
+      remoteAgentId,
+      remotePhoneNumberId,
+      voiceId,
+      systemPrompt: effectivePrompt,
+      firstMessage: effectiveFirstMessage,
+      minVerificationLevel,
+      permissionScopes,
+      webhookUrl: "https://api.supportv8.io/api/voice/webhook",
+      syncStatus: "synced",
+      lastSyncedAt: new Date().toISOString(),
+      isActive: true,
+      lastCallAt: "Just now",
+    };
+
+    // Remove any existing config with the same phone number for this tenant
+    this.phoneConfigs = this.phoneConfigs.filter((p) => p.phoneNumber !== phoneNumber);
+    this.phoneConfigs.unshift(newConfig);
+
+    return {
+      success: true,
+      message: `Voice Bot successfully provisioned via ${provider.toUpperCase()} API and matched to local employee ${employeeName} (Remote ID: ${remoteAgentId}).`,
+      config: newConfig,
+      remoteAgentId,
+      remotePhoneNumberId,
+      matchedLocalEmployee: {
+        id: employeeId,
+        name: employeeName,
+        role: localEmployee?.role || "Support AI",
+      },
+    };
+  }
+
+  /**
+   * Re-sync remote provider configuration with local AI employee state
+   */
+  public async syncVoiceAgent(configId: string): Promise<{ success: boolean; message: string; config?: VoicePhoneConfig }> {
+    const config = this.getPhoneConfigById(configId);
+    if (!config) {
+      return { success: false, message: `Voice config '${configId}' not found.` };
+    }
+
+    config.syncStatus = "synced";
+    config.lastSyncedAt = new Date().toISOString();
+
+    return {
+      success: true,
+      message: `Re-synchronized remote ${config.provider.toUpperCase()} agent (${config.remoteAgentId}) with local employee (${config.employeeName}).`,
+      config,
+    };
+  }
+
+  /**
+   * Update granted permission scopes on provisioned voice bot
+   */
+  public updatePermissions(configId: string, scopes: VoicePermissionScope[]): { success: boolean; config?: VoicePhoneConfig } {
+    const config = this.getPhoneConfigById(configId);
+    if (!config) return { success: false };
+
+    config.permissionScopes = scopes;
+    config.lastSyncedAt = new Date().toISOString();
+    return { success: true, config };
   }
 
   public async startSession(params: {
@@ -185,6 +372,21 @@ export class VoiceService {
       output = {
         unlocked: true,
         message: "Account MFA lockout successfully cleared. You may now log in.",
+      };
+    } else if (toolName === "knowledge.rag.search") {
+      output = {
+        resultsCount: 2,
+        documents: [
+          { title: "Okta SAML SSO Configuration Guide", section: "Assertion Validation", score: 0.94 },
+          { title: "PostgreSQL Connection Pooling Guide", section: "PgBouncer Resiliency", score: 0.89 },
+        ],
+      };
+    } else if (toolName === "orderv8.refund") {
+      output = {
+        refundIssued: true,
+        amountUsd: input.amountUsd || 150.0,
+        status: "processed",
+        reference: "ref_orderv8_" + Date.now().toString(36),
       };
     }
 

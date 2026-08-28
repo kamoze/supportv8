@@ -91,6 +91,50 @@ export const SUPPORT_VOICE_CAPABILITIES: Record<string, VoiceCapabilityDefinitio
       required: ["otpCode"],
     },
   },
+  "knowledge.rag.search": {
+    version: 1,
+    mode: "synchronous",
+    timeoutMs: 1200,
+    requiresIdentityLevel: "anonymous",
+    description: "Semantic pgvector retrieval across indexed enterprise support articles and runbooks",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query or troubleshooting symptom" },
+      },
+      required: ["query"],
+    },
+  },
+  "orderv8.refund": {
+    version: 1,
+    mode: "synchronous",
+    timeoutMs: 2000,
+    requiresIdentityLevel: "authenticated",
+    description: "Autonomous refund execution for disputed charges under authorized financial thresholds",
+    parameters: {
+      type: "object",
+      properties: {
+        amountUsd: { type: "number", description: "Refund amount in USD" },
+        reason: { type: "string", description: "Reason for refund" },
+      },
+      required: ["amountUsd"],
+    },
+  },
+  "comms.broadcast": {
+    version: 1,
+    mode: "synchronous",
+    timeoutMs: 1500,
+    requiresIdentityLevel: "otp_verified",
+    description: "Broadcast proactive incident notification to affected customers",
+    parameters: {
+      type: "object",
+      properties: {
+        subject: { type: "string", description: "Email / SMS subject line" },
+        body: { type: "string", description: "Incident notification body text" },
+      },
+      required: ["subject", "body"],
+    },
+  },
 };
 
 export function verificationMeets(actual: VoiceVerificationLevel, required: VoiceVerificationLevel): boolean {

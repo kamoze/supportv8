@@ -1065,13 +1065,12 @@ export default function SupportV8Dashboard() {
         { id: "trends", label: "Trend Radar", icon: TrendingUp, flaticon: "fi fi-rr-chart-line-up" },
         { id: "knowledge", label: "Knowledge Suite", icon: Brain, flaticon: "fi fi-rr-brain" },
         { id: "stale_work", label: "Work Sweep", icon: Clock, flaticon: "fi fi-rr-time-past", badge: 43 },
-        { id: "sources", label: "Vertical Mesh", icon: Server, flaticon: "fi fi-rr-network", badge: connectors.filter((c) => c.isSubscribed).length + (verticals.length || 5) },
       ],
     },
     {
       title: "Marketplace",
       items: [
-        { id: "market_connectors", label: "Connectors", icon: Plug, flaticon: "fi fi-rr-plug", badge: connectors.filter((c) => c.isSubscribed).length },
+        { id: "market_connectors", label: "Connectors & Mesh", icon: Plug, flaticon: "fi fi-rr-network", badge: connectors.filter((c) => c.isSubscribed).length + (verticals.length || 6) },
         { id: "market_workforce", label: "Workforce", icon: ShoppingBag, flaticon: "fi fi-rr-shopping-bag" },
         { id: "market_plans", label: "Plans", icon: CreditCard, flaticon: "fi fi-rr-credit-card" },
       ],
@@ -4601,232 +4600,19 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: SOURCES & VERTICALS (GROWTHV8 CONNECTORS & VERTICAL MESH) */}
+        {/* TAB: CONNECTORS & VERTICAL MESH */}
         {/* ========================================================================= */}
-        {activeTab === "sources" && (
-          <div className="space-y-6">
-            {/* Ingestion Sources & Marketplace Connectors */}
-            <div className="card p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
-                <div>
-                  <h2 className="text-lg font-bold text-[#EAF1F8]">Ingestion Sources &amp; Connectors Mesh</h2>
-                  <p className="text-xs text-[#B4C2D0] mt-0.5">
-                    Live omnichannel support ingress pipelines subscribed &amp; activated in the Marketplace.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("market_connectors")}
-                  className="btn btn-secondary text-xs flex items-center gap-1.5 font-mono cursor-pointer"
-                >
-                  <Plug className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>+ Manage in Marketplace</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {connectors.filter((c) => c.isSubscribed).map((src) => (
-                  <div key={src.id} className="bg-[#18222E] p-4 rounded-xl border border-[var(--line)] space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-[#121A24] border border-[var(--line-2)] flex items-center justify-center text-sm text-[#2ED8B6]">
-                          <i className={src.icon} />
-                        </div>
-                        <div>
-                          <h3 className="text-xs font-bold text-[#EAF1F8]">{src.name}</h3>
-                          <span className="text-[10px] text-[#6B7C8D] font-mono uppercase">{src.category}</span>
-                        </div>
-                      </div>
-                      <span className="pill ok text-[9px] font-mono">
-                        <i className="dot"></i>
-                        ACTIVE
-                      </span>
-                    </div>
-                    <p className="text-xs font-mono text-[#6B7C8D] truncate">{src.endpointUrl || "https://api.ingress.servicev8.internal"}</p>
-                    <div className="text-[11px] text-[#B4C2D0] flex justify-between border-t border-[var(--line)] pt-2 font-mono">
-                      <span>Sync: {src.syncFrequencyMinutes} min</span>
-                      <span className="text-[#2ED8B6] font-bold">Events: {src.eventsPerDay.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Vertical & Service Apps Mesh */}
-            <div className="card p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-[#2ED8B6]" />
-                  <div>
-                    <h3 className="text-base font-bold text-[#EAF1F8]">ServiceV8 Vertical &amp; Service Apps Mesh</h3>
-                    <p className="text-xs text-[#B4C2D0] mt-0.5">
-                      Standardized cross-vertical API integrations enabling real-time lookups, refunds, dispatches, and AIOps telemetry.
-                    </p>
-                  </div>
-                </div>
-                <span className="pill ok text-xs">
-                  <i className="dot"></i>
-                  {verticals.length || 6} Verticals Connected
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(verticals.length > 0
-                  ? verticals
-                  : [
-                      { vertical: "orderv8", name: "OrderV8", endpointUrl: "http://orderv8.servicev8.internal:3000", latencyMs: 38, supportedOperations: ["order.lookup", "order.refund"] },
-                      { vertical: "carev8", name: "CareV8", endpointUrl: "http://carev8.servicev8.internal:3000", latencyMs: 44, supportedOperations: ["patient.lookup", "appointment.list"] },
-                      { vertical: "propv8", name: "PropV8", endpointUrl: "http://propv8.servicev8.internal:3000", latencyMs: 52, supportedOperations: ["maintenance.create", "lease.lookup"] },
-                      { vertical: "growthv8", name: "GrowthV8", endpointUrl: "http://growthv8.servicev8.internal:3000", latencyMs: 29, supportedOperations: ["lead.lookup", "retention.campaign.trigger"] },
-                      { vertical: "dominion", name: "Dominion AIOps", endpointUrl: "http://dominion.servicev8.internal:3000", latencyMs: 24, supportedOperations: ["incident.lookup", "circuit_breaker.status"] },
-                      { vertical: "workerv8", name: "WorkerV8", endpointUrl: "http://workerv8.servicev8.internal:3000", latencyMs: 49, supportedOperations: ["dispatch.lookup", "technician.eta"] },
-                    ]
-                ).map((vert: any) => (
-                  <div key={vert.vertical} className="bg-[#18222E] p-4 rounded-lg border border-[var(--line)] space-y-2.5">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="text-sm font-bold text-[#EAF1F8]">{vert.name}</h4>
-                        <span className="font-mono text-[11px] text-[#6B7C8D]">{vert.endpointUrl}</span>
-                      </div>
-                      <span className="pill ok text-[10px]">
-                        {vert.latencyMs}ms
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 pt-2">
-                      {vert.supportedOperations.slice(0, 3).map((op: string) => (
-                        <span key={op} className="pill text-[10px]">
-                          {op}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Interactive Vertical API Dispatcher */}
-            <div className="card p-5 space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-[var(--line)]">
-                <Terminal className="w-4 h-4 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Interactive Vertical API Dispatcher</h3>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="text-[#6B7C8D] block mb-1">Target Vertical</label>
-                    <select
-                      value={selectedVertical}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setSelectedVertical(v);
-                        if (v === "orderv8") {
-                          setSelectedVerticalOp("order.lookup");
-                          setVerticalPayloadText('{\n  "orderId": "ORD-99412",\n  "customerId": "CUST-8821"\n}');
-                        } else if (v === "carev8") {
-                          setSelectedVerticalOp("appointment.list");
-                          setVerticalPayloadText('{\n  "patientId": "PAT-3011"\n}');
-                        } else if (v === "propv8") {
-                          setSelectedVerticalOp("maintenance.create");
-                          setVerticalPayloadText('{\n  "propertyId": "PROP-A102",\n  "issue": "HVAC cooling failure"\n}');
-                        } else if (v === "growthv8") {
-                          setSelectedVerticalOp("retention.campaign.trigger");
-                          setVerticalPayloadText('{\n  "customerId": "CUST-8821"\n}');
-                        } else if (v === "dominion") {
-                          setSelectedVerticalOp("incident.lookup");
-                          setVerticalPayloadText('{\n  "service": "checkout-worker"\n}');
-                        } else if (v === "workerv8") {
-                          setSelectedVerticalOp("dispatch.lookup");
-                          setVerticalPayloadText('{\n  "dispatchId": "DSP-7721"\n}');
-                        }
-                      }}
-                      className="w-full bg-[#18222E] text-[#EAF1F8] px-3 py-1.5 rounded-lg border border-[var(--line-2)] font-mono focus:outline-none cursor-pointer"
-                    >
-                      <option value="orderv8">OrderV8 (Orders &amp; Refunds)</option>
-                      <option value="carev8">CareV8 (Healthcare &amp; Patients)</option>
-                      <option value="propv8">PropV8 (Property Management)</option>
-                      <option value="growthv8">GrowthV8 (CRM &amp; Retention)</option>
-                      <option value="dominion">Dominion (Autonomous AIOps)</option>
-                      <option value="workerv8">WorkerV8 (Field Dispatches)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[#6B7C8D] block mb-1">Operation</label>
-                    <input
-                      type="text"
-                      value={selectedVerticalOp}
-                      onChange={(e) => setSelectedVerticalOp(e.target.value)}
-                      className="w-full bg-[#18222E] text-[#EAF1F8] px-3 py-1.5 rounded-lg border border-[var(--line-2)] font-mono focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[#6B7C8D] block mb-1">Payload (JSON)</label>
-                    <textarea
-                      rows={4}
-                      value={verticalPayloadText}
-                      onChange={(e) => setVerticalPayloadText(e.target.value)}
-                      className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-lg border border-[var(--line-2)] font-mono text-[11px] focus:outline-none"
-                    />
-                  </div>
-
-                  <button
-                    onClick={async () => {
-                      try {
-                        setVerticalDispatchLoading(true);
-                        let parsedPayload = {};
-                        try {
-                          parsedPayload = JSON.parse(verticalPayloadText);
-                        } catch {
-                          notify("Invalid JSON payload", "error");
-                          return;
-                        }
-
-                        const res = await fetch("/api/verticals", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            vertical: selectedVertical,
-                            operation: selectedVerticalOp,
-                            payload: parsedPayload,
-                          }),
-                        }).then((r) => r.json());
-
-                        if (res.success) {
-                          notify(res.message, "success");
-                          setVerticalDispatchResult(res.data);
-                        } else {
-                          notify(res.error || "Dispatch failed", "error");
-                        }
-                      } catch (err) {
-                        notify("Network error during vertical dispatch", "error");
-                      } finally {
-                        setVerticalDispatchLoading(false);
-                      }
-                    }}
-                    disabled={verticalDispatchLoading}
-                    className="btn btn-primary w-full py-2 text-xs font-semibold cursor-pointer"
-                  >
-                    <Play className={`w-3.5 h-3.5 ${verticalDispatchLoading ? "animate-spin" : ""}`} />
-                    <span>{verticalDispatchLoading ? "Dispatching..." : "Dispatch Vertical API Call"}</span>
-                  </button>
-                </div>
-
-                <div className="lg:col-span-2 space-y-2">
-                  <span className="text-xs font-medium text-[#EAF1F8] block">Vertical API Response Output</span>
-                  <div className="bg-[#18222E] p-4 rounded-lg border border-[var(--line)] text-xs font-mono text-[#EAF1F8] min-h-[220px] whitespace-pre-wrap overflow-x-auto leading-relaxed">
-                    {verticalDispatchResult ? (
-                      JSON.stringify(verticalDispatchResult, null, 2)
-                    ) : (
-                      <span className="text-[#6B7C8D]">// Ready to dispatch. Select a vertical and click 'Dispatch Vertical API Call' to test.</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        {(activeTab === "sources" || activeTab === "market_connectors") && (
+          <MarketplaceConnectorsView
+            connectors={connectors}
+            verticals={verticals}
+            onToggleConnector={handleToggleConnector}
+            onOpenConfig={(conn) => {
+              setSelectedConnectorForConfig(conn);
+              setIsConnectorConfigOpen(true);
+            }}
+            onNotify={notify}
+          />
         )}
 
         {/* ========================================================================= */}
@@ -4916,20 +4702,6 @@ export default function SupportV8Dashboard() {
             onClearChat={handleClearChat}
             onChatAction={handleChatAction}
             loading={chatLoading}
-          />
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB: MARKETPLACE CONNECTORS */}
-        {/* ========================================================================= */}
-        {activeTab === "market_connectors" && (
-          <MarketplaceConnectorsView
-            connectors={connectors}
-            onToggleConnector={handleToggleConnector}
-            onOpenConfig={(conn) => {
-              setSelectedConnectorForConfig(conn);
-              setIsConnectorConfigOpen(true);
-            }}
           />
         )}
 

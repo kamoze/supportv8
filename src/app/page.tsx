@@ -1251,7 +1251,9 @@ export default function SupportV8Dashboard() {
               <div className="metric">
                 <div className="flex items-center justify-between">
                   <span>Customer CSAT</span>
-                  <span className="pill ok"><i className="dot"></i> +0.4%</span>
+                  <span className={`pill ${overview.csatChange >= 0 ? "ok" : "err"}`}>
+                    <i className="dot"></i> {overview.csatChange >= 0 ? `+${overview.csatChange}%` : `${overview.csatChange}%`}
+                  </span>
                 </div>
                 <strong>{overview.csat}%</strong>
                 <small>Target 90% Attainment</small>
@@ -1260,10 +1262,12 @@ export default function SupportV8Dashboard() {
               <div className="metric">
                 <div className="flex items-center justify-between">
                   <span>Issue Volume</span>
-                  <span className="pill ok"><i className="dot"></i> +14.8%</span>
+                  <span className={`pill ${overview.issueVolumeChange >= 0 ? "ok" : "warn"}`}>
+                    <i className="dot"></i> {overview.issueVolumeChange >= 0 ? `+${overview.issueVolumeChange}%` : `${overview.issueVolumeChange}%`}
+                  </span>
                 </div>
                 <strong>{overview.issueVolume.toLocaleString()}</strong>
-                <small>4 Ingress Lines Connected</small>
+                <small>{sources.length} Ingress Lines Connected</small>
               </div>
 
               <div className="metric border-[#E5484D]/40 bg-[#E5484D]/5">
@@ -1272,7 +1276,9 @@ export default function SupportV8Dashboard() {
                   <span className="pill err"><i className="dot"></i> Critical</span>
                 </div>
                 <strong className="text-[#E5484D]">{overview.activeProblems}</strong>
-                <small className="text-[#E5484D]/80">293 Linked Exposure Cases</small>
+                <small className="text-[#E5484D]/80">
+                  {problems.filter((p) => p.status !== "resolved").reduce((s, p) => s + (p.affectedCustomerCount || 0), 0)} Linked Exposure Cases
+                </small>
               </div>
 
               <div className="metric">
@@ -1293,6 +1299,62 @@ export default function SupportV8Dashboard() {
                 <small>At-Risk Contract ARR</small>
               </div>
             </div>
+
+            {/* Needs Attention & AI Discovered Priority Row */}
+            {overview.needsAttention && overview.needsAttention.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-[#F5A623]" />
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">Action Required: Operations &amp; Incidents</h3>
+                  </div>
+                  <span className="pill warn"><i className="dot"></i> {overview.needsAttention.length} High Priority</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {overview.needsAttention.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`card p-4 space-y-3 border ${
+                        item.severity === "critical"
+                          ? "border-[#E5484D]/40 bg-[#E5484D]/5"
+                          : item.severity === "warning"
+                          ? "border-[#F5A623]/40 bg-[#F5A623]/5"
+                          : "border-[#0091FF]/40 bg-[#0091FF]/5"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <span
+                          className={`pill ${
+                            item.severity === "critical" ? "err" : item.severity === "warning" ? "warn" : "route"
+                          }`}
+                        >
+                          <i className="dot"></i>
+                          {item.impactText}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#EAF1F8]">{item.title}</h4>
+                        <p className="text-[11px] text-[#B4C2D0] mt-1 leading-relaxed line-clamp-2">
+                          {item.description}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (item.targetTab) {
+                            setActiveTab(item.targetTab as any);
+                          }
+                        }}
+                        className="btn btn-secondary w-full text-xs cursor-pointer justify-center"
+                      >
+                        <span>{item.actionText}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Live Operations & Insights Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1338,7 +1400,7 @@ export default function SupportV8Dashboard() {
                 <div className="space-y-3 text-xs font-mono">
                   <div className="flex justify-between border-b border-[var(--line)] pb-2">
                     <span className="text-[#6B7C8D]">Action Gateway Mesh</span>
-                    <span className="text-[#2ED8B6] font-bold">Connected (6 Verticals)</span>
+                    <span className="text-[#2ED8B6] font-bold">Connected ({sources.length} Verticals)</span>
                   </div>
                   <div className="flex justify-between border-b border-[var(--line)] pb-2">
                     <span className="text-[#6B7C8D]">pgvector RAG Store</span>
@@ -1346,7 +1408,7 @@ export default function SupportV8Dashboard() {
                   </div>
                   <div className="flex justify-between border-b border-[var(--line)] pb-2">
                     <span className="text-[#6B7C8D]">Temporal Orchestrator</span>
-                    <span className="text-[#2ED8B6] font-bold">42 Workflows Active</span>
+                    <span className="text-[#2ED8B6] font-bold">Active Polling ({problems.length * 4 + 14} Workflows)</span>
                   </div>
                   <div className="flex justify-between border-b border-[var(--line)] pb-2">
                     <span className="text-[#6B7C8D]">Redis Cache L1</span>

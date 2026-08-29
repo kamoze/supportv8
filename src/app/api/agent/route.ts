@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       source: "zendesk",
       customer,
       message,
-      sentiment: triage.sentiment,
+      sentiment: (triage.sentiment as any) || "neutral",
       intent: triage.intent,
       category: triage.category,
       likelyProblemId: triage.category === "checkout_failure" ? "PRB-218" : triage.category === "auth_sso" ? "PRB-219" : undefined,

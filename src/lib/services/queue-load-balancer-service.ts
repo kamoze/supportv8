@@ -109,7 +109,12 @@ export class QueueLoadBalancerService {
   public rebalanceQueues(): {
     success: boolean;
     message: string;
-    metrics: { overallCapacityPercentage: number; totalActiveConversations: number };
+    metrics: {
+      overallCapacityPercentage: number;
+      totalActiveConversations: number;
+      channels: ChannelLoadMeter[];
+      rules: SkillRoutingRule[];
+    };
   } {
     // Rebalance live chat overflow to Alex and Maya AI employees
     const liveChat = this.channels.find((c) => c.channel === "live_chat");

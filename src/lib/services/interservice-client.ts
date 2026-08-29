@@ -70,6 +70,20 @@ export class KnowledgeV8Client {
       timestamp: new Date().toISOString(),
     };
   }
+
+  static async syncGraphDeficit(params: {
+    tenantId: string;
+    unresolvedQuery: string;
+    occurrences?: number;
+    source?: string;
+  }): Promise<InterServiceResponse<{ deficitRecorded: boolean }>> {
+    return {
+      success: true,
+      service: "knowledgev8",
+      data: { deficitRecorded: true },
+      timestamp: new Date().toISOString(),
+    };
+  }
 }
 
 // -----------------------------------------------------------------------------

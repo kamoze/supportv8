@@ -16,7 +16,7 @@ export class ConversationManager {
         tenantDomain: payload.tenantId,
         stream: payload.stream,
         customerName: payload.senderName,
-        customerEmail: payload.senderEmail,
+        customerEmail: payload.senderEmail || "user@example.com",
         customerPhone: payload.senderPhone,
         intakeData: payload.metadata as Record<string, string> || {},
         assignedType: "ai",

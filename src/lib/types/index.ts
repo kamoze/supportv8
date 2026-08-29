@@ -3,9 +3,9 @@
  * Basis: supportV8 Product Design Specification v0.3
  */
 
-export type OperatingMode = "observe" | "copilot" | "autonomous";
+export type OperatingMode = "observe" | "copilot" | "autonomous" | "human_in_loop";
 
-export type SentimentClass = "positive" | "neutral" | "frustrated" | "angry" | "urgent";
+export type SentimentClass = "positive" | "neutral" | "frustrated" | "angry" | "urgent" | "happy";
 
 export type PriorityLevel = "low" | "normal" | "high" | "urgent";
 
@@ -13,7 +13,7 @@ export type BusinessImpactLevel = "low" | "medium" | "high" | "critical";
 
 export type ProblemStatus = "detecting" | "active" | "investigating" | "mitigating" | "resolved";
 
-export type SourceType = "zendesk" | "intercom" | "freshdesk" | "twilio_voice" | "email" | "chat" | "knowledgev8";
+export type SourceType = "zendesk" | "intercom" | "freshdesk" | "twilio_voice" | "email" | "chat" | "knowledgev8" | "whatsapp" | "voice";
 
 export type ConnectorHealth = "connected" | "degraded" | "auth_failed" | "rate_limited" | "sync_failed" | "disconnected";
 
@@ -470,6 +470,7 @@ export interface CustomerChatSession {
   stream: ChatStreamType;
   customerName: string;
   customerEmail: string;
+  customerPhone?: string;
   intakeData: Record<string, string>;
   assignedType: "human" | "ai";
   assignedId: string;
@@ -477,7 +478,7 @@ export interface CustomerChatSession {
   assignedAvatar?: string;
   status: "queued" | "active" | "escalated" | "resolved";
   priority: PriorityLevel;
-  unreadCount: number;
+  unreadCount?: number;
   createdAt: string;
   updatedAt: string;
   messages: CustomerChatMessage[];

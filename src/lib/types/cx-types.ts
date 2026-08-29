@@ -21,7 +21,7 @@ export interface TicketSlaStatus {
   externalId: string;
   customerName: string;
   tier: "enterprise" | "pro" | "standard";
-  channel: "zendesk" | "intercom" | "voice" | "email";
+  channel: string;
   status: "open" | "in_progress" | "pending_customer" | "resolved";
   assignedAgent: string;
   targetResponseMinutes: number;

@@ -43,18 +43,26 @@ async function getTemporalClient(): Promise<any> {
 export async function enqueueSupportTriage(
   input: SupportTriageWorkflowInput
 ): Promise<SupportTriageWorkflowResult> {
+  const tenantId = input.tenantId || "tenant_default";
+  const sessionId = input.sessionId || `session_${Date.now()}`;
+  const query = input.query || "";
+  const stream = input.stream || "customers";
+  const customerName = input.customerName || "Customer";
+  const customerEmail = input.customerEmail || "customer@example.com";
+  const priority = input.priority || "normal";
+
   if (isTemporalEnabled()) {
     try {
       const client = await getTemporalClient();
       if (client) {
         const handle = await client.workflow.start("supportTriageWorkflow", {
           taskQueue: TASK_QUEUE,
-          workflowId: `triage:${input.tenantId}:${input.sessionId}`,
+          workflowId: `triage:${tenantId}:${sessionId}`,
           workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
           args: [input],
         });
         return {
-          sessionId: input.sessionId,
+          sessionId,
           workflowId: handle.workflowId,
           triageStatus: "autonomous_resolved",
           assignedTarget: `temporal-workflow-${handle.workflowId}`,
@@ -70,30 +78,30 @@ export async function enqueueSupportTriage(
   // Synchronous Inline Execution Fallback (parallel execution)
   const [rag, dom, gv8] = await Promise.all([
     queryKnowledgeV8Activity({
-      tenantId: input.tenantId,
-      query: input.query,
-      stream: input.stream,
+      tenantId,
+      query,
+      stream,
     }),
     emitDominionTelemetryActivity({
-      tenantId: input.tenantId,
+      tenantId,
       eventType: "incident.detected",
-      severity: input.priority === "urgent" ? "high" : "low",
-      summary: `Customer ${input.customerName} submitted ${input.stream} ticket`,
+      severity: priority === "urgent" ? "high" : "low",
+      summary: `Customer ${customerName} submitted ${stream} ticket`,
     }),
     syncGrowthV8AccountActivity({
-      tenantId: input.tenantId,
-      customerEmail: input.customerEmail,
+      tenantId,
+      customerEmail,
       arrValue: 420000,
-      sentimentClass: input.priority === "urgent" ? "frustrated" : "neutral",
+      sentimentClass: priority === "urgent" ? "frustrated" : "neutral",
       issueCount: 1,
     }),
   ]);
 
   return {
-    sessionId: input.sessionId,
+    sessionId,
     workflowId: `inline-triage-${Date.now()}`,
-    triageStatus: input.priority === "urgent" ? "escalated_to_human" : "autonomous_resolved",
-    assignedTarget: input.priority === "urgent" ? "group_support" : "beaver-sophia",
+    triageStatus: priority === "urgent" ? "escalated_to_human" : "autonomous_resolved",
+    assignedTarget: priority === "urgent" ? "group_support" : "beaver-sophia",
     ragCitations: rag.citations,
     dominionEventId: dom.eventId,
     growthV8Synced: gv8.synced,
@@ -106,13 +114,15 @@ export async function enqueueSupportTriage(
 export async function enqueueProactiveBroadcast(
   input: ProactiveBroadcastWorkflowInput
 ): Promise<{ success: boolean; broadcastId: string }> {
+  const tenantId = input.tenantId || "tenant_default";
+
   if (isTemporalEnabled()) {
     try {
       const client = await getTemporalClient();
       if (client) {
         await client.workflow.start("proactiveBroadcastWorkflow", {
           taskQueue: TASK_QUEUE,
-          workflowId: `broadcast:${input.tenantId}:${input.problemId}:${Date.now()}`,
+          workflowId: `broadcast:${tenantId}:${input.problemId}:${Date.now()}`,
           args: [input],
         });
       }
@@ -123,7 +133,7 @@ export async function enqueueProactiveBroadcast(
 
   // Inline emit
   await emitDominionTelemetryActivity({
-    tenantId: input.tenantId,
+    tenantId,
     eventType: "incident.detected",
     severity: "critical",
     summary: `Proactive mitigation dispatched for ${input.problemId}: ${input.subject}`,
@@ -141,13 +151,15 @@ export async function enqueueProactiveBroadcast(
 export async function enqueueStaleWorkSweep(
   input: StaleWorkSweepWorkflowInput
 ): Promise<{ success: boolean; workflowId: string; sweptCount: number; escalatedCount: number }> {
+  const tenantId = input.tenantId || "tenant_default";
+
   if (isTemporalEnabled()) {
     try {
       const client = await getTemporalClient();
       if (client) {
         const handle = await client.workflow.start("staleWorkSweepWorkflow", {
           taskQueue: TASK_QUEUE,
-          workflowId: `stale-sweep:${input.tenantId}:${Date.now()}`,
+          workflowId: `stale-sweep:${tenantId}:${Date.now()}`,
           args: [input],
         });
         return {
@@ -177,14 +189,17 @@ export async function enqueueInterServiceDispatch(
   input: InterServiceDispatchWorkflowInput
 ): Promise<{ success: boolean; results: Record<string, unknown> }> {
   const results: Record<string, unknown> = {};
+  const tenantId = input.tenantId || "tenant_default";
+  const operation = input.operation || "generic.action";
+  const payload = input.payload || {};
 
   // 1. ForgeGW execution if operation requested
-  if (input.operation.startsWith("forge.")) {
+  if (operation.startsWith("forge.")) {
     const forgeRes = await executeForgeActionActivity({
-      tenantId: input.tenantId,
+      tenantId,
       actionId: `act_${Date.now()}`,
-      operation: (input.payload.actionName as any) || "orderv8.refund",
-      payload: input.payload,
+      operation: (payload.actionName as any) || "orderv8.refund",
+      payload,
       idempotencyKey: `idemp_${Date.now()}`,
     });
     results.forge = forgeRes;
@@ -192,11 +207,11 @@ export async function enqueueInterServiceDispatch(
 
   // 2. Dominion telemetry
   const domRes = await emitDominionTelemetryActivity({
-    tenantId: input.tenantId,
+    tenantId,
     eventType: "action.executed",
     severity: "medium",
-    summary: `Inter-service action ${input.operation} triggered by ${input.triggerApp}`,
-    metadata: input.payload,
+    summary: `Inter-service action ${operation} triggered by ${input.triggerApp || "supportv8"}`,
+    metadata: payload,
   });
   results.dominion = domRes;
 

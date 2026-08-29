@@ -84,7 +84,7 @@ export class SlaEngineService {
         customerName: issue.customerName,
         tier,
         channel: issue.source,
-        status: issue.status,
+        status: (issue.status as any) || (issue.sourceStatus === "solved" ? "resolved" : "open"),
         assignedAgent,
         targetResponseMinutes: target,
         elapsedMinutes: elapsed,

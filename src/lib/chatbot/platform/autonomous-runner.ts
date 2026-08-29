@@ -98,8 +98,8 @@ export class AutonomousRunner {
     if (params.sweepType === "stale_work") {
       const sweepRes = await enqueueStaleWorkSweep({
         tenantId: params.tenantId,
-        staleThresholdMinutes: 30,
-        autoEscalate: true,
+        staleThresholdHours: 24,
+        autoCloseDays: 7,
       });
       return {
         success: true,
@@ -113,16 +113,15 @@ export class AutonomousRunner {
     if (params.sweepType === "problem_correlation") {
       const broadcastRes = await enqueueProactiveBroadcast({
         tenantId: params.tenantId,
-        incidentId: `INC-${Date.now().toString().slice(-4)}`,
-        stream: "customers",
-        message: "Proactive cluster health check and correlation sweep",
-        channel: "in_app_banner",
+        problemId: `PRB-${Date.now().toString().slice(-4)}`,
+        affectedAccountsCount: 14,
+        subject: "Proactive cluster health check and correlation sweep",
+        body: "Proactive correlation sweep initiated across all customer streams.",
       });
       return {
         success: true,
         sweepType: params.sweepType,
-        workflowId: broadcastRes.workflowId,
-        notifiedCustomersCount: broadcastRes.notifiedCustomersCount,
+        broadcastId: broadcastRes.broadcastId,
       };
     }
 

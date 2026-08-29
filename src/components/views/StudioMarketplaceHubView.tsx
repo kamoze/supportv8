@@ -221,6 +221,16 @@ export function StudioMarketplaceHubView({
             <span>Sync Entitlements</span>
           </button>
 
+          <a
+            href="https://marketplace.servicev8.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>Public Marketplace</span>
+          </a>
+
           <button
             type="button"
             onClick={handleLaunchStudio}

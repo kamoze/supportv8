@@ -1159,7 +1159,10 @@ export default function SupportV8Dashboard() {
       <>
         <GlobalLandingView
           onOpenSignIn={() => setIsSignInModalOpen(true)}
-          onOpenTenantPortal={(slug) => handleRequestDemoAccess(slug || "acme")}
+          onOpenTenantPortal={(slug) => {
+            setCurrentTenantSlug(slug || "acme");
+            setViewMode("tenant_landing");
+          }}
           onOpenSignup={() => setIsSignupModalOpen(true)}
         />
         <DemoAccessModal

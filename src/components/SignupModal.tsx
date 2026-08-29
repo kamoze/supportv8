@@ -138,7 +138,8 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
           name: companyName,
           domain: slug,
           adminEmail,
-          initialMode: "autonomous",
+          initialMode: "copilot",
+          primaryStream,
         }),
       }).catch(() => {});
     } catch (_) {}
@@ -155,7 +156,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       setProvisionProgress(70);
       setProvisionLogs((prev) => [
         ...prev,
-        `[3/5] Assigning 1536-dim S3 Vector Knowledge topology for ${primaryStream}...`,
+        `[3/5] Initializing UI triage layout & vector knowledge topology for ${primaryStream}...`,
       ]);
     }, 1000);
 
@@ -163,7 +164,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       setProvisionProgress(90);
       setProvisionLogs((prev) => [
         ...prev,
-        "[4/5] Spawning autonomous AI employee workforce (Alex, Sophia, Barnaby)...",
+        "[4/5] Preparing AI Employee package recommendations (Acquire in Studio Marketplace)...",
       ]);
     }, 1500);
 
@@ -171,7 +172,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       setProvisionProgress(100);
       setProvisionLogs((prev) => [
         ...prev,
-        "[5/5] Zero-Trust ForgeGW cryptographic keypairs generated. Tenant ready!",
+        "[5/5] Zero-Trust ForgeGW cryptographic keypairs generated. UI Workspace ready!",
       ]);
       setIsProvisioning(false);
     }, 2000);
@@ -299,13 +300,16 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 </p>
               </div>
 
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-mono text-[#B4C2D0] block">Primary Customer Channel Focus</label>
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-mono text-[#B4C2D0] block">Primary Channel Focus</label>
+                  <span className="text-[10px] text-[#6B7C8D] font-mono">Recommends AI Package</span>
+                </div>
                 <div className="grid grid-cols-3 gap-2.5">
                   {[
-                    { id: "customers", label: "Customers", desc: "Refunds & Subscriptions" },
-                    { id: "contractors", label: "Contractors", desc: "Work Orders & Site PINs" },
-                    { id: "enquiries", label: "Enquiries", desc: "Pre-Sales & Demos" },
+                    { id: "customers", label: "Customers", desc: "Refunds & Subscriptions", rec: "Rec: Sophia (CS)" },
+                    { id: "contractors", label: "Contractors", desc: "Work Orders & PINs", rec: "Rec: Alex (Lead)" },
+                    { id: "enquiries", label: "Enquiries", desc: "Pre-Sales & Demos", rec: "Rec: Barnaby (RAG)" },
                   ].map((stream) => (
                     <button
                       key={stream.id}
@@ -319,9 +323,13 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     >
                       <div className="font-bold text-xs">{stream.label}</div>
                       <div className="text-[9px] text-[#8E9AA8] mt-0.5">{stream.desc}</div>
+                      <div className="text-[8.5px] font-mono text-[#2ED8B6] mt-1 pt-1 border-t border-[var(--line)]">{stream.rec}</div>
                     </button>
                   ))}
                 </div>
+                <p className="text-[9.5px] text-[#6B7C8D] font-mono">
+                  * Sets default UI workspace. AI Employees are commercial packages enabled via Studio Marketplace.
+                </p>
               </div>
             </form>
           )}

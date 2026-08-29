@@ -34,14 +34,17 @@ import {
 interface SupportChatWidgetProps {
   tenantSlug?: string;
   tenantName?: string;
+  tenantDomain?: string;
   defaultStream?: ChatStreamType;
 }
 
 export function SupportChatWidget({
-  tenantSlug = "acme",
+  tenantSlug,
   tenantName = "Acme Corp",
-  defaultStream,
+  tenantDomain,
+  defaultStream = "customers",
 }: SupportChatWidgetProps) {
+  const activeSlug = tenantDomain || tenantSlug || "acme";
   const [isOpen, setIsOpen] = useState(false);
   const [isPromptMinimized, setIsPromptMinimized] = useState(false);
   const [activeStep, setActiveStep] = useState<"select_stream" | "intake_form" | "chat">("select_stream");

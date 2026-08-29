@@ -25,6 +25,7 @@ import {
   Clock,
   AlertTriangle,
   FileCode,
+  Plus,
 } from "lucide-react";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import type { ChatStreamType } from "@/lib/types";
@@ -97,6 +98,50 @@ export function GovernanceSettingsView({
   const [webhookSigningSecret, setWebhookSigningSecret] = useState<string>("whsec_sv8_live_772189bbfa1029c3d4e5");
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [copiedWebhookSecret, setCopiedWebhookSecret] = useState(false);
+
+  const handleCreateToken = () => {
+    if (!newTokenName.trim()) return;
+    const entropy = Math.random().toString(36).substring(2, 12);
+    const rawSecret = `sv8_live_sec_${entropy}${Date.now().toString(36)}`;
+    const maskedSecret = `sv8_live_sec_••••••••••••${rawSecret.slice(-4)}`;
+    const newToken = {
+      id: `tok_sv8_${Date.now().toString(36)}`,
+      name: newTokenName.trim(),
+      tokenSecret: rawSecret,
+      maskedSecret,
+      scopes: [...newTokenScopes],
+      expiresAt: newTokenExpiry === "never" ? "Never" : `${newTokenExpiry} from now`,
+      createdAt: new Date().toISOString(),
+      lastUsedAt: "Never",
+      status: "active" as const,
+    };
+    setIssuedTokens((prev) => [newToken, ...prev]);
+    setNewlyCreatedToken(rawSecret);
+    setNewTokenName("");
+    setIsIssuingToken(false);
+  };
+
+  const handleCopyToken = (id: string, secret: string) => {
+    if (typeof navigator !== "undefined") {
+      navigator.clipboard.writeText(secret);
+      setCopiedTokenId(id);
+      setTimeout(() => setCopiedTokenId(null), 2000);
+    }
+  };
+
+  const handleRevokeToken = (id: string) => {
+    setIssuedTokens((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: "revoked" as const } : t))
+    );
+  };
+
+  const handleCopyWebhookSecret = () => {
+    if (typeof navigator !== "undefined") {
+      navigator.clipboard.writeText(webhookSigningSecret);
+      setCopiedWebhookSecret(true);
+      setTimeout(() => setCopiedWebhookSecret(false), 2000);
+    }
+  };
 
   // AI Chat Guardrails State
   const [guardrails, setGuardrails] = useState(ChatWorkflowService.getGuardrails());

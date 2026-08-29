@@ -5,6 +5,7 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   Award,
   BarChart3,
@@ -33,7 +34,9 @@ import {
   Key,
   Layers,
   LayoutDashboard,
+  LayoutGrid,
   Lightbulb,
+  List,
   Lock,
   LogOut,
   MessageSquare,
@@ -1318,7 +1321,7 @@ export default function SupportV8Dashboard() {
                       <span className="truncate">{item.label}</span>
                     </div>
                     {item.badge !== undefined && item.badge > 0 && (
-                      <span className={`pill text-[10px] py-0 px-1.5 ${item.badgeColor || (isActive ? "ok" : "")}`}>
+                      <span className={`pill text-[10px] py-0 px-1.5 ${(item as any).badgeColor || (isActive ? "ok" : "")}`}>
                         {item.badge}
                       </span>
                     )}
@@ -1795,7 +1798,7 @@ export default function SupportV8Dashboard() {
               const autonomousFunnelCount = issues.filter(
                 (i) => i.status === "resolved" || i.tags?.includes("autonomous_resolved") || i.confidence >= 0.85
               ).length;
-              const varrFunnelRate = overviewMetrics.varrRate || Number(((autonomousFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+              const varrFunnelRate = overview?.varrRate || Number(((autonomousFunnelCount / totalFunnelVolume) * 100).toFixed(1));
 
               const aiTriagedFunnelCount = issues.filter((i) => i.confidence >= 0.65).length;
               const aiTriagedFunnelRate = Number(((aiTriagedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
@@ -1803,7 +1806,7 @@ export default function SupportV8Dashboard() {
               const humanEscalatedFunnelCount = Math.max(0, totalFunnelVolume - autonomousFunnelCount);
               const humanEscalatedFunnelRate = Number(((humanEscalatedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
 
-              const csatVal = overviewMetrics.csat || 93.8;
+              const csatVal = overview?.csat || 93.8;
 
               return (
                 <div className="space-y-6">
@@ -5780,13 +5783,13 @@ export default function SupportV8Dashboard() {
                   onChange={(e) => {
                     setAssignTicketId(e.target.value);
                     const iss = issues.find((i) => i.id === e.target.value);
-                    if (iss) setAssignDescription(iss.title);
+                    if (iss) setAssignDescription(iss.title || iss.summary || "");
                   }}
                   className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
                 >
                   {issues.map((iss) => (
                     <option key={iss.id} value={iss.id}>
-                      [{iss.id}] {iss.title} ({iss.customerTier || "Enterprise"})
+                      [{iss.id}] {iss.title || iss.summary} ({iss.customerTier || "Enterprise"})
                     </option>
                   ))}
                 </select>

@@ -121,6 +121,7 @@ export interface Issue {
   customerName: string;
   customerTier: "standard" | "pro" | "enterprise";
   summary: string;
+  title?: string;
   category: string;
   product: string;
   version: string;
@@ -132,6 +133,8 @@ export interface Issue {
   businessImpact: BusinessImpactLevel;
   problemId?: string;
   sourceStatus: "open" | "pending" | "solved" | "closed";
+  status?: string;
+  assignedTo?: string;
   resolutionRiskScore: number;
   recommendedAction?: string;
   tags: string[];
@@ -150,6 +153,7 @@ export interface Problem {
   status: ProblemStatus;
   confidence: number;
   impact: BusinessImpactLevel;
+  severity?: BusinessImpactLevel;
   affectedCustomerCount: number;
   affectedEnterpriseCount: number;
   linkedIssueIds: string[];

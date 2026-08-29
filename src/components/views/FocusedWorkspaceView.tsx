@@ -39,6 +39,7 @@ import {
   AlertCircle,
   Radio,
   Check,
+  Copy,
 } from "lucide-react";
 import type { Issue, SentimentClass, PriorityLevel } from "@/lib/types";
 
@@ -47,15 +48,15 @@ interface FocusedWorkspaceViewProps {
   problems?: any[];
   insights?: any[];
   userRole?: string;
-  onResolve: (issueId: string) => void;
-  onProcessRefund?: (issueId: string, amount: string) => void;
-  onEscalate?: (issue: Issue) => void;
-  onNavigateToProblems?: () => void;
-  onExecuteInsight?: (insightId: string) => void;
-  onUpdateIssue?: (updatedIssue: Issue) => void;
-  onCreateIssue?: (newIssue: Issue) => void;
-  onImportIssues?: (newIssues: Issue[]) => void;
-  onNotify: (text: string, type: "success" | "error" | "info") => void;
+  onResolve: (issueId: string) => Promise<void> | void;
+  onProcessRefund?: (issueId: string, amount: string) => Promise<void> | void;
+  onEscalate: (issue: Issue) => void;
+  onNavigateToProblems: () => void;
+  onExecuteInsight: (insightId: string) => void;
+  onUpdateIssue?: (issue: Issue) => void;
+  onCreateIssue?: (issue: Issue) => void;
+  onImportIssues?: (issues: Issue[]) => void;
+  onNotify: (msg: string, type?: "success" | "error" | "info") => void;
 }
 
 export function FocusedWorkspaceView({
@@ -81,6 +82,23 @@ export function FocusedWorkspaceView({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showInsightsDrawer, setShowInsightsDrawer] = useState<boolean>(false);
   const [executingInsightId, setExecutingInsightId] = useState<string | null>(null);
+
+  // Mobile Screen Pane Switcher State
+  const [mobileActivePane, setMobileActivePane] = useState<"queue" | "details" | "actions">(
+    isContractorUser ? "details" : "queue"
+  );
+  const [copiedPin, setCopiedPin] = useState(false);
+
+  const handleCopyPin = (pin: string) => {
+    try {
+      navigator.clipboard.writeText(pin);
+      setCopiedPin(true);
+      onNotify(`Copied Lockbox PIN ${pin} to clipboard`, "success");
+      setTimeout(() => setCopiedPin(false), 2000);
+    } catch {
+      onNotify(`Lockbox PIN: ${pin}`, "info");
+    }
+  };
 
   // Priority Fast-Track / Front of Line State
   const [frontOfLineIssueIds, setFrontOfLineIssueIds] = useState<string[]>([]);
@@ -515,14 +533,60 @@ export function FocusedWorkspaceView({
         </div>
       </div>
 
+      {/* Mobile Screen Segmented Tab Switcher (< lg) */}
+      <div className="lg:hidden px-3 py-2 bg-[#121A24] border-b border-[var(--line)] flex items-center gap-1.5 shrink-0 font-mono text-xs">
+        <button
+          type="button"
+          onClick={() => setMobileActivePane("queue")}
+          className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold ${
+            mobileActivePane === "queue"
+              ? "bg-[#2ED8B6] text-[#04201C] shadow-md shadow-[#2ED8B6]/20"
+              : "bg-[#18222E] text-[#8E9AA8] hover:text-[#EAF1F8]"
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Queue ({sortedIssues.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileActivePane("details")}
+          className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold ${
+            mobileActivePane === "details"
+              ? "bg-[#2ED8B6] text-[#04201C] shadow-md shadow-[#2ED8B6]/20"
+              : "bg-[#18222E] text-[#8E9AA8] hover:text-[#EAF1F8]"
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Details &amp; PIN</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileActivePane("actions")}
+          className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold ${
+            mobileActivePane === "actions"
+              ? "bg-[#2ED8B6] text-[#04201C] shadow-md shadow-[#2ED8B6]/20"
+              : "bg-[#18222E] text-[#8E9AA8] hover:text-[#EAF1F8]"
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Actions &amp; Comms</span>
+        </button>
+      </div>
+
       {/* ========================================================================= */}
       {/* 3-COLUMN WORK DESK RESOLUTION GRID */}
       {/* ========================================================================= */}
       <div className="flex-1 grid grid-cols-12 overflow-hidden">
         {/* ========================================================================= */}
-        {/* PANE 1: Work Queue (Width: 3.5 cols) */}
+        {/* PANE 1: Work Queue (Width: 3 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
-        <div className="col-span-12 md:col-span-4 lg:col-span-3 bg-[#0E1520] border-r border-[var(--line)] flex flex-col overflow-hidden">
+        <div
+          className={`col-span-12 lg:col-span-3 bg-[#0E1520] border-r border-[var(--line)] flex flex-col overflow-hidden ${
+            mobileActivePane === "queue" ? "flex" : "hidden lg:flex"
+          }`}
+        >
           {/* Filter Bar */}
           <div className="p-3 border-b border-[var(--line)] space-y-2">
             <div className="relative">
@@ -576,7 +640,10 @@ export function FocusedWorkspaceView({
                 return (
                   <div
                     key={issue.id}
-                    onClick={() => setSelectedIssueId(issue.id)}
+                    onClick={() => {
+                      setSelectedIssueId(issue.id);
+                      setMobileActivePane("details");
+                    }}
                     className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-2 relative overflow-hidden group ${
                       isFrontOfLine
                         ? "bg-[#182333] border-[#F5A623] shadow-[0_0_16px_rgba(245,166,35,0.25)] ring-1 ring-[#F5A623]/70"
@@ -669,9 +736,32 @@ export function FocusedWorkspaceView({
         </div>
 
         {/* ========================================================================= */}
-        {/* PANE 2: Ticket Details & Context (Width: 4 cols) */}
+        {/* PANE 2: Ticket Details & Context (Width: 4 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
-        <div className="col-span-12 md:col-span-8 lg:col-span-4 bg-[#0B1017] border-r border-[var(--line)] flex flex-col overflow-y-auto p-4 space-y-4">
+        <div
+          className={`col-span-12 lg:col-span-4 bg-[#0B1017] border-r border-[var(--line)] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
+            mobileActivePane === "details" ? "flex" : "hidden lg:flex"
+          }`}
+        >
+          {/* Mobile Back Button */}
+          <div className="lg:hidden flex items-center justify-between pb-1">
+            <button
+              type="button"
+              onClick={() => setMobileActivePane("queue")}
+              className="text-xs font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer"
+            >
+              ← Back to Queue
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileActivePane("actions")}
+              className="text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer font-bold"
+            >
+              <span>Go to Actions</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {selectedIssue ? (
             <>
               {/* Ticket Details Card */}
@@ -756,58 +846,126 @@ export function FocusedWorkspaceView({
                   </div>
                 </div>
 
-                {/* Field Ops / Contractor State Machine */}
+                {/* Mobile-Optimized Field Ops & Lockbox Command Card */}
                 {isContractor && selectedIssue.contractor && (
-                  <div className="p-3 rounded-xl bg-[#18222E] border border-[#F5A623]/30 space-y-2 text-xs font-mono">
-                    <div className="flex items-center justify-between text-[#F5A623]">
-                      <span className="flex items-center gap-1">
-                        <Truck className="w-3.5 h-3.5" />
-                        <span>Technician Dispatch State</span>
-                      </span>
-                      <span className="pill text-[9px] uppercase bg-[#121A24] text-[#F5A623]">
-                        {techStatus.replace("_", " ")}
-                      </span>
+                  <div className="space-y-2.5 pt-1">
+                    {/* Electronic Lockbox PIN Card */}
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#182333] to-[#121A24] border border-[#F5A623]/50 space-y-2.5 shadow-lg shadow-black/40">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#F5A623]">
+                          <Key className="w-4 h-4" />
+                          <span>ELECTRONIC LOCKBOX PIN</span>
+                        </span>
+                        <span className="pill text-[9px] font-mono bg-[#F5A623]/20 text-[#F5A623] border border-[#F5A623]/40 uppercase font-bold">
+                          Active Pass
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-[#0C121A] border border-[var(--line-2)] flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] font-mono text-[#8E9AA8] uppercase">Security Access Code</span>
+                          <div className="text-xl sm:text-2xl font-mono font-extrabold text-[#EAF1F8] tracking-widest">
+                            {selectedIssue.contractor.accessCode || "LOCK-8841"}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPin(selectedIssue.contractor?.accessCode || "LOCK-8841")}
+                          className={`px-3 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            copiedPin
+                              ? "bg-[#2ED8B6] text-[#04201C] shadow-md shadow-[#2ED8B6]/30"
+                              : "bg-[#18222E] hover:bg-[#1E2B3A] text-[#F5A623] border border-[#F5A623]/40"
+                          }`}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{copiedPin ? "Copied!" : "Copy PIN"}</span>
+                        </button>
+                      </div>
+
+                      {/* Site Address & 1-Touch GPS Navigation */}
+                      <div className="space-y-1 text-xs">
+                        <span className="text-[10px] font-mono text-[#8E9AA8] flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-[#F5A623]" />
+                          <span>Job Site Location</span>
+                        </span>
+                        <p className="font-semibold text-[#EAF1F8]">{selectedIssue.contractor.siteLocation}</p>
+                      </div>
+
+                      {/* Mobile Field Quick Action Buttons (Call, Maps, SMS) */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <a
+                          href={`https://maps.google.com/?q=${encodeURIComponent(selectedIssue.contractor.siteLocation)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#1A2534] border border-[var(--line-2)] text-xs font-mono font-bold text-[#4D9FFF] flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>Open Maps</span>
+                        </a>
+
+                        <a
+                          href="tel:+18005558880"
+                          className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#1A2534] border border-[var(--line-2)] text-xs font-mono font-bold text-[#2ED8B6] flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call Dispatch</span>
+                        </a>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTechStatus("accepted");
-                          onNotify(`Technician accepted Work Order ${selectedIssue.externalId}`, "info");
-                        }}
-                        className={`p-1.5 rounded-lg text-[10px] text-center cursor-pointer transition-colors ${
-                          techStatus === "accepted" ? "bg-[#2ED8B6] text-[#04201C] font-bold" : "bg-[#121A24] text-[#B4C2D0] hover:bg-[#1E2B3A]"
-                        }`}
-                      >
-                        Accept
-                      </button>
+                    {/* Technician Dispatch State Machine Bar */}
+                    <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2 text-xs font-mono">
+                      <div className="flex items-center justify-between text-[#F5A623]">
+                        <span className="flex items-center gap-1 font-bold">
+                          <Truck className="w-4 h-4" />
+                          <span>Technician Dispatch State</span>
+                        </span>
+                        <span className="pill text-[9px] uppercase bg-[#0C121A] text-[#F5A623] border border-[#F5A623]/30 font-bold">
+                          {techStatus.replace("_", " ")}
+                        </span>
+                      </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTechStatus("en_route");
-                          onNotify(`Technician marked En Route for ${selectedIssue.contractor?.siteLocation}`, "info");
-                        }}
-                        className={`p-1.5 rounded-lg text-[10px] text-center cursor-pointer transition-colors ${
-                          techStatus === "en_route" ? "bg-[#F5A623] text-[#04201C] font-bold" : "bg-[#121A24] text-[#B4C2D0] hover:bg-[#1E2B3A]"
-                        }`}
-                      >
-                        En Route
-                      </button>
+                      <div className="grid grid-cols-3 gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTechStatus("accepted");
+                            onNotify(`Technician accepted Work Order ${selectedIssue.externalId}`, "info");
+                          }}
+                          className={`py-2 rounded-xl text-[11px] font-bold text-center cursor-pointer transition-all active:scale-95 ${
+                            techStatus === "accepted" ? "bg-[#2ED8B6] text-[#04201C] shadow-md shadow-[#2ED8B6]/20" : "bg-[#18222E] text-[#B4C2D0] hover:bg-[#1E2B3A]"
+                          }`}
+                        >
+                          Accept
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTechStatus("completed");
-                          onNotify(`Work Order ${selectedIssue.externalId} completed & released`, "success");
-                        }}
-                        className={`p-1.5 rounded-lg text-[10px] text-center cursor-pointer transition-colors ${
-                          techStatus === "completed" ? "bg-[#4CC38A] text-[#04201C] font-bold" : "bg-[#121A24] text-[#B4C2D0] hover:bg-[#1E2B3A]"
-                        }`}
-                      >
-                        Complete
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTechStatus("en_route");
+                            onNotify(`Technician marked En Route for ${selectedIssue.contractor?.siteLocation}`, "info");
+                          }}
+                          className={`py-2 rounded-xl text-[11px] font-bold text-center cursor-pointer transition-all active:scale-95 ${
+                            techStatus === "en_route" ? "bg-[#F5A623] text-[#04201C] shadow-md shadow-[#F5A623]/20" : "bg-[#18222E] text-[#B4C2D0] hover:bg-[#1E2B3A]"
+                          }`}
+                        >
+                          En Route
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTechStatus("completed");
+                            onNotify(`Work Order ${selectedIssue.externalId} completed & released`, "success");
+                          }}
+                          className={`py-2 rounded-xl text-[11px] font-bold text-center cursor-pointer transition-all active:scale-95 ${
+                            techStatus === "completed" ? "bg-[#4CC38A] text-[#04201C] shadow-md shadow-[#4CC38A]/20" : "bg-[#18222E] text-[#B4C2D0] hover:bg-[#1E2B3A]"
+                          }`}
+                        >
+                          Complete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -849,9 +1007,24 @@ export function FocusedWorkspaceView({
         </div>
 
         {/* ========================================================================= */}
-        {/* PANE 3: Resolution & Dispatch Station (Width: 5 cols) */}
+        {/* PANE 3: Resolution & Dispatch Station (Width: 5 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
-        <div className="col-span-12 lg:col-span-5 bg-[#101620] flex flex-col overflow-y-auto p-4 space-y-4">
+        <div
+          className={`col-span-12 lg:col-span-5 bg-[#101620] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
+            mobileActivePane === "actions" ? "flex" : "hidden lg:flex"
+          }`}
+        >
+          {/* Mobile Back Button to Details */}
+          <div className="lg:hidden flex items-center justify-between pb-1">
+            <button
+              type="button"
+              onClick={() => setMobileActivePane("details")}
+              className="text-xs font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer"
+            >
+              ← Back to Details &amp; PIN
+            </button>
+            <span className="text-[10px] font-mono text-[#2ED8B6]">Dispatch Station</span>
+          </div>
           {/* Channel Bar */}
           <div className="space-y-2 pb-2 border-b border-[var(--line)]">
             <div className="flex items-center justify-between text-xs">

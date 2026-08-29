@@ -94,4 +94,26 @@ describe("Final Sprints Features & Architecture Validation", () => {
       expect(extId).toMatch(/^SV8-TK-\d{4}$/);
     });
   });
+
+  describe("5. Mobile Phone Optimization for Field Contractors & Chatbot", () => {
+    it("should support instant contractor chat session intake without requiring a native mobile app", () => {
+      const contractorSession = ChatWorkflowService.startSession({
+        tenantDomain: "acme",
+        stream: "contractors",
+        customerName: "Dave Miller (Apex Facilities)",
+        customerEmail: "dave@apex.com",
+        intakeData: {
+          issueType: "Work Order Dispatch & Site Access",
+          urgency: "High (Active On-Site)",
+          details: "Need lockbox PIN for telecom closet B",
+        },
+      });
+
+      expect(contractorSession.stream).toBe("contractors");
+      expect(contractorSession.status).toBe("active");
+      expect(contractorSession.customerName).toContain("Dave Miller");
+      expect(contractorSession.messages.length).toBeGreaterThan(0);
+      expect(contractorSession.messages[0].content).toContain("Need lockbox PIN");
+    });
+  });
 });

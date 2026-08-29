@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  Sparkles,
   Mail,
   Building2,
   User,
@@ -10,12 +9,9 @@ import {
   X,
   Loader2,
   Shield,
-  CheckCircle2,
   Users,
   HardHat,
   RefreshCw,
-  Lock,
-  Zap,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 
@@ -133,99 +129,96 @@ export function DemoAccessModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-3xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <SupportV8Logo size={28} />
+        <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <SupportV8Logo size={32} />
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Unlock Interactive Live Sandbox</h3>
-                <span className="pill text-[9px] font-mono text-[#2ED8B6] bg-[#2ED8B6]/15">Sales Gated</span>
-              </div>
-              <p className="text-[10px] font-mono text-[#6B7C8D]">Experience Real-Time CX &amp; Field Dispatch Telemetry</p>
+              <h3 className="text-base font-bold text-[#EAF1F8]">Unlock Interactive Live Sandbox</h3>
+              <p className="text-xs font-mono text-[#6B7C8D]">Experience Real-Time Customer Care &amp; Field Dispatch Work Desks</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] cursor-pointer"
+            className="p-1.5 rounded-xl text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-4">
-          <p className="text-xs text-[#8E9AA8] leading-relaxed">
-            Please provide your work email and organization name to launch the live sandbox environment. A solutions specialist will prepare a customized feature comparison.
+        <div className="p-8 overflow-y-auto space-y-5">
+          <p className="text-xs sm:text-sm text-[#8E9AA8] leading-relaxed">
+            Please provide your work email and organization name to launch the live sandbox environment with simulated customer and technician telemetry.
           </p>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2">
+            <div className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
               <span className="text-[#E5484D] font-bold">Error:</span>
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* Sandbox Tenant Selection */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-xs font-mono text-[#B4C2D0] block">Select Sandbox Environment</label>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <button
                 type="button"
                 onClick={() => setSelectedTenant("acme")}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                   selectedTenant === "acme"
                     ? "bg-[#2ED8B6]/15 border-[#2ED8B6] shadow-lg shadow-[#2ED8B6]/10"
                     : "bg-[#141C26] border-[var(--line)] hover:border-[#2ED8B6]/40"
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="flex items-center gap-1.5 font-bold text-xs text-[#EAF1F8]">
-                    <Users className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-2 font-bold text-sm text-[#EAF1F8]">
+                    <Users className="w-4 h-4 text-[#2ED8B6]" />
                     <span>Acme Corp</span>
                   </span>
-                  <span className="text-[9px] font-mono text-[#2ED8B6]">SaaS Care</span>
+                  <span className="text-xs font-mono text-[#2ED8B6] bg-[#2ED8B6]/10 px-2 py-0.5 rounded-md">SaaS Care</span>
                 </div>
-                <p className="text-[10px] text-[#8E9AA8]">
-                  OrderV8 refund vouchers (&lt; $500), subscriptions, &amp; CSAT telemetry.
+                <p className="text-xs text-[#8E9AA8] leading-relaxed">
+                  Account credit vouchers, subscription management, &amp; CSAT telemetry.
                 </p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setSelectedTenant("meridian")}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                   selectedTenant === "meridian"
                     ? "bg-[#F5A623]/15 border-[#F5A623] shadow-lg shadow-[#F5A623]/10"
                     : "bg-[#141C26] border-[var(--line)] hover:border-[#F5A623]/40"
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="flex items-center gap-1.5 font-bold text-xs text-[#EAF1F8]">
-                    <HardHat className="w-3.5 h-3.5 text-[#F5A623]" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-2 font-bold text-sm text-[#EAF1F8]">
+                    <HardHat className="w-4 h-4 text-[#F5A623]" />
                     <span>Meridian</span>
                   </span>
-                  <span className="text-[9px] font-mono text-[#F5A623]">Field Dispatch</span>
+                  <span className="text-xs font-mono text-[#F5A623] bg-[#F5A623]/10 px-2 py-0.5 rounded-md">Field Dispatch</span>
                 </div>
-                <p className="text-[10px] text-[#8E9AA8]">
-                  Contractor work orders, emergency site PINs, &amp; COI compliance checks.
+                <p className="text-xs text-[#8E9AA8] leading-relaxed">
+                  Contractor work orders, emergency site access PINs, &amp; compliance checks.
                 </p>
               </button>
             </div>
           </div>
 
           {/* Form */}
-          <form id="demo-access-form" onSubmit={handleSubmit} className="space-y-3 pt-1">
-            <div className="space-y-1">
+          <form id="demo-access-form" onSubmit={handleSubmit} className="space-y-4 pt-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                  <Mail className="w-4 h-4 text-[#2ED8B6]" />
                   <span>Work Email *</span>
                 </span>
-                <span className="text-[10px] text-[#2ED8B6] font-mono">Required</span>
+                <span className="text-xs text-[#2ED8B6] font-mono">Required</span>
               </label>
               <input
                 type="email"
@@ -233,18 +226,18 @@ export function DemoAccessModal({
                 onChange={(e) => setWorkEmail(e.target.value)}
                 placeholder="name@company.com"
                 required
-                className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="space-y-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
                 <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-[#F5A623]" />
+                    <Building2 className="w-4 h-4 text-[#F5A623]" />
                     <span>Company Name *</span>
                   </span>
-                  <span className="text-[10px] text-[#F5A623] font-mono">Required</span>
+                  <span className="text-xs text-[#F5A623] font-mono">Required</span>
                 </label>
                 <input
                   type="text"
@@ -252,13 +245,13 @@ export function DemoAccessModal({
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Acme Enterprises"
                   required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#4D9FFF]" />
+                  <User className="w-4 h-4 text-[#4D9FFF]" />
                   <span>Your Name</span>
                 </label>
                 <input
@@ -266,30 +259,30 @@ export function DemoAccessModal({
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Alex Vance"
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
             </div>
 
             {/* Captcha */}
-            <div className="p-3 rounded-xl bg-[#121A24] border border-[var(--line)] space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-mono text-[#B4C2D0]">
+            <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-mono text-[#B4C2D0]">
                 <span className="flex items-center gap-1.5 text-[#2ED8B6]">
-                  <Shield className="w-3.5 h-3.5" />
+                  <Shield className="w-4 h-4" />
                   <span>Human Verification</span>
                 </span>
                 <button
                   type="button"
                   onClick={refreshCaptcha}
-                  className="text-[10px] text-[#6B7C8D] hover:text-[#EAF1F8] flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-[#6B7C8D] hover:text-[#EAF1F8] flex items-center gap-1 cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                   <span>Refresh</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-1.5 rounded-lg bg-[#18222E] border border-[var(--line-2)] text-xs font-mono font-bold text-[#EAF1F8] select-none tracking-widest">
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] text-sm font-mono font-bold text-[#EAF1F8] select-none tracking-widest">
                   {captchaNum1} + {captchaNum2} = ?
                 </div>
                 <input
@@ -301,7 +294,7 @@ export function DemoAccessModal({
                   }}
                   placeholder="Sum"
                   required
-                  className={`flex-1 bg-[#141C26] border rounded-xl px-3 py-1.5 text-xs font-mono text-[#EAF1F8] focus:outline-none ${
+                  className={`flex-1 bg-[#141C26] border rounded-2xl px-4 py-2.5 text-sm font-mono text-[#EAF1F8] focus:outline-none ${
                     captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#2ED8B6]"
                   }`}
                 />
@@ -311,14 +304,14 @@ export function DemoAccessModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#121A24] border-t border-[var(--line)] flex items-center justify-between">
+        <div className="px-8 py-5 bg-[#121A24] border-t border-[var(--line)] flex items-center justify-between">
           <button
             type="button"
             onClick={() => {
               onClose();
               onOpenSignIn();
             }}
-            className="text-xs text-[#8E9AA8] hover:text-[#2ED8B6] font-mono cursor-pointer"
+            className="text-xs sm:text-sm text-[#8E9AA8] hover:text-[#2ED8B6] font-mono cursor-pointer"
           >
             Staff member? <span className="underline">Staff Sign In</span>
           </button>
@@ -327,7 +320,7 @@ export function DemoAccessModal({
             type="submit"
             form="demo-access-form"
             disabled={isLoading}
-            className="btn btn-primary px-6 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+            className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
           >
             {isLoading ? (
               <>

@@ -207,27 +207,27 @@ export function SupportChatWidget({
 
       {/* Expanded Modal / Flyout Dialog */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[92vw] sm:w-[420px] h-[620px] max-h-[86vh] bg-[#0E1520] border border-[var(--line-2)] rounded-2xl shadow-2xl shadow-black/70 flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 text-[#EAF1F8]">
+        <div className="fixed bottom-6 right-6 z-50 w-[92vw] sm:w-[480px] h-[640px] max-h-[88vh] bg-[#0E1520] border border-[var(--line-2)] rounded-3xl shadow-2xl shadow-black/70 flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 text-[#EAF1F8]">
           {/* Widget Header */}
-          <div className="px-4 py-3 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] font-bold shrink-0">
+          <div className="px-5 py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] font-bold shrink-0">
                 {activeSession?.assignedAvatar ? (
                   <img
                     src={activeSession.assignedAvatar}
                     alt="Agent"
-                    className="w-full h-full object-cover rounded-lg"
+                    className="w-full h-full object-cover rounded-xl"
                   />
                 ) : (
-                  <Bot className="w-4 h-4" />
+                  <Bot className="w-5 h-5" />
                 )}
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-bold text-[#EAF1F8]">{tenantName} Support</h3>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6]" />
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">{tenantName} Support</h3>
+                  <span className="w-2 h-2 rounded-full bg-[#2ED8B6]" />
                 </div>
-                <p className="text-[9px] font-mono text-[#6B7C8D]">
+                <p className="text-[10px] font-mono text-[#6B7C8D]">
                   {activeStep === "chat"
                     ? activeSession?.assignedName
                     : "Intelligent Triage & Live Omnichannel"}
@@ -240,61 +240,61 @@ export function SupportChatWidget({
                 <button
                   onClick={handleResetChat}
                   title="Start New Topic"
-                  className="p-1 rounded-md hover:bg-[#1C2836] hover:text-[#EAF1F8] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-[#1C2836] hover:text-[#EAF1F8] transition-colors cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-4 h-4" />
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
                 title="Minimize chat"
-                className="p-1 rounded-md hover:bg-[#1C2836] hover:text-[#EAF1F8] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-[#1C2836] hover:text-[#EAF1F8] transition-colors cursor-pointer"
               >
-                <Minimize2 className="w-3.5 h-3.5" />
+                <Minimize2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
                 title="Close chat"
-                className="p-1 rounded-md hover:bg-[#1C2836] hover:text-[#EAF1F8] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-[#1C2836] hover:text-[#EAF1F8] transition-colors cursor-pointer"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* STEP 1: Stream Selector */}
           {activeStep === "select_stream" && (
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <div className="space-y-1">
-                <span className="pill text-[9px] font-mono uppercase bg-[#18222E] text-[#2ED8B6] px-2 py-0.5">
+                <span className="pill text-[10px] font-mono uppercase bg-[#18222E] text-[#2ED8B6] px-2.5 py-0.5">
                   Select Support Channel
                 </span>
-                <h4 className="text-xs font-bold text-[#EAF1F8]">How can we assist you?</h4>
-                <p className="text-[11px] text-[#8E9AA8] leading-relaxed">
+                <h4 className="text-sm font-bold text-[#EAF1F8]">How can we assist you?</h4>
+                <p className="text-xs text-[#8E9AA8] leading-relaxed">
                   Choose your inquiry type to be routed directly to the dedicated live support desk or AI specialist.
                 </p>
               </div>
 
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-3 pt-1">
                 {/* Contractors Option */}
                 <button
                   onClick={() => handleSelectStream("contractors")}
-                  className="w-full text-left p-3 rounded-xl bg-[#121A24] border border-[var(--line)] hover:border-[#F5A623]/60 hover:bg-[#16212E] transition-all cursor-pointer group flex items-start gap-3"
+                  className="w-full text-left p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)] hover:border-[#F5A623]/60 hover:bg-[#16212E] transition-all cursor-pointer group flex items-start gap-3.5"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/40 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/40 flex items-center justify-center shrink-0">
                     <HardHat className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-[#EAF1F8] group-hover:text-[#F5A623] transition-colors">
-                        Contractors & Vendors
+                        Contractors &amp; Vendors
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-[#6B7C8D] group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-normal">
-                      Invoices, work order dispatch, W9/compliance uploads, and site access.
+                    <p className="text-[11px] text-[#8E9AA8] mt-0.5 leading-normal">
+                      Work order dispatch, compliance uploads, and site access.
                     </p>
-                    <span className="inline-block mt-1.5 text-[9px] font-mono text-[#F5A623] bg-[#F5A623]/10 px-1.5 py-0.5 rounded">
+                    <span className="inline-block mt-1.5 text-[9px] font-mono text-[#F5A623] bg-[#F5A623]/10 px-2 py-0.5 rounded">
                       SLA: &lt; 2 min dispatch
                     </span>
                   </div>
@@ -303,9 +303,9 @@ export function SupportChatWidget({
                 {/* General Enquiries Option */}
                 <button
                   onClick={() => handleSelectStream("enquiries")}
-                  className="w-full text-left p-3 rounded-xl bg-[#121A24] border border-[var(--line)] hover:border-[#4D9FFF]/60 hover:bg-[#16212E] transition-all cursor-pointer group flex items-start gap-3"
+                  className="w-full text-left p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)] hover:border-[#4D9FFF]/60 hover:bg-[#16212E] transition-all cursor-pointer group flex items-start gap-3.5"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-[#4D9FFF]/15 text-[#4D9FFF] border border-[#4D9FFF]/40 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#4D9FFF]/15 text-[#4D9FFF] border border-[#4D9FFF]/40 flex items-center justify-center shrink-0">
                     <HelpCircle className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -315,11 +315,11 @@ export function SupportChatWidget({
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-[#6B7C8D] group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-normal">
-                      Product questions, enterprise pricing, developer API, and partnerships.
+                    <p className="text-[11px] text-[#8E9AA8] mt-0.5 leading-normal">
+                      Product questions, enterprise SLA, and partnership inquiries.
                     </p>
-                    <span className="inline-block mt-1.5 text-[9px] font-mono text-[#4D9FFF] bg-[#4D9FFF]/10 px-1.5 py-0.5 rounded">
-                      Instant AI Knowledge Solutions
+                    <span className="inline-block mt-1.5 text-[9px] font-mono text-[#4D9FFF] bg-[#4D9FFF]/10 px-2 py-0.5 rounded">
+                      Instant Knowledge Solutions
                     </span>
                   </div>
                 </button>
@@ -327,33 +327,33 @@ export function SupportChatWidget({
                 {/* Customers & Clients Option */}
                 <button
                   onClick={() => handleSelectStream("customers")}
-                  className="w-full text-left p-3 rounded-xl bg-[#121A24] border border-[var(--line)] hover:border-[#2ED8B6]/60 hover:bg-[#16212E] transition-all cursor-pointer group flex items-start gap-3"
+                  className="w-full text-left p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)] hover:border-[#2ED8B6]/60 hover:bg-[#16212E] transition-all cursor-pointer group flex items-start gap-3.5"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 flex items-center justify-center shrink-0">
                     <Users className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
-                        Customers & Clients
+                        Customers &amp; Clients
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-[#6B7C8D] group-hover:translate-x-0.5 transition-transform" />
                     </div>
-                    <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-normal">
-                      Subscriber account care, OrderV8 refund token dispatch, and technical support.
+                    <p className="text-[11px] text-[#8E9AA8] mt-0.5 leading-normal">
+                      Subscriber account care, automated adjustment vouchers, and technical support.
                     </p>
-                    <span className="inline-block mt-1.5 text-[9px] font-mono text-[#2ED8B6] bg-[#2ED8B6]/10 px-1.5 py-0.5 rounded">
-                      Live Omnichannel Queue + AI Assist
+                    <span className="inline-block mt-1.5 text-[9px] font-mono text-[#2ED8B6] bg-[#2ED8B6]/10 px-2 py-0.5 rounded">
+                      Live Queue + AI Assist
                     </span>
                   </div>
                 </button>
               </div>
 
               {/* Trust Badge Footer */}
-              <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between text-[9px] font-mono text-[#6B7C8D]">
-                <span className="flex items-center gap-1">
-                  <Shield className="w-2.5 h-2.5 text-[#2ED8B6]" />
-                  Zero-Trust ForgeGW Encrypted
+              <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
+                <span className="flex items-center gap-1.5">
+                  <Shield className="w-3 h-3 text-[#2ED8B6]" />
+                  Governed &amp; Encrypted
                 </span>
                 <span>supportV8 Engine</span>
               </div>

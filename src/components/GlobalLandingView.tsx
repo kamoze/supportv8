@@ -319,7 +319,7 @@ export function GlobalLandingView({
         </div>
       </section>
 
-      {/* INSTANT DEMO SANDBOX OPERATOR ACCESS (Sales Lead Gated) */}
+      {/* INSTANT DEMO SANDBOX OPERATOR ACCESS */}
       <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
         <div className="p-8 rounded-3xl bg-gradient-to-b from-[#121A24] to-[#0D1520] border border-[var(--line-2)] shadow-2xl relative overflow-hidden space-y-6">
           {/* Subtle Ambient Background Glow */}

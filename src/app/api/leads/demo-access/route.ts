@@ -6,6 +6,7 @@ export interface DemoLeadRecord {
   fullName?: string;
   companyName: string;
   targetTenant: string;
+  optInEmail?: boolean;
   source: string;
   capturedAt: string;
   ipAddress?: string;
@@ -18,7 +19,7 @@ export const demoLeadsStore: DemoLeadRecord[] = [];
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { workEmail, fullName, companyName, targetTenant = "acme", source = "landing_demo_gate" } = body;
+    const { workEmail, fullName, companyName, targetTenant = "acme", optInEmail = false, source = "landing_demo_gate" } = body;
 
     if (!workEmail || !workEmail.includes("@") || !workEmail.includes(".")) {
       return NextResponse.json(
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       fullName: fullName?.trim() || cleanEmail.split("@")[0],
       companyName: cleanCompany,
       targetTenant: targetTenant.toLowerCase(),
+      optInEmail: Boolean(optInEmail),
       source,
       capturedAt: new Date().toISOString(),
       ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1",
@@ -58,6 +60,7 @@ export async function POST(req: NextRequest) {
       leadId: lead.id,
       email: lead.workEmail,
       company: lead.companyName,
+      optInEmail: lead.optInEmail,
       verticalInterest: targetTenant === "meridian" ? "field_operations_dispatch" : "customer_care_saas",
       campaign: "supportv8_live_demo_gate",
     };

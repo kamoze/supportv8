@@ -34,6 +34,7 @@ export function DemoAccessModal({
   const [workEmail, setWorkEmail] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [companyName, setCompanyName] = useState<string>("");
+  const [optInEmail, setOptInEmail] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
@@ -95,6 +96,7 @@ export function DemoAccessModal({
           fullName: fullName.trim(),
           companyName: companyName.trim(),
           targetTenant: selectedTenant,
+          optInEmail,
           source: "interactive_demo_gate",
         }),
       });
@@ -299,6 +301,23 @@ export function DemoAccessModal({
                   }`}
                 />
               </div>
+            </div>
+            {/* Email Permissions Opt-in Checkbox (Optional) */}
+            <div
+              onClick={() => setOptInEmail(!optInEmail)}
+              className="p-3.5 rounded-2xl bg-[#121A24]/60 border border-[var(--line)] flex items-start gap-3 cursor-pointer select-none hover:border-[#2ED8B6]/40 transition-colors"
+            >
+              <input
+                type="checkbox"
+                id="optInEmailCheckbox"
+                checked={optInEmail}
+                onChange={(e) => setOptInEmail(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded-md border-[var(--line)] bg-[#141C26] text-[#2ED8B6] focus:ring-[#2ED8B6] accent-[#2ED8B6] cursor-pointer"
+              />
+              <label htmlFor="optInEmailCheckbox" className="text-xs text-[#8E9AA8] leading-relaxed cursor-pointer">
+                <span>I agree to receive product updates, sandbox credentials, and solutions information via email.</span>{" "}
+                <span className="text-[10px] text-[#6B7C8D] font-mono">(Optional)</span>
+              </label>
             </div>
           </form>
         </div>

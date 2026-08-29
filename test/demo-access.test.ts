@@ -37,6 +37,7 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
         fullName: "Alex Rivera",
         companyName: "Enterprise Logistics LLC",
         targetTenant: "meridian",
+        optInEmail: true,
         source: "landing_demo_gate",
       }),
     });
@@ -48,6 +49,8 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
     expect(data.lead.workEmail).toBe("alex@enterprise-logistics.com");
     expect(data.lead.companyName).toBe("Enterprise Logistics LLC");
     expect(data.lead.targetTenant).toBe("meridian");
+    expect(data.lead.optInEmail).toBe(true);
+    expect(data.growthv8SyncPayload.optInEmail).toBe(true);
     expect(data.growthv8SyncPayload.verticalInterest).toBe("field_operations_dispatch");
     expect(data.demoAccessToken).toMatch(/^demo_tk_/);
   });

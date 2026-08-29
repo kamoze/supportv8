@@ -4,7 +4,7 @@ export interface DemoLeadRecord {
   id: string;
   workEmail: string;
   fullName?: string;
-  companyName?: string;
+  companyName: string;
   targetTenant: string;
   source: string;
   capturedAt: string;
@@ -27,12 +27,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!companyName || companyName.trim().length < 2) {
+      return NextResponse.json(
+        { success: false, error: "Company name is required for sales qualification." },
+        { status: 400 }
+      );
+    }
+
     const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const cleanCompany = companyName.trim();
+    const cleanEmail = workEmail.trim().toLowerCase();
+
     const lead: DemoLeadRecord = {
       id: leadId,
-      workEmail: workEmail.trim().toLowerCase(),
-      fullName: fullName?.trim() || workEmail.split("@")[0],
-      companyName: companyName?.trim() || workEmail.split("@")[1]?.split(".")[0]?.toUpperCase() || "Enterprise Prospect",
+      workEmail: cleanEmail,
+      fullName: fullName?.trim() || cleanEmail.split("@")[0],
+      companyName: cleanCompany,
       targetTenant: targetTenant.toLowerCase(),
       source,
       capturedAt: new Date().toISOString(),
@@ -54,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Demo access granted for ${lead.workEmail}. Telemetry routed to GrowthV8 sales desk.`,
+      message: `Demo access granted for ${lead.workEmail} at ${lead.companyName}. Telemetry routed to GrowthV8 sales desk.`,
       lead,
       growthv8SyncPayload,
       demoAccessToken: `demo_tk_${lead.id}_${Date.now()}`,

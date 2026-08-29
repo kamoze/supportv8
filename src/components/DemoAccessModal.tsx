@@ -41,7 +41,7 @@ export function DemoAccessModal({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
-  // Simple Captcha Verification
+  // Interactive Captcha Verification
   const [captchaNum1, setCaptchaNum1] = useState(3);
   const [captchaNum2, setCaptchaNum2] = useState(5);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
@@ -71,7 +71,12 @@ export function DemoAccessModal({
     setErrorMsg("");
 
     if (!workEmail.trim() || !workEmail.includes("@") || !workEmail.includes(".")) {
-      setErrorMsg("Please provide a valid work email address.");
+      setErrorMsg("Please enter a valid corporate work email address.");
+      return;
+    }
+
+    if (!companyName.trim() || companyName.trim().length < 2) {
+      setErrorMsg("Please enter your company / organization name.");
       return;
     }
 
@@ -86,36 +91,43 @@ export function DemoAccessModal({
 
     try {
       // Capture lead in sales pipeline
-      await fetch("/api/leads/demo-access", {
+      const res = await fetch("/api/leads/demo-access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          workEmail,
-          fullName,
-          companyName,
+          workEmail: workEmail.trim(),
+          fullName: fullName.trim(),
+          companyName: companyName.trim(),
           targetTenant: selectedTenant,
           source: "interactive_demo_gate",
         }),
       });
 
+      const data = await res.json();
+      if (!res.ok && data?.error) {
+        setErrorMsg(data.error);
+        setIsLoading(false);
+        return;
+      }
+
       // Mark demo as unlocked for this browser session
       if (typeof window !== "undefined") {
         try {
           sessionStorage.setItem("sv8_demo_unlocked", "true");
-          sessionStorage.setItem("sv8_lead_email", workEmail);
+          sessionStorage.setItem("sv8_lead_email", workEmail.trim());
+          sessionStorage.setItem("sv8_lead_company", companyName.trim());
         } catch (_) {}
       }
 
       setIsLoading(false);
-      onSuccess(selectedTenant, workEmail);
+      onSuccess(selectedTenant, workEmail.trim());
       onClose();
     } catch (_) {
       setIsLoading(false);
-      // Fallback unlock so the prospect is not blocked
       if (typeof window !== "undefined") {
         sessionStorage.setItem("sv8_demo_unlocked", "true");
       }
-      onSuccess(selectedTenant, workEmail);
+      onSuccess(selectedTenant, workEmail.trim());
       onClose();
     }
   };
@@ -129,10 +141,10 @@ export function DemoAccessModal({
             <SupportV8Logo size={28} />
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Unlock Live Interactive Sandbox</h3>
-                <span className="pill text-[9px] font-mono text-[#2ED8B6] bg-[#2ED8B6]/15">Instant Access</span>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Unlock Interactive Live Sandbox</h3>
+                <span className="pill text-[9px] font-mono text-[#2ED8B6] bg-[#2ED8B6]/15">Sales Gated</span>
               </div>
-              <p className="text-[10px] font-mono text-[#6B7C8D]">Pre-Seeded Enterprise CX &amp; Dispatch Telemetry</p>
+              <p className="text-[10px] font-mono text-[#6B7C8D]">Experience Real-Time CX &amp; Field Dispatch Telemetry</p>
             </div>
           </div>
 
@@ -147,7 +159,7 @@ export function DemoAccessModal({
         {/* Body */}
         <div className="p-6 overflow-y-auto space-y-4">
           <p className="text-xs text-[#8E9AA8] leading-relaxed">
-            Enter your business email to explore full customer care workflows, autonomous refund tokens (&lt; $500), contractor lockbox PINs, and real-time dispatch tracking.
+            Please provide your work email and organization name to launch the live sandbox environment. A solutions specialist will prepare a customized feature comparison.
           </p>
 
           {errorMsg && (
@@ -178,7 +190,7 @@ export function DemoAccessModal({
                   <span className="text-[9px] font-mono text-[#2ED8B6]">SaaS Care</span>
                 </div>
                 <p className="text-[10px] text-[#8E9AA8]">
-                  OrderV8 refund tokens, subscription care, and high-priority customer desk.
+                  OrderV8 refund vouchers (&lt; $500), subscriptions, &amp; CSAT telemetry.
                 </p>
               </button>
 
@@ -199,7 +211,7 @@ export function DemoAccessModal({
                   <span className="text-[9px] font-mono text-[#F5A623]">Field Dispatch</span>
                 </div>
                 <p className="text-[10px] text-[#8E9AA8]">
-                  Contractor work orders, emergency telecom PINs, and technician tracking.
+                  Contractor work orders, emergency site PINs, &amp; COI compliance checks.
                 </p>
               </button>
             </div>
@@ -208,15 +220,18 @@ export function DemoAccessModal({
           {/* Form */}
           <form id="demo-access-form" onSubmit={handleSubmit} className="space-y-3 pt-1">
             <div className="space-y-1">
-              <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Work Email *</span>
+              <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                  <span>Work Email *</span>
+                </span>
+                <span className="text-[10px] text-[#2ED8B6] font-mono">Required</span>
               </label>
               <input
                 type="email"
                 value={workEmail}
                 onChange={(e) => setWorkEmail(e.target.value)}
-                placeholder="alex@enterprise.com"
+                placeholder="name@company.com"
                 required
                 className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
               />
@@ -224,29 +239,33 @@ export function DemoAccessModal({
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="space-y-1">
-                <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-[#4D9FFF]" />
-                  <span>Full Name</span>
+                <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#F5A623]" />
+                    <span>Company Name *</span>
+                  </span>
+                  <span className="text-[10px] text-[#F5A623] font-mono">Required</span>
                 </label>
                 <input
                   type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Alex Vance"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Acme Enterprises"
+                  required
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-[#F5A623]" />
-                  <span>Company</span>
+                  <User className="w-3.5 h-3.5 text-[#4D9FFF]" />
+                  <span>Your Name</span>
                 </label>
                 <input
                   type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Vance Telecom"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Alex Vance"
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
@@ -301,7 +320,7 @@ export function DemoAccessModal({
             }}
             className="text-xs text-[#8E9AA8] hover:text-[#2ED8B6] font-mono cursor-pointer"
           >
-            Already have staff credentials? <span className="underline">Sign In</span>
+            Staff member? <span className="underline">Staff Sign In</span>
           </button>
 
           <button

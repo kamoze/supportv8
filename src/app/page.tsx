@@ -1221,6 +1221,7 @@ export default function SupportV8Dashboard() {
         />
         <SignInModal
           isOpen={isSignInModalOpen}
+          lockedTenantSlug={currentTenantSlug}
           onClose={() => setIsSignInModalOpen(false)}
           onSuccess={(session) => {
             setOperatorSession(session);

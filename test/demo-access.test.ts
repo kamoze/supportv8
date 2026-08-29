@@ -6,7 +6,7 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
   it("should reject demo access if work email is missing or invalid", async () => {
     const req = new NextRequest("http://localhost:3000/api/leads/demo-access", {
       method: "POST",
-      body: JSON.stringify({ workEmail: "invalid-email" }),
+      body: JSON.stringify({ workEmail: "invalid-email", companyName: "Acme Corp" }),
     });
 
     const res = await POST(req);
@@ -16,7 +16,20 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
     expect(data.error).toMatch(/valid business work email/i);
   });
 
-  it("should successfully capture sales lead and grant demo access token", async () => {
+  it("should reject demo access if company name is missing or empty", async () => {
+    const req = new NextRequest("http://localhost:3000/api/leads/demo-access", {
+      method: "POST",
+      body: JSON.stringify({ workEmail: "alex@company.com", companyName: "" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.success).toBe(false);
+    expect(data.error).toMatch(/company name is required/i);
+  });
+
+  it("should successfully capture sales lead and grant demo access token when email and company are provided", async () => {
     const req = new NextRequest("http://localhost:3000/api/leads/demo-access", {
       method: "POST",
       body: JSON.stringify({
@@ -33,6 +46,7 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
     const data = await res.json();
     expect(data.success).toBe(true);
     expect(data.lead.workEmail).toBe("alex@enterprise-logistics.com");
+    expect(data.lead.companyName).toBe("Enterprise Logistics LLC");
     expect(data.lead.targetTenant).toBe("meridian");
     expect(data.growthv8SyncPayload.verticalInterest).toBe("field_operations_dispatch");
     expect(data.demoAccessToken).toMatch(/^demo_tk_/);

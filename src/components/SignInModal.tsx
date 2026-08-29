@@ -9,35 +9,37 @@ import {
   ArrowRight,
   X,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   Eye,
   EyeOff,
-  Sparkles,
-  KeyRound,
   RefreshCw,
-  HardHat,
-  Users,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 
 interface SignInModalProps {
   isOpen: boolean;
+  lockedTenantSlug?: string;
   onClose: () => void;
   onSuccess: (session: AuthSession) => void;
   onOpenSignup: () => void;
 }
 
-export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignInModalProps) {
-  const [tenantSlug, setTenantSlug] = useState("acme");
+export function SignInModal({
+  isOpen,
+  lockedTenantSlug,
+  onClose,
+  onSuccess,
+  onOpenSignup,
+}: SignInModalProps) {
+  const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || "acme");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Simple Interactive Security Captcha
+  // Interactive Security Captcha
   const [captchaNum1, setCaptchaNum1] = useState(4);
   const [captchaNum2, setCaptchaNum2] = useState(7);
   const [captchaAnswer, setCaptchaAnswer] = useState("");
@@ -54,18 +56,33 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
 
   useEffect(() => {
     if (isOpen) {
+      if (lockedTenantSlug) {
+        setTenantSlug(lockedTenantSlug);
+      }
       refreshCaptcha();
       setErrorMsg("");
       setEmail("");
       setPassword("");
     }
-  }, [isOpen]);
+  }, [isOpen, lockedTenantSlug]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+
+    const targetSlug = (lockedTenantSlug || tenantSlug).trim().toLowerCase();
+
+    if (!targetSlug) {
+      setErrorMsg("Please specify your workspace domain.");
+      return;
+    }
+
+    if (!email.trim() || !password.trim()) {
+      setErrorMsg("Please enter your work email and password.");
+      return;
+    }
 
     // Verify Captcha
     if (parseInt(captchaAnswer.trim(), 10) !== captchaNum1 + captchaNum2) {
@@ -75,31 +92,21 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
       return;
     }
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg("Please enter your work email and password.");
-      return;
-    }
-
     setIsLoading(true);
 
-    // Cryptographic tenant authentication handshake
+    // Cryptographic operator session generation
     setTimeout(() => {
       setIsLoading(false);
-      const session = AuthService.createSession(tenantSlug, email, "operator");
+      const session = AuthService.createSession(targetSlug, email, "operator");
       onSuccess(session);
       onClose();
-    }, 500);
+    }, 450);
   };
 
-  const handleQuickDemoLogin = (slug: "acme" | "meridian") => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      const session = AuthService.authenticateDemo(slug);
-      onSuccess(session);
-      onClose();
-    }, 350);
-  };
+  const formattedTenantName = (lockedTenantSlug || tenantSlug)
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
@@ -109,8 +116,14 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
           <div className="flex items-center gap-3">
             <SupportV8Logo size={28} />
             <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">SupportV8 Authentication</h3>
-              <p className="text-[10px] font-mono text-[#6B7C8D]">Zero-Trust Cockpit Access Gate</p>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">
+                {lockedTenantSlug ? `${formattedTenantName} Staff Sign In` : "SupportV8 Staff Sign In"}
+              </h3>
+              <p className="text-[10px] font-mono text-[#6B7C8D]">
+                {lockedTenantSlug
+                  ? `${lockedTenantSlug}.support.servicev8.com`
+                  : "Zero-Trust Administrative Gate"}
+              </p>
             </div>
           </div>
 
@@ -132,16 +145,27 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
           )}
 
           <form id="signin-form" onSubmit={handleSubmit} className="space-y-3.5">
-            {/* Tenant Subdomain / Slug */}
-            <div className="space-y-1">
-              <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>Workspace Domain</span>
-                </span>
-                <span className="text-[10px] text-[#6B7C8D] font-mono">.support.servicev8.com</span>
-              </label>
-              <div className="relative">
+            {/* If on a specific subdomain, show locked badge; otherwise show domain input */}
+            {lockedTenantSlug ? (
+              <div className="p-3 rounded-xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Building2 className="w-4 h-4 text-[#2ED8B6]" />
+                  <div>
+                    <div className="text-xs font-bold text-[#EAF1F8]">{formattedTenantName} Workspace</div>
+                    <div className="text-[10px] font-mono text-[#6B7C8D]">{lockedTenantSlug}.support.servicev8.com</div>
+                  </div>
+                </div>
+                <span className="pill ok text-[9.5px] font-mono">SCOPED</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>Workspace Domain</span>
+                  </span>
+                  <span className="text-[10px] text-[#6B7C8D] font-mono">.support.servicev8.com</span>
+                </label>
                 <input
                   type="text"
                   value={tenantSlug}
@@ -151,7 +175,7 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
-            </div>
+            )}
 
             {/* Email Address */}
             <div className="space-y-1">
@@ -163,7 +187,7 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="operator@acme.com"
+                placeholder={lockedTenantSlug ? `staff@${lockedTenantSlug}.com` : "operator@company.com"}
                 required
                 className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
               />
@@ -197,7 +221,7 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
               </div>
             </div>
 
-            {/* Simple Security Captcha Challenge */}
+            {/* Security Captcha */}
             <div className="p-3 rounded-xl bg-[#121A24] border border-[var(--line)] space-y-2">
               <div className="flex items-center justify-between text-[11px] font-mono text-[#B4C2D0]">
                 <span className="flex items-center gap-1.5 text-[#2ED8B6]">
@@ -208,7 +232,6 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
                   type="button"
                   onClick={refreshCaptcha}
                   className="text-[10px] text-[#6B7C8D] hover:text-[#EAF1F8] flex items-center gap-1 cursor-pointer"
-                  title="Generate new challenge"
                 >
                   <RefreshCw className="w-3 h-3" />
                   <span>Refresh</span>
@@ -233,49 +256,8 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
                   }`}
                 />
               </div>
-              <p className="text-[9.5px] text-[#6B7C8D] font-mono">
-                Cloudflare Turnstile &amp; ForgeGW Keypair Verification Ready
-              </p>
             </div>
           </form>
-
-          {/* Instant Demo Sandbox Access Shortcuts */}
-          <div className="pt-2 border-t border-[var(--line)] space-y-2">
-            <div className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
-              Instant Demo Sandbox Operator Access:
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin("acme")}
-                className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] text-left transition-all cursor-pointer group"
-              >
-                <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-[#2ED8B6]">
-                    <Users className="w-3 h-3" />
-                    <span>Acme Corp</span>
-                  </span>
-                  <span className="text-[9px] text-[#2ED8B6] font-mono">SaaS CX</span>
-                </div>
-                <div className="text-[9.5px] text-[#8E9AA8] mt-1">Lead Operator (Sophia Lead)</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin("meridian")}
-                className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#F5A623] text-left transition-all cursor-pointer group"
-              >
-                <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-[#F5A623]">
-                    <HardHat className="w-3 h-3" />
-                    <span>Meridian</span>
-                  </span>
-                  <span className="text-[9px] text-[#F5A623] font-mono">Dispatch</span>
-                </div>
-                <div className="text-[9.5px] text-[#8E9AA8] mt-1">Field Dispatcher (Alex Lead)</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Modal Footer */}
@@ -295,7 +277,7 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
             type="submit"
             form="signin-form"
             disabled={isLoading}
-            className="btn btn-primary px-5 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+            className="btn btn-primary px-6 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
           >
             {isLoading ? (
               <>

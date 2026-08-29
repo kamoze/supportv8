@@ -67,7 +67,7 @@ CRM PARSER TAGS:
    * Dispatches lead email to leads@servicev8.com via Resend API
    */
   public static async dispatchLeadEmail(payload: LeadEmailPayload): Promise<SendLeadEmailResult> {
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = process.env.RESEND_API_KEY || process.env.resend_api_key;
     const fromAddress = process.env.RESEND_FROM_EMAIL || "SupportV8 <notifications@servicev8.com>";
     const toAddress = process.env.LEADS_INBOX_EMAIL || "leads@servicev8.com";
     const subject = this.generateLeadSubject(payload);

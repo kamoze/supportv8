@@ -9,7 +9,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Name and domain are required" }, { status: 400 });
     }
 
-    const tenantId = `tenant_${domain.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
+    const cleanDomain = domain.trim().toLowerCase();
+    const reservedDomains = ["acme", "meridian", "default", "admin", "api", "support", "app", "global", "servicev8"];
+
+    if (reservedDomains.includes(cleanDomain)) {
+      return NextResponse.json(
+        { success: false, error: `Subdomain slug '${cleanDomain}' is already registered or reserved.` },
+        { status: 409 }
+      );
+    }
+
+    const tenantId = `tenant_${cleanDomain.replace(/[^a-z0-9]/g, "_")}`;
     
     // By default, tenant is provisioned in UI-only + basic copilot automation mode
     // Full autonomous AI Employee assignment is a commercial activation via Studio Marketplace

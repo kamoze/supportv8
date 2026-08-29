@@ -249,7 +249,7 @@ export function GlobalLandingView({
 
         <div className="relative z-10 max-w-5xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#121A24]/90 border border-[#2ED8B6]/40 shadow-xl shadow-[#2ED8B6]/10 text-xs font-mono text-[#2ED8B6] animate-pulse">
-            <span>Universal AI Support Engine • Multi-Stream Operations • Zero-Trust ForgeGW</span>
+            <span>Universal AI Support Engine • Multi-Stream Operations • Governed Automation</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-[#EAF1F8]">
@@ -260,7 +260,7 @@ export function GlobalLandingView({
           </h1>
 
           <p className="text-base sm:text-lg text-[#8E9AA8] max-w-3xl mx-auto leading-relaxed">
-            A single, adaptive support platform built for any enterprise. Seamlessly orchestrate B2B SaaS customer success, field contractor dispatches, e-commerce dispute resolutions, and inbound inquiries — grounded by 1536-dim vector knowledge and bounded by strict cryptographic action limits.
+            A single, adaptive support platform built for any enterprise. Seamlessly orchestrate B2B SaaS customer success, field contractor dispatches, e-commerce dispute resolutions, and inbound inquiries — grounded by deep domain knowledge and bounded by strict action limits.
           </p>
 
           {/* Hero CTAs */}
@@ -293,27 +293,27 @@ export function GlobalLandingView({
           {/* Metric Highlights Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-12 max-w-4xl mx-auto">
             <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
-              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Protected Value</div>
-              <div className="text-2xl font-bold text-[#EAF1F8] mt-1">$420k ARR</div>
+              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Account Health</div>
+              <div className="text-2xl font-bold text-[#EAF1F8] mt-1">99.4% CSAT</div>
               <div className="text-[10px] text-[#2ED8B6] font-mono mt-0.5">Enterprise Tier-1 SLA</div>
             </div>
 
             <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
               <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Resolution Rate</div>
-              <div className="text-2xl font-bold text-[#2ED8B6] mt-1">74.2% VARR</div>
-              <div className="text-[10px] text-[#8E9AA8] font-mono mt-0.5">Verified Autonomous</div>
+              <div className="text-2xl font-bold text-[#2ED8B6] mt-1">74.2% Auto</div>
+              <div className="text-[10px] text-[#8E9AA8] font-mono mt-0.5">First-Contact Resolution</div>
             </div>
 
             <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
               <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Response Time</div>
-              <div className="text-2xl font-bold text-[#4D9FFF] mt-1">1.2s Mean</div>
-              <div className="text-[10px] text-[#8E9AA8] font-mono mt-0.5">Instant Telemetry</div>
+              <div className="text-2xl font-bold text-[#4D9FFF] mt-1">1.2s Average</div>
+              <div className="text-[10px] text-[#8E9AA8] font-mono mt-0.5">Instant Omnichannel Triage</div>
             </div>
 
             <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
-              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Safety Guarantee</div>
-              <div className="text-2xl font-bold text-[#F5A623] mt-1">Zero-Trust</div>
-              <div className="text-[10px] text-[#F5A623] font-mono mt-0.5">mTLS &amp; SHA-256 Audit</div>
+              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operational Safety</div>
+              <div className="text-2xl font-bold text-[#F5A623] mt-1">Governed</div>
+              <div className="text-[10px] text-[#F5A623] font-mono mt-0.5">Audited Action Limits</div>
             </div>
           </div>
         </div>
@@ -359,7 +359,7 @@ export function GlobalLandingView({
                     <h3 className="text-sm font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
                       Acme Corp Sandbox
                     </h3>
-                    <p className="text-[10px] font-mono text-[#6B7C8D]">SaaS Customer Care &amp; OrderV8 Billing</p>
+                    <p className="text-[10px] font-mono text-[#6B7C8D]">SaaS Customer Care &amp; Account Billing</p>
                   </div>
                 </div>
                 <span className="pill ok text-[10px] font-mono">
@@ -368,7 +368,7 @@ export function GlobalLandingView({
               </div>
 
               <p className="text-xs text-[#8E9AA8] leading-relaxed">
-                Test 1-click OrderV8 autonomous refund vouchers (&lt; $500), customer 360 ARR telemetry ($420k ARR), and SLA breach auto-escalations.
+                Experience high-tier customer success, autonomous credit voucher adjustments, comprehensive account telemetry, and SLA breach auto-escalations.
               </p>
 
               <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs font-mono">
@@ -403,7 +403,7 @@ export function GlobalLandingView({
               </div>
 
               <p className="text-xs text-[#8E9AA8] leading-relaxed">
-                Test emergency digital lockbox PIN generation (8492-X), technician SMS work order dispatch, and COI/W9 compliance verification.
+                Test emergency digital access PIN generation (8492-X), field technician dispatch, and contractor compliance verification.
               </p>
 
               <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs font-mono">
@@ -448,12 +448,12 @@ export function GlobalLandingView({
               1. Customer Care &amp; Success
             </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Enterprise subscriber desk with ARR context, 1-click OrderV8 automated refund token dispatching, subscription management, and proactive SLA escalation.
+              Dedicated subscriber desk with account context, automated credit voucher issuance, subscription management, and proactive SLA escalation.
             </p>
             <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Autonomous Credit Vouchers (&lt; $500)</span>
+                <span>Autonomous Account Credit Vouchers</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
@@ -477,7 +477,7 @@ export function GlobalLandingView({
               2. Operations, Field &amp; Partners
             </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Contractor work order dispatching, W9/COI compliance checks, electronic lockbox code generation, and invoice payout verification with strict audit trails.
+              Contractor work order dispatching, compliance checks, electronic access code generation, and invoice payout verification with strict audit trails.
             </p>
             <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
               <li className="flex items-center gap-2">
@@ -532,7 +532,7 @@ export function GlobalLandingView({
             Meet Your 24/7 Governed Support Team
           </h2>
           <p className="text-sm text-[#8E9AA8]">
-            Pre-trained on ServiceV8 customer care protocols, vector embeddings, and zero-trust action dispatchers.
+            Pre-trained on domain care protocols, knowledge embeddings, and governed action dispatchers.
           </p>
         </div>
 
@@ -545,98 +545,106 @@ export function GlobalLandingView({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Alex</h4>
-                <p className="text-[11px] text-[#2ED8B6] font-mono">Contractor &amp; CX Lead</p>
+                <p className="text-[11px] text-[#2ED8B6] font-mono">Operations &amp; CX Lead</p>
               </div>
             </div>
-            <p className="text-xs text-[#8E9AA8]">Specializes in contractor work order triage, site access locks, and team coordination.</p>
-            <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] pt-2 border-t border-[var(--line)]">
-              <span>Autonomy: Full (Level 3)</span>
-              <span className="text-[#2ED8B6]">99.8% CSAT</span>
+            <p className="text-xs text-[#8E9AA8] leading-relaxed">
+              Specialized in contractor dispatches, access codes, and work order operations.
+            </p>
+            <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
+              <span className="text-[#6B7C8D]">Autonomy</span>
+              <span className="text-[#2ED8B6]">Autonomous L2</span>
             </div>
           </div>
 
           {/* Sophia */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+              <div className="w-12 h-12 rounded-xl bg-[#4D9FFF]/20 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
                 <Bot className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Sophia</h4>
-                <p className="text-[11px] text-[#2ED8B6] font-mono">Customer Success Lead</p>
+                <p className="text-[11px] text-[#4D9FFF] font-mono">Customer Success Lead</p>
               </div>
             </div>
-            <p className="text-xs text-[#8E9AA8]">Handles enterprise account billing, SLA monitoring, and OrderV8 token dispatches.</p>
-            <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] pt-2 border-t border-[var(--line)]">
-              <span>Autonomy: Copilot (Level 2)</span>
-              <span className="text-[#2ED8B6]">98.9% CSAT</span>
+            <p className="text-xs text-[#8E9AA8] leading-relaxed">
+              Handles subscriber care, billing adjustments, and SLA incident escalations.
+            </p>
+            <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
+              <span className="text-[#6B7C8D]">Autonomy</span>
+              <span className="text-[#4D9FFF]">Autonomous L2</span>
             </div>
           </div>
 
           {/* Barnaby */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#4D9FFF]/20 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
+              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/20 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
                 <Bot className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Barnaby</h4>
-                <p className="text-[11px] text-[#4D9FFF] font-mono">Knowledge Intelligence</p>
+                <p className="text-[11px] text-[#F5A623] font-mono">Knowledge Lead</p>
               </div>
             </div>
-            <p className="text-xs text-[#8E9AA8]">Indexes S3 Vault documents, synthesizes concept topologies, and curates RAG citations.</p>
-            <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] pt-2 border-t border-[var(--line)]">
-              <span>Autonomy: Full (Level 3)</span>
-              <span className="text-[#4D9FFF]">1536-Dim Embed</span>
+            <p className="text-xs text-[#8E9AA8] leading-relaxed">
+              Curates vector documentation, identifies knowledge gaps, and provides RAG citations.
+            </p>
+            <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
+              <span className="text-[#6B7C8D]">Autonomy</span>
+              <span className="text-[#F5A623]">Autonomous L1</span>
             </div>
           </div>
 
           {/* Arthur */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/20 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
+              <div className="w-12 h-12 rounded-xl bg-[#E5484D]/20 border border-[#E5484D]/40 flex items-center justify-center text-[#E5484D]">
                 <Bot className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Arthur</h4>
-                <p className="text-[11px] text-[#F5A623] font-mono">Technical Triage Lead</p>
+                <p className="text-[11px] text-[#E5484D] font-mono">Technical Triage</p>
               </div>
             </div>
-            <p className="text-xs text-[#8E9AA8]">Analyzes cluster telemetry, correlates recurring bugs, and triggers proactive comms.</p>
-            <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] pt-2 border-t border-[var(--line)]">
-              <span>Autonomy: Supervised</span>
-              <span className="text-[#F5A623]">Root-Cause AI</span>
+            <p className="text-xs text-[#8E9AA8] leading-relaxed">
+              Correlates telemetry across issues, isolates root causes, and manages incident escalation.
+            </p>
+            <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
+              <span className="text-[#6B7C8D]">Autonomy</span>
+              <span className="text-[#E5484D]">Supervised</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SECTION 3: 3-Tier Marketplace & Action Gateway Architecture */}
+      {/* SECTION 3: Platform Infrastructure (Rewritten Clean Enterprise Topology) */}
       <section id="architecture" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
           <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#4D9FFF]">
-            Platform Infrastructure
+            Enterprise Cloud Architecture
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
-            3-Tier Marketplace &amp; Action Dispatch Topology
+            Unified Architecture &amp; Reliable Action Dispatch
           </h2>
           <p className="text-sm text-[#8E9AA8]">
-            Decoupled commercial entitlement, central capability registry, and zero-trust side-effect dispatchers.
+            Decoupled commercial entitlement, central capability governance, and high-availability action dispatchers.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
           <div className="card p-6 rounded-3xl bg-[#121A24] border border-[var(--line)] space-y-3">
             <div className="flex items-center justify-between text-[#4D9FFF] font-bold">
-              <span>TIER 1: SURFACES</span>
+              <span>TIER 1: SURFACES &amp; PORTALS</span>
               <ShoppingBag className="w-4 h-4" />
             </div>
-            <h4 className="text-sm font-bold text-[#EAF1F8]">StudioV8 &amp; Partner Portal</h4>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Studio Marketplace &amp; Help Hub</h4>
             <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
-              Marketplace discovery and acquisition. Provision AI Employees, Scenarios, and external Connectors with 1-click SSO handshake.
+              Self-service customer hubs, vendor dispatch interfaces, and marketplace acquisition with seamless single sign-on.
             </p>
             <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#2ED8B6]">
-              Surface: /marketplace
+              Surface: /support
             </div>
           </div>
 
@@ -645,42 +653,42 @@ export function GlobalLandingView({
               <span>TIER 2: CONTROL PLANE</span>
               <Server className="w-4 h-4" />
             </div>
-            <h4 className="text-sm font-bold text-[#EAF1F8]">servicev8-registry</h4>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Central Policy &amp; Tenant Governance</h4>
             <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
-              Standalone Kubernetes microservice managing SemVer product manifests, tenant entitlement ledgers, and compatibility checks.
+              Centralized configuration engine managing product manifests, tenant entitlement ledgers, and compliance rules across all channels.
             </p>
             <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#4CC38A]">
-              HPA 3 &rarr; 20 Replicas &bull; PgBouncer
+              Automated Scaling &amp; Isolation
             </div>
           </div>
 
           <div className="card p-6 rounded-3xl bg-[#121A24] border border-[var(--line)] space-y-3">
             <div className="flex items-center justify-between text-[#F5A623] font-bold">
-              <span>TIER 3: DISPATCH &amp; SPINES</span>
+              <span>TIER 3: DISPATCH &amp; WORKFLOWS</span>
               <Zap className="w-4 h-4" />
             </div>
-            <h4 className="text-sm font-bold text-[#EAF1F8]">Action Gateway &amp; Spines</h4>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Secure Action Dispatch Engine</h4>
             <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
-              Executes all external side-effects (Email, SMS, Voice, Stripe, SOW PINs) with KMS/SSM envelope encryption and Temporal workflows.
+              Executes omnichannel communications and business actions with end-to-end encryption and guaranteed execution reliability.
             </p>
             <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#F5A623]">
-              action-gateway &bull; temporal
+              Reliable Event Dispatch
             </div>
           </div>
         </div>
       </section>
 
-      {/* SECTION 4: Zero-Trust Security & Governance */}
+      {/* SECTION 4: Security & Governance */}
       <section id="security" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
           <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#F5A623]">
             Enterprise Security Standards
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
-            Zero-Trust ForgeGW &amp; Cryptographic Guardrails
+            Enterprise Security &amp; Governance Guardrails
           </h2>
           <p className="text-sm text-[#8E9AA8]">
-            Hard limits on automated refunds, deterministic action verification, and cryptographically signed audit trails.
+            Bounded action limits, deterministic verification, and cryptographically signed audit trails.
           </p>
         </div>
 
@@ -689,9 +697,9 @@ export function GlobalLandingView({
             <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center">
               <Lock className="w-5 h-5" />
             </div>
-            <h4 className="text-sm font-bold text-[#EAF1F8]">Financial Cap Guardrails</h4>
+            <h4 className="text-sm font-bold text-[#EAF1F8]">Action Limit Guardrails</h4>
             <p className="text-xs text-[#8E9AA8]">
-              Automated refund tokens strictly gated at &lt; $500 per transaction and $2,500 daily tenant cap with required human escalation.
+              Automated transactions and adjustments are bounded by configurable policy thresholds and required supervisor approvals.
             </p>
           </div>
 
@@ -701,7 +709,7 @@ export function GlobalLandingView({
             </div>
             <h4 className="text-sm font-bold text-[#EAF1F8]">Tenant Namespace Isolation</h4>
             <p className="text-xs text-[#8E9AA8]">
-              Dedicated vector collections, segregated S3 document vaults, and per-tenant cryptographic salts for compliance.
+              Dedicated vector collections, segregated document vaults, and tenant isolation for compliance.
             </p>
           </div>
 
@@ -711,7 +719,7 @@ export function GlobalLandingView({
             </div>
             <h4 className="text-sm font-bold text-[#EAF1F8]">Tamper-Proof Audit Chaining</h4>
             <p className="text-xs text-[#8E9AA8]">
-              Every AI action execution is hashed with SHA-256 and written to persistent append-only database ledgers.
+              Every AI action execution is recorded to persistent append-only database ledgers with verified audit trails.
             </p>
           </div>
         </div>

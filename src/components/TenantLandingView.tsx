@@ -1,54 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Search,
   BookOpen,
   HardHat,
-  HelpCircle,
   Users,
   Shield,
-  FileText,
   ChevronRight,
-  ExternalLink,
-  CheckCircle2,
   Clock,
   ArrowUpRight,
   Sparkles,
   MessageSquare,
   AlertCircle,
   UserCheck,
-  Globe,
   Truck,
-  KeyRound,
-  MapPin,
-  Check,
-  Radio,
-  RefreshCw,
-  PhoneCall,
   Lock,
-  ArrowRight,
-  DollarSign,
-  Briefcase,
-  Bot,
-  Zap,
-  Send,
-  Sliders,
-  Award,
-  Layers,
-  Smartphone,
-  Phone,
-  Mail,
-  Flame,
-  AlertTriangle,
   X,
   Copy,
-  Edit3,
   CheckCheck,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import type { ChatStreamType } from "@/lib/types";
+import { db } from "@/lib/db/mock-data";
 
 interface TenantLandingViewProps {
   tenantSlug?: string;
@@ -66,6 +41,10 @@ export function TenantLandingView({
 }: TenantLandingViewProps) {
   const cleanSlug = tenantSlug.toLowerCase().trim();
   const isMeridian = cleanSlug === "meridian";
+  const isAcmeDemo = cleanSlug === "acme";
+  const isDemo = isAcmeDemo || isMeridian;
+  const tenantData = db.getTenantData(cleanSlug);
+  const isClean = tenantData.isClean;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [trackerTab, setTrackerTab] = useState<"ticket" | "dispatch">(isMeridian ? "dispatch" : "ticket");
@@ -87,49 +66,51 @@ export function TenantLandingView({
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(" ");
 
-  // Curated Knowledge Base Articles
-  const kbArticles = [
-    {
-      id: "kb_1",
-      title: `${formattedName} Telephony Bridge & SIP Voice Provisioning Guide`,
-      category: "Telephony",
-      stream: "customers" as ChatStreamType,
-      snippet: "Comprehensive architecture manual for integrating Twilio voice trunks, WebRTC live audio streaming, and sub-300ms transcription.",
-      content: `### Telephony Architecture Overview\n${formattedName} leverages low-latency SIP trunks integrated with Twilio Voice Gateways to enable AI telephony assistants with sub-300ms turn-taking.\n\n### Key Components\n1. **SIP Trunking**: Inbound calls are routed over encrypted TLS SIP trunks to the Telephony Gateway.\n2. **Audio Streaming**: Bi-directional audio chunks are streamed via WebSocket to the speech-to-text pipeline.\n3. **Intent Extraction**: Voice sessions extract customer order references and caller sentiment in real-time.\n\n### Failover & Escalation\nWhen sentiment deteriorates below 0.40 or caller requests a human supervisor, the session executes an unconditional warm transfer to the on-call human operator queue.`,
-      views: 1240,
-      updated: "2 hours ago",
-    },
-    {
-      id: "kb_2",
-      title: "OrderV8 Autonomous Refund Tokens & Credit Dispatch Guidelines",
-      category: "Billing",
-      stream: "customers" as ChatStreamType,
-      snippet: "Subscriptions under Enterprise and Pro tiers qualify for automated instant credit vouchers up to $500.",
-      content: `### Autonomous Credit Issuance Policy\nCustomer service operators and autonomous support workflows can issue immediate credit vouchers to resolve checkout failures and billing discrepancies.\n\n### Eligibility Criteria\n- **Enterprise Tier**: Pre-approved for instant refunds up to $500.00 without secondary managerial sign-off.\n- **Pro Tier**: Pre-approved for instant credit up to $150.00.\n- **Standard Tier**: Inquiries exceeding $50.00 are routed to the CX Lead.\n\n### Audit & Verification\nAll credit vouchers generate a cryptographic SHA-256 ledger token synced directly to the OrderV8 billing engine.`,
-      views: 819,
-      updated: "1 day ago",
-    },
-    {
-      id: "kb_3",
-      title: "Zero-Trust Action Verification & Security Matrix",
-      category: "Security",
-      stream: "enquiries" as ChatStreamType,
-      snippet: "Overview of mutual TLS (mTLS), strict idempotency tokens, and SHA-256 hash chaining on all action endpoints.",
-      content: `### Security Architecture\nAll operational actions (e.g. issuing credits, rotating credentials, modifying work orders) are executed through the Zero-Trust Action Gateway.\n\n### Key Protections\n1. **mTLS Encryption**: Every inter-service request is authenticated with mutual TLS.\n2. **Idempotency Tokens**: Prevents accidental double-executions of refunds or provisioning workflows.\n3. **Audit Logging**: Immutable event ledger records operator ID, timestamp, and payload hash.`,
-      views: 512,
-      updated: "3 days ago",
-    },
-    {
-      id: "kb_4",
-      title: "Subcontractor W9 & Certificate of Insurance (COI) Uploads",
-      category: "Compliance",
-      stream: "contractors" as ChatStreamType,
-      snippet: "Step-by-step instructions for uploading updated liability insurance and tax forms to the secure S3 vault.",
-      content: `### Compliance Document Uploads\nAll active field contractors and subcontractors must maintain an active Certificate of Insurance (COI) with a minimum of $2,000,000 general liability coverage.\n\n### Upload Steps\n1. Log in to the Contractor Work Desk.\n2. Navigate to **Compliance & Permits**.\n3. Attach the PDF copy of your COI and W-9 form.\n4. Automated OCR checks policy expiration dates and updates work order dispatch eligibility within 15 minutes.`,
-      views: 290,
-      updated: "5 days ago",
-    },
-  ];
+  // Curated Knowledge Base Articles (Empty for clean tenants like acme-movers until published)
+  const kbArticles = isClean
+    ? []
+    : [
+        {
+          id: "kb_1",
+          title: `${formattedName} Telephony Bridge & SIP Voice Provisioning Guide`,
+          category: "Telephony",
+          stream: "customers" as ChatStreamType,
+          snippet: "Comprehensive architecture manual for integrating Twilio voice trunks, WebRTC live audio streaming, and sub-300ms transcription.",
+          content: `### Telephony Architecture Overview\n${formattedName} leverages low-latency SIP trunks integrated with Twilio Voice Gateways to enable AI telephony assistants with sub-300ms turn-taking.\n\n### Key Components\n1. **SIP Trunking**: Inbound calls are routed over encrypted TLS SIP trunks to the Telephony Gateway.\n2. **Audio Streaming**: Bi-directional audio chunks are streamed via WebSocket to the speech-to-text pipeline.\n3. **Intent Extraction**: Voice sessions extract customer order references and caller sentiment in real-time.\n\n### Failover & Escalation\nWhen sentiment deteriorates below 0.40 or caller requests a human supervisor, the session executes an unconditional warm transfer to the on-call human operator queue.`,
+          views: 1240,
+          updated: "2 hours ago",
+        },
+        {
+          id: "kb_2",
+          title: "OrderV8 Autonomous Refund Tokens & Credit Dispatch Guidelines",
+          category: "Billing",
+          stream: "customers" as ChatStreamType,
+          snippet: "Subscriptions under Enterprise and Pro tiers qualify for automated instant credit vouchers up to $500.",
+          content: `### Autonomous Credit Issuance Policy\nCustomer service operators and autonomous support workflows can issue immediate credit vouchers to resolve checkout failures and billing discrepancies.\n\n### Eligibility Criteria\n- **Enterprise Tier**: Pre-approved for instant refunds up to $500.00 without secondary managerial sign-off.\n- **Pro Tier**: Pre-approved for instant credit up to $150.00.\n- **Standard Tier**: Inquiries exceeding $50.00 are routed to the CX Lead.\n\n### Audit & Verification\nAll credit vouchers generate a cryptographic SHA-256 ledger token synced directly to the OrderV8 billing engine.`,
+          views: 819,
+          updated: "1 day ago",
+        },
+        {
+          id: "kb_3",
+          title: "Zero-Trust Action Verification & Security Matrix",
+          category: "Security",
+          stream: "enquiries" as ChatStreamType,
+          snippet: "Overview of mutual TLS (mTLS), strict idempotency tokens, and SHA-256 hash chaining on all action endpoints.",
+          content: `### Security Architecture\nAll operational actions (e.g. issuing credits, rotating credentials, modifying work orders) are executed through the Zero-Trust Action Gateway.\n\n### Key Protections\n1. **mTLS Encryption**: Every inter-service request is authenticated with mutual TLS.\n2. **Idempotency Tokens**: Prevents accidental double-executions of refunds or provisioning workflows.\n3. **Audit Logging**: Immutable event ledger records operator ID, timestamp, and payload hash.`,
+          views: 512,
+          updated: "3 days ago",
+        },
+        {
+          id: "kb_4",
+          title: "Subcontractor W9 & Certificate of Insurance (COI) Uploads",
+          category: "Compliance",
+          stream: "contractors" as ChatStreamType,
+          snippet: "Step-by-step instructions for uploading updated liability insurance and tax forms to the secure S3 vault.",
+          content: `### Compliance Document Uploads\nAll active field contractors and subcontractors must maintain an active Certificate of Insurance (COI) with a minimum of $2,000,000 general liability coverage.\n\n### Upload Steps\n1. Log in to the Contractor Work Desk.\n2. Navigate to **Compliance & Permits**.\n3. Attach the PDF copy of your COI and W-9 form.\n4. Automated OCR checks policy expiration dates and updates work order dispatch eligibility within 15 minutes.`,
+          views: 290,
+          updated: "5 days ago",
+        },
+      ];
 
   // Filtered Knowledge Articles
   const filteredKbArticles = kbArticles.filter((art) => {
@@ -398,7 +379,9 @@ export function TenantLandingView({
               <Lock className="w-6 h-6 text-[#2ED8B6] mx-auto opacity-70" />
               <p className="text-[#B4C2D0]">Customer details &amp; technician lockbox codes are securely protected.</p>
               <p className="text-[11px]">
-                Enter your verified reference ID above to inspect real-time progress.
+                {isDemo
+                  ? "Try searching TCK-8821 or WO-7741 to view verified progress."
+                  : "Enter your verified reference ID above to inspect real-time progress."}
               </p>
             </div>
           )}
@@ -432,7 +415,7 @@ export function TenantLandingView({
           )}
         </div>
 
-        {/* Verified Knowledge Base Articles */}
+        {/* Verified Knowledge Base Articles Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-bold text-[#EAF1F8] flex items-center gap-2">
@@ -445,8 +428,32 @@ export function TenantLandingView({
           </div>
 
           {filteredKbArticles.length === 0 ? (
-            <div className="p-8 rounded-2xl bg-[#121A24] border border-[var(--line)] text-center font-mono text-xs text-[#6B7C8D]">
-              No knowledge base articles matched "{searchQuery}".
+            <div className="p-8 rounded-2xl bg-[#0E1520] border border-[var(--line)] text-center space-y-3 font-mono text-xs shadow-lg">
+              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 flex items-center justify-center text-[#2ED8B6] mx-auto">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[#EAF1F8]">
+                  {isClean ? "No Knowledge Base Documents Published Yet" : "No matching knowledge articles"}
+                </h4>
+                <p className="text-xs text-[#8E9AA8] max-w-md mx-auto">
+                  {isClean
+                    ? "This tenant workspace is newly provisioned. Organization administrators can sign in to the Knowledge Suite to upload, crawl, and publish customer-facing articles."
+                    : `No knowledge base articles matched "${searchQuery}".`}
+                </p>
+              </div>
+              {isClean && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={onOpenSignIn}
+                    className="btn btn-primary px-4 py-2 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Sign In to Knowledge Suite</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

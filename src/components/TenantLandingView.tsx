@@ -612,8 +612,8 @@ export function TenantLandingView({
                   <Clock className="w-4 h-4" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Live Status &amp; Dispatch Tracker</h3>
-                  <p className="text-[10px] font-mono text-[#6B7C8D]">Track Customer Tickets &amp; Contractor Work Orders</p>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Universal Case &amp; Dispatch Tracker</h3>
+                  <p className="text-[10px] font-mono text-[#6B7C8D]">Track Customer Support Tickets, Billing Requests &amp; Field Work Orders</p>
                 </div>
               </div>
 
@@ -628,7 +628,7 @@ export function TenantLandingView({
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Customer Ticket</span>
+                  <span>Customer &amp; Account Case</span>
                 </button>
 
                 <button
@@ -641,7 +641,7 @@ export function TenantLandingView({
                   }`}
                 >
                   <Truck className="w-3.5 h-3.5" />
-                  <span>Contractor Dispatch</span>
+                  <span>Field Ops &amp; Work Order</span>
                 </button>
               </div>
             </div>

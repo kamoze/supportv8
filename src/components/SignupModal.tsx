@@ -302,14 +302,14 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-mono text-[#B4C2D0] block">Primary Channel Focus</label>
-                  <span className="text-[10px] text-[#6B7C8D] font-mono">Recommends AI Package</span>
+                  <label className="text-xs font-mono text-[#B4C2D0] block">Operational Archetype &amp; Initial Focus</label>
+                  <span className="text-[10px] text-[#6B7C8D] font-mono">Recommends AI Blueprint</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2.5">
                   {[
-                    { id: "customers", label: "Customers", desc: "Refunds & Subscriptions", rec: "Rec: Sophia (CS)" },
-                    { id: "contractors", label: "Contractors", desc: "Work Orders & PINs", rec: "Rec: Alex (Lead)" },
-                    { id: "enquiries", label: "Enquiries", desc: "Pre-Sales & Demos", rec: "Rec: Barnaby (RAG)" },
+                    { id: "customers", label: "B2B SaaS & Care", desc: "Subscriptions & Refunds", rec: "Rec: Sophia (CS)" },
+                    { id: "contractors", label: "Field Ops & Logistics", desc: "Work Orders & Site PINs", rec: "Rec: Alex (Dispatch)" },
+                    { id: "enquiries", label: "Knowledge & Sales", desc: "Leads & RAG Citations", rec: "Rec: Barnaby (RAG)" },
                   ].map((stream) => (
                     <button
                       key={stream.id}
@@ -328,7 +328,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   ))}
                 </div>
                 <p className="text-[9.5px] text-[#6B7C8D] font-mono">
-                  * Sets default UI workspace. AI Employees are commercial packages enabled via Studio Marketplace.
+                  * Configures initial Work Desk layout. All operational streams &amp; Marketplace AI blueprints are universally accessible.
                 </p>
               </div>
             </form>

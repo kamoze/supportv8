@@ -249,18 +249,18 @@ export function GlobalLandingView({
 
         <div className="relative z-10 max-w-5xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#121A24]/90 border border-[#2ED8B6]/40 shadow-xl shadow-[#2ED8B6]/10 text-xs font-mono text-[#2ED8B6] animate-pulse">
-            <span>Autonomous CX • Vector Knowledge Graph • Zero-Trust ForgeGW</span>
+            <span>Universal AI Support Engine • Multi-Stream Operations • Zero-Trust ForgeGW</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-[#EAF1F8]">
-            Governed AI Support Intelligence &amp; <br />
+            Universal AI Support &amp; <br />
             <span className="bg-gradient-to-r from-[#00F2FE] via-[#2ED8B6] to-[#059669] bg-clip-text text-transparent">
-              Autonomous Omnichannel Triage
+              Autonomous Operations Engine
             </span>
           </h1>
 
           <p className="text-base sm:text-lg text-[#8E9AA8] max-w-3xl mx-auto leading-relaxed">
-            Empower your enterprise with dedicated AI customer support employees and unified contractor/customer workflows. Grounded by 1536-dim vector topologies and bounded by strict cryptographic action limits.
+            A single, adaptive support platform built for any enterprise. Seamlessly orchestrate B2B SaaS customer success, field contractor dispatches, e-commerce dispute resolutions, and inbound inquiries — grounded by 1536-dim vector knowledge and bounded by strict cryptographic action limits.
           </p>
 
           {/* Hero CTAs */}
@@ -422,76 +422,18 @@ export function GlobalLandingView({
       <section id="capabilities" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
           <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#2ED8B6]">
-            Omnichannel Triaging Architecture
+            Universal Multi-Stream Architecture
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
-            3 Specialized Workflows in One Unified Desk
+            3 Core Work Streams in One Unified Desk
           </h2>
           <p className="text-sm text-[#8E9AA8]">
-            Whether an on-site contractor needs emergency lockbox access, a prospect seeks custom pricing, or an enterprise customer needs an OrderV8 refund token.
+            A single, governed engine designed to power customer success, vendor operations, and pre-sales across any enterprise industry.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Contractors & Vendors */}
-          <div
-            onClick={() => onOpenTenantPortal("meridian")}
-            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#F5A623] transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
-                <HardHat className="w-6 h-6" />
-              </div>
-              <span className="pill text-[9.5px] font-mono text-[#F5A623]">Explore Meridian &rarr;</span>
-            </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#F5A623] transition-colors">
-              1. Contractors &amp; Vendors
-            </h3>
-            <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Field work order dispatch, W9/COI compliance checks, lockbox code generation, and invoice payout dispute workflows with strict verification.
-            </p>
-            <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
-                <span>On-Site Emergency PIN Generation</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
-                <span>Automated Invoice &amp; Payout Verification</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* General Enquiries */}
-          <div
-            onClick={() => onOpenTenantPortal("acme")}
-            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#4D9FFF] transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-[#4D9FFF]/15 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
-                <HelpCircle className="w-6 h-6" />
-              </div>
-              <span className="pill text-[9.5px] font-mono text-[#4D9FFF]">Explore Acme &rarr;</span>
-            </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#4D9FFF] transition-colors">
-              2. General Enquiries
-            </h3>
-            <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Pre-sales product consultations, custom enterprise SLA calculators, developer API documentation citations, and partnership qualification.
-            </p>
-            <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
-                <span>Knowledge Graph Citations &amp; Whitepapers</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
-                <span>Lead Qualification &amp; Handoff</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Customers & Clients */}
+          {/* 1. Customers & Clients */}
           <div
             onClick={() => onOpenTenantPortal("acme")}
             className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6] transition-all cursor-pointer group"
@@ -500,22 +442,80 @@ export function GlobalLandingView({
               <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
                 <Users className="w-6 h-6" />
               </div>
-              <span className="pill text-[9.5px] font-mono text-[#2ED8B6]">Explore Acme &rarr;</span>
+              <span className="pill text-[9.5px] font-mono text-[#2ED8B6]">Customer Care &rarr;</span>
             </div>
             <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
-              3. Customers &amp; Clients
+              1. Customer Care &amp; Success
             </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              High-priority subscriber desk with $420k ARR customer context, 1-click OrderV8 refund token dispatching, and automated SLA incident tracking.
+              Enterprise subscriber desk with ARR context, 1-click OrderV8 automated refund token dispatching, subscription management, and proactive SLA escalation.
             </p>
             <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Autonomous Refund Tokens (&lt; $500)</span>
+                <span>Autonomous Credit Vouchers (&lt; $500)</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Live Human Takeover &amp; Presence</span>
+                <span>Customer 360 &amp; Sentiment Trajectory</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* 2. Operations, Field & Partners */}
+          <div
+            onClick={() => onOpenTenantPortal("meridian")}
+            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#F5A623] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
+                <HardHat className="w-6 h-6" />
+              </div>
+              <span className="pill text-[9.5px] font-mono text-[#F5A623]">Field &amp; Ops &rarr;</span>
+            </div>
+            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#F5A623] transition-colors">
+              2. Operations, Field &amp; Partners
+            </h3>
+            <p className="text-xs text-[#8E9AA8] leading-relaxed">
+              Contractor work order dispatching, W9/COI compliance checks, electronic lockbox code generation, and invoice payout verification with strict audit trails.
+            </p>
+            <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
+                <span>On-Site Emergency PIN Generation</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
+                <span>Work Order SOW &amp; Payout Dispatch</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* 3. Inquiries & Pre-Sales */}
+          <div
+            onClick={() => onOpenTenantPortal("acme")}
+            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#4D9FFF] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-[#4D9FFF]/15 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
+                <HelpCircle className="w-6 h-6" />
+              </div>
+              <span className="pill text-[9.5px] font-mono text-[#4D9FFF]">Knowledge Desk &rarr;</span>
+            </div>
+            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#4D9FFF] transition-colors">
+              3. Inquiries &amp; Knowledge Desk
+            </h3>
+            <p className="text-xs text-[#8E9AA8] leading-relaxed">
+              Pre-sales product consultations, custom enterprise SLA calculators, developer API documentation citations, and partnership lead qualification.
+            </p>
+            <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
+                <span>Vector RAG Whitepaper Citations</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#4D9FFF]" />
+                <span>Lead Qualification &amp; CRM Routing</span>
               </li>
             </ul>
           </div>

@@ -103,7 +103,7 @@ export function SupportChatWidget({
     // Start session
     setIsTyping(true);
     const session = ChatWorkflowService.startSession({
-      tenantDomain: tenantSlug,
+      tenantDomain: activeSlug,
       stream: selectedStream,
       customerName: formData.name || "Customer",
       customerEmail: formData.email || "user@example.com",

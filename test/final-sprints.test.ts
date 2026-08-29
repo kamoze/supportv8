@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { AuthService } from "../src/lib/auth-service";
 import { db } from "../src/lib/db/mock-data";
 import { ChatWorkflowService } from "../src/lib/services/chat-workflow-service";
+import { ResendService } from "../src/lib/services/resend-service";
 
 describe("Final Sprints Features & Architecture Validation", () => {
   describe("1. First-Party Authentication & Email OTP Flow", () => {
@@ -20,6 +21,22 @@ describe("Final Sprints Features & Architecture Validation", () => {
       AuthService.issueOtp(email);
       const isInvalid = AuthService.verifyOtp(email, "000000");
       expect(isInvalid).toBe(false);
+    });
+
+    it("should dispatch a 6-digit OTP verification email via Resend", async () => {
+      const email = "admin@acme-movers.com";
+      const otp = AuthService.issueOtp(email);
+      const emailResult = await ResendService.dispatchOtpEmail({
+        email,
+        code: otp,
+        companyName: "Acme Movers",
+        tenantSlug: "acme-movers",
+      });
+
+      expect(emailResult.success).toBe(true);
+      expect(emailResult.subject).toContain(otp);
+      expect(emailResult.to).toBe(email);
+      expect(emailResult.resendEmailId).toBeTruthy();
     });
 
     it("should create cryptographic session with contractor/technician roles", () => {

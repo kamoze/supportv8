@@ -63,6 +63,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
   const [otpCode, setOtpCode] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -144,7 +145,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
     setStep(2);
   };
 
-  const handleStep2Submit = (e: React.FormEvent) => {
+  const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
@@ -171,42 +172,117 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       return;
     }
 
-    // Generate & Issue OTP
-    const code = AuthService.issueOtp(adminEmail);
-    setGeneratedOtp(code);
-    setResendCooldown(30);
-    setStep(3);
+    setIsSendingOtp(true);
+
+    try {
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: adminEmail.trim(),
+          companyName: companyName.trim(),
+          tenantSlug: slug.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok && data?.error) {
+        setErrorMsg(data.error);
+        setIsSendingOtp(false);
+        return;
+      }
+
+      if (data?.debugCode) {
+        setGeneratedOtp(data.debugCode);
+      }
+
+      setIsSendingOtp(false);
+      setResendCooldown(30);
+      setStep(3);
+    } catch (_) {
+      // Fallback
+      const code = AuthService.issueOtp(adminEmail);
+      setGeneratedOtp(code);
+      setIsSendingOtp(false);
+      setResendCooldown(30);
+      setStep(3);
+    }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (resendCooldown > 0) return;
-    const code = AuthService.issueOtp(adminEmail);
-    setGeneratedOtp(code);
-    setResendCooldown(30);
+    setIsSendingOtp(true);
     setOtpError("");
+
+    try {
+      const res = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: adminEmail.trim(),
+          companyName: companyName.trim(),
+          tenantSlug: slug.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data?.debugCode) {
+        setGeneratedOtp(data.debugCode);
+      }
+
+      setIsSendingOtp(false);
+      setResendCooldown(30);
+    } catch (_) {
+      const code = AuthService.issueOtp(adminEmail);
+      setGeneratedOtp(code);
+      setIsSendingOtp(false);
+      setResendCooldown(30);
+    }
   };
 
-  const handleStep3VerifyOtp = (e: React.FormEvent) => {
+  const handleStep3VerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setOtpError("");
 
-    if (!otpCode.trim() || otpCode.trim().length !== 6) {
+    const cleanCode = otpCode.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
       setOtpError("Please enter the 6-digit verification code sent to your email.");
       return;
     }
 
-    const isValid = AuthService.verifyOtp(adminEmail, otpCode.trim());
-    if (!isValid) {
-      setOtpError("Invalid verification code. Please check your email or request a new code.");
-      return;
-    }
-
     setIsVerifyingOtp(true);
-    setTimeout(() => {
+
+    try {
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: adminEmail.trim(),
+          code: cleanCode,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setIsVerifyingOtp(false);
+        setOtpError(data?.error || "Invalid or expired verification code. Please check your inbox or request a new code.");
+        return;
+      }
+
       setIsVerifyingOtp(false);
       setStep(4);
       startProvisioning();
-    }, 450);
+    } catch (_) {
+      const isValid = AuthService.verifyOtp(adminEmail, cleanCode);
+      if (!isValid) {
+        setIsVerifyingOtp(false);
+        setOtpError("Invalid verification code. Please check your email or request a new code.");
+        return;
+      }
+      setIsVerifyingOtp(false);
+      setStep(4);
+      startProvisioning();
+    }
   };
 
   const startProvisioning = async () => {
@@ -670,10 +746,20 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               <button
                 type="submit"
                 form="step2-form"
-                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20"
+                disabled={isSendingOtp}
+                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
               >
-                <span>Verify Email &amp; OTP</span>
-                <ChevronRight className="w-4 h-4" />
+                {isSendingOtp ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Dispatching OTP...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Verify Email &amp; OTP</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </>
           )}

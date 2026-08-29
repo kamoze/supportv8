@@ -319,6 +319,105 @@ export function GlobalLandingView({
         </div>
       </section>
 
+      {/* INSTANT DEMO SANDBOX OPERATOR ACCESS (Sales Lead Gated) */}
+      <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
+        <div className="p-8 rounded-3xl bg-gradient-to-b from-[#121A24] to-[#0D1520] border border-[var(--line-2)] shadow-2xl relative overflow-hidden space-y-6">
+          {/* Subtle Ambient Background Glow */}
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#2ED8B6]/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#F5A623]/5 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 relative z-10">
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18222E] border border-[var(--line)] text-[11px] font-mono text-[#2ED8B6]">
+                <Zap className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <span>INTERACTIVE LIVE SANDBOX DEMOS</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#EAF1F8] tracking-tight">
+                Instant Demo Sandbox Operator Access
+              </h2>
+              <p className="text-xs sm:text-sm text-[#8E9AA8] max-w-xl leading-relaxed">
+                Experience full operator access with live simulated telemetry, AI employees, and autonomous action gateways. Enter your work email to launch instantly.
+              </p>
+            </div>
+            <div className="text-[11px] font-mono text-[#6B7C8D]">
+              <span className="text-[#2ED8B6] font-bold">2 Live Environments</span> Ready to Test
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+            {/* Acme Corp Demo Card */}
+            <div
+              onClick={() => onOpenTenantPortal("acme")}
+              className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
+                      Acme Corp Sandbox
+                    </h3>
+                    <p className="text-[10px] font-mono text-[#6B7C8D]">SaaS Customer Care &amp; OrderV8 Billing</p>
+                  </div>
+                </div>
+                <span className="pill ok text-[10px] font-mono">
+                  SOPHIA LEAD
+                </span>
+              </div>
+
+              <p className="text-xs text-[#8E9AA8] leading-relaxed">
+                Test 1-click OrderV8 autonomous refund vouchers (&lt; $500), customer 360 ARR telemetry ($420k ARR), and SLA breach auto-escalations.
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs font-mono">
+                <span className="text-[11px] text-[#2ED8B6] flex items-center gap-1 group-hover:underline">
+                  <span>Launch Acme Operator Desk</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
+                <span className="text-[10px] text-[#6B7C8D]">acme.support.servicev8.com</span>
+              </div>
+            </div>
+
+            {/* Meridian Logistics Demo Card */}
+            <div
+              onClick={() => onOpenTenantPortal("meridian")}
+              className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#F5A623] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
+                    <HardHat className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#EAF1F8] group-hover:text-[#F5A623] transition-colors">
+                      Meridian Logistics Sandbox
+                    </h3>
+                    <p className="text-[10px] font-mono text-[#6B7C8D]">Field Dispatch &amp; Contractor Coordination</p>
+                  </div>
+                </div>
+                <span className="pill text-[10px] font-mono text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30">
+                  ALEX LEAD
+                </span>
+              </div>
+
+              <p className="text-xs text-[#8E9AA8] leading-relaxed">
+                Test emergency digital lockbox PIN generation (8492-X), technician SMS work order dispatch, and COI/W9 compliance verification.
+              </p>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs font-mono">
+                <span className="text-[11px] text-[#F5A623] flex items-center gap-1 group-hover:underline">
+                  <span>Launch Meridian Operator Desk</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </span>
+                <span className="text-[10px] text-[#6B7C8D]">meridian.support.servicev8.com</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SECTION 1: Capabilities & Omnichannel Architecture */}
       <section id="capabilities" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">

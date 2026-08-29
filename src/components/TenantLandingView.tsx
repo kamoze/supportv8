@@ -27,6 +27,7 @@ import {
   RefreshCw,
   PhoneCall,
   Lock,
+  ArrowRight,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
@@ -37,6 +38,7 @@ interface TenantLandingViewProps {
   onOpenSignIn: () => void;
   onOpenGlobalLanding: () => void;
   onOpenSignup: () => void;
+  onSwitchTenant?: (slug: string) => void;
 }
 
 export function TenantLandingView({
@@ -44,12 +46,14 @@ export function TenantLandingView({
   onOpenSignIn,
   onOpenGlobalLanding,
   onOpenSignup,
+  onSwitchTenant,
 }: TenantLandingViewProps) {
+  const isMeridian = tenantSlug.toLowerCase() === "meridian";
   const [searchQuery, setSearchQuery] = useState("");
-  const [trackerTab, setTrackerTab] = useState<"ticket" | "dispatch">("ticket");
+  const [trackerTab, setTrackerTab] = useState<"ticket" | "dispatch">(isMeridian ? "dispatch" : "ticket");
 
   // Ticket Lookup State
-  const [ticketSearchId, setTicketSearchId] = useState("TCK-8821");
+  const [ticketSearchId, setTicketSearchId] = useState(isMeridian ? "TCK-9042" : "TCK-8821");
   const [ticketResult, setTicketResult] = useState<{
     id: string;
     status: string;
@@ -60,11 +64,13 @@ export function TenantLandingView({
     priority: string;
     channel: string;
   } | null>({
-    id: "TCK-8821",
+    id: isMeridian ? "TCK-9042" : "TCK-8821",
     status: "in_progress",
-    subject: "Autonomous OrderV8 Token Sync & Refund Request #892",
-    assignedTo: "Sophia (Customer Success Lead)",
-    updatedAt: "3 mins ago",
+    subject: isMeridian
+      ? "HVAC Sensor Calibration & Substation B Alarm Clearance"
+      : "Autonomous OrderV8 Token Sync & Refund Request #892",
+    assignedTo: isMeridian ? "Alex (Contractor & CX Lead)" : "Sophia (Customer Success Lead)",
+    updatedAt: "2 mins ago",
     eta: "< 5 mins",
     priority: "High",
     channel: "Omnichannel Desk",
@@ -90,14 +96,16 @@ export function TenantLandingView({
     sowTask: "Emergency Fiber Splicing & Secondary Gateway Check",
   });
 
-  const [defaultStream, setDefaultStream] = useState<ChatStreamType>("customers");
-  const isDemo = tenantSlug.toLowerCase() === "acme";
+  const [defaultStream, setDefaultStream] = useState<ChatStreamType>(isMeridian ? "contractors" : "customers");
+  const isDemo = tenantSlug.toLowerCase() === "acme" || tenantSlug.toLowerCase() === "meridian";
 
   const formattedName =
-    tenantSlug
-      .split("-")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ") || "Acme Corp";
+    tenantSlug.toLowerCase() === "meridian"
+      ? "Meridian Logistics"
+      : tenantSlug
+          .split("-")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ") || "Acme Corp";
 
   // Mock Knowledge Base Articles
   const kbArticles = [
@@ -139,6 +147,13 @@ export function TenantLandingView({
     },
   ];
 
+  const filteredArticles = kbArticles.filter(
+    (a) =>
+      a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.snippet.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleTicketLookup = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketSearchId.trim()) return;
@@ -153,6 +168,17 @@ export function TenantLandingView({
         eta: "< 5 mins",
         priority: "High",
         channel: "Omnichannel Desk",
+      });
+    } else if (ticketSearchId.toUpperCase().includes("9042")) {
+      setTicketResult({
+        id: "TCK-9042",
+        status: "in_progress",
+        subject: "HVAC Sensor Calibration & Substation B Alarm Clearance",
+        assignedTo: "Alex (Contractor & CX Lead)",
+        updatedAt: "1 min ago",
+        eta: "8 mins",
+        priority: "Urgent",
+        channel: "Field Work Desk",
       });
     } else {
       setTicketResult({
@@ -223,10 +249,34 @@ export function TenantLandingView({
           <div className="flex items-center gap-2 text-[#F5A623]">
             <Sparkles className="w-3.5 h-3.5" />
             <span>
-              <strong>Demo Tenant Preview:</strong> You are viewing the seeded sandbox for <strong>{formattedName}</strong>.
+              <strong>Demo Sandbox Preview:</strong> You are viewing <strong>{formattedName}</strong>.
             </span>
           </div>
+
           <div className="flex items-center gap-3">
+            {onSwitchTenant && (
+              <div className="flex items-center gap-1 bg-[#121A24] p-1 rounded-lg border border-[var(--line)] text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => onSwitchTenant("acme")}
+                  className={`px-2 py-0.5 rounded cursor-pointer ${
+                    tenantSlug === "acme" ? "bg-[#2ED8B6] text-[#090E15] font-bold" : "text-[#8E9AA8] hover:text-[#EAF1F8]"
+                  }`}
+                >
+                  Acme Corp (Care)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchTenant("meridian")}
+                  className={`px-2 py-0.5 rounded cursor-pointer ${
+                    tenantSlug === "meridian" ? "bg-[#F5A623] text-[#090E15] font-bold" : "text-[#8E9AA8] hover:text-[#EAF1F8]"
+                  }`}
+                >
+                  Meridian (Dispatch)
+                </button>
+              </div>
+            )}
+
             <button
               onClick={onOpenSignup}
               className="text-[#2ED8B6] font-bold hover:underline flex items-center gap-1 cursor-pointer"
@@ -348,7 +398,7 @@ export function TenantLandingView({
                   type="text"
                   value={ticketSearchId}
                   onChange={(e) => setTicketSearchId(e.target.value)}
-                  placeholder="Enter Ticket ID (e.g. TCK-8821)"
+                  placeholder="Enter Ticket ID (e.g. TCK-8821 or TCK-9042)"
                   className="flex-1 bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
                 <button type="submit" className="btn btn-primary px-4 py-2.5 text-xs font-bold font-mono cursor-pointer">

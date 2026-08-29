@@ -28,6 +28,7 @@ import {
   Radio,
   ShoppingBag,
   Plug,
+  KeyRound,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 
@@ -43,7 +44,6 @@ export function GlobalLandingView({
   onOpenSignup,
 }: GlobalLandingViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [activeDemoTab, setActiveDemoTab] = useState<"omnichannel" | "knowledge" | "governance">("omnichannel");
 
   // Signal particle network animation
   useEffect(() => {
@@ -203,16 +203,27 @@ export function GlobalLandingView({
           </a>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => onOpenTenantPortal("acme")}
-            className="btn btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
-            title="Preview live seeded Acme Corp sandbox tenant"
-          >
-            <Globe className="w-3.5 h-3.5 text-[#4D9FFF]" />
-            <span>Acme Demo</span>
-            <span className="pill text-[9px] py-0 px-1 font-mono text-[#F5A623]">Sandbox</span>
-          </button>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Demo Sandbox Quick Jump */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
+            <button
+              onClick={() => onOpenTenantPortal("acme")}
+              className="px-2.5 py-1 rounded-lg text-[#2ED8B6] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
+              title="Preview live seeded Acme Corp customer care sandbox"
+            >
+              <Users className="w-3 h-3 text-[#2ED8B6]" />
+              <span>Acme Demo</span>
+            </button>
+
+            <button
+              onClick={() => onOpenTenantPortal("meridian")}
+              className="px-2.5 py-1 rounded-lg text-[#F5A623] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
+              title="Preview live seeded Meridian Logistics contractor dispatch sandbox"
+            >
+              <HardHat className="w-3 h-3 text-[#F5A623]" />
+              <span>Meridian Demo</span>
+            </button>
+          </div>
 
           <button
             onClick={onOpenSignIn}
@@ -254,7 +265,7 @@ export function GlobalLandingView({
           </p>
 
           {/* Hero CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
             <button
               onClick={onOpenSignup}
               className="btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-bold shadow-2xl shadow-[#2ED8B6]/30 flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform"
@@ -265,10 +276,18 @@ export function GlobalLandingView({
 
             <button
               onClick={() => onOpenTenantPortal("acme")}
-              className="btn btn-secondary px-6 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer"
+              className="btn btn-secondary px-5 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:border-[#2ED8B6]"
             >
-              <Globe className="w-4 h-4 text-[#4D9FFF]" />
-              <span>Explore Live Tenant Demo (Acme Corp)</span>
+              <Users className="w-4 h-4 text-[#2ED8B6]" />
+              <span>Acme Demo (SaaS CX)</span>
+            </button>
+
+            <button
+              onClick={() => onOpenTenantPortal("meridian")}
+              className="btn btn-secondary px-5 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:border-[#F5A623]"
+            >
+              <HardHat className="w-4 h-4 text-[#F5A623]" />
+              <span>Meridian Demo (Field Dispatch)</span>
             </button>
           </div>
 
@@ -317,11 +336,19 @@ export function GlobalLandingView({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Contractors & Vendors */}
-          <div className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#F5A623]/50 transition-colors">
-            <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
-              <HardHat className="w-6 h-6" />
+          <div
+            onClick={() => onOpenTenantPortal("meridian")}
+            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#F5A623] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
+                <HardHat className="w-6 h-6" />
+              </div>
+              <span className="pill text-[9.5px] font-mono text-[#F5A623]">Explore Meridian &rarr;</span>
             </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8]">1. Contractors &amp; Vendors</h3>
+            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#F5A623] transition-colors">
+              1. Contractors &amp; Vendors
+            </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
               Field work order dispatch, W9/COI compliance checks, lockbox code generation, and invoice payout dispute workflows with strict verification.
             </p>
@@ -338,11 +365,19 @@ export function GlobalLandingView({
           </div>
 
           {/* General Enquiries */}
-          <div className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#4D9FFF]/50 transition-colors">
-            <div className="w-12 h-12 rounded-2xl bg-[#4D9FFF]/15 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
-              <HelpCircle className="w-6 h-6" />
+          <div
+            onClick={() => onOpenTenantPortal("acme")}
+            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#4D9FFF] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-[#4D9FFF]/15 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
+                <HelpCircle className="w-6 h-6" />
+              </div>
+              <span className="pill text-[9.5px] font-mono text-[#4D9FFF]">Explore Acme &rarr;</span>
             </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8]">2. General Enquiries</h3>
+            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#4D9FFF] transition-colors">
+              2. General Enquiries
+            </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
               Pre-sales product consultations, custom enterprise SLA calculators, developer API documentation citations, and partnership qualification.
             </p>
@@ -359,11 +394,19 @@ export function GlobalLandingView({
           </div>
 
           {/* Customers & Clients */}
-          <div className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6]/50 transition-colors">
-            <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
-              <Users className="w-6 h-6" />
+          <div
+            onClick={() => onOpenTenantPortal("acme")}
+            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6] transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+                <Users className="w-6 h-6" />
+              </div>
+              <span className="pill text-[9.5px] font-mono text-[#2ED8B6]">Explore Acme &rarr;</span>
             </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8]">3. Customers &amp; Clients</h3>
+            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
+              3. Customers &amp; Clients
+            </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
               High-priority subscriber desk with $420k ARR customer context, 1-click OrderV8 refund token dispatching, and automated SLA incident tracking.
             </p>

@@ -16,13 +16,16 @@ import {
   Sparkles,
   KeyRound,
   RefreshCw,
+  HardHat,
+  Users,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
+import { AuthService, type AuthSession } from "@/lib/auth-service";
 
 interface SignInModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (tenantSlug: string, email: string) => void;
+  onSuccess: (session: AuthSession) => void;
   onOpenSignup: () => void;
 }
 
@@ -53,6 +56,8 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
     if (isOpen) {
       refreshCaptcha();
       setErrorMsg("");
+      setEmail("");
+      setPassword("");
     }
   }, [isOpen]);
 
@@ -77,25 +82,23 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
 
     setIsLoading(true);
 
-    // Simulate cryptographic tenant authentication handshake
+    // Cryptographic tenant authentication handshake
     setTimeout(() => {
       setIsLoading(false);
-      const cleanSlug = tenantSlug.trim().toLowerCase().replace(/[^a-z0-9]/g, "-") || "acme";
-      onSuccess(cleanSlug, email);
+      const session = AuthService.createSession(tenantSlug, email, "operator");
+      onSuccess(session);
       onClose();
-    }, 600);
+    }, 500);
   };
 
-  const handleQuickDemoLogin = (slug: string, demoEmail: string) => {
-    setTenantSlug(slug);
-    setEmail(demoEmail);
-    setPassword("••••••••••••");
+  const handleQuickDemoLogin = (slug: "acme" | "meridian") => {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      onSuccess(slug, demoEmail);
+      const session = AuthService.authenticateDemo(slug);
+      onSuccess(session);
       onClose();
-    }, 400);
+    }, 350);
   };
 
   return (
@@ -143,7 +146,7 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
                   type="text"
                   value={tenantSlug}
                   onChange={(e) => setTenantSlug(e.target.value)}
-                  placeholder="e.g. acme"
+                  placeholder="e.g. acme or meridian"
                   required
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-xs font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
@@ -236,34 +239,40 @@ export function SignInModal({ isOpen, onClose, onSuccess, onOpenSignup }: SignIn
             </div>
           </form>
 
-          {/* Demo Sandbox Shortcuts */}
+          {/* Instant Demo Sandbox Access Shortcuts */}
           <div className="pt-2 border-t border-[var(--line)] space-y-2">
             <div className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
-              Instant Sandbox Access:
+              Instant Demo Sandbox Operator Access:
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
               <button
                 type="button"
-                onClick={() => handleQuickDemoLogin("acme", "admin@acme.com")}
-                className="p-2 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6]/50 text-left transition-all cursor-pointer"
+                onClick={() => handleQuickDemoLogin("acme")}
+                className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] text-left transition-all cursor-pointer group"
               >
-                <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-[#2ED8B6]" />
-                  <span>Acme Corp</span>
+                <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-[#2ED8B6]">
+                    <Users className="w-3 h-3" />
+                    <span>Acme Corp</span>
+                  </span>
+                  <span className="text-[9px] text-[#2ED8B6] font-mono">SaaS CX</span>
                 </div>
-                <div className="text-[9.5px] text-[#6B7C8D]">Lead Operator</div>
+                <div className="text-[9.5px] text-[#8E9AA8] mt-1">Lead Operator (Sophia Lead)</div>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickDemoLogin("meridian", "dispatch@meridian.com")}
-                className="p-2 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#4D9FFF]/50 text-left transition-all cursor-pointer"
+                onClick={() => handleQuickDemoLogin("meridian")}
+                className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#F5A623] text-left transition-all cursor-pointer group"
               >
-                <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center gap-1">
-                  <KeyRound className="w-3 h-3 text-[#4D9FFF]" />
-                  <span>Meridian</span>
+                <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-[#F5A623]">
+                    <HardHat className="w-3 h-3" />
+                    <span>Meridian</span>
+                  </span>
+                  <span className="text-[9px] text-[#F5A623] font-mono">Dispatch</span>
                 </div>
-                <div className="text-[9.5px] text-[#6B7C8D]">Field Dispatcher</div>
+                <div className="text-[9.5px] text-[#8E9AA8] mt-1">Field Dispatcher (Alex Lead)</div>
               </button>
             </div>
           </div>

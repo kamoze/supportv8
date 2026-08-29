@@ -35,6 +35,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   Lock,
+  LogOut,
   MessageSquare,
   MessagesSquare,
   Mic,
@@ -126,6 +127,7 @@ import { SignupModal } from "@/components/SignupModal";
 import { SignInModal } from "@/components/SignInModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
+import { AuthService, type AuthSession } from "@/lib/auth-service";
 
 export interface ChatMessage {
   id: string;
@@ -144,8 +146,27 @@ export default function SupportV8Dashboard() {
   // Global View Mode & Multi-Tenant Routing
   const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("global_landing");
   const [currentTenantSlug, setCurrentTenantSlug] = useState<string>("acme");
+  const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
   const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState<boolean>(false);
+
+  // Secure Logout Handler
+  const handleLogout = () => {
+    AuthService.clearSession();
+    setOperatorSession(null);
+
+    // Clean URL search parameters (remove ?view=cockpit, ?admin=true, ?tab=...)
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("view");
+      url.searchParams.delete("admin");
+      url.searchParams.delete("tab");
+      window.history.replaceState({}, "", url.pathname);
+    }
+
+    setViewMode("global_landing");
+    notify("You have logged out of the SupportV8 Cockpit securely", "info");
+  };
 
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -1115,10 +1136,11 @@ export default function SupportV8Dashboard() {
         <SignInModal
           isOpen={isSignInModalOpen}
           onClose={() => setIsSignInModalOpen(false)}
-          onSuccess={(slug, email) => {
-            if (slug) setCurrentTenantSlug(slug);
+          onSuccess={(session) => {
+            setOperatorSession(session);
+            setCurrentTenantSlug(session.tenantSlug);
             setViewMode("cockpit");
-            notify(`Authenticated as operator (${email}) for ${slug}.support.servicev8.com`, "success");
+            notify(`Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`, "success");
           }}
           onOpenSignup={() => {
             setIsSignInModalOpen(false);
@@ -1149,14 +1171,19 @@ export default function SupportV8Dashboard() {
           onOpenSignIn={() => setIsSignInModalOpen(true)}
           onOpenGlobalLanding={() => setViewMode("global_landing")}
           onOpenSignup={() => setIsSignupModalOpen(true)}
+          onSwitchTenant={(slug) => {
+            setCurrentTenantSlug(slug);
+            notify(`Switched active tenant preview to ${slug}.support.servicev8.com`, "info");
+          }}
         />
         <SignInModal
           isOpen={isSignInModalOpen}
           onClose={() => setIsSignInModalOpen(false)}
-          onSuccess={(slug, email) => {
-            if (slug) setCurrentTenantSlug(slug);
+          onSuccess={(session) => {
+            setOperatorSession(session);
+            setCurrentTenantSlug(session.tenantSlug);
             setViewMode("cockpit");
-            notify(`Authenticated as operator (${email}) for ${slug}.support.servicev8.com`, "success");
+            notify(`Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`, "success");
           }}
           onOpenSignup={() => {
             setIsSignInModalOpen(false);
@@ -1293,8 +1320,18 @@ export default function SupportV8Dashboard() {
                 </kbd>
               </button>
               <div className="flex items-center justify-between px-2 pt-1 text-[11px] font-mono text-[#6B7C8D]">
-                <span>tenant_default</span>
-                <span className="pill ok text-[9px] py-0"><i className="dot"></i> LIVE</span>
+                <div className="flex items-center gap-1.5 truncate max-w-[120px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse"></span>
+                  <span className="truncate">{operatorSession?.name || currentTenantSlug}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Sign out of Cockpit"
+                  className="text-[#E5484D] hover:text-[#FF7575] hover:bg-[#E5484D]/10 px-1.5 py-0.5 rounded transition-colors cursor-pointer flex items-center gap-1 text-[10px]"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Exit</span>
+                </button>
               </div>
             </>
           ) : (
@@ -1305,6 +1342,13 @@ export default function SupportV8Dashboard() {
                 className="btn btn-secondary p-2 cursor-pointer text-[#2ED8B6]"
               >
                 <i className="fi fi-rr-comment-alt-dots text-base text-[#2ED8B6]" />
+              </button>
+              <button
+                onClick={handleLogout}
+                title="Sign out of Cockpit"
+                className="p-2 text-[#E5484D] hover:bg-[#E5484D]/15 rounded-lg transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -1400,6 +1444,16 @@ export default function SupportV8Dashboard() {
               className="btn btn-secondary p-2 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#2ED8B6]" : ""}`} />
+            </button>
+
+            {/* Sign Out Action Button */}
+            <button
+              onClick={handleLogout}
+              title="Sign out of Admin Cockpit"
+              className="btn bg-[#18222E] hover:bg-[#E5484D]/15 hover:border-[#E5484D]/40 text-[#8E9AA8] hover:text-[#FF7575] border border-[var(--line)] text-xs font-mono px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Sign Out</span>
             </button>
           </div>
         </header>

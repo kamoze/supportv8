@@ -183,9 +183,6 @@ export function GlobalLandingView({
       <header className="sticky top-0 z-40 bg-[#090E15]/85 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SupportV8Logo size={32} />
-          <span className="font-extrabold text-xl tracking-tight text-[#EAF1F8]">
-            Support<span className="text-[#2ED8B6]">V8</span>
-          </span>
         </div>
 
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-[#8E9AA8]">
@@ -758,7 +755,7 @@ export function GlobalLandingView({
       {/* Footer */}
       <footer className="px-6 lg:px-12 py-8 border-t border-[var(--line)] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#6B7C8D]">
         <div className="flex items-center gap-2">
-          <SupportV8Logo size={20} />
+          <SupportV8Logo size={20} showText={false} />
           <span>© 2026 SupportV8</span>
         </div>
 

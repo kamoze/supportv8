@@ -227,7 +227,7 @@ export function TenantLandingView({
       {/* ========================================================================= */}
       <header className="bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-6 lg:px-8 py-3.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <SupportV8Logo size={30} />
+          <SupportV8Logo size={30} showText={false} />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-sm tracking-tight text-[#EAF1F8]">

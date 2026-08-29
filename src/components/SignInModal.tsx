@@ -114,7 +114,7 @@ export function SignInModal({
         {/* Modal Header */}
         <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <SupportV8Logo size={32} />
+            <SupportV8Logo size={32} showText={false} />
             <div>
               <h3 className="text-base font-bold text-[#EAF1F8]">
                 {lockedTenantSlug ? `${formattedTenantName} Sign In` : "Sign In"}

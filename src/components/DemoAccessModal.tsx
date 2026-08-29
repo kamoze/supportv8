@@ -136,7 +136,7 @@ export function DemoAccessModal({
         {/* Header */}
         <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <SupportV8Logo size={32} />
+            <SupportV8Logo size={32} showText={false} />
             <div>
               <h3 className="text-base font-bold text-[#EAF1F8]">Unlock Interactive Live Sandbox</h3>
               <p className="text-xs font-mono text-[#6B7C8D]">Experience Real-Time Customer Care &amp; Field Dispatch Work Desks</p>

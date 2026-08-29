@@ -211,9 +211,9 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         {/* Modal Header */}
         <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <SupportV8Logo size={32} />
+            <SupportV8Logo size={32} showText={false} />
             <div>
-              <h3 className="text-base font-bold text-[#EAF1F8]">Create SupportV8 Workspace</h3>
+              <h3 className="text-base font-bold text-[#EAF1F8]">Create Support Workspace</h3>
               <p className="text-xs font-mono text-[#6B7C8D]">Get started with your dedicated support workspace</p>
             </div>
           </div>

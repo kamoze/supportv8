@@ -125,6 +125,7 @@ import { GlobalLandingView } from "@/components/GlobalLandingView";
 import { TenantLandingView } from "@/components/TenantLandingView";
 import { SignupModal } from "@/components/SignupModal";
 import { SignInModal } from "@/components/SignInModal";
+import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
@@ -149,6 +150,20 @@ export default function SupportV8Dashboard() {
   const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
   const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState<boolean>(false);
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
+  const [targetDemoSlug, setTargetDemoSlug] = useState<string>("acme");
+
+  // Gated Demo Access Handler
+  const handleRequestDemoAccess = (slug: string = "acme") => {
+    const isUnlocked = typeof window !== "undefined" && sessionStorage.getItem("sv8_demo_unlocked") === "true";
+    if (isUnlocked) {
+      setCurrentTenantSlug(slug);
+      setViewMode("tenant_landing");
+    } else {
+      setTargetDemoSlug(slug);
+      setIsDemoModalOpen(true);
+    }
+  };
 
   // Secure Logout Handler
   const handleLogout = () => {
@@ -1127,11 +1142,22 @@ export default function SupportV8Dashboard() {
       <>
         <GlobalLandingView
           onOpenSignIn={() => setIsSignInModalOpen(true)}
-          onOpenTenantPortal={(slug) => {
-            if (slug) setCurrentTenantSlug(slug);
-            setViewMode("tenant_landing");
-          }}
+          onOpenTenantPortal={(slug) => handleRequestDemoAccess(slug || "acme")}
           onOpenSignup={() => setIsSignupModalOpen(true)}
+        />
+        <DemoAccessModal
+          isOpen={isDemoModalOpen}
+          initialTenantSlug={targetDemoSlug}
+          onClose={() => setIsDemoModalOpen(false)}
+          onSuccess={(slug, email) => {
+            setCurrentTenantSlug(slug);
+            setViewMode("tenant_landing");
+            notify(`Live demo unlocked for ${email}. Telemetry routed to GrowthV8 sales desk.`, "success");
+          }}
+          onOpenSignIn={() => {
+            setIsDemoModalOpen(false);
+            setIsSignInModalOpen(true);
+          }}
         />
         <SignInModal
           isOpen={isSignInModalOpen}
@@ -1174,6 +1200,20 @@ export default function SupportV8Dashboard() {
           onSwitchTenant={(slug) => {
             setCurrentTenantSlug(slug);
             notify(`Switched active tenant preview to ${slug}.support.servicev8.com`, "info");
+          }}
+        />
+        <DemoAccessModal
+          isOpen={isDemoModalOpen}
+          initialTenantSlug={targetDemoSlug}
+          onClose={() => setIsDemoModalOpen(false)}
+          onSuccess={(slug, email) => {
+            setCurrentTenantSlug(slug);
+            setViewMode("tenant_landing");
+            notify(`Live demo unlocked for ${email}. Telemetry routed to GrowthV8 sales desk.`, "success");
+          }}
+          onOpenSignIn={() => {
+            setIsDemoModalOpen(false);
+            setIsSignInModalOpen(true);
           }}
         />
         <SignInModal

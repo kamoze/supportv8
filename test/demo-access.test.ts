@@ -50,6 +50,9 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
     expect(data.lead.companyName).toBe("Enterprise Logistics LLC");
     expect(data.lead.targetTenant).toBe("meridian");
     expect(data.lead.optInEmail).toBe(true);
+    expect(data.emailDispatched.success).toBe(true);
+    expect(data.emailDispatched.to).toBe("leads@servicev8.com");
+    expect(data.emailDispatched.subject).toBe("[LEAD:SUPPORTV8_SANDBOX] Enterprise Logistics LLC | MERIDIAN | alex@enterprise-logistics.com");
     expect(data.growthv8SyncPayload.optInEmail).toBe(true);
     expect(data.growthv8SyncPayload.verticalInterest).toBe("field_operations_dispatch");
     expect(data.demoAccessToken).toMatch(/^demo_tk_/);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ResendService } from "@/lib/services/resend-service";
 
 export interface DemoLeadRecord {
   id: string;
@@ -11,6 +12,7 @@ export interface DemoLeadRecord {
   capturedAt: string;
   ipAddress?: string;
   status: "captured" | "synced_growthv8";
+  resendEmailId?: string;
 }
 
 // In-memory lead pipeline ledger
@@ -52,6 +54,22 @@ export async function POST(req: NextRequest) {
       status: "captured",
     };
 
+    // Dispatch lead email to leads@servicev8.com via Resend
+    const emailResult = await ResendService.dispatchLeadEmail({
+      leadId: lead.id,
+      workEmail: lead.workEmail,
+      fullName: lead.fullName,
+      companyName: lead.companyName,
+      targetTenant: lead.targetTenant,
+      optInEmail: lead.optInEmail ?? false,
+      capturedAt: lead.capturedAt,
+      ipAddress: lead.ipAddress,
+    });
+
+    if (emailResult.resendEmailId) {
+      lead.resendEmailId = emailResult.resendEmailId;
+    }
+
     demoLeadsStore.unshift(lead);
 
     // Prepare GrowthV8 CRM handoff telemetry packet
@@ -67,8 +85,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Demo access granted for ${lead.workEmail} at ${lead.companyName}. Telemetry routed to GrowthV8 sales desk.`,
+      message: `Demo access granted for ${lead.workEmail} at ${lead.companyName}. Parsable lead notification dispatched to leads@servicev8.com.`,
       lead,
+      emailDispatched: emailResult,
       growthv8SyncPayload,
       demoAccessToken: `demo_tk_${lead.id}_${Date.now()}`,
     });

@@ -487,7 +487,9 @@ export function KnowledgeSuiteView({
       !searchQuery ||
       d.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.category.toLowerCase().includes(searchQuery.toLowerCase())
+      d.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.summary && d.summary.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      d.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const allUniqueTags = Array.from(

@@ -1048,16 +1048,30 @@ export default function SupportV8Dashboard() {
 
   const handleWorkspaceAutonomousResolve = async (issueId: string) => {
     try {
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, status: "resolved" } : i))
+      );
       await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "resolve", issueId }),
-      });
-      notify(`Issue ${issueId} resolved autonomously by Alex (Support Intelligence Lead)!`, "success");
-      fetchData();
+      }).catch(() => {});
+      notify(`Issue ${issueId} resolved & moved to Issues Explorer sink`, "success");
     } catch (err) {
       notify("Failed to resolve issue", "error");
     }
+  };
+
+  const handleUpdateIssue = (updated: Issue) => {
+    setIssues((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+  };
+
+  const handleCreateIssue = (newIssue: Issue) => {
+    setIssues((prev) => [newIssue, ...prev]);
+  };
+
+  const handleImportIssues = (newIssues: Issue[]) => {
+    setIssues((prev) => [...newIssues, ...prev]);
   };
 
   const handleWorkspaceProcessRefund = async (issueId: string, amount: string) => {
@@ -1098,7 +1112,7 @@ export default function SupportV8Dashboard() {
       items: [
         { id: "workspace", label: "Work Desk", icon: Briefcase, flaticon: "fi fi-rr-briefcase", badge: issues.length },
         { id: "problems", label: "Problem Matrix", icon: AlertTriangle, flaticon: "fi fi-rr-triangle-warning", badge: problems.length, badgeColor: "err" },
-        { id: "issues", label: "Derived Issues", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-middle", badge: issues.length },
+        { id: "issues", label: "Issues Explorer", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-middle", badge: issues.length },
         { id: "cx_cockpit", label: "CX Cockpit", icon: Target, flaticon: "fi fi-rr-target", badge: slaData.atRiskCount, badgeColor: "warn" },
       ],
     },
@@ -3287,15 +3301,15 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: DERIVED ISSUES EXPLORER (EXPANDED FULL-WIDTH TABLE WITH FLOATING PANEL) */}
+        {/* TAB: ISSUES EXPLORER (EXPANDED SINK & FULL-WIDTH REPOSITORY) */}
         {/* ========================================================================= */}
         {activeTab === "issues" && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 card p-5 rounded-2xl">
               <div>
-                <h2 className="text-lg font-bold text-[#EAF1F8]">Derived Issues Explorer</h2>
+                <h2 className="text-lg font-bold text-[#EAF1F8]">Issues Explorer</h2>
                 <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  External ticket intelligence with non-destructive linking and real-time triage reasoning.
+                  Universal issue repository and resolution sink across all channels, sources, and automated runs.
                 </p>
               </div>
 
@@ -4776,10 +4790,14 @@ export default function SupportV8Dashboard() {
             issues={issues}
             problems={problems}
             insights={insights}
+            userRole={operatorSession?.role || "operator"}
             onResolve={handleWorkspaceAutonomousResolve}
             onProcessRefund={handleWorkspaceProcessRefund}
             onNavigateToProblems={() => setActiveTab("problems")}
             onExecuteInsight={handleExecuteInsight}
+            onUpdateIssue={handleUpdateIssue}
+            onCreateIssue={handleCreateIssue}
+            onImportIssues={handleImportIssues}
             onEscalate={(issue) => {
               setSelectedTicketForEscalation({
                 ticketId: issue.id,

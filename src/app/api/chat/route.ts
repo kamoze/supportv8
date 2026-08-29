@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       
       citations.push({ type: "metric", id: "TAG_ACC", title: "Triage Intent Accuracy (96.2%)" });
       suggestedActions.push(
-        { label: "View Derived Issues Feed", action: "navigate", targetTab: "issues" },
+        { label: "View Issues Explorer", action: "navigate", targetTab: "issues" },
         { label: "Rebalance Ingress Queues", action: "navigate", targetTab: "cx_cockpit" }
       );
     } else if (employee.id === "intern_stale_sweeper" || q.includes("stale") || q.includes("dormant") || q.includes("sweep")) {

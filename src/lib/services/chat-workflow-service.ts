@@ -507,6 +507,9 @@ export class ChatWorkflowService {
     const workflow = this.getWorkflow(params.stream);
     const assignedGroup = activeGroups.find((g) => g.id === workflow.defaultAssignedGroupId);
 
+    const seqChat = Math.floor(1000 + Math.random() * 9000);
+    const sessionId = `chat_sess_${seqChat}`;
+
     // 1. Check for online human staff in the assigned group
     const onlineHumanStaff = activeStaffPresence.find(
       (staff) => staff.isOnline && staff.groupIds.includes(workflow.defaultAssignedGroupId)
@@ -516,18 +519,18 @@ export class ChatWorkflowService {
 
     let assignedType: "human" | "ai" = "ai";
     let assignedId = workflow.defaultAiEmployeeId;
-    let assignedName = "Alex — Support Lead";
-    let assignedAvatar = "/avatars/beaver-manager.jpg";
+    let assignedName = "Sophia — Customer Success Lead";
+    let assignedAvatar = "/avatars/beaver-sophia.jpg";
 
     if (onlineHumanStaff && !isAiEnabledForStream) {
-      // Direct human routing
+      // Direct human operator routing
       assignedType = "human";
       assignedId = onlineHumanStaff.email;
       assignedName = onlineHumanStaff.name;
       assignedAvatar = onlineHumanStaff.avatar;
       onlineHumanStaff.activeChatCount += 1;
     } else {
-      // AI employee assignment
+      // AI employee lead assignment
       if (params.stream === "contractors") {
         assignedId = "beaver-alex";
         assignedName = "Alex — Contractor Dispatch Lead";
@@ -552,7 +555,7 @@ export class ChatWorkflowService {
         : "normal";
 
     const initialUserMessage: CustomerChatMessage = {
-      id: `msg_${Date.now()}_user`,
+      id: `msg_${seqChat}_user`,
       sender: "customer",
       senderName: params.customerName,
       content: params.intakeData.details || `Hello, I need assistance regarding ${workflow.title}.`,
@@ -560,14 +563,14 @@ export class ChatWorkflowService {
     };
 
     const initialGreeting: CustomerChatMessage = {
-      id: `msg_${Date.now()}_greeting`,
+      id: `msg_${seqChat}_greeting`,
       sender: assignedType === "human" ? "agent" : "ai_employee",
       senderName: assignedName,
       senderAvatar: assignedAvatar,
       content:
         assignedType === "human"
-          ? `Hello ${params.customerName}! My name is ${assignedName.split(" ")[0]}. I see your request regarding ${params.intakeData.inquiryCategory || params.intakeData.issueType || params.intakeData.enquiryType || "support"}. I'm reviewing your details right now.`
-          : `Hello ${params.customerName}! I'm ${assignedName}. I have received your ${workflow.title} intake. How can I help you resolve this right away?`,
+          ? `Hello ${params.customerName}! My name is ${assignedName.split(" ")[0]}. I see your incoming request regarding ${params.intakeData.inquiryCategory || params.intakeData.issueType || params.intakeData.enquiryType || workflow.title}. I have opened ticket SV8-CHAT-${seqChat} in the operator work desk and am reviewing your details now.`
+          : `Hello ${params.customerName}! I'm ${assignedName}. I have received your ${workflow.title} request (Ticket SV8-CHAT-${seqChat}). How can I assist you right away?`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       citations: [
         {
@@ -594,7 +597,7 @@ export class ChatWorkflowService {
     };
 
     const session: CustomerChatSession = {
-      id: `chat_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: sessionId,
       tenantDomain: params.tenantDomain,
       stream: params.stream,
       customerName: params.customerName,

@@ -18,6 +18,7 @@ import type {
   SupportPolicy,
   OverviewMetrics,
   TenantConfig,
+  OperatingMode,
 } from "../types";
 
 export const DEFAULT_TENANT: TenantConfig = {
@@ -1321,6 +1322,69 @@ class SupportDatabase {
       aiDiscovered,
       recentActivity,
       aiWorkforce,
+    };
+  }
+
+  public getTenantData(slug: string = "acme") {
+    const cleanSlug = slug.toLowerCase().trim();
+    if (cleanSlug === "acme" || cleanSlug === "default") {
+      return {
+        tenant: { ...this.tenant, name: "Acme Corp", tenantId: "tenant_acme" },
+        issues: this.issues.filter((i) => !i.category?.includes("contractor") && !i.tags?.includes("contractor")),
+        problems: this.problems,
+        insights: this.insights,
+        sources: this.sources,
+        documents: this.documents,
+        documentChunks: this.documentChunks,
+        webSources: this.webSources,
+        isClean: false,
+      };
+    }
+
+    if (cleanSlug === "meridian") {
+      return {
+        tenant: { ...this.tenant, name: "Meridian Logistics", tenantId: "tenant_meridian" },
+        issues: this.issues.filter((i) => i.category?.includes("contractor") || i.tags?.includes("contractor") || i.entityType === "contractor"),
+        problems: this.problems.filter((p) => p.title.toLowerCase().includes("lockbox") || p.title.toLowerCase().includes("dispatch") || p.title.toLowerCase().includes("contractor")),
+        insights: this.insights,
+        sources: this.sources,
+        documents: this.documents,
+        documentChunks: this.documentChunks,
+        webSources: this.webSources,
+        isClean: false,
+      };
+    }
+
+    // Clean tenant for any newly registered domain (e.g. acme-movers)
+    const formattedName = cleanSlug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+    return {
+      tenant: {
+        tenantId: `tenant_${cleanSlug}`,
+        name: formattedName,
+        mode: "copilot" as OperatingMode,
+        featureFlags: {
+          observeMode: true,
+          copilotMode: true,
+          autonomousMode: false,
+          problemCorrelation: false,
+          businessImpact: false,
+          knowledgeIntelligence: false,
+          proactiveComms: false,
+          staleWorkSweep: false,
+        },
+      },
+      issues: [] as Issue[],
+      problems: [] as Problem[],
+      insights: [] as Insight[],
+      sources: [] as SourceConnector[],
+      documents: [] as KnowledgeDocument[],
+      documentChunks: [] as KnowledgeDocumentChunk[],
+      webSources: [] as KnowledgeWebSource[],
+      isClean: true,
     };
   }
 }

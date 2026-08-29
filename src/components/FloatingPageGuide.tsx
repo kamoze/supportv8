@@ -54,7 +54,7 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     tip: "VoC digests are refreshed continuously every 15 minutes by synthesizing conversation sentiment drifts.",
   },
   issues: {
-    label: "Derived Issues",
+    label: "Issues Explorer",
     what: "Raw customer tickets ingested from Zendesk, Intercom, Slack, and email, normalized with sentiment scores and urgency triage tags.",
     actions: [
       "Filter by sentiment (Frustrated, Neutral, Positive) and priority tier.",

@@ -82,6 +82,25 @@ export function FocusedWorkspaceView({
   const [showInsightsDrawer, setShowInsightsDrawer] = useState<boolean>(false);
   const [executingInsightId, setExecutingInsightId] = useState<string | null>(null);
 
+  // Priority Fast-Track / Front of Line State
+  const [frontOfLineIssueIds, setFrontOfLineIssueIds] = useState<string[]>([]);
+
+  const handleToggleFrontOfLine = (issueId: string) => {
+    setFrontOfLineIssueIds((prev) => {
+      const isPinned = prev.includes(issueId);
+      const target = issues.find((i) => i.id === issueId);
+      const extId = target?.externalId || issueId;
+      if (isPinned) {
+        onNotify(`Removed ticket ${extId} from front of line`, "info");
+        return prev.filter((id) => id !== issueId);
+      } else {
+        onNotify(`⚡ Ticket ${extId} moved to FRONT OF LINE triage queue`, "success");
+        setSelectedIssueId(issueId);
+        return [issueId, ...prev.filter((id) => id !== issueId)];
+      }
+    });
+  };
+
   // Communication & AI Mode State
   const [commChannel, setCommChannel] = useState<"chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass">("chat");
   const [workWithAi, setWorkWithAi] = useState<boolean>(true);
@@ -236,6 +255,24 @@ export function FocusedWorkspaceView({
     if (filterType === "contractors") return isCtr;
     if (filterType === "urgent") return i.priority === "urgent" || i.priority === "high";
     return true;
+  });
+
+  // Triage queue sorting: Front-of-line pinned tickets first, then urgent/high priority, then newest
+  const sortedIssues = [...filteredIssues].sort((a, b) => {
+    const aPinned = frontOfLineIssueIds.includes(a.id);
+    const bPinned = frontOfLineIssueIds.includes(b.id);
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    if (aPinned && bPinned) {
+      return frontOfLineIssueIds.indexOf(a.id) - frontOfLineIssueIds.indexOf(b.id);
+    }
+
+    const prioOrder: Record<string, number> = { urgent: 4, high: 3, normal: 2, low: 1 };
+    const aPrio = prioOrder[a.priority || "normal"] || 2;
+    const bPrio = prioOrder[b.priority || "normal"] || 2;
+    if (aPrio !== bPrio) return bPrio - aPrio;
+
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   const handleExecuteAutonomousResolution = async () => {
@@ -523,49 +560,106 @@ export function FocusedWorkspaceView({
           </div>
 
           {/* Queue Items */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-            {filteredIssues.length === 0 ? (
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {sortedIssues.length === 0 ? (
               <div className="p-6 text-center text-xs font-mono text-[#6B7C8D]">
                 No active tickets in queue.
               </div>
             ) : (
-              filteredIssues.map((issue) => {
+              sortedIssues.map((issue) => {
                 const isSelected = issue.id === selectedIssueId;
                 const isCtr = issue.entityType === "contractor" || issue.category?.includes("contractor") || Boolean(issue.contractor);
+                const isFrontOfLine = frontOfLineIssueIds.includes(issue.id);
+                const isPriority = issue.priority === "urgent" || issue.priority === "high" || issue.sentiment === "urgent" || issue.sentiment === "angry";
+                const isNew = issue.status === "open" || issue.tags?.includes("manual_ingest") || issue.tags?.includes("new");
 
                 return (
                   <div
                     key={issue.id}
                     onClick={() => setSelectedIssueId(issue.id)}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1.5 ${
-                      isSelected
-                        ? "bg-[#18222E] border-[#2ED8B6] shadow-lg shadow-[#2ED8B6]/10"
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-2 relative overflow-hidden group ${
+                      isFrontOfLine
+                        ? "bg-[#182333] border-[#F5A623] shadow-[0_0_16px_rgba(245,166,35,0.25)] ring-1 ring-[#F5A623]/70"
+                        : isSelected
+                        ? "bg-[#18222E] border-[#2ED8B6] shadow-lg shadow-[#2ED8B6]/15 ring-1 ring-[#2ED8B6]/50"
+                        : isPriority
+                        ? "bg-[#141C26] border-[#E5484D]/60 hover:border-[#E5484D] shadow-[0_0_10px_rgba(229,72,77,0.15)] ring-1 ring-[#E5484D]/30 animate-pulse"
                         : "bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/40"
                     }`}
                   >
+                    {/* Top Row: External ID, Pulse Tags, Priority, Front of Line button */}
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        {isCtr ? <HardHat className="w-3.5 h-3.5 text-[#F5A623]" /> : <User className="w-3.5 h-3.5 text-[#2ED8B6]" />}
-                        <span className="font-mono font-bold text-[#EAF1F8]">{issue.externalId}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isCtr ? (
+                          <HardHat className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />
+                        ) : (
+                          <User className="w-3.5 h-3.5 text-[#2ED8B6] shrink-0" />
+                        )}
+                        <span className="font-mono font-extrabold text-[#EAF1F8]">{issue.externalId}</span>
+
+                        {/* Front of Line Badge */}
+                        {isFrontOfLine && (
+                          <span className="pill text-[8.5px] font-mono bg-[#F5A623]/25 text-[#F5A623] border border-[#F5A623]/60 flex items-center gap-1 font-bold animate-pulse">
+                            <Zap className="w-2.5 h-2.5 fill-[#F5A623]" />
+                            <span>FRONT OF LINE</span>
+                          </span>
+                        )}
+
+                        {/* Pulsing New Badge */}
+                        {!isFrontOfLine && isNew && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 text-[8.5px] font-mono font-bold text-[#2ED8B6]">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2ED8B6] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#2ED8B6]"></span>
+                            </span>
+                            <span>NEW</span>
+                          </span>
+                        )}
                       </div>
-                      <span
-                        className={`pill text-[9px] uppercase font-mono ${
-                          issue.priority === "urgent" || issue.priority === "high"
-                            ? "err"
-                            : "ok"
-                        }`}
-                      >
-                        {issue.priority}
-                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        {/* Pulsing Urgent/High Priority Badge */}
+                        {isPriority ? (
+                          <span className="pill text-[9px] uppercase font-mono err font-bold animate-pulse flex items-center gap-1">
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5484D] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#E5484D]"></span>
+                            </span>
+                            <Flame className="w-2.5 h-2.5 text-[#E5484D]" />
+                            <span>{issue.priority}</span>
+                          </span>
+                        ) : (
+                          <span className="pill text-[9px] uppercase font-mono ok">
+                            {issue.priority}
+                          </span>
+                        )}
+
+                        {/* Quick Action: Move to Front of Line */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFrontOfLine(issue.id);
+                          }}
+                          className={`p-1 rounded-lg text-[10px] font-mono flex items-center gap-0.5 transition-all cursor-pointer ${
+                            isFrontOfLine
+                              ? "bg-[#F5A623] text-[#04201C] font-bold shadow-sm"
+                              : "bg-[#141C26] text-[#8E9AA8] hover:text-[#F5A623] hover:bg-[#1C2838] border border-[var(--line-2)]"
+                          }`}
+                          title={isFrontOfLine ? "Demote from front of line" : "⚡ Move to Front of Line"}
+                        >
+                          <Zap className={`w-3 h-3 ${isFrontOfLine ? "fill-[#04201C]" : ""}`} />
+                        </button>
+                      </div>
                     </div>
 
-                    <h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1">
+                    <h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1 group-hover:text-[#EAF1F8] transition-colors">
                       {issue.summary}
                     </h4>
 
                     <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
                       <span>{isCtr && issue.contractor ? issue.contractor.company : issue.customerName}</span>
-                      <span className="text-[#2ED8B6]">{issue.status}</span>
+                      <span className="text-[#2ED8B6] font-semibold">{issue.status}</span>
                     </div>
                   </div>
                 );
@@ -592,16 +686,44 @@ export function FocusedWorkspaceView({
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(true)}
-                    className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer border border-[var(--line-2)]"
-                    title="Edit Ticket Details"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* Front of Line Toggle Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFrontOfLine(selectedIssue.id)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all border ${
+                        frontOfLineIssueIds.includes(selectedIssue.id)
+                          ? "bg-[#F5A623] text-[#04201C] border-[#F5A623] font-bold shadow-md shadow-[#F5A623]/25"
+                          : "bg-[#18222E] hover:bg-[#1E2B3A] text-[#F5A623] border-[#F5A623]/40"
+                      }`}
+                      title={frontOfLineIssueIds.includes(selectedIssue.id) ? "Remove from Front of Line" : "Move to Front of Line"}
+                    >
+                      <Zap className={`w-3.5 h-3.5 ${frontOfLineIssueIds.includes(selectedIssue.id) ? "fill-[#04201C]" : ""}`} />
+                      <span>{frontOfLineIssueIds.includes(selectedIssue.id) ? "Front of Line" : "Move to Front"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer border border-[var(--line-2)]"
+                      title="Edit Ticket Details"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Priority Fast-Track Notification Banner */}
+                {frontOfLineIssueIds.includes(selectedIssue.id) && (
+                  <div className="p-2.5 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/50 text-xs font-mono text-[#F5A623] flex items-center justify-between animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 fill-[#F5A623] shrink-0" />
+                      <span className="font-bold">PRIORITY FRONT OF LINE ACTIVE</span>
+                    </div>
+                    <span className="text-[10px] text-[#B4C2D0]">Elevated to top of triage queue</span>
+                  </div>
+                )}
 
                 <h3 className="text-xs sm:text-sm font-bold text-[#EAF1F8]">
                   {selectedIssue.summary}

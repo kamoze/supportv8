@@ -751,12 +751,10 @@ export function GlobalLandingView({
       <footer className="px-6 lg:px-12 py-8 border-t border-[var(--line)] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#6B7C8D]">
         <div className="flex items-center gap-2">
           <SupportV8Logo size={20} />
-          <span>© 2026 SupportV8 • Enterprise Autonomous Customer Intelligence</span>
+          <span>© 2026 SupportV8</span>
         </div>
 
         <div className="flex items-center gap-6">
-          <span>ALB Terminated SSL</span>
-          <span>Zero-Trust ForgeGW SEC-04</span>
           <span>support.servicev8.com</span>
         </div>
       </footer>

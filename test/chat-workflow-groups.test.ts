@@ -59,7 +59,7 @@ describe("Omnichannel Chat Workflow & Group RBAC Engine", () => {
 
     expect(session.id).toBeDefined();
     expect(session.stream).toBe("customers");
-    expect(session.assignedName).toContain("Sophia");
+    expect(session.assignedName).toContain("Barnaby");
   });
 
   it("should handle customer messages and generate grounded AI response with citations", () => {

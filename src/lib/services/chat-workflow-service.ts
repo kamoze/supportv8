@@ -215,7 +215,7 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
       },
     ],
     defaultAssignedGroupId: "group_support",
-    defaultAiEmployeeId: "beaver-sophia",
+    defaultAiEmployeeId: "beaver-curator",
     autoEscalateKeywords: ["outage", "chargeback", "cancel subscription", "talk to human", "fraud"],
   },
 };
@@ -387,9 +387,9 @@ let chatSessions: CustomerChatSession[] = [
       details: "Need verification on the $420 refund token dispatch for broken sensor shipment.",
     },
     assignedType: "ai",
-    assignedId: "beaver-sophia",
-    assignedName: "Sophia — Customer Success Lead",
-    assignedAvatar: "/avatars/beaver-sophia.jpg",
+    assignedId: "beaver-curator",
+    assignedName: "Barnaby — Knowledge & Solutions Lead",
+    assignedAvatar: "/avatars/beaver-curator.jpg",
     status: "active",
     priority: "high",
     unreadCount: 0,
@@ -406,8 +406,8 @@ let chatSessions: CustomerChatSession[] = [
       {
         id: "msg_2",
         sender: "ai_employee",
-        senderName: "Sophia — Customer Success Lead",
-        senderAvatar: "/avatars/beaver-sophia.jpg",
+        senderName: "Barnaby — Knowledge & Solutions Lead",
+        senderAvatar: "/avatars/beaver-curator.jpg",
         content: "Hello Marcus! I have reviewed Order #ORD-94021. Since your account is in Enterprise Tier ($420k ARR), I have pre-authorized a replacement shipment and can immediately issue an instant $420 OrderV8 credit token to your account balance.",
         timestamp: "10:16 AM",
         citations: [
@@ -517,12 +517,28 @@ export class ChatWorkflowService {
       (staff) => staff.isOnline && staff.groupIds.includes(workflow.defaultAssignedGroupId)
     );
 
+    // Resolve Tenant Subdomain Brand & Routing
+    const rawSubdomain = (params.tenantDomain || "acme").toLowerCase().replace(".support.servicev8.com", "").replace(".support.servicev8.internal", "").replace(".support.", "");
+    let tenantBrand = "Acme Cloud Support";
+    let tenantGreetingSpecialty = "";
+
+    if (rawSubdomain.includes("timeforbed") || rawSubdomain.includes("tfb")) {
+      tenantBrand = "TimeForBed Concierge";
+      tenantGreetingSpecialty = "smart bed bases, mattress selection, or order status";
+    } else if (rawSubdomain.includes("meridian")) {
+      tenantBrand = "Meridian Enterprise Support";
+      tenantGreetingSpecialty = "enterprise account services, bulk shipments, or SLAs";
+    } else if (rawSubdomain.includes("aplogistics") || rawSubdomain.includes("apex")) {
+      tenantBrand = "AP Logistics Dispatch";
+      tenantGreetingSpecialty = "freight shipments, dock scheduling, or carrier manifests";
+    }
+
     const isAiEnabledForStream = activeGuardrails.enabledStreams.includes(params.stream);
 
     let assignedType: "human" | "ai" = "ai";
-    let assignedId = workflow.defaultAiEmployeeId;
-    let assignedName = "Sophia — Customer Success Lead";
-    let assignedAvatar = "/avatars/beaver-sophia.jpg";
+    let assignedId = workflow.defaultAiEmployeeId || "beaver-curator";
+    let assignedName = "Barnaby — Knowledge & Solutions Lead";
+    let assignedAvatar = "/avatars/beaver-curator.jpg";
 
     if (onlineHumanStaff && !isAiEnabledForStream) {
       // Direct human operator routing
@@ -532,19 +548,23 @@ export class ChatWorkflowService {
       assignedAvatar = onlineHumanStaff.avatar;
       onlineHumanStaff.activeChatCount += 1;
     } else {
-      // AI employee lead assignment
+      // AI employee lead assignment based on Subdomain & Stream
       if (params.stream === "contractors") {
         assignedId = "beaver-alex";
         assignedName = "Alex — Contractor Dispatch Lead";
         assignedAvatar = "/avatars/beaver-manager.jpg";
-      } else if (params.stream === "enquiries") {
+      } else if (rawSubdomain.includes("timeforbed") || rawSubdomain.includes("tfb")) {
+        assignedId = "beaver-curator";
+        assignedName = "Barnaby — TimeForBed Concierge";
+        assignedAvatar = "/avatars/beaver-curator.jpg";
+      } else if (rawSubdomain.includes("meridian")) {
+        assignedId = "beaver-alex";
+        assignedName = "Alex — Meridian Enterprise Lead";
+        assignedAvatar = "/avatars/beaver-manager.jpg";
+      } else {
         assignedId = "beaver-curator";
         assignedName = "Barnaby — Knowledge & Solutions Lead";
         assignedAvatar = "/avatars/beaver-curator.jpg";
-      } else {
-        assignedId = "beaver-sophia";
-        assignedName = "Sophia — Customer Success Lead";
-        assignedAvatar = "/avatars/beaver-sophia.jpg";
       }
     }
 
@@ -571,14 +591,14 @@ export class ChatWorkflowService {
       senderAvatar: assignedAvatar,
       content:
         assignedType === "human"
-          ? `Hello ${params.customerName}! My name is ${assignedName.split(" ")[0]}. I see your incoming request regarding ${params.intakeData.inquiryCategory || params.intakeData.issueType || params.intakeData.enquiryType || workflow.title}. I have opened ticket SV8-CHAT-${seqChat} in the operator work desk and am reviewing your details now.`
-          : `Hello ${params.customerName}! I'm ${assignedName}. I have received your ${workflow.title} request (Ticket SV8-CHAT-${seqChat}). How can I assist you right away?`,
+          ? `Hello ${params.customerName}! My name is ${assignedName.split(" ")[0]} from ${tenantBrand}. I see your incoming request regarding ${params.intakeData.inquiryCategory || params.intakeData.issueType || params.intakeData.enquiryType || workflow.title}. I have opened ticket SV8-CHAT-${seqChat} in the operator work desk and am reviewing your details now.`
+          : `Hello ${params.customerName}! I'm ${assignedName} from ${tenantBrand}. I have received your ${workflow.title} request (Ticket SV8-CHAT-${seqChat}). How can I assist you ${tenantGreetingSpecialty ? `with your ${tenantGreetingSpecialty}` : "right away"}?`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       citations: [
         {
           id: "cit_welcome",
           title: `${workflow.title} Guidelines & Response Protocol`,
-          snippet: "All inquiries are logged with high encryption and synced with tenant SLA monitoring.",
+          snippet: `All inquiries on ${tenantBrand} are logged with high encryption and synced with tenant SLA monitoring.`,
         },
       ],
       suggestedActions:
@@ -790,21 +810,40 @@ export class ChatWorkflowService {
         },
       ];
 
-      // Domain-specific grounded replies for Barnaby, Sophia, and Alex
-      if (lowerContent.includes("refund") || lowerContent.includes("invoice") || lowerContent.includes("payment")) {
-        aiContent = `I have verified your billing records on the OrderV8 ledger. Under our automated policy, transactions under $${activeGuardrails.maxAutonomousRefundAmount} qualify for instant refund or credit voucher. I have staged this refund action for immediate dispatch.`;
-      } else if (lowerContent.includes("work order") || lowerContent.includes("pin") || lowerContent.includes("access") || lowerContent.includes("lockbox")) {
-        aiContent = `Your electronic lockbox security PIN for Building B telecom closet is valid for 24 hours: LOCK-8841. On-site access permits are active and logged.`;
-      } else if (session.assignedId === "beaver-curator") {
-        // Barnaby — Knowledge & Solutions Lead
-        if (lowerContent.includes("demo") || lowerContent.includes("feature") || lowerContent.includes("architecture") || lowerContent.includes("pricing")) {
-          aiContent = `Here is the architectural overview for ServiceV8:
+      // Domain-specific grounded replies based on Subdomain & Ingress Stream
+      const sessionSubdomain = (session.tenantDomain || "").toLowerCase();
+      if (sessionSubdomain.includes("timeforbed") || sessionSubdomain.includes("tfb")) {
+        if (lowerContent.includes("mattress") || lowerContent.includes("bed") || lowerContent.includes("firm") || lowerContent.includes("base") || lowerContent.includes("motor") || lowerContent.includes("trial") || lowerContent.includes("zero gravity")) {
+          aiContent = `Here is the verified TimeForBed product guidance:
+• **Zero-Gravity Adjustable Base**: Dual-motor articulation with wireless remote presets, anti-snore elevation, and under-bed LED illumination.
+• **100-Night Sleep Trial**: All TimeForBed hybrid mattresses include a risk-free 100-night trial with complimentary white-glove return pickup.
+• **Split-King Sync**: Sync cable allows independent head/foot articulation or paired simultaneous adjustment via remote.`;
+        }
+      }
+
+      if (!aiContent.startsWith("Here is the verified TimeForBed")) {
+        if (lowerContent.includes("refund") || lowerContent.includes("invoice") || lowerContent.includes("payment")) {
+          aiContent = `I have verified your billing records on the OrderV8 ledger. Under our automated policy, transactions under $${activeGuardrails.maxAutonomousRefundAmount} qualify for instant refund or credit voucher. I have staged this refund action for immediate dispatch.`;
+        } else if (lowerContent.includes("system status") || lowerContent.includes("health") || lowerContent.includes("uptime")) {
+          aiContent = `✅ **ServiceV8 System Health Status**: All microservices (OrderV8, WorkerV8, KnowledgeV8 RAG, and Twilio Telephony SIP Bridges) are fully operational with 99.99% uptime. Current API latency is 42ms with 0 active degradation incidents.`;
+        } else if (lowerContent.includes("log on") || lowerContent.includes("login") || lowerContent.includes("sign in") || lowerContent.includes("password") || lowerContent.includes("not working") || lowerContent.includes("cannot log")) {
+          aiContent = `I have checked our identity and tenant gateway services. All authentication endpoints are healthy. If you are experiencing logon issues:
+1. Ensure you are accessing via your tenant slug (e.g. \`acme.support.servicev8.com\`).
+2. Verify your email address format or request an Email OTP one-time passcode.
+3. If your account is locked due to repeated attempts, click "Request Human Supervisor" below to initiate an immediate security unlock.`;
+        } else if (lowerContent.includes("work order") || lowerContent.includes("pin") || lowerContent.includes("access") || lowerContent.includes("lockbox")) {
+          aiContent = `Your electronic lockbox security PIN for Building B telecom closet is valid for 24 hours: LOCK-8841. On-site access permits are active and logged.`;
+        } else if (session.assignedId === "beaver-curator") {
+          // Barnaby — Knowledge & Solutions Lead
+          if (lowerContent.includes("demo") || lowerContent.includes("feature") || lowerContent.includes("architecture") || lowerContent.includes("pricing")) {
+            aiContent = `Here is the architectural overview for ServiceV8:
 • **Vector Knowledge Topology**: Grounded pgvector RAG pipeline with sub-100ms semantic similarity search.
 • **Zero-Trust Action Gateway**: All autonomous operations (refunds, credential rotations, SOW dispatches) enforce mTLS encryption, SHA-256 hash chaining, and idempotency guarantees.
 • **Omnichannel Telephony**: Twilio SIP bridge with sub-300ms turn-taking audio streaming.
 • **Enterprise Pricing**: Standard ($199/mo), Pro ($499/mo), and Enterprise ($1,299/mo) with dedicated SLAs.`;
-        } else {
-          aiContent = `I have analyzed your inquiry against our verified documentation index. ServiceV8 provides end-to-end multi-tenant isolation with zero data leakage across workspaces. Would you like me to open the relevant knowledge whitepaper?`;
+          } else {
+            aiContent = `I have analyzed your inquiry against our verified documentation index. ServiceV8 provides end-to-end multi-tenant isolation with zero data leakage across workspaces. Would you like me to open the relevant knowledge whitepaper?`;
+          }
         }
       }
 

@@ -186,7 +186,7 @@ export function TenantLandingView({
           </div>
         </div>
 
-        {/* Global Hub Link & Sign In / Sign Up Gateway */}
+        {/* Global Hub Link & Portal Sign In */}
         <div className="flex items-center gap-2.5">
           <button
             onClick={onOpenGlobalLanding}
@@ -197,18 +197,10 @@ export function TenantLandingView({
 
           <button
             onClick={onOpenSignIn}
-            className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <UserCheck className="w-3.5 h-3.5 text-[#2ED8B6]" />
-            <span>Staff Sign In</span>
-          </button>
-
-          <button
-            onClick={onOpenSignup}
             className="btn btn-primary px-3.5 py-1.5 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
           >
-            <span>Register</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Sign In</span>
           </button>
         </div>
       </header>

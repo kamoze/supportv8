@@ -19,6 +19,7 @@ interface MarketplacePlansViewProps {
   billingCycle: "monthly" | "annual";
   onToggleBillingCycle: (cycle: "monthly" | "annual") => void;
   onSelectPlan: (planId: string) => void;
+  onNotify?: (text: string, type?: "success" | "error" | "info") => void;
 }
 
 export function MarketplacePlansView({
@@ -26,6 +27,7 @@ export function MarketplacePlansView({
   billingCycle,
   onToggleBillingCycle,
   onSelectPlan,
+  onNotify,
 }: MarketplacePlansViewProps) {
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -159,6 +161,84 @@ export function MarketplacePlansView({
             </div>
           );
         })}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* STANDALONE & VERTICAL ACTION CREDIT TOP-UPS */}
+      {/* ========================================================================= */}
+      <div className="pt-8 border-t border-[var(--line)] space-y-6">
+        <div className="text-center space-y-1 max-w-xl mx-auto">
+          <span className="pill ok text-xs font-mono">
+            <i className="dot"></i> FORGEGW ACTION CREDITS
+          </span>
+          <h2 className="text-xl font-bold text-[#EAF1F8]">
+            Standalone &amp; Vertical Top-Ups
+          </h2>
+          <p className="text-xs text-[#B4C2D0]">
+            Replenish pooled microservice action credits on demand without altering your baseline subscription tier.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              credits: "5,000 Credits",
+              price: "$30",
+              desc: "5,000 credits. Top-up for finishing work when your monthly allowance runs out.",
+              badge: "STARTER BURST",
+            },
+            {
+              credits: "15,000 Credits",
+              price: "$75",
+              desc: "15,000 credits. Top-up for a burst of builds mid-cycle.",
+              badge: "POPULAR",
+            },
+            {
+              credits: "30,000 Credits",
+              price: "$130",
+              desc: "30,000 credits. Larger top-up for sustained work between billing periods. A subscription costs less per credit at this volume.",
+              badge: "HIGH VOLUME",
+            },
+            {
+              credits: "100,000 Credits",
+              price: "$375",
+              desc: "100,000 credits. Bulk top-up. For ongoing volume at this level a subscription gives more credits for less.",
+              badge: "ENTERPRISE BULK",
+            },
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="card p-5 rounded-2xl border border-[var(--line)] bg-[#0E1520] hover:border-[#2ED8B6]/50 transition-all flex flex-col justify-between space-y-4"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="pill ok text-[9px] font-mono font-bold uppercase">{item.badge}</span>
+                  <span className="text-xl font-extrabold text-[#2ED8B6] font-mono">{item.price}</span>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">{item.credits}</h3>
+                  <p className="text-xs text-[#8E9AA8] mt-1 leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onNotify) {
+                      onNotify(`Initiated CHECKOUT for ${item.credits} (${item.price}) via Stripe`, "success");
+                    }
+                  }}
+                  className="btn btn-primary w-full py-2 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>CHECKOUT</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

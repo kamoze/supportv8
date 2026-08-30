@@ -13,6 +13,8 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  HardHat,
+  Users,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
@@ -33,6 +35,7 @@ export function SignInModal({
   onOpenSignup,
 }: SignInModalProps) {
   const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || "acme");
+  const [selectedRole, setSelectedRole] = useState<"operator" | "contractor" | "customer">("operator");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -80,7 +83,7 @@ export function SignInModal({
     }
 
     if (!email.trim() || !password.trim()) {
-      setErrorMsg("Please enter your work email and password.");
+      setErrorMsg("Please enter your email and password.");
       return;
     }
 
@@ -94,10 +97,11 @@ export function SignInModal({
 
     setIsLoading(true);
 
-    // Cryptographic operator session generation
+    // Cryptographic operator session generation with selected actor role
     setTimeout(() => {
       setIsLoading(false);
-      const session = AuthService.createSession(targetSlug, email, "operator");
+      const role = selectedRole === "contractor" ? "technician" : selectedRole === "customer" ? "customer" : "operator";
+      const session = AuthService.createSession(targetSlug, email, role as any);
       onSuccess(session);
       onClose();
     }, 450);
@@ -145,6 +149,39 @@ export function SignInModal({
           )}
 
           <form id="signin-form" onSubmit={handleSubmit} className="space-y-4">
+            {/* Actor / Role Selection Tabs */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-[#B4C2D0] block">Select who is signing in:</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "operator", label: "Internal Staff", sub: "Cockpit & Desk", icon: Shield },
+                  { id: "contractor", label: "Contractor", sub: "Field Dispatches", icon: HardHat },
+                  { id: "customer", label: "Customer", sub: "Case Portal", icon: Users },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = selectedRole === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSelectedRole(tab.id as any)}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-[#182635] border-[#2ED8B6] text-[#EAF1F8] shadow-md"
+                          : "bg-[#141C26] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Icon className={`w-3.5 h-3.5 ${isActive ? "text-[#2ED8B6]" : "text-[#6B7C8D]"}`} />
+                        <span className="text-xs font-bold">{tab.label}</span>
+                      </div>
+                      <p className="text-[10px] font-mono text-[#6B7C8D] mt-0.5">{tab.sub}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* If on a specific subdomain, show locked badge; otherwise show domain input */}
             {lockedTenantSlug ? (
               <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">

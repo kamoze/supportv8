@@ -82,8 +82,9 @@ export function GovernanceMembersView({
   const [editMaxChats, setEditMaxChats] = useState(5);
   const [isSavingMember, setIsSavingMember] = useState(false);
 
-  // New Group Modal State
+  // New / Edit Group Modal State
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupStream, setGroupStream] = useState<ChatStreamType | "all">("customers");
   const [groupDesc, setGroupDesc] = useState("");
@@ -92,6 +93,26 @@ export function GovernanceMembersView({
     "tickets.view",
     "tickets.reply",
   ]);
+
+  const openEditGroupModal = (group: any) => {
+    setEditingGroupId(group.id);
+    setGroupName(group.name);
+    setGroupStream(group.streamType || "customers");
+    setGroupDesc(group.description || "");
+    setGroupColor(group.color || "#2ED8B6");
+    setSelectedPermissions(group.permissions || ["tickets.view", "tickets.reply"]);
+    setIsGroupModalOpen(true);
+  };
+
+  const openCreateGroupModal = () => {
+    setEditingGroupId(null);
+    setGroupName("");
+    setGroupStream("customers");
+    setGroupDesc("");
+    setGroupColor("#2ED8B6");
+    setSelectedPermissions(["tickets.view", "tickets.reply"]);
+    setIsGroupModalOpen(true);
+  };
 
   const AVAILABLE_PERMISSIONS = [
     { id: "tickets.view", label: "View Assigned Tickets", desc: "Read access to chat sessions and logs" },
@@ -203,25 +224,37 @@ export function GovernanceMembersView({
     }
   };
 
-  const handleCreateGroup = (e: React.FormEvent) => {
+  const handleSaveGroup = (e: React.FormEvent) => {
     e.preventDefault();
     if (!groupName.trim()) return;
 
-    ChatWorkflowService.createGroup({
-      name: groupName.trim(),
-      streamType: groupStream,
-      description: groupDesc.trim() || "Custom RBAC user group",
-      color: groupColor,
-      permissions: selectedPermissions,
-      memberEmails: ["inigodwin@redoo.solutions"],
-      isSystem: false,
-    });
+    if (editingGroupId) {
+      ChatWorkflowService.updateGroup(editingGroupId, {
+        name: groupName.trim(),
+        streamType: groupStream,
+        description: groupDesc.trim() || "Custom RBAC user group",
+        color: groupColor,
+        permissions: selectedPermissions,
+      });
+      showToast(`Updated RBAC group "${groupName}"`);
+    } else {
+      ChatWorkflowService.createGroup({
+        name: groupName.trim(),
+        streamType: groupStream,
+        description: groupDesc.trim() || "Custom RBAC user group",
+        color: groupColor,
+        permissions: selectedPermissions,
+        memberEmails: ["inigodwin@redoo.solutions"],
+        isSystem: false,
+      });
+      showToast(`Created RBAC group "${groupName}"`);
+    }
 
     setGroups([...ChatWorkflowService.listGroups()]);
     setIsGroupModalOpen(false);
+    setEditingGroupId(null);
     setGroupName("");
     setGroupDesc("");
-    showToast(`Created RBAC group "${groupName}"`);
   };
 
   const handleDeleteGroup = (groupId: string) => {
@@ -276,7 +309,7 @@ export function GovernanceMembersView({
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => setIsGroupModalOpen(true)}
+            onClick={openCreateGroupModal}
             className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 font-mono cursor-pointer hover:border-[#2ED8B6]"
           >
             <FolderPlus className="w-4 h-4 text-[#2ED8B6]" />
@@ -500,15 +533,25 @@ export function GovernanceMembersView({
                     </div>
                   </div>
 
-                  {!group.isSystem && (
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleDeleteGroup(group.id)}
-                      className="p-1 text-[#6B7C8D] hover:text-[#E5484D] transition-colors cursor-pointer"
-                      title="Delete Group"
+                      type="button"
+                      onClick={() => openEditGroupModal(group)}
+                      className="p-1 text-[#6B7C8D] hover:text-[#2ED8B6] transition-colors cursor-pointer"
+                      title="Edit RBAC Group"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                    {!group.isSystem && (
+                      <button
+                        onClick={() => handleDeleteGroup(group.id)}
+                        className="p-1 text-[#6B7C8D] hover:text-[#E5484D] transition-colors cursor-pointer"
+                        title="Delete Group"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <p className="text-xs text-[#B4C2D0] leading-relaxed">
@@ -888,7 +931,7 @@ export function GovernanceMembersView({
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <h3 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
                 <FolderPlus className="w-4 h-4 text-[#2ED8B6]" />
-                <span>Create New User Group</span>
+                <span>{editingGroupId ? "Edit RBAC User Group" : "Create New User Group"}</span>
               </h3>
               <button
                 type="button"
@@ -899,7 +942,7 @@ export function GovernanceMembersView({
               </button>
             </div>
 
-            <form onSubmit={handleCreateGroup} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveGroup} className="space-y-4 text-xs">
               <div>
                 <label className="text-[#6B7C8D] block mb-1 font-mono">Group Name *</label>
                 <input
@@ -994,7 +1037,7 @@ export function GovernanceMembersView({
                   type="submit"
                   className="btn btn-primary py-1.5 px-4 text-xs font-bold"
                 >
-                  Create Group
+                  {editingGroupId ? "Save Group Changes" : "Create Group"}
                 </button>
               </div>
             </form>

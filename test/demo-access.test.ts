@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { POST, GET, demoLeadsStore } from "../src/app/api/leads/demo-access/route";
+import { POST, GET } from "../src/app/api/leads/demo-access/route";
 import { NextRequest } from "next/server";
 
 describe("SupportV8 Demo Access & Sales Lead Capture", () => {

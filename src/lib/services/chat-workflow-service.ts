@@ -6,7 +6,9 @@ import type {
   MemberGroup,
   AiChatGuardrailConfig,
   PriorityLevel,
+  Issue,
 } from "@/lib/types";
+import { db } from "@/lib/db/mock-data";
 
 // =============================================================================
 // Default Workflows Configuration (Configurable by Admin)
@@ -596,6 +598,52 @@ export class ChatWorkflowService {
             ],
     };
 
+    const extId = `SV8-CHAT-${seqChat}`;
+    const newIssue: Issue = {
+      id: `iss_chat_${seqChat}`,
+      tenantId: `tenant_${params.tenantDomain || "default"}`,
+      externalId: extId,
+      source: "chat",
+      sourceUrl: `https://${params.tenantDomain || "support"}.servicev8.com/chat/${sessionId}`,
+      customerRef: `cust_${params.customerEmail ? params.customerEmail.split("@")[0] : "live"}`,
+      entityType: params.stream === "contractors" ? "contractor" : "customer",
+      customerName: params.customerName,
+      customerTier: "standard",
+      summary: params.intakeData.details || params.intakeData.issueType || params.intakeData.enquiryType || `${workflow.title} Inbound Request`,
+      category: params.stream === "contractors" ? "contractor_dispatch" : params.stream === "enquiries" ? "general_inquiry" : "customer_care",
+      product: params.stream === "contractors" ? "Field Ops Portal" : "SupportV8 Live Chat",
+      version: "3.2.0",
+      status: "open",
+      sourceStatus: "open",
+      priority,
+      sentiment: priority === "urgent" ? "urgent" : "neutral",
+      sentimentScore: 0.2,
+      sentimentTrajectory: "stable",
+      confidence: 0.94,
+      businessImpact: priority === "urgent" ? "high" : "low",
+      resolutionRiskScore: priority === "urgent" ? 0.4 : 0.1,
+      recommendedAction: assignedType === "human"
+        ? "Human operator requested. Immediate live assistance assigned."
+        : `AI Employee ${assignedName} active on session ${extId}.`,
+      tags: ["chat_intake", params.stream, params.tenantDomain || "default"],
+      assignedTo: assignedName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      contractor: params.stream === "contractors" ? {
+        workOrderId: `WO-${seqChat}`,
+        company: params.intakeData.companyName || "Apex Facilities",
+        contactName: params.customerName,
+        trade: "Facilities & Lockbox Entry",
+        siteLocation: params.intakeData.siteLocation || "Telecom Hub Building B, 442 Innovation Way",
+        dispatchStatus: "on_site",
+        accessCode: "LOCK-8841",
+        eta: "Active On-Site",
+      } : undefined,
+    };
+
+    // Store in shared tenant database
+    db.addIssue(newIssue, params.tenantDomain);
+
     const session: CustomerChatSession = {
       id: sessionId,
       tenantDomain: params.tenantDomain,
@@ -631,6 +679,30 @@ export class ChatWorkflowService {
   }
 
   /**
+   * Reply directly from human operator in the Work Desk
+   */
+  static replyFromOperator(sessionId: string, operatorName: string, content: string): CustomerChatSession | null {
+    const session = this.getSession(sessionId);
+    if (!session) return null;
+
+    const operatorMsg: CustomerChatMessage = {
+      id: `msg_${Date.now()}_op`,
+      sender: "agent",
+      senderName: operatorName || "Ini Godwin (Escalated Lead)",
+      senderAvatar: "/avatars/beaver-manager.jpg",
+      content,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    session.messages.push(operatorMsg);
+    session.updatedAt = new Date().toISOString();
+    session.assignedType = "human";
+    session.assignedName = operatorName;
+
+    return session;
+  }
+
+  /**
    * Post a new message to an existing chat session
    */
   static sendMessage(params: {
@@ -656,20 +728,45 @@ export class ChatWorkflowService {
 
     const lowerContent = params.content.toLowerCase();
 
-    // Check for auto-escalation keywords using word boundary matching
-    const needsEscalation = activeGuardrails.escalationKeywords.some((kw) => {
-      if (!kw.trim()) return false;
-      const escaped = kw.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(`\\b${escaped}\\b`, "i");
-      return regex.test(params.content);
-    });
+    // Check for auto-escalation keywords or explicit human supervisor request
+    const isHumanActionRequested =
+      lowerContent.includes("request human") ||
+      lowerContent.includes("human supervisor") ||
+      lowerContent.includes("speak with human") ||
+      lowerContent.includes("escalat");
 
-    if (needsEscalation && session.assignedType === "ai") {
+    const needsEscalation =
+      isHumanActionRequested ||
+      activeGuardrails.escalationKeywords.some((kw) => {
+        if (!kw.trim()) return false;
+        const escaped = kw.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\b${escaped}\\b`, "i");
+        return regex.test(params.content);
+      });
+
+    if (needsEscalation && (session.assignedType === "ai" || isHumanActionRequested)) {
       session.status = "escalated";
       session.priority = "urgent";
       session.assignedType = "human";
       session.assignedName = "Ini Godwin (Escalated Lead)";
       session.assignedAvatar = "/avatars/beaver-manager.jpg";
+
+      // Elevate ticket in db.issues with urgent priority and front-of-line elevation
+      const sessNum = session.id.replace("chat_sess_", "");
+      const existingIssue = db.issues.find(
+        (i) =>
+          i.externalId.includes(sessNum) ||
+          i.summary.includes(session.customerName) ||
+          i.customerName === session.customerName
+      );
+
+      if (existingIssue) {
+        existingIssue.priority = "urgent";
+        existingIssue.sentiment = "urgent";
+        existingIssue.status = "open";
+        existingIssue.assignedTo = "Ini Godwin (Escalated Lead)";
+        existingIssue.recommendedAction = "🚨 Live Human Lead Escalation: Customer requested human supervisor. Ready for operator takeover.";
+      }
 
       const escalationMsg: CustomerChatMessage = {
         id: `msg_${Date.now()}_esc`,
@@ -682,21 +779,33 @@ export class ChatWorkflowService {
       return { session, responseMessage: escalationMsg };
     }
 
-    // If customer sent message and AI is assigned, generate AI assistant response
+    // If customer sent message and AI is assigned, generate high-quality AI assistant response
     if (params.sender === "customer" && session.assignedType === "ai") {
-      let aiContent = `Thank you for your update. I have referenced the knowledge base regarding "${params.content.slice(0, 40)}..." and processed the necessary action telemetry.`;
+      let aiContent = `Thank you for your update. I have referenced the knowledge base regarding "${params.content.slice(0, 40)}..." and verified the relevant system parameters.`;
       let citations = [
         {
           id: "cit_auto",
-          title: "ServiceV8 Knowledge Topology Graph",
+          title: "ServiceV8 Grounded Knowledge Graph",
           snippet: "Synthesized matching concept node with 0.94 cosine similarity embedding.",
         },
       ];
 
+      // Domain-specific grounded replies for Barnaby, Sophia, and Alex
       if (lowerContent.includes("refund") || lowerContent.includes("invoice") || lowerContent.includes("payment")) {
-        aiContent = `I have verified your account billing records. Under our automated refund policy, transactions under $${activeGuardrails.maxAutonomousRefundAmount} qualify for instant credit. I have staged this action for immediate dispatch.`;
-      } else if (lowerContent.includes("work order") || lowerContent.includes("pin") || lowerContent.includes("access")) {
-        aiContent = `I've checked the active site dispatch registry. Security token has been validated and synced with the site gate controller.`;
+        aiContent = `I have verified your billing records on the OrderV8 ledger. Under our automated policy, transactions under $${activeGuardrails.maxAutonomousRefundAmount} qualify for instant refund or credit voucher. I have staged this refund action for immediate dispatch.`;
+      } else if (lowerContent.includes("work order") || lowerContent.includes("pin") || lowerContent.includes("access") || lowerContent.includes("lockbox")) {
+        aiContent = `Your electronic lockbox security PIN for Building B telecom closet is valid for 24 hours: LOCK-8841. On-site access permits are active and logged.`;
+      } else if (session.assignedId === "beaver-curator") {
+        // Barnaby — Knowledge & Solutions Lead
+        if (lowerContent.includes("demo") || lowerContent.includes("feature") || lowerContent.includes("architecture") || lowerContent.includes("pricing")) {
+          aiContent = `Here is the architectural overview for ServiceV8:
+• **Vector Knowledge Topology**: Grounded pgvector RAG pipeline with sub-100ms semantic similarity search.
+• **Zero-Trust Action Gateway**: All autonomous operations (refunds, credential rotations, SOW dispatches) enforce mTLS encryption, SHA-256 hash chaining, and idempotency guarantees.
+• **Omnichannel Telephony**: Twilio SIP bridge with sub-300ms turn-taking audio streaming.
+• **Enterprise Pricing**: Standard ($199/mo), Pro ($499/mo), and Enterprise ($1,299/mo) with dedicated SLAs.`;
+        } else {
+          aiContent = `I have analyzed your inquiry against our verified documentation index. ServiceV8 provides end-to-end multi-tenant isolation with zero data leakage across workspaces. Would you like me to open the relevant knowledge whitepaper?`;
+        }
       }
 
       const aiResponse: CustomerChatMessage = {

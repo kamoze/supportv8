@@ -42,6 +42,7 @@ import {
   Copy,
 } from "lucide-react";
 import type { Issue, SentimentClass, PriorityLevel } from "@/lib/types";
+import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
 
 interface FocusedWorkspaceViewProps {
   issues: Issue[];
@@ -151,11 +152,26 @@ export function FocusedWorkspaceView({
   const [csvText, setCsvText] = useState("");
   const [csvPreviewCount, setCsvPreviewCount] = useState(0);
 
+  // Live Chat Operator Takeover State
+  const [operatorReplyText, setOperatorReplyText] = useState("");
+  const [isSendingOperatorReply, setIsSendingOperatorReply] = useState(false);
+  const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
+  const [forceStandardComposer, setForceStandardComposer] = useState(false);
+
   const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
   const isContractor = selectedIssue?.entityType === "contractor" || selectedIssue?.category?.includes("contractor") || Boolean(selectedIssue?.contractor);
 
   // Technician Workflow State Machine
   const [techStatus, setTechStatus] = useState<"assigned" | "accepted" | "en_route" | "in_progress" | "completed" | "released">("assigned");
+
+  const isChatTicket = selectedIssue?.source === "chat" || selectedIssue?.externalId?.startsWith("SV8-CHAT-");
+  const matchingChatSession = isChatTicket
+    ? ChatWorkflowService.listSessions().find(
+        (s) =>
+          (selectedIssue?.externalId && s.id.includes(selectedIssue.externalId.replace("SV8-CHAT-", ""))) ||
+          s.customerName === selectedIssue?.customerName
+      )
+    : null;
 
   // Initialize edit fields when selected issue changes
   useEffect(() => {
@@ -166,6 +182,7 @@ export function FocusedWorkspaceView({
       setEditSentiment(selectedIssue.sentiment || "neutral");
       setEditAssignee(selectedIssue.assignedTo || "Unassigned");
       setEditTags(selectedIssue.tags?.join(", ") || "");
+      setForceStandardComposer(false);
       if (selectedIssue.contractor) {
         setTechStatus("assigned");
       }
@@ -1025,131 +1042,286 @@ export function FocusedWorkspaceView({
             </button>
             <span className="text-[10px] font-mono text-[#2ED8B6]">Dispatch Station</span>
           </div>
-          {/* Channel Bar */}
-          <div className="space-y-2 pb-2 border-b border-[var(--line)]">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-[#EAF1F8] flex items-center gap-1.5">
-                {isContractor ? <Truck className="w-4 h-4 text-[#F5A623]" /> : <Send className="w-4 h-4 text-[#2ED8B6]" />}
-                <span>{isContractor ? "Contractor Dispatch Station" : "Customer Resolution Station"}</span>
-              </span>
-              <span className="text-[10px] font-mono text-[#6B7C8D]">Instant Omni-Dispatch</span>
-            </div>
 
-            {/* Channels Segment */}
-            <div className="grid grid-cols-5 gap-1 bg-[#161F2C] p-1 rounded-xl border border-[var(--line)] text-xs">
-              {[
-                { id: isContractor ? "contractor_sms" : "chat", label: isContractor ? "SMS" : "Chat", icon: isContractor ? Smartphone : MessageSquare },
-                { id: isContractor ? "work_order_push" : "email", label: isContractor ? "Push" : "Email", icon: isContractor ? FileCheck : Mail },
-                { id: isContractor ? "site_pass" : "whatsapp", label: isContractor ? "PIN" : "WhatsApp", icon: isContractor ? Key : Phone },
-                { id: "voice", label: "Voice", icon: Zap },
-                { id: "internal_note", label: "Note", icon: FileText },
-              ].map((ch) => {
-                const Icon = ch.icon;
-                const isActive = commChannel === ch.id;
-                return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    onClick={() => setCommChannel(ch.id as any)}
-                    className={`py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      isActive
-                        ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm"
-                        : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                    }`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    <span>{ch.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* ========================================================================= */}
+          {/* LIVE CHAT OPERATOR TAKEOVER CONSOLE (If ticket is active chat session) */}
+          {/* ========================================================================= */}
+          {matchingChatSession && !forceStandardComposer ? (
+            <div className="flex-1 flex flex-col space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--line)]">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6]">
+                    <MessageSquare className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                      <span>Live Chat Session</span>
+                      <span className="text-[10px] font-mono text-[#6B7C8D]">({selectedIssue.externalId})</span>
+                    </h3>
+                    <p className="text-[10px] font-mono text-[#2ED8B6]">
+                      {matchingChatSession.status === "escalated" ? "🚨 Escalated to Human Lead" : "🤖 Co-pilot Active"}
+                    </p>
+                  </div>
+                </div>
 
-          {/* AI Response Tone / Mode */}
-          <div className="space-y-1.5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-[#8E9CAE] text-[11px] font-medium">Response Generation Style</span>
-              <button
-                type="button"
-                onClick={handleTriggerGenerateAi}
-                disabled={isGeneratingAi}
-                className="text-[10.5px] text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 font-mono"
-              >
-                <RefreshCw className={`w-3 h-3 ${isGeneratingAi ? "animate-spin" : ""}`} />
-                <span>Regenerate Response</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-4 gap-1">
-              {[
-                { id: "empathetic", label: "Empathetic" },
-                { id: "technical", label: "Technical" },
-                { id: "concise", label: "Concise" },
-                { id: "executive", label: "Executive" },
-              ].map((t) => (
                 <button
-                  key={t.id}
                   type="button"
-                  onClick={() => setAiTone(t.id as any)}
-                  className={`py-1 px-1 text-[10px] rounded-lg transition-all cursor-pointer text-center truncate ${
-                    aiTone === t.id
-                      ? "bg-[#2ED8B6]/20 text-[#2ED8B6] font-bold border border-[#2ED8B6]/40"
-                      : "bg-[#161F2C] text-[#6B7C8D] hover:text-[#EAF1F8]"
-                  }`}
+                  onClick={() => setForceStandardComposer(true)}
+                  className="text-[10px] font-mono text-[#6B7C8D] hover:text-[#EAF1F8] underline cursor-pointer"
                 >
-                  {t.label}
+                  Standard Composer
                 </button>
-              ))}
+              </div>
+
+              {/* Live Chat Message Stream Box */}
+              <div className="flex-1 bg-[#0B1017] border border-[var(--line)] rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2.5 font-sans text-xs">
+                {matchingChatSession.messages.map((msg, idx) => {
+                  const isCustomer = msg.sender === "customer";
+                  const isSystem = msg.sender === "system";
+                  return (
+                    <div
+                      key={msg.id || idx}
+                      className={`flex flex-col ${isCustomer ? "items-end" : "items-start"} space-y-1`}
+                    >
+                      <div className="flex items-center gap-1 text-[10px] font-mono text-[#6B7C8D]">
+                        <span>{msg.senderName}</span>
+                        <span>•</span>
+                        <span>{msg.timestamp}</span>
+                      </div>
+
+                      {isSystem ? (
+                        <div className="w-full p-2.5 rounded-xl bg-[#E5484D]/15 border border-[#E5484D]/40 text-[#FF7575] text-[11px] leading-relaxed">
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <div
+                          className={`max-w-[85%] p-2.5 rounded-2xl leading-relaxed ${
+                            isCustomer
+                              ? "bg-[#142622] text-[#2ED8B6] border border-[#2ED8B6]/30 rounded-tr-none"
+                              : "bg-[#18222E] text-[#EAF1F8] border border-[var(--line)] rounded-tl-none"
+                          }`}
+                        >
+                          <p>{msg.content}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Quick Canned Takeover Chips */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operator Quick Actions:</span>
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    "Hello! I am taking over this live chat to assist you directly.",
+                    "I have verified your account and approved your instant credit voucher.",
+                    "Your electronic lockbox security PIN LOCK-8841 is validated for site access.",
+                  ].map((phrase, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setOperatorReplyText(phrase)}
+                      className="px-2 py-1 rounded-lg bg-[#141C26] hover:bg-[#1A2534] border border-[var(--line)] text-[10.5px] text-[#B4C2D0] hover:text-[#2ED8B6] transition-colors cursor-pointer truncate max-w-full text-left"
+                    >
+                      {phrase.slice(0, 42)}...
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Operator Reply Composer */}
+              <div className="space-y-1.5 flex flex-col">
+                <textarea
+                  value={operatorReplyText}
+                  onChange={(e) => setOperatorReplyText(e.target.value)}
+                  rows={3}
+                  className="w-full bg-[#161F2C] text-[#EAF1F8] p-3 rounded-2xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6] min-h-[75px]"
+                  placeholder="Type message to send directly into customer's live chat widget..."
+                />
+              </div>
+
+              {/* Operator Dispatch Buttons */}
+              <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!operatorReplyText.trim()) return;
+                    setIsSendingOperatorReply(true);
+                    ChatWorkflowService.replyFromOperator(
+                      matchingChatSession.id,
+                      "Ini Godwin (Escalated Lead)",
+                      operatorReplyText.trim()
+                    );
+                    setOperatorReplyText("");
+                    setIsSendingOperatorReply(false);
+                    setLiveChatSessionKey((k) => k + 1);
+                    onNotify("Live message sent to customer chat session!", "success");
+                  }}
+                  disabled={!operatorReplyText.trim() || isSendingOperatorReply}
+                  className="btn btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSendingOperatorReply ? "Sending..." : "⚡ Send as Operator"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (operatorReplyText.trim()) {
+                      ChatWorkflowService.replyFromOperator(
+                        matchingChatSession.id,
+                        "Ini Godwin (Escalated Lead)",
+                        operatorReplyText.trim()
+                      );
+                    }
+                    await handleExecuteAutonomousResolution();
+                  }}
+                  disabled={isProcessing}
+                  className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#2ED8B6] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Resolve &amp; Close</span>
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Channel Bar */}
+              <div className="space-y-2 pb-2 border-b border-[var(--line)]">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                    {isContractor ? <Truck className="w-4 h-4 text-[#F5A623]" /> : <Send className="w-4 h-4 text-[#2ED8B6]" />}
+                    <span>{isContractor ? "Contractor Dispatch Station" : "Customer Resolution Station"}</span>
+                  </span>
+                  {matchingChatSession && (
+                    <button
+                      type="button"
+                      onClick={() => setForceStandardComposer(false)}
+                      className="text-[10px] font-mono text-[#2ED8B6] hover:underline cursor-pointer"
+                    >
+                      ← Back to Live Chat
+                    </button>
+                  )}
+                </div>
 
-          {/* Reply Composition Box (Reduced Height per requirement) */}
-          <div className="space-y-1.5 flex-1 flex flex-col">
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              rows={3}
-              className="w-full bg-[#161F2C] text-[#EAF1F8] p-3 rounded-2xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6] min-h-[90px]"
-              placeholder={isContractor ? "Enter instructions or dispatch notice for technician..." : "Compose resolution message to customer..."}
-            />
-          </div>
+                {/* Channels Segment */}
+                <div className="grid grid-cols-5 gap-1 bg-[#161F2C] p-1 rounded-xl border border-[var(--line)] text-xs">
+                  {[
+                    { id: isContractor ? "contractor_sms" : "chat", label: isContractor ? "SMS" : "Chat", icon: isContractor ? Smartphone : MessageSquare },
+                    { id: isContractor ? "work_order_push" : "email", label: isContractor ? "Push" : "Email", icon: isContractor ? FileCheck : Mail },
+                    { id: isContractor ? "site_pass" : "whatsapp", label: isContractor ? "PIN" : "WhatsApp", icon: isContractor ? Key : Phone },
+                    { id: "voice", label: "Voice", icon: Zap },
+                    { id: "internal_note", label: "Note", icon: FileText },
+                  ].map((ch) => {
+                    const Icon = ch.icon;
+                    const isActive = commChannel === ch.id;
+                    return (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => setCommChannel(ch.id as any)}
+                        className={`py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm"
+                            : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                        }`}
+                      >
+                        <Icon className="w-3 h-3" />
+                        <span>{ch.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-          {/* Action Dispatch Buttons (Increased Size per requirement) */}
-          <div className="space-y-2.5 pt-2 border-t border-[var(--line)]">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={handleSendReply}
-                disabled={!replyText.trim()}
-                className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] py-3 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <Send className="w-4 h-4 text-[#2ED8B6]" />
-                <span>{isContractor ? "Send to Tech" : "Send Reply"}</span>
-              </button>
+              {/* AI Response Tone / Mode */}
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#8E9CAE] text-[11px] font-medium">Response Generation Style</span>
+                  <button
+                    type="button"
+                    onClick={handleTriggerGenerateAi}
+                    disabled={isGeneratingAi}
+                    className="text-[10.5px] text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 font-mono"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isGeneratingAi ? "animate-spin" : ""}`} />
+                    <span>Regenerate Response</span>
+                  </button>
+                </div>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  handleSendReply();
-                  await handleExecuteAutonomousResolution();
-                }}
-                disabled={isProcessing || !replyText.trim()}
-                className="btn btn-primary py-3 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
-              >
-                <Zap className="w-4 h-4" />
-                <span>{isContractor ? "Complete Order" : "Auto-Resolve"}</span>
-              </button>
-            </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {[
+                    { id: "empathetic", label: "Empathetic" },
+                    { id: "technical", label: "Technical" },
+                    { id: "concise", label: "Concise" },
+                    { id: "executive", label: "Executive" },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setAiTone(t.id as any)}
+                      className={`py-1 px-1 text-[10px] rounded-lg transition-all cursor-pointer text-center truncate ${
+                        aiTone === t.id
+                          ? "bg-[#2ED8B6]/20 text-[#2ED8B6] font-bold border border-[#2ED8B6]/40"
+                          : "bg-[#161F2C] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => onEscalate && selectedIssue && onEscalate(selectedIssue)}
-              className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 text-[#8E9CAE] hover:text-[#EAF1F8] cursor-pointer"
-            >
-              <Flame className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span>Escalate to Tier 2 Lead</span>
-            </button>
-          </div>
+              {/* Reply Composition Box */}
+              <div className="space-y-1.5 flex-1 flex flex-col">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  rows={3}
+                  className="w-full bg-[#161F2C] text-[#EAF1F8] p-3 rounded-2xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6] min-h-[90px]"
+                  placeholder={isContractor ? "Enter instructions or dispatch notice for technician..." : "Compose resolution message to customer..."}
+                />
+              </div>
+
+              {/* Action Dispatch Buttons */}
+              <div className="space-y-2.5 pt-2 border-t border-[var(--line)]">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSendReply}
+                    disabled={!replyText.trim()}
+                    className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] py-3 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4 text-[#2ED8B6]" />
+                    <span>{isContractor ? "Send to Tech" : "Send Reply"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      handleSendReply();
+                      await handleExecuteAutonomousResolution();
+                    }}
+                    disabled={isProcessing || !replyText.trim()}
+                    className="btn btn-primary py-3 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span>{isContractor ? "Complete Order" : "Auto-Resolve"}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onEscalate && selectedIssue && onEscalate(selectedIssue)}
+                  className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 text-[#8E9CAE] hover:text-[#EAF1F8] cursor-pointer"
+                >
+                  <Flame className="w-3.5 h-3.5 text-[#F5A623]" />
+                  <span>Escalate to Tier 2 Lead</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

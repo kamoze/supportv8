@@ -41,7 +41,7 @@ export function PoliciesAndRulesView({
   onUpdatePolicy,
   onNotify,
 }: PoliciesAndRulesViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"rules" | "guardrails" | "simulator">("rules");
+  const [activeSubTab, setActiveSubTab] = useState<"rules" | "guardrails" | "queues" | "scheduler" | "simulator">("rules");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
@@ -53,6 +53,112 @@ export function PoliciesAndRulesView({
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<PolicyRule | null>(null);
+
+  // Ingest Queues State
+  const [queues, setQueues] = useState<Array<{
+    id: string;
+    name: string;
+    ingestType: "chat" | "voice" | "email" | "contractor_sms" | "api_webhook";
+    assignedOperator: string;
+    slaTargetMinutes: number;
+    priorityWeight: number;
+    autoEscalateFrustrated: boolean;
+    status: "active" | "paused";
+  }>>([
+    {
+      id: "q_chat_live",
+      name: "Omnichannel Live Chat Queue",
+      ingestType: "chat",
+      assignedOperator: "Alex — Support Intelligence Lead (AI)",
+      slaTargetMinutes: 15,
+      priorityWeight: 10,
+      autoEscalateFrustrated: true,
+      status: "active",
+    },
+    {
+      id: "q_voice_vip",
+      name: "VIP Telephony & Emergency Voice Queue",
+      ingestType: "voice",
+      assignedOperator: "Sophia — Enterprise Relationship Manager (AI)",
+      slaTargetMinutes: 5,
+      priorityWeight: 15,
+      autoEscalateFrustrated: true,
+      status: "active",
+    },
+    {
+      id: "q_tech_dispatch",
+      name: "Field Technician & Lockbox Pass Queue",
+      ingestType: "contractor_sms",
+      assignedOperator: "Ini Godwin (Escalated Lead)",
+      slaTargetMinutes: 30,
+      priorityWeight: 8,
+      autoEscalateFrustrated: false,
+      status: "active",
+    },
+    {
+      id: "q_email_general",
+      name: "Asynchronous Email & Web Ticket Queue",
+      ingestType: "email",
+      assignedOperator: "Barnaby — Knowledge & Runbook Lead (AI)",
+      slaTargetMinutes: 60,
+      priorityWeight: 5,
+      autoEscalateFrustrated: true,
+      status: "active",
+    },
+  ]);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
+  const [newQueueName, setNewQueueName] = useState("");
+  const [newQueueIngestType, setNewQueueIngestType] = useState<"chat" | "voice" | "email" | "contractor_sms" | "api_webhook">("chat");
+  const [newQueueOperator, setNewQueueOperator] = useState("Alex — Support Intelligence Lead (AI)");
+  const [newQueueSla, setNewQueueSla] = useState(15);
+
+  // Automation Action Schedulers (Cron Jobs) State
+  const [schedules, setSchedules] = useState<Array<{
+    id: string;
+    name: string;
+    cronExpression: string;
+    humanSchedule: string;
+    actionType: "stale_work_sweep" | "sla_breach_triage" | "vip_retention_sync" | "kb_pgvector_reindex";
+    targetPackage: string;
+    lastRun: string;
+    status: "active" | "paused";
+  }>>([
+    {
+      id: "sched_01",
+      name: "Stale Work Nightly Sweeper",
+      cronExpression: "0 2 * * *",
+      humanSchedule: "Daily at 02:00 UTC",
+      actionType: "stale_work_sweep",
+      targetPackage: "Autonomous Sweeper & OrderV8 Reconciliation",
+      lastRun: "Today at 02:00 UTC (18 tickets closed)",
+      status: "active",
+    },
+    {
+      id: "sched_02",
+      name: "Hourly SLA Pre-Breach Triage & Urgency Bump",
+      cronExpression: "0 * * * *",
+      humanSchedule: "Every hour at minute 0",
+      actionType: "sla_breach_triage",
+      targetPackage: "SLA Sentinel & VIP Executive Escalator",
+      lastRun: "34 minutes ago (2 escalated)",
+      status: "active",
+    },
+    {
+      id: "sched_03",
+      name: "Continuous Knowledge Base RAG & S3 Vector Re-sync",
+      cronExpression: "*/30 * * * *",
+      humanSchedule: "Every 30 minutes",
+      actionType: "kb_pgvector_reindex",
+      targetPackage: "Barnaby Vector Grounding & pgvector Indexer",
+      lastRun: "12 minutes ago (4 documents synced)",
+      status: "active",
+    },
+  ]);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [newSchedName, setNewSchedName] = useState("");
+  const [newSchedCron, setNewSchedCron] = useState("0 2 * * *");
+  const [newSchedAction, setNewSchedAction] = useState<any>("stale_work_sweep");
+  const [newSchedPackage, setNewSchedPackage] = useState("Autonomous Sweeper & OrderV8 Reconciliation");
 
   // Rule Form Fields
   const [ruleName, setRuleName] = useState("");
@@ -364,7 +470,7 @@ export function PoliciesAndRulesView({
       </div>
 
       {/* Sub-View Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#121A24] border border-[var(--line)] font-mono text-xs w-fit">
+      <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#121A24] border border-[var(--line)] font-mono text-xs w-fit">
         <button
           type="button"
           onClick={() => setActiveSubTab("rules")}
@@ -375,7 +481,7 @@ export function PoliciesAndRulesView({
           }`}
         >
           <Shield className="w-3.5 h-3.5" />
-          <span>Active Policy Rules ({rules.length})</span>
+          <span>Active Rules ({rules.length})</span>
         </button>
 
         <button
@@ -388,7 +494,33 @@ export function PoliciesAndRulesView({
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>Guardrails &amp; Safety Ceilings</span>
+          <span>Guardrails &amp; Ceilings</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("queues")}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeSubTab === "queues"
+              ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-extrabold"
+              : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Ingest Queues &amp; Routing</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("scheduler")}
+          className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeSubTab === "scheduler"
+              ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-extrabold"
+              : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Automation Schedulers</span>
         </button>
 
         <button
@@ -401,7 +533,7 @@ export function PoliciesAndRulesView({
           }`}
         >
           <Play className="w-3.5 h-3.5" />
-          <span>Policy Simulator &amp; Sandbox</span>
+          <span>Policy Simulator</span>
         </button>
       </div>
 
@@ -814,6 +946,216 @@ export function PoliciesAndRulesView({
       )}
 
       {/* ========================================================================= */}
+      {/* SUB-VIEW 4: INGEST QUEUES & OPERATOR ROUTING */}
+      {/* ========================================================================= */}
+      {activeSubTab === "queues" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#2ED8B6]" />
+                <span>Custom Ingest Queues &amp; Operator Routing</span>
+              </h3>
+              <p className="text-xs text-[#8E9AA8]">
+                Route omnichannel inbound channels (Chat, Voice, Email, Contractor SMS) to dedicated AI employees or human lead queues.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsQueueModalOpen(true)}
+              className="btn btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Create Ingest Queue</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {queues.map((q) => (
+              <div
+                key={q.id}
+                className="card p-5 rounded-2xl border border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6]/40 transition-all"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="pill ok text-[9px] font-mono uppercase font-bold">
+                        {q.ingestType}
+                      </span>
+                      <h4 className="text-xs font-bold text-[#EAF1F8]">{q.name}</h4>
+                    </div>
+                    <p className="text-[11px] font-mono text-[#6B7C8D]">
+                      Queue ID: <strong className="text-[#B4C2D0]">{q.id}</strong>
+                    </p>
+                  </div>
+
+                  <span
+                    className={`pill text-[9px] font-mono ${
+                      q.status === "active" ? "ok" : "border-[#6B7C8D]/40 text-[#6B7C8D]"
+                    }`}
+                  >
+                    {q.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2 text-xs font-mono">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#6B7C8D]">Assigned Operator / AI Lead:</span>
+                    <span className="text-[#2ED8B6] font-bold">{q.assignedOperator}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[var(--line)]">
+                    <span className="text-[#6B7C8D]">SLA Target Response:</span>
+                    <span className="text-[#EAF1F8] font-bold">{q.slaTargetMinutes} Minutes</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[var(--line)]">
+                    <span className="text-[#6B7C8D]">Priority Weight:</span>
+                    <span className="text-[#4D9FFF] font-bold">{q.priorityWeight}x Ingress Multiplier</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[var(--line)]">
+                    <span className="text-[#6B7C8D]">Auto-Escalate Frustrated:</span>
+                    <span className={q.autoEscalateFrustrated ? "text-[#2ED8B6] font-bold" : "text-[#6B7C8D]"}>
+                      {q.autoEscalateFrustrated ? "ENABLED" : "DISABLED"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQueues((prev) =>
+                        prev.map((item) =>
+                          item.id === q.id
+                            ? { ...item, status: item.status === "active" ? "paused" : "active" }
+                            : item
+                        )
+                      );
+                      onNotify(`Toggled queue ${q.name} status`, "info");
+                    }}
+                    className="btn btn-secondary py-1 px-3 text-xs font-mono cursor-pointer"
+                  >
+                    {q.status === "active" ? "Pause Routing" : "Activate Queue"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQueues((prev) => prev.filter((item) => item.id !== q.id));
+                      onNotify(`Deleted ingest queue ${q.name}`, "info");
+                    }}
+                    className="p-1 text-[#6B7C8D] hover:text-[#E5484D] transition-colors cursor-pointer"
+                    title="Delete Ingest Queue"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-VIEW 5: AUTOMATION ACTION SCHEDULERS (CRON ENGINE) */}
+      {/* ========================================================================= */}
+      {activeSubTab === "scheduler" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#2ED8B6]" />
+                <span>Automation Action Schedulers &amp; Cron Triggers</span>
+              </h3>
+              <p className="text-xs text-[#8E9AA8]">
+                Recurring autonomous worker triggers (Stale sweeps, SLA pre-breach alerts, knowledge vector syncs) bound to workforce employee packages.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsScheduleModalOpen(true)}
+              className="btn btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Cron Schedule</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+            {schedules.map((sched) => (
+              <div
+                key={sched.id}
+                className="card p-5 rounded-2xl border border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6]/40 transition-all flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <span className="px-2 py-0.5 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] font-bold text-[10px]">
+                      {sched.cronExpression}
+                    </span>
+                    <span
+                      className={`pill text-[9px] ${
+                        sched.status === "active" ? "ok" : "border-[#6B7C8D]/40 text-[#6B7C8D]"
+                      }`}
+                    >
+                      {sched.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-[#EAF1F8] font-sans">{sched.name}</h4>
+                    <p className="text-[11px] text-[#6B7C8D] mt-0.5">{sched.humanSchedule}</p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1.5 text-[11px]">
+                    <div>
+                      <span className="text-[#6B7C8D] block text-[9.5px]">TARGET EMPLOYEE PACKAGE</span>
+                      <strong className="text-[#B4C2D0]">{sched.targetPackage}</strong>
+                    </div>
+                    <div className="pt-1 border-t border-[var(--line)]">
+                      <span className="text-[#6B7C8D] block text-[9.5px]">LAST EXECUTION</span>
+                      <strong className="text-[#2ED8B6]">{sched.lastRun}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+                  <button
+                    type="button"
+                    onClick={() => onNotify(`Dispatched instant manual trigger for ${sched.name}!`, "success")}
+                    className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer text-[#2ED8B6]"
+                  >
+                    <Play className="w-3 h-3" />
+                    <span>Run Now</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchedules((prev) =>
+                        prev.map((s) =>
+                          s.id === sched.id
+                            ? { ...s, status: s.status === "active" ? "paused" : "active" }
+                            : s
+                        )
+                      );
+                      onNotify(`Updated schedule ${sched.name} status`, "info");
+                    }}
+                    className="text-xs text-[#8E9AA8] hover:text-[#EAF1F8] cursor-pointer"
+                  >
+                    {sched.status === "active" ? "Pause" : "Activate"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* CREATE / EDIT POLICY RULE MODAL */}
       {/* ========================================================================= */}
       {isRuleModalOpen && (
@@ -1033,6 +1375,233 @@ export function PoliciesAndRulesView({
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CREATE INGEST QUEUE */}
+      {/* ========================================================================= */}
+      {isQueueModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg card shadow-2xl p-6 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#2ED8B6]" />
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Create Custom Ingest Queue</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQueueModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newQueueName.trim()) return;
+                const newQ = {
+                  id: `q_${Date.now().toString().slice(-4)}`,
+                  name: newQueueName.trim(),
+                  ingestType: newQueueIngestType,
+                  assignedOperator: newQueueOperator,
+                  slaTargetMinutes: newQueueSla,
+                  priorityWeight: 10,
+                  autoEscalateFrustrated: true,
+                  status: "active" as const,
+                };
+                setQueues((prev) => [newQ, ...prev]);
+                setIsQueueModalOpen(false);
+                setNewQueueName("");
+                onNotify(`Created ingest queue "${newQ.name}"!`, "success");
+              }}
+              className="space-y-3.5 text-xs font-mono"
+            >
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Queue Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newQueueName}
+                  onChange={(e) => setNewQueueName(e.target.value)}
+                  placeholder="e.g. VIP Priority Escrow Voice Queue"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Ingest Stream Channel</label>
+                  <select
+                    value={newQueueIngestType}
+                    onChange={(e) => setNewQueueIngestType(e.target.value as any)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="chat">Omnichannel Chat Widget</option>
+                    <option value="voice">Telephony Voice / SIP</option>
+                    <option value="email">Asynchronous Email</option>
+                    <option value="contractor_sms">Contractor SMS / Dispatch</option>
+                    <option value="api_webhook">External API Webhook</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Target SLA Response (Min)</label>
+                  <input
+                    type="number"
+                    value={newQueueSla}
+                    onChange={(e) => setNewQueueSla(Number(e.target.value))}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Assigned Operator / AI Workforce</label>
+                <select
+                  value={newQueueOperator}
+                  onChange={(e) => setNewQueueOperator(e.target.value)}
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none cursor-pointer"
+                >
+                  <option value="Alex — Support Intelligence Lead (AI)">Alex — Support Intelligence Lead (AI)</option>
+                  <option value="Sophia — Enterprise Relationship Manager (AI)">Sophia — Enterprise Relationship Manager (AI)</option>
+                  <option value="Barnaby — Knowledge & Runbook Lead (AI)">Barnaby — Knowledge & Runbook Lead (AI)</option>
+                  <option value="Ini Godwin (Escalated Lead)">Ini Godwin (Escalated Lead)</option>
+                  <option value="Marcus Vance (Tier 2 Lead)">Marcus Vance (Tier 2 Lead)</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => setIsQueueModalOpen(false)}
+                  className="btn btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary text-xs font-bold"
+                >
+                  Save Ingest Queue
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD CRON AUTOMATION SCHEDULE */}
+      {/* ========================================================================= */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg card shadow-2xl p-6 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-[#2ED8B6]" />
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Add Cron Automation Schedule</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newSchedName.trim()) return;
+                const newS = {
+                  id: `sched_${Date.now().toString().slice(-4)}`,
+                  name: newSchedName.trim(),
+                  cronExpression: newSchedCron.trim(),
+                  humanSchedule: `Cron schedule: ${newSchedCron}`,
+                  actionType: newSchedAction,
+                  targetPackage: newSchedPackage,
+                  lastRun: "Scheduled for next trigger",
+                  status: "active" as const,
+                };
+                setSchedules((prev) => [newS, ...prev]);
+                setIsScheduleModalOpen(false);
+                setNewSchedName("");
+                onNotify(`Created cron trigger "${newS.name}"!`, "success");
+              }}
+              className="space-y-3.5 text-xs font-mono"
+            >
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Schedule Job Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newSchedName}
+                  onChange={(e) => setNewSchedName(e.target.value)}
+                  placeholder="e.g. 15-Minute VIP Retention Sync"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Cron Expression</label>
+                  <input
+                    type="text"
+                    required
+                    value={newSchedCron}
+                    onChange={(e) => setNewSchedCron(e.target.value)}
+                    placeholder="*/15 * * * *"
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Action Type</label>
+                  <select
+                    value={newSchedAction}
+                    onChange={(e) => setNewSchedAction(e.target.value as any)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="stale_work_sweep">Stale Work Sweep</option>
+                    <option value="sla_breach_triage">SLA Pre-Breach Triage</option>
+                    <option value="kb_pgvector_reindex">pgvector RAG Re-index</option>
+                    <option value="vip_retention_sync">VIP Retention Sync</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Target Workforce Package</label>
+                <input
+                  type="text"
+                  value={newSchedPackage}
+                  onChange={(e) => setNewSchedPackage(e.target.value)}
+                  placeholder="e.g. VIP Sentinel & Escalation Engine"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => setIsScheduleModalOpen(false)}
+                  className="btn btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary text-xs font-bold"
+                >
+                  Save Schedule Trigger
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

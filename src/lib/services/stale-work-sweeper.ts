@@ -60,6 +60,12 @@ export class StaleWorkSweeper {
 
       if (result.success) {
         candidate.status = "executed";
+        const issue = db.issues.find((i) => i.id === candidate.issueId || i.externalId === candidate.externalId);
+        if (issue) {
+          issue.status = "resolved";
+          issue.sourceStatus = "closed";
+          issue.updatedAt = new Date().toISOString();
+        }
         return {
           success: true,
           message: `Closed stale ticket ${candidate.externalId} on ${candidate.source} via Action Gateway.`,

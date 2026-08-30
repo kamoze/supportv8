@@ -1361,6 +1361,8 @@ class SupportDatabase {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
 
+    const dynamicIssues = this.dynamicTenantIssues.get(cleanSlug) || [];
+
     return {
       tenant: {
         tenantId: `tenant_${cleanSlug}`,
@@ -1377,15 +1379,26 @@ class SupportDatabase {
           staleWorkSweep: false,
         },
       },
-      issues: [] as Issue[],
+      issues: dynamicIssues,
       problems: [] as Problem[],
       insights: [] as Insight[],
       sources: [] as SourceConnector[],
       documents: [] as KnowledgeDocument[],
       documentChunks: [] as KnowledgeDocumentChunk[],
       webSources: [] as KnowledgeWebSource[],
-      isClean: true,
+      isClean: dynamicIssues.length === 0,
     };
+  }
+
+  private dynamicTenantIssues: Map<string, Issue[]> = new Map();
+
+  public addIssue(issue: Issue, tenantSlug: string = "default") {
+    this.issues.unshift(issue);
+    const clean = tenantSlug.toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian" && clean !== "default") {
+      const existing = this.dynamicTenantIssues.get(clean) || [];
+      this.dynamicTenantIssues.set(clean, [issue, ...existing.filter((i) => i.id !== issue.id)]);
+    }
   }
 }
 

@@ -41,6 +41,7 @@ export function MarketplaceConnectorsView({
   const [activeSubTab, setActiveSubTab] = useState<"connectors" | "verticals" | "dispatcher">("connectors");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedConnectorConfig, setSelectedConnectorConfig] = useState<MarketplaceConnector | null>(null);
 
   // Interactive Vertical Dispatcher States
   const [selectedVertical, setSelectedVertical] = useState<string>("orderv8");
@@ -268,7 +269,10 @@ export function MarketplaceConnectorsView({
                   <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
                     <button
                       type="button"
-                      onClick={() => onOpenConfig(conn)}
+                      onClick={() => {
+                        setSelectedConnectorConfig(conn);
+                        onOpenConfig(conn);
+                      }}
                       className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
                     >
                       <Settings className="w-3.5 h-3.5" />
@@ -468,6 +472,134 @@ export function MarketplaceConnectorsView({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CONNECTOR SETUP MODAL (e.g. AWS S3, Twilio, Zendesk, Salesforce) */}
+      {/* ========================================================================= */}
+      {selectedConnectorConfig && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150 font-mono text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-center justify-center text-sm text-[#2ED8B6]">
+                  <i className={selectedConnectorConfig.icon} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">
+                    Configure {selectedConnectorConfig.name}
+                  </h3>
+                  <p className="text-[10px] text-[#6B7C8D]">
+                    Tenant Integration &amp; Interservice Gateway Binding
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedConnectorConfig(null)}
+                className="p-1.5 rounded-lg text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#141C26] cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              {selectedConnectorConfig.id.includes("s3") || selectedConnectorConfig.name.includes("S3") ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-[#B4C2D0] block">AWS S3 Bucket Name / Domain</label>
+                    <input
+                      type="text"
+                      defaultValue="timeforbed.s3.ca-central-1.amazonaws.com"
+                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#B4C2D0] block">AWS Region</label>
+                      <input
+                        type="text"
+                        defaultValue="ca-central-1"
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#B4C2D0] block">Sync Prefix</label>
+                      <input
+                        type="text"
+                        defaultValue="knowledge/"
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-[#B4C2D0] block">AWS Access Key ID</label>
+                    <input
+                      type="text"
+                      defaultValue="AKIAIOSFODNN7EXAMPLE"
+                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-[#B4C2D0] block">AWS Secret Access Key</label>
+                    <input
+                      type="password"
+                      defaultValue="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-[#B4C2D0] block">Endpoint / Instance URL</label>
+                    <input
+                      type="text"
+                      defaultValue="https://tenant.api.servicev8.internal/v1"
+                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-[#B4C2D0] block">Secret Authentication Token</label>
+                    <input
+                      type="password"
+                      defaultValue="sec_live_994812a884bf01e3"
+                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => setSelectedConnectorConfig(null)}
+                className="btn btn-secondary text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onToggleConnector(selectedConnectorConfig.id, true);
+                  if (onNotify) {
+                    onNotify(`Configured and enabled ${selectedConnectorConfig.name} in tenant account.`, "success");
+                  }
+                  setSelectedConnectorConfig(null);
+                }}
+                className="btn btn-primary text-xs font-bold"
+              >
+                Save &amp; Connect
+              </button>
             </div>
           </div>
         </div>

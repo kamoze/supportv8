@@ -16,7 +16,7 @@ export interface DemoLeadRecord {
 }
 
 // In-memory lead pipeline ledger
-export const demoLeadsStore: DemoLeadRecord[] = [];
+const demoLeadsStore: DemoLeadRecord[] = [];
 
 export async function POST(req: NextRequest) {
   try {

@@ -936,6 +936,40 @@ export function GovernanceSettingsView({
             </div>
           </div>
 
+          {/* Default Inbound Chat Routing Mode */}
+          <div className="space-y-2 pt-4 border-t border-[var(--line)]">
+            <label className="text-[#6B7C8D] font-mono block uppercase text-[10px] font-bold">
+              Default Inbound Live Chat Routing Engine
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[#2ED8B6]/40 flex items-start justify-between">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                    <Bot className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>AI Autonomous Co-pilot (Default First)</span>
+                  </span>
+                  <p className="text-[10px] text-[#6B7C8D]">
+                    AI employees (Sophia, Alex, Barnaby) triage, synthesize knowledge citations, and resolve issues autonomously before human handover.
+                  </p>
+                </div>
+                <span className="pill ok text-[9px]">ACTIVE</span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-start justify-between opacity-80">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-[#4D9FFF]" />
+                    <span>Direct Human Staff Queue (Live Operator First)</span>
+                  </span>
+                  <p className="text-[10px] text-[#6B7C8D]">
+                    Incoming chat requests bypass AI triage and alert on-call human support agents directly in the Work Desk queue.
+                  </p>
+                </div>
+                <span className="pill text-[9px] text-[#6B7C8D]">AVAILABLE</span>
+              </div>
+            </div>
+          </div>
+
           {/* Auto-Escalation Keywords */}
           <div className="space-y-2 pt-2 border-t border-[var(--line)]">
             <label className="text-[#6B7C8D] font-mono block uppercase text-[10px]">

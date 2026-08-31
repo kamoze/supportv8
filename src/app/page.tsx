@@ -133,6 +133,7 @@ import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
+import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 
 export interface ChatMessage {
   id: string;
@@ -4946,6 +4947,43 @@ export default function SupportV8Dashboard() {
             onUpdateIssue={handleUpdateIssue}
             onCreateIssue={handleCreateIssue}
             onImportIssues={handleImportIssues}
+            onSaveToKnowledgeBase={async (ticket) => {
+              await knowledgev8Connector.ingestResolvedTicket({
+                externalId: ticket.externalId,
+                summary: ticket.summary,
+                customerName: ticket.customerName,
+                product: ticket.product,
+                resolutionNotes: ticket.recommendedAction || "Resolved via workdesk operations.",
+                category: ticket.category,
+                tags: ticket.tags,
+              });
+              setForgeGwCredits((prev) => Math.max(0, prev - 20));
+              notify(`🧠 Indexed ticket ${ticket.externalId} into pgvector RAG corpus (Deducted 20 Credits)`, "success");
+            }}
+            onDeductCredits={(amount, reason) => {
+              setForgeGwCredits((prev) => Math.max(0, prev - amount));
+              notify(`Deducted ${amount} ForgeGW Credits: ${reason}`, "info");
+            }}
+            onTriggerTemporalActivity={async (ticketId, activityType, payload) => {
+              console.log(`[Temporal Orchestration Activity] Dispatched: ${activityType} for ${ticketId}`, payload);
+              try {
+                await fetch("/api/interservice", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    targetService: "dominion",
+                    operation: "emitAlert",
+                    payload: {
+                      severity: activityType === "ticket_status_change" && payload?.status === "escalated" ? "high" : "low",
+                      title: `[Temporal Activity] ${activityType} on ${ticketId}`,
+                      description: JSON.stringify(payload || {}),
+                    },
+                  }),
+                });
+              } catch (e) {
+                // Non-blocking telemetry
+              }
+            }}
             onEscalate={(issue) => {
               setSelectedTicketForEscalation({
                 ticketId: issue.id,
@@ -5007,6 +5045,7 @@ export default function SupportV8Dashboard() {
           <GovernanceSettingsView
             settings={tenantSettings}
             onUpdateSettings={handleUpdateSettings}
+            onNotify={notify}
           />
         )}
 
@@ -6550,7 +6589,7 @@ export default function SupportV8Dashboard() {
                   <Zap className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">ForgeGW Action Gateway &amp; BYOM Model Governance</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">ForgeGW &amp; BYOM Model Governance</h3>
                   <p className="text-[10px] text-[#6B7C8D]">Pooled multi-service action credits and private LLM keys</p>
                 </div>
               </div>
@@ -6613,8 +6652,8 @@ export default function SupportV8Dashboard() {
                     <span className="text-lg font-bold text-[#2ED8B6] font-mono">{forgeGwCredits.toLocaleString()} Credits</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-[#6B7C8D] block uppercase">Subscription Status</span>
-                    <span className="pill ok text-[10px] font-mono font-bold">Active Pro Tier ($499/mo)</span>
+                    <span className="text-[10px] text-[#6B7C8D] block uppercase">Account Pool Status</span>
+                    <span className="pill ok text-[10px] font-mono font-bold">Account-Linked (Spendable)</span>
                   </div>
                 </div>
 

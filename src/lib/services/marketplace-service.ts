@@ -387,7 +387,7 @@ export const INITIAL_CONNECTORS: MarketplaceConnector[] = [
     status: "active",
     syncFrequencyMinutes: 1,
     eventsPerDay: 310,
-    endpointUrl: "https://supportv8.acme.com/api/ingress/webhook",
+    endpointUrl: "https://support.servicev8.com/api/ingress/webhook",
     configFields: [
       { key: "webhookSecret", label: "HMAC Secret Key", type: "password", value: "whsec_••••••••••••" },
     ],
@@ -675,7 +675,7 @@ export const INITIAL_SETTINGS: TenantSettingConfig = {
   keycloakRealm: "supportv8-acme-realm",
   postgresRlsEnabled: true,
   redisTtlSeconds: 86400,
-  webhookUrl: "https://supportv8.acme.com/api/ingress/webhook",
+  webhookUrl: "https://support.servicev8.com/api/ingress/webhook",
   apiKey: "sv8_live_99f82ab47c104e12bb09",
   dataRetentionDays: 90,
   autoEscalateFrustrated: true,
@@ -699,7 +699,7 @@ export const INITIAL_SETTINGS: TenantSettingConfig = {
   embeddingChunkOverlap: 64,
 
   // ForgeGW Settings
-  forgeGwEndpoint: "https://forgegw.servicev8.internal:8443",
+  forgeGwEndpoint: "https://gateway.servicev8.com/v1/forge",
   forgeGwApiKey: "fgw_live_sec_88421098bb12c4",
   forgeGwRateLimitRpm: 500,
   forgeGwTimeoutMs: 10000,

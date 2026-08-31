@@ -196,7 +196,7 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
   },
   gov_settings: {
     label: "Governance Settings",
-    what: "Tenant infrastructure controls: BYOM custom LLMs (Claude, OpenAI, Gemini, Groq, Ollama), vector embedding dimensions, and ForgeGW action gateway security keys.",
+    what: "Tenant infrastructure controls: BYOM custom LLMs (Claude, OpenAI, Gemini, Groq, Ollama), vector embedding dimensions, and ForgeGW security keys.",
     actions: [
       "Configure your own enterprise LLM provider API key, base URL, and temperature.",
       "Select vector embedding provider (OpenAI 1536-dim, Voyage, FastEmbed 384-dim).",

@@ -142,6 +142,43 @@ export interface Issue {
   updatedAt: string;
   entityType?: "customer" | "contractor" | "field_dispatch";
   contractor?: ContractorDetails;
+  timeline?: TicketTimelineEvent[];
+  messages?: TicketMessageItem[];
+  attachments?: TicketAttachment[];
+  contextSnippets?: string[];
+  linkedKbArticles?: Array<{ id: string; title: string; url?: string }>;
+  ragIngested?: boolean;
+  ragIngestedAt?: string;
+  assignee?: string;
+  assignedAgent?: string;
+}
+
+export interface TicketTimelineEvent {
+  id: string;
+  timestamp: string;
+  actor: string;
+  actorType: "human_operator" | "ai_employee" | "customer" | "system";
+  action: string;
+  details?: string;
+}
+
+export interface TicketMessageItem {
+  id: string;
+  timestamp: string;
+  sender: "customer" | "operator" | "ai_employee" | "system";
+  senderName: string;
+  content: string;
+  channel?: string;
+}
+
+export interface TicketAttachment {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  type: "image" | "document" | "snippet" | "log";
+  url: string;
+  uploadedAt: string;
+  snippetContent?: string;
 }
 
 export interface Problem {

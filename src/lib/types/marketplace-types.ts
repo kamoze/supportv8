@@ -90,7 +90,7 @@ export interface TenantSettingConfig {
   byomMaxTokens: number;
 
   // Vector Embedding Settings
-  embeddingProvider: "openai" | "voyage" | "cohere" | "fastembed_local" | "custom_vector_endpoint";
+  embeddingProvider: "openai" | "voyage" | "cohere" | "fastembed_local" | "custom_vector_endpoint" | "forgegw";
   embeddingModel: string;
   embeddingDimensions: number;
   embeddingSimilarityMetric: "cosine" | "inner_product" | "euclidean_l2";

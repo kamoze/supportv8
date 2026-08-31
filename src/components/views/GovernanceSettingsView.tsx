@@ -34,11 +34,13 @@ import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
 interface GovernanceSettingsViewProps {
   settings: TenantSettingConfig;
   onUpdateSettings: (updates: Partial<TenantSettingConfig>) => void;
+  onNotify?: (msg: string, type?: "success" | "error" | "info") => void;
 }
 
 export function GovernanceSettingsView({
   settings,
   onUpdateSettings,
+  onNotify,
 }: GovernanceSettingsViewProps) {
   const [activeSettingsTab, setActiveSettingsTab] = useState<"byom" | "embeddings" | "forgegw" | "guardrails" | "api_tokens" | "general">("byom");
 
@@ -147,9 +149,14 @@ export function GovernanceSettingsView({
   const [guardrails, setGuardrails] = useState(ChatWorkflowService.getGuardrails());
   const [newKeyword, setNewKeyword] = useState("");
 
+  // Primary Active Routing Mode: ForgeGW Managed vs Enterprise BYOM
+  const [routingMode, setRoutingMode] = useState<"forgegw" | "byom">(
+    settings.byomApiKey && settings.byomApiKey.startsWith("sk-ant-api") ? "forgegw" : "forgegw"
+  );
+
   // General & Security
   const [workspaceName, setWorkspaceName] = useState<string>(settings.workspaceName || "Acme Enterprise");
-  const [webhookUrl, setWebhookUrl] = useState<string>(settings.webhookUrl || "https://supportv8.acme.com/api/ingress/webhook");
+  const [webhookUrl, setWebhookUrl] = useState<string>(settings.webhookUrl || "https://support.servicev8.com/api/ingress/webhook");
   const [operatingMode, setOperatingMode] = useState<"observe" | "copilot" | "autonomous">(
     settings.operatingMode || "autonomous"
   );
@@ -175,10 +182,10 @@ export function GovernanceSettingsView({
   const [byomStatusMsg, setByomStatusMsg] = useState<string | null>(null);
 
   // Embeddings & pgvector
-  const [embeddingProvider, setEmbeddingProvider] = useState<"openai" | "voyage" | "cohere" | "fastembed_local" | "custom_vector_endpoint">(
-    settings.embeddingProvider || "openai"
+  const [embeddingProvider, setEmbeddingProvider] = useState<"forgegw" | "openai" | "voyage" | "cohere" | "fastembed_local" | "custom_vector_endpoint">(
+    (settings.embeddingProvider as any) || "forgegw"
   );
-  const [embeddingModel, setEmbeddingModel] = useState<string>(settings.embeddingModel || "text-embedding-3-small");
+  const [embeddingModel, setEmbeddingModel] = useState<string>(settings.embeddingModel || "forge-embed-text-1536");
   const [embeddingDimensions, setEmbeddingDimensions] = useState<number>(settings.embeddingDimensions || 1536);
   const [embeddingSimilarityMetric, setEmbeddingSimilarityMetric] = useState<"cosine" | "inner_product" | "euclidean_l2">(
     settings.embeddingSimilarityMetric || "cosine"
@@ -194,7 +201,9 @@ export function GovernanceSettingsView({
 
   // ForgeGW (Action Gateway)
   const [forgeGwEndpoint, setForgeGwEndpoint] = useState<string>(
-    settings.forgeGwEndpoint || "https://forgegw.servicev8.internal:8443"
+    settings.forgeGwEndpoint?.includes("internal")
+      ? "https://gateway.servicev8.com/v1/forge"
+      : (settings.forgeGwEndpoint || "https://gateway.servicev8.com/v1/forge")
   );
   const [forgeGwApiKey, setForgeGwApiKey] = useState<string>(
     settings.forgeGwApiKey || "fgw_live_sec_88421098bb12c4"
@@ -291,7 +300,7 @@ export function GovernanceSettingsView({
             <h1 className="text-lg font-bold text-[#EAF1F8]">Governance &amp; AI Infrastructure Settings</h1>
           </div>
           <p className="text-xs text-[#B4C2D0]">
-            Configure BYOM model endpoints, vector embedding dimensions, ForgeGW action gateway security keys, and tenant RBAC.
+            Configure BYOM model endpoints, vector embedding dimensions, ForgeGW security keys, and tenant RBAC.
           </p>
         </div>
 
@@ -305,12 +314,79 @@ export function GovernanceSettingsView({
         </button>
       </div>
 
+      {/* Top Active LLM Routing Provider Selector Banner */}
+      <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono text-[#B4C2D0] flex items-center gap-2">
+            <span className="font-bold text-[#EAF1F8]">Active Compute &amp; Model Routing Mode:</span>
+            <span className={`pill text-[10px] font-mono font-bold ${routingMode === "forgegw" ? "ok" : "warn"}`}>
+              {routingMode === "forgegw" ? "⚡ FORGEGW MANAGED ACTIVE" : "🔑 ENTERPRISE BYOM ACTIVE"}
+            </span>
+          </span>
+          <span className="text-[10px] text-[#6B7C8D] font-mono">ServiceV8 Multi-Model Governance</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setRoutingMode("forgegw");
+              onNotify?.("Switched primary routing to ForgeGW Managed Compute (Pooled Credits)", "success");
+            }}
+            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+              routingMode === "forgegw"
+                ? "bg-[#182635] border-[#2ED8B6] shadow-md ring-1 ring-[#2ED8B6]/30"
+                : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+            }`}
+          >
+            <div className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] shrink-0 mt-0.5">
+              <Zap className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
+                <span>ForgeGW Managed (Recommended)</span>
+                {routingMode === "forgegw" && <span className="pill ok text-[9px] py-0 px-1 font-mono">CURRENT</span>}
+              </div>
+              <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-snug">
+                Account-linked spendable credit pool ($0.003/action). Zero API keys required. Managed vector embeddings &amp; SLA guarantee.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRoutingMode("byom");
+              onNotify?.("Switched primary routing to Enterprise BYOM (Bring Your Own Key)", "info");
+            }}
+            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+              routingMode === "byom"
+                ? "bg-[#182635] border-[#4D9FFF] shadow-md ring-1 ring-[#4D9FFF]/30"
+                : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+            }`}
+          >
+            <div className="p-2 rounded-lg bg-[#4D9FFF]/15 text-[#4D9FFF] shrink-0 mt-0.5">
+              <Cpu className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
+                <span>Enterprise BYOM (Custom Key)</span>
+                {routingMode === "byom" && <span className="pill warn text-[9px] py-0 px-1 font-mono">CURRENT</span>}
+              </div>
+              <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-snug">
+                Direct OpenAI, Anthropic, Gemini, Groq, or self-hosted Ollama VPC endpoints at zero platform margin.
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Settings Navigation Tabs */}
       <div className="flex flex-wrap items-center p-1 rounded-xl bg-[#18222E] border border-[var(--line)] gap-1">
         {[
           { id: "byom", label: "BYOM (Custom LLMs)", icon: Cpu },
           { id: "embeddings", label: "Embeddings & Vectors", icon: Database },
-          { id: "forgegw", label: "ForgeGW Action Gateway", icon: Zap },
+          { id: "forgegw", label: "ForgeGW", icon: Zap },
           { id: "guardrails", label: "AI Chat Guardrails", icon: Bot },
           { id: "api_tokens", label: "API Keys & Access Credentials", icon: Key },
           { id: "general", label: "Workspace & Security", icon: Shield },
@@ -349,8 +425,29 @@ export function GovernanceSettingsView({
                 Route autonomous resolution, RAG synthesis, and multi-turn chat to your own enterprise LLM accounts or self-hosted VPC endpoints.
               </p>
             </div>
-            <span className="pill ok text-[10px] font-mono">ENTERPRISE BYOM ACTIVE</span>
+            <span className={`pill text-[10px] font-mono font-bold ${routingMode === "byom" ? "ok" : "warn"}`}>
+              {routingMode === "byom" ? "ENTERPRISE BYOM ACTIVE" : "BYOM STANDBY (ForgeGW Active)"}
+            </span>
           </div>
+
+          {routingMode !== "byom" && (
+            <div className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 flex items-center justify-between text-xs font-mono text-[#EAF1F8]">
+              <div className="flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                <span>ForgeGW Managed is currently the primary compute provider. Switch to BYOM to route queries through your own keys.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setRoutingMode("byom");
+                  onNotify?.("Switched primary routing to Enterprise BYOM", "info");
+                }}
+                className="btn btn-secondary py-1 px-3 text-[11px] font-bold text-[#2ED8B6] hover:border-[#2ED8B6] shrink-0 cursor-pointer"
+              >
+                Set BYOM Active
+              </button>
+            </div>
+          )}
 
           <div className="space-y-4 text-xs">
             {/* Provider Grid */}
@@ -515,12 +612,13 @@ export function GovernanceSettingsView({
             {/* Embedding Provider Selection */}
             <div>
               <label className="text-[#6B7C8D] block mb-2 font-mono uppercase">Vector Embedding Provider</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 {[
+                  { id: "forgegw", label: "ForgeGW Managed", model: "forge-embed-text-1536", dim: 1536, isManaged: true },
                   { id: "openai", label: "OpenAI Embeddings", model: "text-embedding-3-small", dim: 1536 },
                   { id: "voyage", label: "Voyage AI", model: "voyage-3", dim: 1024 },
                   { id: "cohere", label: "Cohere Embed v3", model: "embed-english-v3.0", dim: 1024 },
-                  { id: "fastembed_local", label: "FastEmbed (Local / CPU)", model: "BGE-Small-EN-v1.5", dim: 384 },
+                  { id: "fastembed_local", label: "FastEmbed (Local)", model: "BGE-Small-EN-v1.5", dim: 384 },
                 ].map((prov) => (
                   <button
                     key={prov.id}
@@ -536,7 +634,10 @@ export function GovernanceSettingsView({
                         : "bg-[#0E1520] border-[var(--line)] hover:border-[#2ED8B6]/40"
                     }`}
                   >
-                    <div className="font-bold text-[#EAF1F8] text-[11px]">{prov.label}</div>
+                    <div className="font-bold text-[#EAF1F8] text-[11px] flex items-center justify-between">
+                      <span>{prov.label}</span>
+                      {prov.isManaged && <span className="pill ok text-[8px] py-0 px-1 font-mono">POOLED</span>}
+                    </div>
                     <div className="text-[10px] font-mono text-[#2ED8B6]">{prov.dim} Dimensions</div>
                   </button>
                 ))}
@@ -564,7 +665,7 @@ export function GovernanceSettingsView({
                 >
                   <option value={384}>384 Dimensions (Fast / Lightweight)</option>
                   <option value={1024}>1024 Dimensions (Voyage / Cohere)</option>
-                  <option value={1536}>1536 Dimensions (Standard OpenAI)</option>
+                  <option value={1536}>1536 Dimensions (Standard 1536-dim)</option>
                   <option value={3072}>3072 Dimensions (text-embedding-3-large)</option>
                 </select>
               </div>
@@ -583,25 +684,32 @@ export function GovernanceSettingsView({
               </div>
             </div>
 
-            {/* Embedding API Key */}
-            <div>
-              <label className="text-[#6B7C8D] block mb-1 font-mono">Embedding Provider API Secret Key</label>
-              <div className="relative">
-                <input
-                  type={showEmbeddingKey ? "text" : "password"}
-                  value={embeddingApiKey}
-                  onChange={(e) => setEmbeddingApiKey(e.target.value)}
-                  className="w-full bg-[#18222E] text-[#EAF1F8] pl-3.5 pr-10 py-2.5 rounded-xl border border-[var(--line-2)] font-mono text-xs focus:outline-none focus:border-[#2ED8B6]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowEmbeddingKey(!showEmbeddingKey)}
-                  className="absolute right-3 top-3 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-                >
-                  {showEmbeddingKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
+            {/* Embedding API Key or ForgeGW Managed Banner */}
+            {embeddingProvider === "forgegw" ? (
+              <div className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 text-xs font-mono text-[#EAF1F8] flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                <span><strong>ForgeGW Managed Pipeline:</strong> Vector embeddings are synthesized automatically through the ServiceV8 vector pipeline into the tenant&apos;s pgvector partition. No external API keys or rate limits apply.</span>
               </div>
-            </div>
+            ) : (
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 font-mono">Embedding Provider API Secret Key</label>
+                <div className="relative">
+                  <input
+                    type={showEmbeddingKey ? "text" : "password"}
+                    value={embeddingApiKey}
+                    onChange={(e) => setEmbeddingApiKey(e.target.value)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] pl-3.5 pr-10 py-2.5 rounded-xl border border-[var(--line-2)] font-mono text-xs focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEmbeddingKey(!showEmbeddingKey)}
+                    className="absolute right-3 top-3 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+                  >
+                    {showEmbeddingKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Chunk Size & Overlap */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#18222E] border border-[var(--line)]">
@@ -637,7 +745,7 @@ export function GovernanceSettingsView({
                     <span>{embeddingStatusMsg}</span>
                   </span>
                 ) : (
-                  <span className="text-[#6B7C8D]">Test vectorization creates a live 1536-dim embedding trial.</span>
+                  <span className="text-[#6B7C8D]">Test vectorization creates a live {embeddingDimensions}-dim embedding trial.</span>
                 )}
               </div>
 
@@ -656,7 +764,7 @@ export function GovernanceSettingsView({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: FORGEGW ACTION GATEWAY */}
+      {/* TAB 3: FORGEGW */}
       {/* ========================================================================= */}
       {activeSettingsTab === "forgegw" && (
         <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-6">
@@ -664,13 +772,15 @@ export function GovernanceSettingsView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Zap className="w-4 h-4 text-[#2ED8B6]" />
-                <span>ServiceV8 ForgeGW (Action Gateway) Credentials</span>
+                <span>ServiceV8 ForgeGW Credentials</span>
               </h3>
               <p className="text-xs text-[#B4C2D0]">
                 Zero-trust execution proxy that gates autonomous external mutations (refunds, ticket escalations, DNS shifts) with idempotency keys and rate limits.
               </p>
             </div>
-            <span className="pill ok text-[10px] font-mono">SEC-04 GATEWAY ACTIVE</span>
+            <span className={`pill text-[10px] font-mono font-bold ${routingMode === "forgegw" ? "ok" : "warn"}`}>
+              {routingMode === "forgegw" ? "FORGEGW MANAGED ACTIVE" : "STANDBY (BYOM Active)"}
+            </span>
           </div>
 
           <div className="space-y-4 text-xs">
@@ -681,14 +791,14 @@ export function GovernanceSettingsView({
                 type="text"
                 value={forgeGwEndpoint}
                 onChange={(e) => setForgeGwEndpoint(e.target.value)}
-                placeholder="https://forgegw.servicev8.internal:8443"
+                placeholder="https://gateway.servicev8.com/v1/forge"
                 className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] font-mono text-xs focus:outline-none focus:border-[#2ED8B6]"
               />
             </div>
 
             {/* ForgeGW API Key */}
             <div>
-              <label className="text-[#6B7C8D] block mb-1 font-mono">ForgeGW Action Gateway Secret Key</label>
+              <label className="text-[#6B7C8D] block mb-1 font-mono">ForgeGW Secret Key</label>
               <div className="relative flex items-center gap-2">
                 <input
                   type={showForgeKey ? "text" : "password"}

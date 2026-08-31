@@ -11,6 +11,7 @@ import {
   Shield,
   MessageSquare,
   ChevronRight,
+  ChevronDown,
   Flame,
   ArrowRight,
   Mail,
@@ -40,9 +41,49 @@ import {
   Radio,
   Check,
   Copy,
+  UserCheck,
+  Paperclip,
+  Code,
+  BookOpen,
+  Tag,
+  Activity,
+  CheckSquare,
+  CornerDownRight,
+  Download,
+  ExternalLink,
 } from "lucide-react";
-import type { Issue, SentimentClass, PriorityLevel } from "@/lib/types";
+import type {
+  Issue,
+  SentimentClass,
+  PriorityLevel,
+  TicketTimelineEvent,
+  TicketMessageItem,
+  TicketAttachment,
+} from "@/lib/types";
 import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
+import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
+
+const TEAM_MEMBERS = [
+  { id: "david_kim", name: "David Kim", role: "Frontline Operator", avatar: "👤" },
+  { id: "sarah_chen", name: "Sarah Chen", role: "CX Lead", avatar: "👑" },
+  { id: "alex_ai", name: "Alex (AI Lead)", role: "AI Support Intelligence", avatar: "🤖" },
+  { id: "eleanor_ai", name: "Eleanor (AI Lead)", role: "AI Governance & Policy", avatar: "🛡️" },
+  { id: "jordan_ai", name: "Jordan (AI Lead)", role: "AI Knowledge Base Specialist", avatar: "📚" },
+  { id: "marcus_ai", name: "Marcus (AI Lead)", role: "AI Integrations Engineer", avatar: "⚡" },
+  { id: "meridian_dispatch", name: "Meridian Field Dispatch", role: "Contractor Lead", avatar: "🛠️" },
+];
+
+const STATUS_OPTIONS: Array<{
+  id: string;
+  label: string;
+  color: string;
+}> = [
+  { id: "open", label: "Open", color: "text-[#2ED8B6] border-[#2ED8B6]/40 bg-[#2ED8B6]/10" },
+  { id: "in_progress", label: "In Progress", color: "text-[#4D9FFF] border-[#4D9FFF]/40 bg-[#4D9FFF]/10" },
+  { id: "escalated", label: "Escalated", color: "text-[#E5484D] border-[#E5484D]/40 bg-[#E5484D]/10 font-bold" },
+  { id: "resolved", label: "Resolved", color: "text-[#4CC38A] border-[#4CC38A]/40 bg-[#4CC38A]/10 font-bold" },
+  { id: "closed", label: "Closed", color: "text-[#6B7C8D] border-[var(--line)] bg-[#18222E]" },
+];
 
 interface FocusedWorkspaceViewProps {
   issues: Issue[];
@@ -57,6 +98,9 @@ interface FocusedWorkspaceViewProps {
   onUpdateIssue?: (issue: Issue) => void;
   onCreateIssue?: (issue: Issue) => void;
   onImportIssues?: (issues: Issue[]) => void;
+  onSaveToKnowledgeBase?: (ticket: Issue) => Promise<void> | void;
+  onDeductCredits?: (amount: number, reason: string) => void;
+  onTriggerTemporalActivity?: (ticketId: string, activityType: string, payload?: any) => void;
   onNotify: (msg: string, type?: "success" | "error" | "info") => void;
 }
 
@@ -73,6 +117,9 @@ export function FocusedWorkspaceView({
   onUpdateIssue,
   onCreateIssue,
   onImportIssues,
+  onSaveToKnowledgeBase,
+  onDeductCredits,
+  onTriggerTemporalActivity,
   onNotify,
 }: FocusedWorkspaceViewProps) {
   const isContractorUser = userRole === "contractor" || userRole === "technician" || userRole === "contractor_lead";
@@ -158,6 +205,14 @@ export function FocusedWorkspaceView({
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
 
+  // Re-Assignment & Context Attachments State
+  const [isReassignDropdownOpen, setIsReassignDropdownOpen] = useState(false);
+  const [isSnippetModalOpen, setIsSnippetModalOpen] = useState(false);
+  const [newSnippetTitle, setNewSnippetTitle] = useState("");
+  const [newSnippetContent, setNewSnippetContent] = useState("");
+  const [isSavingRag, setIsSavingRag] = useState(false);
+  const [selectedAttachmentPreview, setSelectedAttachmentPreview] = useState<TicketAttachment | null>(null);
+
   const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
   const isContractor = selectedIssue?.entityType === "contractor" || selectedIssue?.category?.includes("contractor") || Boolean(selectedIssue?.contractor);
 
@@ -180,68 +235,93 @@ export function FocusedWorkspaceView({
       setEditPriority(selectedIssue.priority || "normal");
       setEditStatus(selectedIssue.status);
       setEditSentiment(selectedIssue.sentiment || "neutral");
-      setEditAssignee(selectedIssue.assignedTo || "Unassigned");
+      setEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || "David Kim (Operator)");
       setEditTags(selectedIssue.tags?.join(", ") || "");
       setForceStandardComposer(false);
+      setIsReassignDropdownOpen(false);
       if (selectedIssue.contractor) {
         setTechStatus("assigned");
       }
     }
   }, [selectedIssueId]);
 
-  // Generate contextual AI response based on issue & parameters
+  // Aligned Generative AI response based on ticket inquiry, customer sentiment, product & context
   const generateContextualReply = (issue: Issue, tone: string, channel: string) => {
     if (!issue) return "";
-    const isContractorTicket = issue.entityType === "contractor" || issue.category?.includes("contractor") || Boolean(issue.contractor);
+    const isContractorTicket =
+      issue.entityType === "contractor" ||
+      issue.category?.includes("contractor") ||
+      Boolean(issue.contractor);
     const contractor = issue.contractor;
+    const customer = issue.customerName || "Customer";
+    const firstName = customer.split(" ")[0];
+    const rawSummary = issue.summary || "";
+    const cleanSummary = rawSummary.trim();
+    const isEnterprise = issue.customerTier === "enterprise";
+    const sentiment = issue.sentiment || "neutral";
+    const snippets = issue.contextSnippets || [];
+    const snippetNote = snippets.length > 0 ? ` (Referencing context snippet: "${snippets[0].slice(0, 45)}...")` : "";
 
-    // Contractor / Field Work Order Context
+    // Field Contractor / Work Order Dispatches
     if (isContractorTicket && contractor) {
       if (channel === "site_pass" || tone === "safety_protocol") {
-        return `[SITE ACCESS & SAFETY PASS]\nWork Order: ${contractor.workOrderId}\nTechnician: ${contractor.contactName} (${contractor.company})\nLocation: ${contractor.siteLocation}\nAccess PIN: ${contractor.accessCode || "LOCK-8841-PIN"}\nSafety: Level 2 Escort, ESD footwear required on raised floor.`;
+        return `[SITE ACCESS & SAFETY PASS]\nWork Order: ${contractor.workOrderId || issue.externalId}\nTechnician: ${contractor.contactName} (${contractor.company})\nLocation: ${contractor.siteLocation}\nAccess PIN: ${contractor.accessCode || "LOCK-8841-PIN"}\nSafety Protocol: Level 2 Escort, ESD footwear required on raised floor.`;
       }
       if (channel === "contractor_sms" || tone === "concise") {
-        return `Hi ${contractor.contactName.split(" ")[0]}, Work Order #${contractor.workOrderId} is confirmed for ${contractor.siteLocation}. Access PIN: ${contractor.accessCode || "LOCK-8841"}. ETA: ${contractor.eta || "15 mins"}. Please check in on arrival.`;
+        return `Hi ${contractor.contactName.split(" ")[0]}, Work Order #${contractor.workOrderId || issue.externalId} for "${cleanSummary}" is confirmed for ${contractor.siteLocation}. Access PIN: ${contractor.accessCode || "LOCK-8841"}. ETA: ${contractor.eta || "15 mins"}. Please check in on arrival.`;
       }
       if (tone === "urgent_expedite") {
-        return `[URGENT DISPATCH] Work Order ${contractor.workOrderId}: Critical service disruption on ${issue.product}. Security pre-notified at ${contractor.siteLocation} for priority access.`;
+        return `[URGENT EXPEDITE DISPATCH] Work Order ${contractor.workOrderId || issue.externalId}: Critical alert on "${cleanSummary}" (${issue.product}). Facility security pre-notified at ${contractor.siteLocation} for immediate site access.`;
       }
       if (tone === "sow_instructions" || channel === "work_order_push") {
-        return `[SCOPE OF WORK]\nJob: ${issue.summary}\nLocation: ${contractor.siteLocation}\n1. Verify power & optic indicators.\n2. Swap replacement unit (${issue.version}).\n3. Perform loopback test & confirm green telemetry with SRE Lead.`;
+        return `[SCOPE OF WORK]\nJob: ${cleanSummary}\nLocation: ${contractor.siteLocation}\n1. Inspect equipment indicators & verify telemetry on ${issue.product}.\n2. Apply corrective remediation (v${issue.version || "latest"}).\n3. Execute loopback verification & confirm green telemetry with Dispatch Lead.`;
       }
-      return `Hello ${contractor.contactName}, updating Work Order ${contractor.workOrderId} for ${contractor.company}. All site permits for ${contractor.siteLocation} are active.`;
+      return `Hello ${contractor.contactName}, updating Work Order ${contractor.workOrderId || issue.externalId} (${contractor.company}) regarding "${cleanSummary}". All permits for ${contractor.siteLocation} are active.`;
     }
 
-    // Customer Context
-    const customer = issue.customerName;
-    const isEnterprise = issue.customerTier === "enterprise";
-
+    // Internal Team Note
     if (channel === "internal_note") {
-      return `[SRE NOTE] ${issue.id} linked to problem ${issue.problemId || "PRB-218"}. Investigated with ${issue.product} v${issue.version}. Auto-verification confirmed safe. Recommend closing.`;
+      return `[OPERATOR & SRE NOTE] Ticket ${issue.externalId}: Investigated "${cleanSummary}" on ${issue.product} v${issue.version || "2.4"}. Customer sentiment is ${sentiment.toUpperCase()}. Telemetry verified and corrective actions applied.${snippetNote} Recommend marking resolved.`;
     }
 
+    // Chat / WhatsApp / Messaging Ingress
     if (channel === "whatsapp" || channel === "chat") {
-      if (tone === "concise") {
-        return `Hi ${customer.split(" ")[0]}, we have investigated the ${issue.category.replace("_", " ")} on your account. The issue has been rectified and your access is fully restored.`;
+      if (sentiment === "angry" || sentiment === "frustrated") {
+        if (tone === "concise") {
+          return `Hi ${firstName}, I sincerely apologize for the frustration with "${cleanSummary}". I have personally investigated your account, applied an immediate correction, and verified full restoration.`;
+        }
+        if (tone === "technical") {
+          return `Hello ${firstName}, we apologize for the disruption regarding "${cleanSummary}". Root cause telemetry indicated an upstream service timeout on ${issue.product}. We applied hotfix mitigation, flushed stale session caches, and verified that your service is operating normally.`;
+        }
+        return `Hello ${firstName}, I understand how frustrating it is to experience issues with "${cleanSummary}". Our team has prioritized your ticket (${issue.externalId}), resolved the underlying issue on ${issue.product}, and confirmed that everything is functioning properly. Please let me know if you need any additional assistance!`;
       }
+
       if (tone === "technical") {
-        return `Hello ${customer.split(" ")[0]}, telemetry confirmed a 504 timeout during gateway verification. The authorization hold was voided and transaction state is reconciled.`;
+        return `Hello ${firstName}, regarding your inquiry on "${cleanSummary}": Diagnostics on ${issue.product} (v${issue.version || "2.4"}) show all systems nominal. We reconciled the transaction state and verified zero error spikes.`;
       }
-      return `Hello ${customer.split(" ")[0]}, we apologize for the disruption with ${issue.category.replace("_", " ")}. We have verified your account and reconciled the transaction. Service is operating normally.`;
+      if (tone === "concise") {
+        return `Hi ${firstName}, we have investigated "${cleanSummary}". The issue has been resolved and your service is operating normally.`;
+      }
+      return `Hello ${firstName}, thank you for reaching out regarding "${cleanSummary}". We have reviewed your account telemetry on ${issue.product} and completed the required update. Everything is now working smoothly!`;
     }
 
+    // Email Responses
     if (channel === "email") {
       if (tone === "executive" || isEnterprise) {
-        return `Dear ${customer},\n\nThank you for contacting Enterprise Support regarding your recent inquiry (${issue.externalId}).\n\nOur engineering team has resolved the incident on our backend. System functionality and SLA monitoring are fully restored.\n\nSincerely,\nEnterprise Operations Team`;
+        return `Dear ${customer},\n\nThank you for contacting Enterprise Customer Support regarding your inquiry (${issue.externalId}): "${cleanSummary}".\n\nOur engineering and operations team has thoroughly investigated the issue affecting ${issue.product}. We have applied the necessary resolutions, verified our telemetry streams, and confirmed that SLA performance is fully restored.\n\nPlease feel free to reply directly to this email if you require any further technical details.\n\nSincerely,\nEnterprise Customer Success Team\nsupport.servicev8.com`;
       }
-      return `Hi ${customer},\n\nThank you for reaching out. We have investigated the ${issue.summary.toLowerCase()} and applied an immediate fix.\n\nEverything is now resolved. Please reply if you have any questions.\n\nBest regards,\nCustomer Support Team`;
+      if (sentiment === "angry" || sentiment === "frustrated") {
+        return `Hi ${customer},\n\nThank you for bringing this to our attention. We sincerely apologize for the inconvenience caused by "${cleanSummary}".\n\nWe have escalated and resolved this incident with our engineering team. All systems for ${issue.product} are now functioning normally, and we have applied account safeguards to prevent recurrence.\n\nPlease let us know if you need any further help.\n\nBest regards,\nCustomer Support Team`;
+      }
+      return `Hi ${customer},\n\nThank you for contacting us regarding "${cleanSummary}".\n\nWe have investigated your request on ${issue.product} and applied the resolution. Everything is now confirmed resolved on our end.\n\nIf you have any further questions, please let us know.\n\nBest regards,\nCustomer Support Team`;
     }
 
+    // Voice Follow-up
     if (channel === "voice") {
-      return `Hello ${customer.split(" ")[0]}, this is Sophia following up on your recent inquiry to confirm that your issue has been resolved.`;
+      return `Hello ${firstName}, this is Sophia from Customer Support following up on ticket ${issue.externalId} regarding "${cleanSummary}" to confirm that your issue has been resolved.`;
     }
 
-    return `Hello ${customer}, your issue regarding ${issue.summary} has been verified and resolved.`;
+    return `Hello ${customer}, your ticket regarding "${cleanSummary}" on ${issue.product} has been verified and resolved.`;
   };
 
   // Update default channel and reply when selected issue changes
@@ -271,8 +351,185 @@ export function FocusedWorkspaceView({
     setTimeout(() => {
       setReplyText(generateContextualReply(selectedIssue, aiTone, commChannel));
       setIsGeneratingAi(false);
-      onNotify(`Generated ${aiTone.toUpperCase()} response`, "success");
+      if (onDeductCredits) {
+        onDeductCredits(15, `AI Copilot contextual reply generation (${aiTone})`);
+      }
+      if (onTriggerTemporalActivity) {
+        onTriggerTemporalActivity(selectedIssue.id, "llm_generate_reply", { model: "forge-reasoning-v2", tone: aiTone });
+      }
+      onNotify(`Generated ${aiTone.toUpperCase()} response (Deducted 15 ForgeGW Credits)`, "success");
     }, 250);
+  };
+
+  // Action: Status Change
+  const handleStatusChange = (newStatus: string) => {
+    if (!selectedIssue) return;
+    const now = new Date().toLocaleTimeString();
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: userRole === "operator" ? "David Kim (Operator)" : "Ini Godwin (Lead)",
+      actorType: "human_operator",
+      action: `Status transitioned to ${newStatus.toUpperCase()}`,
+      details: newStatus === "escalated" ? "Escalated to Tier 2 engineering with high priority" : undefined,
+    };
+    const currentTimeline = selectedIssue.timeline || [];
+    const updated: Issue = {
+      ...selectedIssue,
+      status: newStatus,
+      priority: newStatus === "escalated" ? "urgent" : selectedIssue.priority,
+      timeline: [event, ...currentTimeline],
+    };
+    if (onUpdateIssue) {
+      onUpdateIssue(updated);
+    }
+    setEditStatus(newStatus as any);
+    onNotify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
+    if (onTriggerTemporalActivity) {
+      onTriggerTemporalActivity(selectedIssue.id, "ticket_status_change", { status: newStatus });
+    }
+  };
+
+  // Action: Re-Assign Operator
+  const handleReassign = (assigneeName: string) => {
+    if (!selectedIssue) return;
+    const now = new Date().toLocaleTimeString();
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: "Operator Lead",
+      actorType: "human_operator",
+      action: `Reassigned ticket to ${assigneeName}`,
+    };
+    const currentTimeline = selectedIssue.timeline || [];
+    const updated: Issue = {
+      ...selectedIssue,
+      assignedTo: assigneeName,
+      assignedAgent: assigneeName,
+      timeline: [event, ...currentTimeline],
+    };
+    if (onUpdateIssue) {
+      onUpdateIssue(updated);
+    }
+    setEditAssignee(assigneeName);
+    setIsReassignDropdownOpen(false);
+    onNotify(`Reassigned ticket ${selectedIssue.externalId} to ${assigneeName}`, "success");
+    if (onTriggerTemporalActivity) {
+      onTriggerTemporalActivity(selectedIssue.id, "ticket_reassign", { assignee: assigneeName });
+    }
+  };
+
+  // Action: Save Resolution to RAG Knowledge Base
+  const handleSaveToRAG = async () => {
+    if (!selectedIssue) return;
+    setIsSavingRag(true);
+    try {
+      if (onSaveToKnowledgeBase) {
+        await onSaveToKnowledgeBase(selectedIssue);
+      } else {
+        await knowledgev8Connector.ingestResolvedTicket({
+          externalId: selectedIssue.externalId,
+          summary: selectedIssue.summary,
+          customerName: selectedIssue.customerName,
+          product: selectedIssue.product,
+          resolutionNotes: replyText || selectedIssue.recommendedAction || "Resolved via workdesk operations.",
+          category: selectedIssue.category,
+          tags: selectedIssue.tags,
+        });
+      }
+      const now = new Date().toLocaleTimeString();
+      const event: TicketTimelineEvent = {
+        id: "tl_" + Date.now(),
+        timestamp: now,
+        actor: "Jordan (AI KB Specialist)",
+        actorType: "ai_employee",
+        action: "Indexed resolution into pgvector Knowledge Base corpus",
+      };
+      const currentTimeline = selectedIssue.timeline || [];
+      const updated: Issue = {
+        ...selectedIssue,
+        ragIngested: true,
+        ragIngestedAt: new Date().toISOString(),
+        timeline: [event, ...currentTimeline],
+      };
+      if (onUpdateIssue) {
+        onUpdateIssue(updated);
+      }
+      if (onDeductCredits) {
+        onDeductCredits(20, "pgvector RAG vector embedding indexing");
+      }
+      onNotify(`🧠 Ingested ticket ${selectedIssue.externalId} into Knowledge Base RAG corpus!`, "success");
+    } finally {
+      setIsSavingRag(false);
+    }
+  };
+
+  // Action: Attach Context Snippet
+  const handleSaveSnippet = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIssue || !newSnippetContent.trim()) return;
+    const now = new Date().toLocaleTimeString();
+    const newAtt: TicketAttachment = {
+      id: "att_" + Date.now(),
+      name: newSnippetTitle.trim() || "Debug Trace / Snippet",
+      sizeBytes: newSnippetContent.length,
+      type: "snippet",
+      url: "#",
+      uploadedAt: now,
+      snippetContent: newSnippetContent.trim(),
+    };
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: "Operator",
+      actorType: "human_operator",
+      action: `Attached context snippet: ${newAtt.name}`,
+    };
+    const updated: Issue = {
+      ...selectedIssue,
+      attachments: [...(selectedIssue.attachments || []), newAtt],
+      contextSnippets: [...(selectedIssue.contextSnippets || []), newSnippetContent.trim()],
+      timeline: [event, ...(selectedIssue.timeline || [])],
+    };
+    if (onUpdateIssue) {
+      onUpdateIssue(updated);
+    }
+    setNewSnippetTitle("");
+    setNewSnippetContent("");
+    setIsSnippetModalOpen(false);
+    onNotify(`Attached context snippet to ticket!`, "success");
+  };
+
+  // Action: File Upload
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedIssue) return;
+    const now = new Date().toLocaleTimeString();
+    const isImg = file.type.startsWith("image/");
+    const newAtt: TicketAttachment = {
+      id: "att_" + Date.now(),
+      name: file.name,
+      sizeBytes: file.size,
+      type: isImg ? "image" : "document",
+      url: URL.createObjectURL(file),
+      uploadedAt: now,
+    };
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: "Operator",
+      actorType: "human_operator",
+      action: `Uploaded ${isImg ? "image" : "document"} attachment: ${file.name}`,
+    };
+    const updated: Issue = {
+      ...selectedIssue,
+      attachments: [...(selectedIssue.attachments || []), newAtt],
+      timeline: [event, ...(selectedIssue.timeline || [])],
+    };
+    if (onUpdateIssue) {
+      onUpdateIssue(updated);
+    }
+    onNotify(`Attached ${file.name} to ticket context!`, "success");
   };
 
   const filteredIssues = issues.filter((i) => {
@@ -315,10 +572,32 @@ export function FocusedWorkspaceView({
     setIsProcessing(true);
     try {
       await onResolve(selectedIssue.id);
+      const now = new Date().toLocaleTimeString();
+      const event: TicketTimelineEvent = {
+        id: "tl_" + Date.now(),
+        timestamp: now,
+        actor: "Alex (AI Support Lead)",
+        actorType: "ai_employee",
+        action: isContractor ? "Autonomous contractor work order completed & telemetry verified" : "Autonomous resolution executed & confirmation dispatched",
+      };
+      const updated: Issue = {
+        ...selectedIssue,
+        status: "resolved",
+        timeline: [event, ...(selectedIssue.timeline || [])],
+      };
+      if (onUpdateIssue) {
+        onUpdateIssue(updated);
+      }
+      if (onDeductCredits) {
+        onDeductCredits(35, "Autonomous AI Agent Resolution (ForgeGW Multi-Action)");
+      }
+      if (onTriggerTemporalActivity) {
+        onTriggerTemporalActivity(selectedIssue.id, "autonomous_ticket_resolution", { resolvedBy: "Alex (AI Lead)" });
+      }
       onNotify(
         isContractor
-          ? `Work order ${selectedIssue.externalId} completed. Work summary dispatched to contractor & logged in Issues Explorer.`
-          : `Ticket ${selectedIssue.externalId} resolved. Confirmation email sent to ${selectedIssue.customerName} via Resend.`,
+          ? `Work order ${selectedIssue.externalId} completed autonomously. Summary dispatched to contractor.`
+          : `Ticket ${selectedIssue.externalId} resolved autonomously. (Deducted 35 ForgeGW Credits)`,
         "success"
       );
     } finally {
@@ -328,16 +607,63 @@ export function FocusedWorkspaceView({
 
   const handleSendReply = () => {
     if (!selectedIssue || !replyText.trim()) return;
+    const now = new Date().toLocaleTimeString();
+    const newMsg: TicketMessageItem = {
+      id: "msg_" + Date.now(),
+      timestamp: now,
+      sender: "operator",
+      senderName: userRole === "operator" ? "David Kim (Operator)" : "Ini Godwin (Lead)",
+      content: replyText.trim(),
+      channel: commChannel,
+    };
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: userRole === "operator" ? "David Kim (Operator)" : "Ini Godwin (Lead)",
+      actorType: "human_operator",
+      action: `Dispatched reply via ${commChannel.toUpperCase()}`,
+      details: replyText.slice(0, 80) + (replyText.length > 80 ? "..." : ""),
+    };
+    const updated: Issue = {
+      ...selectedIssue,
+      messages: [...(selectedIssue.messages || []), newMsg],
+      timeline: [event, ...(selectedIssue.timeline || [])],
+    };
+    if (onUpdateIssue) {
+      onUpdateIssue(updated);
+    }
+    if (onDeductCredits) {
+      onDeductCredits(10, `Dispatched reply via ${commChannel.toUpperCase()}`);
+    }
+    if (onTriggerTemporalActivity) {
+      onTriggerTemporalActivity(selectedIssue.id, "ticket_reply_dispatched", { channel: commChannel });
+    }
     onNotify(
       `Dispatched reply via ${commChannel.toUpperCase()} to ${
         isContractor && selectedIssue.contractor ? selectedIssue.contractor.contactName : selectedIssue.customerName
       }`,
       "success"
     );
+    setReplyText("");
   };
 
   const handleSendSitePass = () => {
     if (!selectedIssue?.contractor) return;
+    const now = new Date().toLocaleTimeString();
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: "Operator",
+      actorType: "human_operator",
+      action: `Dispatched Electronic Lockbox PIN (${selectedIssue.contractor.accessCode || "LOCK-8841"}) to ${selectedIssue.contractor.contactName}`,
+    };
+    const updated: Issue = {
+      ...selectedIssue,
+      timeline: [event, ...(selectedIssue.timeline || [])],
+    };
+    if (onUpdateIssue) {
+      onUpdateIssue(updated);
+    }
     onNotify(
       `Dispatched Electronic Lockbox PIN (${selectedIssue.contractor.accessCode || "LOCK-8841"}) & GPS to ${selectedIssue.contractor.contactName}`,
       "success"
@@ -781,15 +1107,26 @@ export function FocusedWorkspaceView({
 
           {selectedIssue ? (
             <>
-              {/* Ticket Details Card */}
-              <div className="card p-4 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-3 shadow-md">
+              {/* Ticket Details & Action Card */}
+              <div className="card p-4 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-3.5 shadow-md">
+                {/* Header Row */}
                 <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-extrabold text-sm text-[#EAF1F8]">
                       {selectedIssue.externalId}
                     </span>
-                    <span className="pill text-[9px] font-mono bg-[#18222E] text-[#2ED8B6] uppercase">
-                      {selectedIssue.status}
+                    <span
+                      className={`pill text-[9px] font-mono uppercase font-bold ${
+                        selectedIssue.status === "escalated"
+                          ? "bg-[#E5484D]/20 text-[#FF7575] border border-[#E5484D]/40"
+                          : selectedIssue.status === "resolved"
+                          ? "bg-[#4CC38A]/20 text-[#4CC38A] border border-[#4CC38A]/40"
+                          : selectedIssue.status === "in_progress"
+                          ? "bg-[#4D9FFF]/20 text-[#4D9FFF] border border-[#4D9FFF]/40"
+                          : "bg-[#18222E] text-[#2ED8B6] border border-[#2ED8B6]/30"
+                      }`}
+                    >
+                      {selectedIssue.status || "open"}
                     </span>
                   </div>
 
@@ -832,9 +1169,116 @@ export function FocusedWorkspaceView({
                   </div>
                 )}
 
-                <h3 className="text-xs sm:text-sm font-bold text-[#EAF1F8]">
+                {/* Ticket Summary */}
+                <h3 className="text-xs sm:text-sm font-bold text-[#EAF1F8] leading-snug">
                   {selectedIssue.summary}
                 </h3>
+
+                {/* ========================================================================= */}
+                {/* 1. TICKET STATUS CHANGE ACTION BUTTONS */}
+                {/* ========================================================================= */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[10px] font-mono text-[#8E9AA8] uppercase block font-semibold">
+                    Ticket Lifecycle Status Actions
+                  </span>
+                  <div className="grid grid-cols-5 gap-1">
+                    {STATUS_OPTIONS.map((st) => {
+                      const isActive = (selectedIssue.status || "open") === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => handleStatusChange(st.id)}
+                          className={`py-1.5 px-1 rounded-xl text-[10px] font-mono font-bold text-center border transition-all cursor-pointer ${
+                            isActive
+                              ? `${st.color} shadow-sm ring-1 ring-white/20`
+                              : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/30"
+                          }`}
+                        >
+                          {st.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ========================================================================= */}
+                {/* 2. RE-ASSIGN OPERATOR / AGENT CONTROL */}
+                {/* ========================================================================= */}
+                <div className="p-3 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-[#8E9AA8] uppercase font-semibold flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                      <span>Assigned Operator / Lead</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-[#2ED8B6]">
+                      {selectedIssue.assignedTo || selectedIssue.assignedAgent || "David Kim (Operator)"}
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsReassignDropdownOpen(!isReassignDropdownOpen)}
+                      className="w-full p-2 rounded-xl bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-xs font-mono text-[#EAF1F8] flex items-center justify-between transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                        <span>Re-assign to Team Member...</span>
+                      </div>
+                      <ChevronDown className={`w-3.5 h-3.5 text-[#8E9AA8] transition-transform ${isReassignDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isReassignDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#0E1520] border border-[var(--line-2)] rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100 max-h-56 overflow-y-auto">
+                        {TEAM_MEMBERS.map((member) => (
+                          <button
+                            key={member.id}
+                            type="button"
+                            onClick={() => handleReassign(`${member.name} (${member.role})`)}
+                            className="w-full p-2 rounded-xl hover:bg-[#18222E] text-left text-xs font-mono text-[#EAF1F8] flex items-center justify-between cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{member.avatar}</span>
+                              <div>
+                                <div className="font-bold text-[#EAF1F8]">{member.name}</div>
+                                <div className="text-[10px] text-[#6B7C8D]">{member.role}</div>
+                              </div>
+                            </div>
+                            {(selectedIssue.assignedTo || "").includes(member.name) && (
+                              <Check className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ========================================================================= */}
+                {/* 3. 1-CLICK SAVE RESOLUTION TO KNOWLEDGE BASE (RAG) */}
+                {/* ========================================================================= */}
+                <div className="pt-1">
+                  {selectedIssue.ragIngested ? (
+                    <div className="p-2.5 rounded-xl bg-[#4CC38A]/10 border border-[#4CC38A]/30 text-xs font-mono text-[#4CC38A] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>INDEXED IN KNOWLEDGE BASE (pgvector)</span>
+                      </span>
+                      <span className="text-[10px] text-[#B4C2D0]">Vector Ready</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSaveToRAG}
+                      disabled={isSavingRag}
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#2ED8B6]/20 via-[#4D9FFF]/15 to-[#2ED8B6]/20 hover:from-[#2ED8B6]/30 hover:to-[#4D9FFF]/30 border border-[#2ED8B6]/40 text-xs font-mono font-bold text-[#EAF1F8] flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
+                    >
+                      <Sparkles className={`w-4 h-4 text-[#2ED8B6] ${isSavingRag ? "animate-spin" : ""}`} />
+                      <span>{isSavingRag ? "Vectorizing into pgvector..." : "🧠 Save Resolution to Knowledge Base (RAG)"}</span>
+                    </button>
+                  )}
+                </div>
 
                 {/* Sentiment & Priority Controls */}
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
@@ -988,31 +1432,146 @@ export function FocusedWorkspaceView({
                 )}
               </div>
 
-              {/* Message / Issue Transcript Stream */}
-              <div className="card p-4 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-2 flex-1 flex flex-col">
+              {/* ========================================================================= */}
+              {/* 4. CONTEXT ATTACHMENTS & DEBUG SNIPPETS CARD */}
+              {/* ========================================================================= */}
+              <div className="card p-4 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-3 shadow-md">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                  <span className="text-xs font-bold text-[#EAF1F8] font-mono flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>Context Attachments &amp; Snippets ({selectedIssue.attachments?.length || 0})</span>
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    {/* Hidden file input */}
+                    <label className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer border border-[var(--line-2)] transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload</span>
+                      <input type="file" onChange={handleFileUpload} className="hidden" accept="image/*,.pdf,.doc,.docx,.txt,.json,.log" />
+                    </label>
+
+                    {/* Add Snippet Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsSnippetModalOpen(true)}
+                      className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#4D9FFF] flex items-center gap-1 cursor-pointer border border-[var(--line-2)] transition-colors"
+                    >
+                      <Code className="w-3.5 h-3.5" />
+                      <span>Snippet</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Attachments List */}
+                {(selectedIssue.attachments || []).length > 0 ? (
+                  <div className="space-y-1.5">
+                    {(selectedIssue.attachments || []).map((att) => (
+                      <div
+                        key={att.id}
+                        className="p-2.5 rounded-xl bg-[#0E1520] border border-[var(--line)] flex items-center justify-between text-xs font-mono"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {att.type === "image" ? (
+                            <FileText className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                          ) : att.type === "snippet" ? (
+                            <Code className="w-4 h-4 text-[#4D9FFF] shrink-0" />
+                          ) : (
+                            <Paperclip className="w-4 h-4 text-[#F5A623] shrink-0" />
+                          )}
+                          <div className="min-w-0 truncate">
+                            <span className="font-bold text-[#EAF1F8] block truncate">{att.name}</span>
+                            <span className="text-[10px] text-[#6B7C8D]">{att.uploadedAt} • {att.type.toUpperCase()}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAttachmentPreview(att)}
+                          className="px-2 py-1 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-[11px] text-[#2ED8B6] cursor-pointer shrink-0"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#6B7C8D] font-mono">
+                    No attachments or logs tagged yet. Upload stack traces or screenshots to enrich AI context.
+                  </p>
+                )}
+              </div>
+
+              {/* ========================================================================= */}
+              {/* 5. TICKET JOURNEY & CHRONOLOGICAL MESSAGE HISTORY */}
+              {/* ========================================================================= */}
+              <div className="card p-4 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-3 flex-1 flex flex-col">
                 <div className="text-[11px] font-mono text-[#8E9AA8] border-b border-[var(--line)] pb-2 flex items-center justify-between">
-                  <span>Inbound Request Transcript</span>
-                  <span className="text-[#2ED8B6]">{selectedIssue.source}</span>
+                  <span className="flex items-center gap-1.5 font-bold text-[#EAF1F8]">
+                    <Activity className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>Ticket Journey &amp; Conversation History</span>
+                  </span>
+                  <span className="pill ok text-[9px] font-mono">{selectedIssue.source}</span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#0E1520] border border-[var(--line)] space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
-                    <span className="font-bold text-[#EAF1F8]">{selectedIssue.customerName}</span>
-                    <span>{selectedIssue.createdAt ? "Recent" : "Just now"}</span>
+                <div className="space-y-2.5 overflow-y-auto max-h-96 pr-1">
+                  {/* Inbound Customer Request */}
+                  <div className="p-3 rounded-xl bg-[#0E1520] border border-[var(--line)] space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
+                      <span className="font-bold text-[#EAF1F8] flex items-center gap-1">
+                        <User className="w-3 h-3 text-[#4D9FFF]" />
+                        <span>{selectedIssue.customerName}</span>
+                      </span>
+                      <span>{selectedIssue.createdAt ? "Inbound" : "Just now"}</span>
+                    </div>
+                    <p className="text-[#B4C2D0] leading-relaxed">{selectedIssue.summary}</p>
                   </div>
-                  <p className="text-[#B4C2D0] leading-relaxed">{selectedIssue.summary}</p>
-                </div>
 
-                {/* Copilot Recommendation */}
-                <div className="p-3 rounded-xl bg-[#14202B] border border-[#2ED8B6]/30 space-y-1 text-xs">
-                  <div className="flex items-center justify-between text-[#2ED8B6] font-bold text-[11px]">
-                    <span className="flex items-center gap-1">
-                      <Bot className="w-3.5 h-3.5" />
-                      <span>Copilot Suggested Action</span>
-                    </span>
-                    <span className="text-[#4CC38A]">{(selectedIssue.confidence * 100).toFixed(0)}% Match</span>
+                  {/* Conversation Journey Messages */}
+                  {(selectedIssue.messages || []).map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`p-3 rounded-xl border text-xs space-y-1 ${
+                        msg.sender === "operator"
+                          ? "bg-[#182333] border-[#4D9FFF]/30 ml-3"
+                          : "bg-[#14202B] border-[#2ED8B6]/30 mr-3"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="font-bold text-[#EAF1F8] flex items-center gap-1">
+                          {msg.sender === "operator" ? <User className="w-3 h-3 text-[#4D9FFF]" /> : <Bot className="w-3 h-3 text-[#2ED8B6]" />}
+                          <span>{msg.senderName}</span>
+                        </span>
+                        <span className="text-[#6B7C8D]">{msg.timestamp}</span>
+                      </div>
+                      <p className="text-[#B4C2D0] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  ))}
+
+                  {/* Chronological Lifecycle Timeline Events */}
+                  {(selectedIssue.timeline || []).map((ev) => (
+                    <div
+                      key={ev.id}
+                      className="p-2 rounded-lg bg-[#0C121A] border border-[var(--line-2)] text-[11px] font-mono text-[#8E9AA8] flex items-center justify-between"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <CornerDownRight className="w-3 h-3 text-[#2ED8B6] shrink-0" />
+                        <span><strong>{ev.actor}:</strong> {ev.action}</span>
+                      </span>
+                      <span className="text-[9px] text-[#6B7C8D] shrink-0 ml-2">{ev.timestamp}</span>
+                    </div>
+                  ))}
+
+                  {/* Copilot Recommendation */}
+                  <div className="p-3 rounded-xl bg-[#14202B] border border-[#2ED8B6]/30 space-y-1 text-xs">
+                    <div className="flex items-center justify-between text-[#2ED8B6] font-bold text-[11px]">
+                      <span className="flex items-center gap-1">
+                        <Bot className="w-3.5 h-3.5" />
+                        <span>Copilot Suggested Action</span>
+                      </span>
+                      <span className="text-[#4CC38A]">{(selectedIssue.confidence * 100).toFixed(0)}% Match</span>
+                    </div>
+                    <p className="text-[11px] text-[#B4C2D0]">{selectedIssue.recommendedAction}</p>
                   </div>
-                  <p className="text-[11px] text-[#B4C2D0]">{selectedIssue.recommendedAction}</p>
                 </div>
               </div>
             </>
@@ -1715,6 +2274,134 @@ export function FocusedWorkspaceView({
                   className="btn btn-primary px-6 py-2 text-xs font-bold cursor-pointer disabled:opacity-50"
                 >
                   Ingest {csvPreviewCount > 0 ? `(${csvPreviewCount}) Tickets` : ""}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ATTACH CODE / LOG TRACE SNIPPET */}
+      {/* ========================================================================= */}
+      {isSnippetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="w-full max-w-xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col">
+            <div className="px-6 py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Code className="w-4 h-4 text-[#4D9FFF]" />
+                <h3 className="text-sm font-bold text-[#EAF1F8]">
+                  Attach Code / Trace Snippet to Ticket Context
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSnippetModalOpen(false)}
+                className="p-1 rounded-lg text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSnippet} className="p-6 space-y-4 text-xs font-mono">
+              <div className="space-y-1">
+                <label className="text-[#B4C2D0] block font-bold">Snippet Label / Title</label>
+                <input
+                  type="text"
+                  value={newSnippetTitle}
+                  onChange={(e) => setNewSnippetTitle(e.target.value)}
+                  placeholder="e.g., Envoy 504 Gateway Timeout Trace or OAuth Config"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#4D9FFF]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#B4C2D0] block font-bold">Log Snippet / JSON / Stack Trace Content</label>
+                <textarea
+                  value={newSnippetContent}
+                  onChange={(e) => setNewSnippetContent(e.target.value)}
+                  rows={8}
+                  placeholder={`HTTP/2 504 Gateway Timeout\n{"error": "upstream_connect_timeout", "service": "billing_v2", "latency_ms": 5012}`}
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl p-3 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#4D9FFF] font-mono leading-relaxed"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => setIsSnippetModalOpen(false)}
+                  className="btn btn-secondary px-4 py-2 text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newSnippetContent.trim()}
+                  className="btn btn-primary px-6 py-2 text-xs font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Attach to Ticket
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ATTACHMENT PREVIEW */}
+      {/* ========================================================================= */}
+      {selectedAttachmentPreview && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Paperclip className="w-4 h-4 text-[#2ED8B6]" />
+                <h3 className="text-sm font-bold text-[#EAF1F8] truncate max-w-md">
+                  {selectedAttachmentPreview.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAttachmentPreview(null)}
+                className="p-1 rounded-lg text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs font-mono">
+              {selectedAttachmentPreview.type === "image" ? (
+                <div className="flex justify-center p-2 rounded-2xl bg-[#080D14] border border-[var(--line)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selectedAttachmentPreview.url}
+                    alt={selectedAttachmentPreview.name}
+                    className="max-h-96 rounded-xl object-contain"
+                  />
+                </div>
+              ) : selectedAttachmentPreview.snippetContent ? (
+                <div className="p-4 rounded-2xl bg-[#080D14] border border-[var(--line)] text-[#B4C2D0] whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">
+                  {selectedAttachmentPreview.snippetContent}
+                </div>
+              ) : (
+                <div className="p-6 text-center space-y-2">
+                  <FileText className="w-12 h-12 text-[#2ED8B6] mx-auto" />
+                  <p className="text-sm text-[#EAF1F8] font-bold">{selectedAttachmentPreview.name}</p>
+                  <p className="text-xs text-[#6B7C8D]">Size: {(selectedAttachmentPreview.sizeBytes / 1024).toFixed(1)} KB</p>
+                </div>
+              )}
+
+              <div className="pt-3 flex items-center justify-between border-t border-[var(--line)]">
+                <span className="text-[10px] text-[#6B7C8D]">
+                  Uploaded {selectedAttachmentPreview.uploadedAt}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedAttachmentPreview(null)}
+                  className="btn btn-secondary px-5 py-2 text-xs cursor-pointer"
+                >
+                  Close Preview
                 </button>
               </div>
             </div>

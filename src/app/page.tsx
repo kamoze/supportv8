@@ -830,6 +830,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(15, "Automated Insight Execution & Mitigation");
         notify(res.message, "success");
         fetchData();
       } else {
@@ -849,6 +850,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(20, "Published Knowledge Proposal to RAG Corpus");
         notify(res.message, "success");
         fetchData();
       } else {
@@ -868,6 +870,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(10, "Stale Ticket Automated Sweeper Execution");
         notify(res.message, "success");
         fetchData();
       } else {
@@ -887,6 +890,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(25, "Batch Safe Stale Sweeper Auto-Close Execution");
         notify(res.message, "success");
         fetchData();
       } else {
@@ -911,6 +915,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(30, "Agentic Triage Simulation (Multi-Action LLM Inference)");
         setSimResult(res.data);
         notify(`Agentic run completed in ${simMode.toUpperCase()} mode!`, "success");
       } else {
@@ -936,6 +941,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(10, "Policy Rule Evaluation Inference");
         setPolicySimResult(res.data);
       }
     } catch (err) {
@@ -970,6 +976,7 @@ export default function SupportV8Dashboard() {
       }).then((r) => r.json());
 
       if (res.success) {
+        handleDeductCredits(15, "AI Workforce Query & Citation Synthesis");
         const assistantMsg: ChatMessage = {
           id: `ast_${Date.now()}`,
           role: "assistant",
@@ -5246,6 +5253,7 @@ export default function SupportV8Dashboard() {
                         }).then((r) => r.json());
 
                         if (res.success) {
+                          handleDeductCredits(25, "Inbound Voice Call Simulation & Audio Transcription");
                           notify(res.message, "success");
                           setSelectedVoiceSession(res.data.session);
                           fetchData();

@@ -172,7 +172,33 @@ export async function createKeycloakUser(
     signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
   });
 
+  let id = cleanEmail;
+
   if (res.status === 409) {
+    // User already exists in Keycloak IdP: Look up existing user ID and synchronize password
+    try {
+      const lookupRes = await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users?email=${encodeURIComponent(cleanEmail)}&exact=true`, {
+        headers: { authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (lookupRes.ok) {
+        const users = (await lookupRes.json()) as { id: string }[];
+        if (users[0]?.id) {
+          id = users[0].id;
+          // Set password on existing user
+          await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users/${id}/reset-password`, {
+            method: "PUT",
+            headers: {
+              "content-type": "application/json",
+              authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ type: "password", value: password, temporary: false }),
+            cache: "no-store",
+          });
+          return { id };
+        }
+      }
+    } catch (_) {}
     throw new KeycloakUserExists(cleanEmail);
   }
 
@@ -183,7 +209,25 @@ export async function createKeycloakUser(
 
   // Location header contains the created user URL: .../users/{id}
   const location = res.headers.get("location");
-  const id = location ? location.split("/").pop() || cleanEmail : cleanEmail;
+  if (location) {
+    id = location.split("/").pop() || cleanEmail;
+  }
+
+  // Explicitly execute reset-password to guarantee active credentials in Keycloak
+  if (id && id !== cleanEmail) {
+    try {
+      await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users/${id}/reset-password`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ type: "password", value: password, temporary: false }),
+        cache: "no-store",
+      });
+    } catch (_) {}
+  }
+
   return { id };
 }
 

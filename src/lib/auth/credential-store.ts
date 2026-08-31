@@ -1,5 +1,7 @@
+import fs from "fs";
+import path from "path";
 import { hashPassword, verifyPasswordHash } from "./password";
-import { verifyKeycloakPassword, mapRealmRolesToSupportRole } from "./keycloak";
+import { verifyKeycloakPassword, mapRealmRolesToSupportRole, getKeycloakConfig } from "./keycloak";
 
 export interface UserCredentialRecord {
   id: string;
@@ -71,6 +73,42 @@ export const INITIAL_USER_CREDENTIALS: UserCredentialRecord[] = [
   },
 ];
 
+function getStoragePath(): string | null {
+  try {
+    if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+      return null;
+    }
+    if (typeof process !== "undefined" && process.cwd) {
+      return path.join(process.cwd(), ".sv8_users.json");
+    }
+  } catch (_) {}
+  return null;
+}
+
+function loadPersistedUsers(): Record<string, UserCredentialRecord> {
+  const filePath = getStoragePath();
+  if (!filePath) return {};
+  try {
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch (_) {}
+  return {};
+}
+
+function savePersistedUsers(users: Map<string, UserCredentialRecord>): void {
+  const filePath = getStoragePath();
+  if (!filePath) return;
+  try {
+    const obj: Record<string, UserCredentialRecord> = {};
+    for (const [k, v] of users.entries()) {
+      obj[k] = v;
+    }
+    fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), "utf-8");
+  } catch (_) {}
+}
+
 export class UserCredentialStore {
   private users: Map<string, UserCredentialRecord> = new Map();
 
@@ -78,10 +116,23 @@ export class UserCredentialStore {
     for (const u of initialUsers) {
       this.users.set(u.email.toLowerCase().trim(), { ...u });
     }
+    const persisted = loadPersistedUsers();
+    for (const [email, u] of Object.entries(persisted)) {
+      this.users.set(email.toLowerCase().trim(), { ...u });
+    }
   }
 
   public getUserByEmail(email: string): UserCredentialRecord | undefined {
-    return this.users.get(email.toLowerCase().trim());
+    const cleanEmail = email.toLowerCase().trim();
+    let user = this.users.get(cleanEmail);
+    if (!user) {
+      const persisted = loadPersistedUsers();
+      if (persisted[cleanEmail]) {
+        user = persisted[cleanEmail];
+        this.users.set(cleanEmail, user);
+      }
+    }
+    return user;
   }
 
   public listUsers(tenantSlug?: string): UserCredentialRecord[] {
@@ -123,6 +174,7 @@ export class UserCredentialStore {
     };
 
     this.users.set(cleanEmail, newUser);
+    savePersistedUsers(this.users);
     return { success: true, user: newUser };
   }
 
@@ -136,66 +188,95 @@ export class UserCredentialStore {
       return { success: false, error: "Email and password are required." };
     }
 
-    // 1. Check Keycloak ROPC if configured and live
-    if (process.env.KEYCLOAK_ADMIN_BASE_URL) {
+    let user = this.getUserByEmail(cleanEmail);
+
+    // 1. If user is in local store, verify password hash
+    if (user) {
+      if (user.status === "suspended") {
+        return { success: false, error: "Account is suspended. Please contact administrator." };
+      }
+
+      const isValid = verifyPasswordHash(password, user.passwordHash);
+      if (isValid) {
+        // Enforce strict tenant boundary
+        if (tenantSlug) {
+          const cleanTenantSlug = tenantSlug.toLowerCase().trim();
+          const userTenantSlug = user.tenantSlug.toLowerCase().trim();
+
+          if (cleanTenantSlug && cleanTenantSlug !== "global" && user.role !== "superadmin" && userTenantSlug !== cleanTenantSlug) {
+            return {
+              success: false,
+              error: `Cross-tenant access denied: Account ${user.email} is registered under '${user.tenantSlug}', not '${cleanTenantSlug}'. Strict tenant domain isolation and Row-Level Security (RLS) enforced.`,
+            };
+          }
+        }
+
+        user.lastLoginAt = new Date().toISOString();
+        savePersistedUsers(this.users);
+        return { success: true, user };
+      }
+
+      // Password didn't match local hash; check if Keycloak accepts it (e.g. password rotated in IdP)
+      const kcConfig = getKeycloakConfig();
+      if (!user.passwordModified && kcConfig.adminBaseUrl) {
+        const kcResult = await verifyKeycloakPassword(cleanEmail, password);
+        if (kcResult.ok) {
+          user.passwordHash = hashPassword(password);
+          user.lastLoginAt = new Date().toISOString();
+          savePersistedUsers(this.users);
+
+          if (tenantSlug) {
+            const cleanTenantSlug = tenantSlug.toLowerCase().trim();
+            const userTenantSlug = user.tenantSlug.toLowerCase().trim();
+            if (cleanTenantSlug && cleanTenantSlug !== "global" && user.role !== "superadmin" && userTenantSlug !== cleanTenantSlug) {
+              return {
+                success: false,
+                error: `Cross-tenant access denied: Account ${user.email} is registered under '${user.tenantSlug}', not '${cleanTenantSlug}'. Strict tenant domain isolation and Row-Level Security (RLS) enforced.`,
+              };
+            }
+          }
+          return { success: true, user };
+        }
+      }
+
+      return { success: false, error: "Incorrect password. Please try again." };
+    }
+
+    // 2. User not found in local store; verify against Keycloak IdP (e.g. QA-created realm user)
+    const kcConfig = getKeycloakConfig();
+    if (kcConfig.adminBaseUrl) {
       const kcResult = await verifyKeycloakPassword(cleanEmail, password);
       if (kcResult.ok) {
-        let user = this.users.get(cleanEmail);
         const roles = kcResult.decodedClaims?.realm_access?.roles || [];
         const mappedRole = mapRealmRolesToSupportRole(roles);
         const tenantFromClaim = kcResult.decodedClaims?.attributes?.tenant_id?.[0] || kcResult.decodedClaims?.tenant_id;
         const resolvedSlug = (tenantFromClaim || tenantSlug || cleanEmail.split("@")[1].split(".")[0] || "acme").toLowerCase().trim();
 
-        if (!user) {
-          // Provision local record from Keycloak verified login
-          const res = this.registerUser({
-            email: cleanEmail,
-            password,
-            tenantSlug: resolvedSlug,
-            role: mappedRole,
-          });
-          user = res.user;
-        } else {
-          user.role = mappedRole;
-          user.tenantSlug = resolvedSlug;
-        }
+        const res = this.registerUser({
+          email: cleanEmail,
+          password,
+          tenantSlug: resolvedSlug,
+          role: mappedRole,
+        });
+
+        user = res.user;
         if (user) {
-          user.lastLoginAt = new Date().toISOString();
+          if (tenantSlug) {
+            const cleanTenantSlug = tenantSlug.toLowerCase().trim();
+            const userTenantSlug = user.tenantSlug.toLowerCase().trim();
+            if (cleanTenantSlug && cleanTenantSlug !== "global" && user.role !== "superadmin" && userTenantSlug !== cleanTenantSlug) {
+              return {
+                success: false,
+                error: `Cross-tenant access denied: Account ${user.email} is registered under '${user.tenantSlug}', not '${cleanTenantSlug}'. Strict tenant domain isolation and Row-Level Security (RLS) enforced.`,
+              };
+            }
+          }
           return { success: true, user };
         }
       }
     }
 
-    // 2. Check local salted scrypt credential store
-    const user = this.users.get(cleanEmail);
-    if (!user) {
-      return { success: false, error: "Account not found. Please check your email or sign up." };
-    }
-
-    if (user.status === "suspended") {
-      return { success: false, error: "Account is suspended. Please contact administrator." };
-    }
-
-    const isValid = verifyPasswordHash(password, user.passwordHash);
-    if (!isValid) {
-      return { success: false, error: "Incorrect password. Please try again." };
-    }
-
-    // 3. Strict Tenant Domain Boundary & Row-Level Security (RLS) Enforcement
-    if (tenantSlug) {
-      const cleanTenantSlug = tenantSlug.toLowerCase().trim();
-      const userTenantSlug = user.tenantSlug.toLowerCase().trim();
-
-      if (cleanTenantSlug && cleanTenantSlug !== "global" && user.role !== "superadmin" && userTenantSlug !== cleanTenantSlug) {
-        return {
-          success: false,
-          error: `Cross-tenant access denied: Account ${user.email} is registered under '${user.tenantSlug}', not '${cleanTenantSlug}'. Strict tenant domain isolation and Row-Level Security (RLS) enforced.`,
-        };
-      }
-    }
-
-    user.lastLoginAt = new Date().toISOString();
-    return { success: true, user };
+    return { success: false, error: "Account not found. Please check your email or sign up." };
   }
 
   public changePassword(
@@ -204,7 +285,14 @@ export class UserCredentialStore {
     newPassword: string
   ): { success: boolean; error?: string } {
     const cleanEmail = email.toLowerCase().trim();
-    const user = this.users.get(cleanEmail);
+    let user = this.users.get(cleanEmail);
+    if (!user) {
+      const persisted = loadPersistedUsers();
+      if (persisted[cleanEmail]) {
+        user = persisted[cleanEmail];
+        this.users.set(cleanEmail, user);
+      }
+    }
     if (!user) {
       return { success: false, error: "Account not found." };
     }
@@ -220,17 +308,26 @@ export class UserCredentialStore {
 
     user.passwordHash = hashPassword(newPassword);
     user.passwordModified = true;
+    savePersistedUsers(this.users);
     return { success: true };
   }
 
   public resetPassword(email: string, newPassword: string): { success: boolean; error?: string } {
     const cleanEmail = email.toLowerCase().trim();
-    const user = this.users.get(cleanEmail);
+    let user = this.users.get(cleanEmail);
+    if (!user) {
+      const persisted = loadPersistedUsers();
+      if (persisted[cleanEmail]) {
+        user = persisted[cleanEmail];
+        this.users.set(cleanEmail, user);
+      }
+    }
     if (!user) {
       return { success: false, error: "Account not found." };
     }
     user.passwordHash = hashPassword(newPassword);
     user.passwordModified = true;
+    savePersistedUsers(this.users);
     return { success: true };
   }
 }

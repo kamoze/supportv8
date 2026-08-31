@@ -291,7 +291,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
     setProvisionLogs(["[1/4] Initializing secure tenant workspace and administrator credentials..."]);
 
     try {
-      await fetch("/api/tenant/signup", {
+      const res = await fetch("/api/tenant/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -304,7 +304,23 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
           primaryStream,
         }),
       });
-    } catch (_) {}
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        setIsProvisioning(false);
+        setProvisionLogs((prev) => [
+          ...prev,
+          `[ERROR] ${data.error || "Failed to provision workspace. Please try again."}`,
+        ]);
+        return;
+      }
+    } catch (err: any) {
+      setIsProvisioning(false);
+      setProvisionLogs((prev) => [
+        ...prev,
+        `[ERROR] Network error: ${err.message || "Failed to contact signup service."}`,
+      ]);
+      return;
+    }
 
     setTimeout(() => {
       setProvisionProgress(45);
@@ -312,7 +328,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         ...prev,
         `[2/4] Configuring custom portal endpoint: ${slug}.support.servicev8.com`,
       ]);
-    }, 500);
+    }, 400);
 
     setTimeout(() => {
       setProvisionProgress(75);
@@ -320,7 +336,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         ...prev,
         `[3/4] Setting up intelligent work desk and domain knowledge base...`,
       ]);
-    }, 1000);
+    }, 800);
 
     setTimeout(() => {
       setProvisionProgress(100);
@@ -329,7 +345,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         "[4/4] Workspace provisioned successfully. Ready to launch!",
       ]);
       setIsProvisioning(false);
-    }, 1600);
+    }, 1200);
   };
 
   return (

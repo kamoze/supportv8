@@ -35,7 +35,7 @@ function filterWorkDeskQueue(
 }
 
 describe("Work Desk Queue Lifecycle & Resolved/Closed Exit Logic", () => {
-  const mockIssues: Issue[] = [
+  const mockIssues: Issue[] = ([
     {
       id: "iss-1",
       externalId: "SV8-1001",
@@ -82,7 +82,7 @@ describe("Work Desk Queue Lifecycle & Resolved/Closed Exit Logic", () => {
       priority: "urgent",
       createdAt: "2026-08-31T10:30:00Z",
     },
-  ];
+  ] as any) as Issue[];
 
   it("1. Active Work Desk Queue should exclude resolved and closed tickets", () => {
     const activeQueue = filterWorkDeskQueue(mockIssues, "active");

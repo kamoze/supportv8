@@ -742,6 +742,36 @@ export class MarketplaceService {
   private settings: TenantSettingConfig = { ...INITIAL_SETTINGS };
   private reports: ComplianceAuditReport[] = [...INITIAL_REPORTS];
   private auditLogs: TenantAuditLog[] = [...INITIAL_AUDIT_LOGS];
+  private credits: number = 4850;
+
+  public getCredits(): number {
+    return this.credits;
+  }
+
+  public setCredits(amount: number): number {
+    this.credits = Math.max(0, amount);
+    return this.credits;
+  }
+
+  public deductCredits(amount: number, reason: string): { remaining: number; deducted: number; reason: string } {
+    const deducted = Math.min(this.credits, Math.max(0, amount));
+    this.credits = Math.max(0, this.credits - deducted);
+    return {
+      remaining: this.credits,
+      deducted,
+      reason,
+    };
+  }
+
+  public addCredits(amount: number, reason: string): { remaining: number; added: number; reason: string } {
+    const added = Math.max(0, amount);
+    this.credits += added;
+    return {
+      remaining: this.credits,
+      added,
+      reason,
+    };
+  }
 
   public getConnectors(): MarketplaceConnector[] {
     return [...this.connectors];

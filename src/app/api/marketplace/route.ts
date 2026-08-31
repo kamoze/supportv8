@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 
 export async function GET() {
+  const credits = marketplaceService.getCredits();
   const connectors = marketplaceService.getConnectors();
   const workforce = marketplaceService.getWorkforceCatalog();
   const plans = marketplaceService.getPlans();
@@ -13,6 +14,7 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     data: {
+      credits,
       connectors,
       workforce,
       plans,
@@ -28,6 +30,26 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { action } = body;
+
+    if (action === "deduct_credits") {
+      const { amount, reason } = body;
+      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction");
+      return NextResponse.json({
+        success: true,
+        message: `Deducted ${result.deducted} credits. Balance: ${result.remaining}`,
+        data: result,
+      });
+    }
+
+    if (action === "add_credits" || action === "purchase_credits") {
+      const { amount, reason } = body;
+      const result = marketplaceService.addCredits(amount || 0, reason || "Credit purchase");
+      return NextResponse.json({
+        success: true,
+        message: `Added ${result.added} credits. Balance: ${result.remaining}`,
+        data: result,
+      });
+    }
 
     if (action === "toggle_connector") {
       const { connectorId, isSubscribed } = body;

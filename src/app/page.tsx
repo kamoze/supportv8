@@ -444,9 +444,60 @@ export default function SupportV8Dashboard() {
   // ForgeGW Managed vs BYOM Model Governance States (GrowthV8 Architecture)
   const [isForgeGwModalOpen, setIsForgeGwModalOpen] = useState<boolean>(false);
   const [modelProvider, setModelProvider] = useState<"forgegw" | "byom">("forgegw");
-  const [forgeGwCredits, setForgeGwCredits] = useState<number>(4850);
+  const [forgeGwCredits, setForgeGwCredits] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("sv8_forgegw_credits");
+      if (cached && !isNaN(Number(cached))) {
+        return Number(cached);
+      }
+    }
+    return 4850;
+  });
   const [byomApiKey, setByomApiKey] = useState<string>("");
   const [byomModel, setByomModel] = useState<string>("gpt-4o");
+
+  // Persistent ForgeGW Credit Helpers (Server Sync & Local Cache)
+  const handleDeductCredits = async (amount: number, reason: string) => {
+    setForgeGwCredits((prev) => {
+      const next = Math.max(0, prev - amount);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sv8_forgegw_credits", String(next));
+      }
+      return next;
+    });
+    notify(`Deducted ${amount} ForgeGW Credits: ${reason}`, "info");
+
+    try {
+      await fetch("/api/marketplace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deduct_credits", amount, reason }),
+      });
+    } catch (err) {
+      console.error("Failed to persist credit deduction to server:", err);
+    }
+  };
+
+  const handleAddCredits = async (amount: number, packTitle: string, price: number) => {
+    setForgeGwCredits((prev) => {
+      const next = prev + amount;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sv8_forgegw_credits", String(next));
+      }
+      return next;
+    });
+    notify(`CHECKOUT successful! Added ${amount.toLocaleString()} ForgeGW Action Credits ($${price}).`, "success");
+
+    try {
+      await fetch("/api/marketplace", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_credits", amount, reason: `Purchased ${packTitle} ($${price})` }),
+      });
+    } catch (err) {
+      console.error("Failed to persist credit addition to server:", err);
+    }
+  };
 
   // Load all initial data
   const fetchData = async () => {
@@ -488,6 +539,12 @@ export default function SupportV8Dashboard() {
       if (vocRes.success) setVocDigestData(vocRes.data);
       if (qRes.success) setQueueData(qRes.data);
       if (marketRes?.success && marketRes.data) {
+        if (typeof marketRes.data.credits === "number") {
+          setForgeGwCredits(marketRes.data.credits);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("sv8_forgegw_credits", String(marketRes.data.credits));
+          }
+        }
         setConnectors(marketRes.data.connectors || INITIAL_CONNECTORS);
         setMarketplaceWorkforce(marketRes.data.workforce || INITIAL_WORKFORCE_CATALOG);
         setPlans(marketRes.data.plans || INITIAL_PLANS);
@@ -5222,13 +5279,9 @@ export default function SupportV8Dashboard() {
                 category: ticket.category,
                 tags: ticket.tags,
               });
-              setForgeGwCredits((prev) => Math.max(0, prev - 20));
-              notify(`🧠 Indexed ticket ${ticket.externalId} into pgvector RAG corpus (Deducted 20 Credits)`, "success");
+              await handleDeductCredits(20, `Indexed ticket ${ticket.externalId} into pgvector RAG corpus`);
             }}
-            onDeductCredits={(amount, reason) => {
-              setForgeGwCredits((prev) => Math.max(0, prev - amount));
-              notify(`Deducted ${amount} ForgeGW Credits: ${reason}`, "info");
-            }}
+            onDeductCredits={handleDeductCredits}
             onTriggerTemporalActivity={async (ticketId, activityType, payload) => {
               console.log(`[Temporal Orchestration Activity] Dispatched: ${activityType} for ${ticketId}`, payload);
               try {
@@ -6967,10 +7020,7 @@ export default function SupportV8Dashboard() {
 
                         <button
                           type="button"
-                          onClick={() => {
-                            setForgeGwCredits((prev) => prev + pack.credits);
-                            notify(`CHECKOUT successful! Added ${pack.credits.toLocaleString()} ForgeGW Action Credits ($${pack.price}).`, "success");
-                          }}
+                          onClick={() => handleAddCredits(pack.credits, pack.title, pack.price)}
                           className="btn btn-primary w-full py-1.5 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                         >
                           <Zap className="w-3 h-3" />

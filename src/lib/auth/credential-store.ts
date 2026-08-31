@@ -245,6 +245,7 @@ export class UserCredentialStore {
       return { success: false, error: "Account not found." };
     }
     user.passwordHash = hashPassword(newPassword);
+    user.passwordModified = true;
     return { success: true };
   }
 }

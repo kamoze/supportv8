@@ -288,20 +288,22 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
   const startProvisioning = async () => {
     setIsProvisioning(true);
     setProvisionProgress(15);
-    setProvisionLogs(["[1/4] Initializing secure tenant workspace..."]);
+    setProvisionLogs(["[1/4] Initializing secure tenant workspace and administrator credentials..."]);
 
     try {
       await fetch("/api/tenant/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: companyName,
-          domain: slug,
-          adminEmail,
+          name: companyName.trim(),
+          domain: slug.trim(),
+          adminName: adminName.trim(),
+          adminEmail: adminEmail.trim(),
+          password: password.trim(),
           initialMode: "copilot",
           primaryStream,
         }),
-      }).catch(() => {});
+      });
     } catch (_) {}
 
     setTimeout(() => {

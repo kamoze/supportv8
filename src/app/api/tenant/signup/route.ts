@@ -4,7 +4,16 @@ import { credentialStore } from "@/lib/auth/credential-store";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, domain, adminEmail, password = "SupportV8#2026!Secure", initialMode = "copilot", primaryStream = "customers" } = await req.json();
+    const body = await req.json();
+    const {
+      name,
+      domain,
+      adminName,
+      adminEmail,
+      password = "SupportV8#2026!Secure",
+      initialMode = "copilot",
+      primaryStream = "customers",
+    } = body;
 
     if (!name || !domain) {
       return NextResponse.json({ success: false, error: "Name and domain are required" }, { status: 400 });
@@ -24,28 +33,44 @@ export async function POST(req: NextRequest) {
     
     // Register administrator credentials with cryptographic scrypt password hashing
     if (adminEmail && password) {
-      credentialStore.registerUser({
-        email: adminEmail,
-        password,
-        name: `${name} Administrator`,
-        tenantSlug: cleanDomain,
-        role: "cx_lead",
-      });
+      const cleanEmail = adminEmail.toLowerCase().trim();
+      const resolvedAdminName = adminName?.trim() || `${name} Administrator`;
+
+      // Check if user already exists
+      const existingUser = credentialStore.getUserByEmail(cleanEmail);
+      if (existingUser) {
+        credentialStore.resetPassword(cleanEmail, password);
+        existingUser.tenantSlug = cleanDomain;
+        existingUser.name = resolvedAdminName;
+        existingUser.role = "cx_lead";
+      } else {
+        credentialStore.registerUser({
+          email: cleanEmail,
+          password,
+          name: resolvedAdminName,
+          tenantSlug: cleanDomain,
+          role: "cx_lead",
+        });
+      }
 
       // Best-effort Keycloak user registration if admin service account credentials exist
       try {
         const { createKeycloakUser } = await import("@/lib/auth/keycloak");
-        await createKeycloakUser(adminEmail, password, {
-          firstName: name,
-          lastName: "Admin",
+        const nameParts = resolvedAdminName.split(" ");
+        const firstName = nameParts[0] || name;
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Administrator";
+
+        await createKeycloakUser(cleanEmail, password, {
+          firstName,
+          lastName,
           tenantId,
           organizationName: name,
           roles: ["support_cx_lead"],
-        }).catch(() => {
-          // Graceful fallback to credential store if admin SA is not initialized in dev
+        }).catch((kcErr) => {
+          console.warn("[supportV8] Keycloak user registration notice:", kcErr);
         });
-      } catch {
-        // Non-blocking
+      } catch (err) {
+        console.warn("[supportV8] Keycloak module notice:", err);
       }
     }
 

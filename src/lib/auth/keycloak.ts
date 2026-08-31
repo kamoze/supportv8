@@ -31,7 +31,12 @@ export interface KeycloakAuthConfig {
 
 export function getKeycloakConfig(): KeycloakAuthConfig {
   return {
-    adminBaseUrl: process.env.KEYCLOAK_ADMIN_BASE_URL || process.env.SERVICEV8_OIDC_ISSUER || "https://keycloak.servicev8.com",
+    adminBaseUrl:
+      process.env.KEYCLOAK_ADMIN_BASE_URL ||
+      process.env.SERVICEV8_OIDC_ISSUER ||
+      (process.env.NODE_ENV === "production"
+        ? "http://keycloak.default.svc.cluster.local:8080"
+        : "http://localhost:8080"),
     realm: process.env.SUPPORTV8_OIDC_REALM || "supportv8",
     clientId: process.env.SUPPORTV8_OIDC_CLIENT_ID || "supportv8-app",
     adminClientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || "supportv8-admin-sa",

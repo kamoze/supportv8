@@ -176,22 +176,7 @@ export class UserCredentialStore {
       return { success: false, error: "Account is suspended. Please contact administrator." };
     }
 
-    const isDemoUser =
-      cleanEmail.endsWith("@servicev8.com") ||
-      cleanEmail.endsWith("@acme.com") ||
-      cleanEmail.endsWith("@meridian.com");
-
-    const isFallbackDemoPass =
-      isDemoUser &&
-      !user.passwordModified &&
-      (password === "SupportV8#2026!Secure" ||
-        password === "supportv8" ||
-        password === "admin" ||
-        password === "password" ||
-        password === "SupportV8" ||
-        password === "servicev8");
-
-    const isValid = isFallbackDemoPass || verifyPasswordHash(password, user.passwordHash);
+    const isValid = verifyPasswordHash(password, user.passwordHash);
     if (!isValid) {
       return { success: false, error: "Incorrect password. Please try again." };
     }

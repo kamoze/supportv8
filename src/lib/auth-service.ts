@@ -118,8 +118,6 @@ export const AuthService = {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
 
-    if (cleanCode === "123456") return true;
-
     // Check memory store
     const memRecord = memoryOtpStore[cleanEmail];
     if (memRecord) {

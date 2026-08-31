@@ -199,4 +199,14 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const resetData = await resetRes.json();
     expect(resetData.success).toBe(false);
   });
+
+  it("6. Strict Credential Verification: should strictly reject generic fallback passwords ('admin', 'password', 'supportv8')", async () => {
+    const fallbackAttempts = ["admin", "password", "supportv8", "123456"];
+
+    for (const badPass of fallbackAttempts) {
+      const res = await credentialStore.authenticate("admin@acme.com", badPass, "acme");
+      expect(res.success).toBe(false);
+      expect(res.error).toBe("Incorrect password. Please try again.");
+    }
+  });
 });

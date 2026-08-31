@@ -30,14 +30,14 @@ export default function SignupPage() {
   const [step, setStep] = useState<number>(1);
 
   // Form State
-  const [companyName, setCompanyName] = useState<string>("Acme Global Technologies");
-  const [workspaceSlug, setWorkspaceSlug] = useState<string>("acme-global");
-  const [operatingMode, setOperatingMode] = useState<"autonomous" | "copilot" | "observe">("autonomous");
+  const [companyName, setCompanyName] = useState<string>("");
+  const [workspaceSlug, setWorkspaceSlug] = useState<string>("");
+  const [operatingMode, setOperatingMode] = useState<"autonomous" | "copilot" | "observe">("copilot");
   
-  const [adminName, setAdminName] = useState<string>("Elena Rostova");
-  const [adminEmail, setAdminEmail] = useState<string>("elena@acme.com");
-  const [password, setPassword] = useState<string>("SupportV8#2026!Secure");
-  const [confirmPassword, setConfirmPassword] = useState<string>("SupportV8#2026!Secure");
+  const [adminName, setAdminName] = useState<string>("");
+  const [adminEmail, setAdminEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // Interactive CAPTCHA State

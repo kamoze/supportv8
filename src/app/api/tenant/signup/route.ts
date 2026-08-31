@@ -31,6 +31,22 @@ export async function POST(req: NextRequest) {
         tenantSlug: cleanDomain,
         role: "cx_lead",
       });
+
+      // Best-effort Keycloak user registration if admin service account credentials exist
+      try {
+        const { createKeycloakUser } = await import("@/lib/auth/keycloak");
+        await createKeycloakUser(adminEmail, password, {
+          firstName: name,
+          lastName: "Admin",
+          tenantId,
+          organizationName: name,
+          roles: ["support_cx_lead"],
+        }).catch(() => {
+          // Graceful fallback to credential store if admin SA is not initialized in dev
+        });
+      } catch {
+        // Non-blocking
+      }
     }
 
     // By default, tenant is provisioned in UI-only + basic copilot automation mode

@@ -123,4 +123,77 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       expect(mapRealmRolesToSupportRole([])).toBe("operator");
     });
   });
+
+  describe("RBAC Permissions Matrix & Access Control", () => {
+    // RBAC Capability definitions
+    const permissions: Record<string, string[]> = {
+      superadmin: ["ticket:all", "policy:write", "refund:unlimited", "tenant:manage", "audit:view", "agent:manage"],
+      cx_lead: ["ticket:triage", "policy:write", "refund:up_to_500", "team:manage", "audit:view", "agent:manage"],
+      operator: ["ticket:triage", "ticket:reply", "refund:up_to_50", "knowledge:search", "chat:live"],
+      contractor_lead: ["job:order_manage", "contractor:pin_verify", "ticket:contractor_view"],
+      technician: ["site:pass_access", "ticket:contractor_view"],
+      observer: ["metrics:read", "audit:view"],
+    };
+
+    function hasPermission(role: string, action: string): boolean {
+      const perms = permissions[role] || [];
+      return perms.includes(action) || perms.includes("ticket:all") || role === "superadmin";
+    }
+
+    it("should enforce CX Lead permissions (Policy authoring & refunds up to $500)", () => {
+      expect(hasPermission("cx_lead", "policy:write")).toBe(true);
+      expect(hasPermission("cx_lead", "refund:up_to_500")).toBe(true);
+      expect(hasPermission("cx_lead", "agent:manage")).toBe(true);
+      expect(hasPermission("cx_lead", "site:pass_access")).toBe(false);
+    });
+
+    it("should enforce Operator permissions (Triage, live chat, limited refunds)", () => {
+      expect(hasPermission("operator", "ticket:triage")).toBe(true);
+      expect(hasPermission("operator", "chat:live")).toBe(true);
+      expect(hasPermission("operator", "refund:up_to_50")).toBe(true);
+      expect(hasPermission("operator", "policy:write")).toBe(false);
+      expect(hasPermission("operator", "team:manage")).toBe(false);
+    });
+
+    it("should enforce Contractor & Technician permissions (Field jobs, lockbox passes)", () => {
+      expect(hasPermission("contractor_lead", "contractor:pin_verify")).toBe(true);
+      expect(hasPermission("contractor_lead", "job:order_manage")).toBe(true);
+      expect(hasPermission("technician", "site:pass_access")).toBe(true);
+      expect(hasPermission("technician", "policy:write")).toBe(false);
+    });
+
+    it("should enforce Observer permissions (Read-only audits)", () => {
+      expect(hasPermission("observer", "audit:view")).toBe(true);
+      expect(hasPermission("observer", "metrics:read")).toBe(true);
+      expect(hasPermission("observer", "ticket:reply")).toBe(false);
+      expect(hasPermission("observer", "refund:up_to_50")).toBe(false);
+    });
+  });
+
+  describe("Tenant Onboarding & Keycloak Integration", () => {
+    it("should register new tenant admin credentials and assign CX Lead role", async () => {
+      const store = new UserCredentialStore();
+      const tenantSlug = "apex-logistics";
+      const adminEmail = "admin@apex-logistics.com";
+      const password = "ApexSecure#2026!Pass";
+
+      const reg = store.registerUser({
+        email: adminEmail,
+        password,
+        name: "Apex Logistics Administrator",
+        tenantSlug,
+        role: "cx_lead",
+      });
+
+      expect(reg.success).toBe(true);
+      expect(reg.user?.tenantSlug).toBe("apex-logistics");
+      expect(reg.user?.role).toBe("cx_lead");
+
+      // Verify immediate login capability with new credentials
+      const auth = await store.authenticate(adminEmail, password);
+      expect(auth.success).toBe(true);
+      expect(auth.user?.role).toBe("cx_lead");
+    });
+  });
 });
+

@@ -1869,6 +1869,79 @@ export default function SupportV8Dashboard() {
     );
   }
 
+  if (viewMode === "cockpit" && !operatorSession) {
+    return (
+      <>
+        <div className="min-h-screen bg-[#0B1017] flex items-center justify-center p-6 text-[#EAF1F8]">
+          <div className="max-w-md w-full p-8 rounded-3xl bg-[#141C26] border border-[#E5484D]/40 shadow-2xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-[#E5484D]/10 border border-[#E5484D]/30 flex items-center justify-center mx-auto text-[#E5484D]">
+              <Lock className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-[#EAF1F8]">Authentication Required</h2>
+              <p className="text-xs text-[#8FA2B7] leading-relaxed">
+                Access to the SupportV8 Operator Work Desk is strictly gated. Please sign in with your verified administrator or operator credentials for{" "}
+                <span className="font-mono text-[#2ED8B6]">{currentTenantSlug}.support.servicev8.com</span>.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col gap-3">
+              <button
+                onClick={() => setIsSignInModalOpen(true)}
+                className="w-full btn btn-primary py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20"
+              >
+                <span>Sign In to Work Desk</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("global_landing")}
+                className="w-full btn btn-secondary py-2.5 text-xs font-mono cursor-pointer text-[#8FA2B7]"
+              >
+                &larr; Return to Overview Portal
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <SignInModal
+          isOpen={isSignInModalOpen}
+          lockedTenantSlug={currentTenantSlug !== "acme" ? currentTenantSlug : undefined}
+          initialTenantSlug={currentTenantSlug}
+          initialEmail={signInPrefillEmail}
+          onClose={() => {
+            setIsSignInModalOpen(false);
+            setSignInPrefillEmail("");
+          }}
+          onSuccess={(session) => {
+            setOperatorSession(session);
+            setCurrentTenantSlug(session.tenantSlug);
+            setViewMode("cockpit");
+            notify(`Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`, "success");
+          }}
+          onOpenSignup={() => {
+            setIsSignInModalOpen(false);
+            setIsSignupModalOpen(true);
+          }}
+        />
+
+        <SignupModal
+          isOpen={isSignupModalOpen}
+          onClose={() => setIsSignupModalOpen(false)}
+          onSuccess={(slug, adminEmail) => {
+            setCurrentTenantSlug(slug);
+            setSignInPrefillEmail(adminEmail || "");
+            setIsSignupModalOpen(false);
+            setIsSignInModalOpen(true);
+            notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
+          }}
+          onOpenSignIn={() => {
+            setIsSignupModalOpen(false);
+            setIsSignInModalOpen(true);
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
       {/* Toast Notification */}

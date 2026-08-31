@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { insightsService } from "@/lib/services/insights-service";
 
-export async function GET() {
-  const insights = insightsService.getAll();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || undefined;
+  const insights = insightsService.getAll(tenant);
   return NextResponse.json({
     success: true,
     count: insights.length,

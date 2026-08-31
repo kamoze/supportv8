@@ -14,8 +14,12 @@ export class IssueService {
     source?: SourceType;
     problemId?: string;
     search?: string;
+    tenant?: string;
   }): Issue[] {
-    let result = [...db.issues];
+    const tenantSlug = (filters?.tenant || "acme").toLowerCase().trim();
+    const tenantData = db.getTenantData(tenantSlug);
+    let result = [...tenantData.issues];
+
     if (filters?.sentiment) {
       result = result.filter((i) => i.sentiment === filters.sentiment);
     }

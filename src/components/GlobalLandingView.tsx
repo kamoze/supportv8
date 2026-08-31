@@ -35,15 +35,25 @@ import { SupportV8Logo } from "@/components/SupportV8Logo";
 interface GlobalLandingViewProps {
   onOpenSignIn: () => void;
   onOpenTenantPortal: (slug?: string) => void;
+  onOpenDemoLogin?: (slug?: string) => void;
   onOpenSignup: () => void;
 }
 
 export function GlobalLandingView({
   onOpenSignIn,
   onOpenTenantPortal,
+  onOpenDemoLogin,
   onOpenSignup,
 }: GlobalLandingViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const handleLaunchDemo = (slug: string) => {
+    if (onOpenDemoLogin) {
+      onOpenDemoLogin(slug);
+    } else {
+      onOpenTenantPortal(slug);
+    }
+  };
 
   // Signal particle network animation
   useEffect(() => {
@@ -204,18 +214,18 @@ export function GlobalLandingView({
           {/* Demo Sandbox Quick Jump */}
           <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
             <button
-              onClick={() => onOpenTenantPortal("acme")}
+              onClick={() => handleLaunchDemo("acme")}
               className="px-2.5 py-1 rounded-lg text-[#2ED8B6] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
-              title="Preview live seeded Acme Corp customer care sandbox"
+              title="Launch live seeded Acme Corp customer care demo session"
             >
               <Users className="w-3 h-3 text-[#2ED8B6]" />
               <span>Acme Demo</span>
             </button>
 
             <button
-              onClick={() => onOpenTenantPortal("meridian")}
+              onClick={() => handleLaunchDemo("meridian")}
               className="px-2.5 py-1 rounded-lg text-[#F5A623] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
-              title="Preview live seeded Meridian Logistics contractor dispatch sandbox"
+              title="Launch live seeded Meridian Logistics contractor dispatch demo session"
             >
               <HardHat className="w-3 h-3 text-[#F5A623]" />
               <span>Meridian Demo</span>
@@ -271,19 +281,19 @@ export function GlobalLandingView({
             </button>
 
             <button
-              onClick={() => onOpenTenantPortal("acme")}
+              onClick={() => handleLaunchDemo("acme")}
               className="btn btn-secondary px-5 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:border-[#2ED8B6]"
             >
               <Users className="w-4 h-4 text-[#2ED8B6]" />
-              <span>Acme Demo (SaaS CX)</span>
+              <span>Launch Acme Demo</span>
             </button>
 
             <button
-              onClick={() => onOpenTenantPortal("meridian")}
+              onClick={() => handleLaunchDemo("meridian")}
               className="btn btn-secondary px-5 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:border-[#F5A623]"
             >
               <HardHat className="w-4 h-4 text-[#F5A623]" />
-              <span>Meridian Demo (Field Dispatch)</span>
+              <span>Launch Meridian Demo</span>
             </button>
           </div>
 
@@ -344,7 +354,7 @@ export function GlobalLandingView({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
             {/* Acme Corp Demo Card */}
             <div
-              onClick={() => onOpenTenantPortal("acme")}
+              onClick={() => handleLaunchDemo("acme")}
               className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
             >
               <div className="flex items-center justify-between">
@@ -379,7 +389,7 @@ export function GlobalLandingView({
 
             {/* Meridian Logistics Demo Card */}
             <div
-              onClick={() => onOpenTenantPortal("meridian")}
+              onClick={() => handleLaunchDemo("meridian")}
               className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#F5A623] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
             >
               <div className="flex items-center justify-between">

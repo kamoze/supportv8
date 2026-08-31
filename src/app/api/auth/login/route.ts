@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const user = authResult.user;
     const session = AuthService.createSession(
-      tenantSlug || user.tenantSlug,
+      user.tenantSlug,
       user.email,
       user.role
     );

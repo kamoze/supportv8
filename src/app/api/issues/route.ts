@@ -9,8 +9,9 @@ export async function GET(req: NextRequest) {
   const source = searchParams.get("source") as SourceType | undefined;
   const problemId = searchParams.get("problemId") || undefined;
   const search = searchParams.get("search") || undefined;
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || req.headers.get("x-tenant-id") || undefined;
 
-  const issues = issueService.getAll({ sentiment, category, source, problemId, search });
+  const issues = issueService.getAll({ sentiment, category, source, problemId, search, tenant });
   return NextResponse.json({
     success: true,
     count: issues.length,

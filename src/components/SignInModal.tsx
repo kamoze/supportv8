@@ -118,16 +118,6 @@ export function SignInModal({
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
-  const handleQuickFill = (emailVal: string, slugVal: string, roleVal: "operator" | "contractor" | "cx_lead" | "customer") => {
-    setEmail(emailVal);
-    setPassword("SupportV8#2026!Secure");
-    if (!lockedTenantSlug) setTenantSlug(slugVal);
-    setSelectedRole(roleVal);
-    setCaptchaAnswer((captchaNum1 + captchaNum2).toString());
-    setCaptchaError(false);
-    setErrorMsg("");
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
@@ -157,43 +147,6 @@ export function SignInModal({
 
         {/* Modal Body */}
         <div className="p-8 overflow-y-auto space-y-5">
-          {/* 1-Click Quick Fill Demo Bar */}
-          <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2">
-            <div className="text-[11px] font-mono text-[#6B7C8D] flex items-center justify-between">
-              <span>⚡ 1-Click Quick Fill Demo Accounts:</span>
-              <span className="text-[10px] text-[#2ED8B6]">Pre-fills password & captcha</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleQuickFill("acme@servicev8.com", "acme", "cx_lead")}
-                className="px-2.5 py-1.5 rounded-xl bg-[#18222E] hover:bg-[#202E3E] border border-[var(--line-2)] text-xs text-[#EAF1F8] font-medium transition cursor-pointer"
-              >
-                👑 Acme CX Lead
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("admin@acme-movers.com", "acme-movers", "cx_lead")}
-                className="px-2.5 py-1.5 rounded-xl bg-[#18222E] hover:bg-[#202E3E] border border-[var(--line-2)] text-xs text-[#EAF1F8] font-medium transition cursor-pointer"
-              >
-                🚚 Acme Movers Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("david.kim@acme.com", "acme", "operator")}
-                className="px-2.5 py-1.5 rounded-xl bg-[#18222E] hover:bg-[#202E3E] border border-[var(--line-2)] text-xs text-[#EAF1F8] font-medium transition cursor-pointer"
-              >
-                🎧 David (Operator)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("dispatch@meridian.com", "meridian", "contractor")}
-                className="px-2.5 py-1.5 rounded-xl bg-[#18222E] hover:bg-[#202E3E] border border-[var(--line-2)] text-xs text-[#EAF1F8] font-medium transition cursor-pointer"
-              >
-                🛠️ Meridian Contractor
-              </button>
-            </div>
-          </div>
 
           {errorMsg && (
             <div className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">

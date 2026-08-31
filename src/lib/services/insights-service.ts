@@ -8,8 +8,9 @@ import type { Insight } from "../types";
 import { globalActionGateway } from "../runtime/action-gateway-client";
 
 export class InsightsService {
-  public getAll(): Insight[] {
-    return [...db.insights];
+  public getAll(tenantSlug?: string): Insight[] {
+    if (!tenantSlug) return [...db.insights];
+    return db.getTenantData(tenantSlug).insights;
   }
 
   public getById(id: string): Insight | undefined {

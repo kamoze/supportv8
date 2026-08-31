@@ -2,19 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { knowledgeService } from "@/lib/services/knowledge-service";
 import { db } from "@/lib/db/mock-data";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const tenantData = db.getTenantData(tenant);
+
   const articles = knowledgeService.getArticles();
   const gaps = knowledgeService.getGaps();
   const proposals = knowledgeService.getProposals();
-  const documents = db.documents || [];
-  const webSources = db.webSources || [];
+  const documents = tenantData.documents || [];
+  const webSources = tenantData.webSources || [];
 
   return NextResponse.json({
     success: true,
     data: {
-      articles,
-      gaps,
-      proposals,
+      articles: tenantData.isClean ? [] : articles,
+      gaps: tenantData.isClean ? [] : gaps,
+      proposals: tenantData.isClean ? [] : proposals,
       documents,
       webSources,
     },

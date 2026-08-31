@@ -1330,7 +1330,12 @@ class SupportDatabase {
     if (cleanSlug === "acme" || cleanSlug === "default") {
       return {
         tenant: { ...this.tenant, name: "Acme Corp", tenantId: "tenant_acme" },
-        issues: this.issues.filter((i) => !i.category?.includes("contractor") && !i.tags?.includes("contractor")),
+        issues: this.issues.filter(
+          (i) =>
+            (i.tenantId === "tenant_default" || i.tenantId === "tenant_acme" || !i.tenantId) &&
+            !i.category?.includes("contractor") &&
+            !i.tags?.includes("contractor")
+        ),
         problems: this.problems,
         insights: this.insights,
         sources: this.sources,
@@ -1344,7 +1349,11 @@ class SupportDatabase {
     if (cleanSlug === "meridian") {
       return {
         tenant: { ...this.tenant, name: "Meridian Logistics", tenantId: "tenant_meridian" },
-        issues: this.issues.filter((i) => i.category?.includes("contractor") || i.tags?.includes("contractor") || i.entityType === "contractor"),
+        issues: this.issues.filter(
+          (i) =>
+            (i.tenantId === "tenant_meridian" || i.tenantId === "tenant_default" || !i.tenantId) &&
+            (i.category?.includes("contractor") || i.tags?.includes("contractor") || i.entityType === "contractor")
+        ),
         problems: this.problems.filter((p) => p.title.toLowerCase().includes("lockbox") || p.title.toLowerCase().includes("dispatch") || p.title.toLowerCase().includes("contractor")),
         insights: this.insights,
         sources: this.sources,
@@ -1393,9 +1402,10 @@ class SupportDatabase {
   private dynamicTenantIssues: Map<string, Issue[]> = new Map();
 
   public addIssue(issue: Issue, tenantSlug: string = "default") {
-    this.issues.unshift(issue);
     const clean = tenantSlug.toLowerCase().trim();
-    if (clean !== "acme" && clean !== "meridian" && clean !== "default") {
+    if (clean === "acme" || clean === "meridian" || clean === "default") {
+      this.issues.unshift(issue);
+    } else {
       const existing = this.dynamicTenantIssues.get(clean) || [];
       this.dynamicTenantIssues.set(clean, [issue, ...existing.filter((i) => i.id !== issue.id)]);
     }

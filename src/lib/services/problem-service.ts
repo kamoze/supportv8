@@ -8,8 +8,9 @@ import type { Problem, ProblemStatus, Issue, SourceType } from "../types";
 import { businessImpactEngine } from "./business-impact-engine";
 
 export class ProblemService {
-  public getAll(): Problem[] {
-    return [...db.problems];
+  public getAll(tenantSlug?: string): Problem[] {
+    if (!tenantSlug) return [...db.problems];
+    return db.getTenantData(tenantSlug).problems;
   }
 
   public getById(id: string): Problem | undefined {

@@ -515,29 +515,32 @@ export default function SupportV8Dashboard() {
     }
   };
 
-  // Load all initial data
-  const fetchData = async () => {
+  // Load all initial data scoped to active tenant
+  const fetchData = async (overrideTenant?: string) => {
     try {
       setLoading(true);
+      const activeSlug = overrideTenant || currentTenantSlug || "acme";
+      const tenantQuery = `?tenant=${encodeURIComponent(activeSlug)}`;
+      const headers = { "x-tenant-slug": activeSlug };
       const [ovRes, issRes, prbRes, insRes, kbRes, swRes, srcRes, polRes, trRes, wfRes, vcRes, vertRes, slaRes, healthRes, qaRes, vocRes, qRes, marketRes] = await Promise.all([
-        fetch("/api/overview").then((r) => r.json()),
-        fetch("/api/issues").then((r) => r.json()),
-        fetch("/api/problems").then((r) => r.json()),
-        fetch("/api/insights").then((r) => r.json()),
-        fetch("/api/knowledge").then((r) => r.json()),
-        fetch("/api/stale-work").then((r) => r.json()),
-        fetch("/api/sources").then((r) => r.json()),
-        fetch("/api/policies").then((r) => r.json()),
-        fetch("/api/trends").then((r) => r.json()),
-        fetch("/api/workforce").then((r) => r.json()),
-        fetch("/api/voice/session").then((r) => r.json()),
-        fetch("/api/verticals").then((r) => r.json()),
-        fetch("/api/cx/sla").then((r) => r.json()),
-        fetch("/api/cx/customer-health").then((r) => r.json()),
-        fetch("/api/cx/qa-scorecards").then((r) => r.json()),
-        fetch("/api/cx/voc-digest").then((r) => r.json()),
-        fetch("/api/cx/queue").then((r) => r.json()),
-        fetch("/api/marketplace").then((r) => r.json()).catch(() => ({ success: false })),
+        fetch(`/api/overview${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/issues${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/problems${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/insights${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/knowledge${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/stale-work${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/sources${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/policies${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/trends${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/workforce${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/voice/session${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/verticals${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/cx/sla${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/cx/customer-health${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/cx/qa-scorecards${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/cx/voc-digest${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/cx/queue${tenantQuery}`, { headers }).then((r) => r.json()),
+        fetch(`/api/marketplace${tenantQuery}`, { headers }).then((r) => r.json()).catch(() => ({ success: false })),
       ]);
 
       if (ovRes.success) setOverview(ovRes.data);
@@ -815,6 +818,21 @@ export default function SupportV8Dashboard() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Re-fetch data whenever active tenant changes & guard against cross-tenant session leaks
+  useEffect(() => {
+    fetchData(currentTenantSlug);
+
+    if (
+      operatorSession &&
+      operatorSession.role !== "superadmin" &&
+      operatorSession.tenantSlug.toLowerCase() !== currentTenantSlug.toLowerCase()
+    ) {
+      AuthService.clearSession();
+      setOperatorSession(null);
+      notify(`Session ended: Scoped to ${operatorSession.tenantSlug}, switched to ${currentTenantSlug}. Strict domain isolation enforced.`, "info");
+    }
+  }, [currentTenantSlug]);
 
   const notify = (text: string, type: "success" | "error" | "info" = "success") => {
     setActionNotice({ text, type });
@@ -1693,6 +1711,14 @@ export default function SupportV8Dashboard() {
             setCurrentTenantSlug(slug || "acme");
             setViewMode("tenant_landing");
           }}
+          onOpenDemoLogin={(slug = "acme") => {
+            const demoSlug = slug === "meridian" ? "meridian" : "acme";
+            const session = AuthService.authenticateDemo(demoSlug);
+            setOperatorSession(session);
+            setCurrentTenantSlug(session.tenantSlug);
+            setViewMode("cockpit");
+            notify(`Demo session initiated: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`, "success");
+          }}
           onOpenSignup={() => setIsSignupModalOpen(true)}
         />
         <DemoAccessModal
@@ -2039,7 +2065,7 @@ export default function SupportV8Dashboard() {
 
             {/* Refresh Live Data Icon */}
             <button
-              onClick={fetchData}
+              onClick={() => fetchData()}
               title="Refresh Intelligence Data"
               className="p-2 rounded-xl bg-[#101722] hover:bg-[#18222E] border border-[var(--line)] text-[#6B7C8D] hover:text-[#2ED8B6] cursor-pointer transition-colors"
             >

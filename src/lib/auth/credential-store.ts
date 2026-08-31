@@ -207,6 +207,19 @@ export class UserCredentialStore {
       return { success: false, error: "Incorrect password. Please try again." };
     }
 
+    // 3. Strict Tenant Domain Boundary & Row-Level Security (RLS) Enforcement
+    if (tenantSlug) {
+      const cleanTenantSlug = tenantSlug.toLowerCase().trim();
+      const userTenantSlug = user.tenantSlug.toLowerCase().trim();
+
+      if (user.role !== "superadmin" && userTenantSlug !== cleanTenantSlug) {
+        return {
+          success: false,
+          error: `Cross-tenant access denied: Account ${user.email} is registered under '${user.tenantSlug}', not '${cleanTenantSlug}'. Strict tenant domain isolation and Row-Level Security (RLS) enforced.`,
+        };
+      }
+    }
+
     user.lastLoginAt = new Date().toISOString();
     return { success: true, user };
   }

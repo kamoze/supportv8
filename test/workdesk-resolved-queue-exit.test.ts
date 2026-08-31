@@ -140,4 +140,37 @@ describe("Work Desk Queue Lifecycle & Resolved/Closed Exit Logic", () => {
     expect(remainingActive.length).toBe(2);
     expect(remainingActive[0].id).toBe("iss-2");
   });
+
+  it("6. Resolved tickets are preserved in master issues list and accessible via resolved filter (not deleted)", () => {
+    // Check that iss-3 is still in the master issues array
+    const targetIssue = mockIssues.find((i) => i.id === "iss-3");
+    expect(targetIssue).toBeDefined();
+    expect(targetIssue?.status).toBe("resolved");
+
+    // When filter is switched to "resolved", the ticket is visible in the resolved queue
+    const resolvedQueue = filterWorkDeskQueue(mockIssues, "resolved");
+    expect(resolvedQueue.map((i) => i.id)).toContain("iss-3");
+
+    // When filter is switched to "all", the ticket is also visible
+    const allQueue = filterWorkDeskQueue(mockIssues, "all");
+    expect(allQueue.map((i) => i.id)).toContain("iss-3");
+    expect(allQueue.length).toBe(mockIssues.length);
+  });
+
+  it("7. Re-opening a resolved ticket moves it back from resolved filter to active queue", () => {
+    // iss-3 is resolved
+    expect(filterWorkDeskQueue(mockIssues, "active").map((i) => i.id)).not.toContain("iss-3");
+
+    // Re-open iss-3 to in_progress
+    const reopenedIssues = mockIssues.map((i) =>
+      i.id === "iss-3" ? { ...i, status: "in_progress" } : i
+    );
+
+    const activeQueue = filterWorkDeskQueue(reopenedIssues, "active");
+    expect(activeQueue.map((i) => i.id)).toContain("iss-3");
+    expect(activeQueue.length).toBe(4);
+
+    const resolvedQueue = filterWorkDeskQueue(reopenedIssues, "resolved");
+    expect(resolvedQueue.map((i) => i.id)).not.toContain("iss-3");
+  });
 });

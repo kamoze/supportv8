@@ -5761,6 +5761,7 @@ export default function SupportV8Dashboard() {
         {activeTab === "workspace" && (
           <FocusedWorkspaceView
             issues={issues}
+            initialSelectedIssueId={workspaceSelectedIssueId}
             problems={problems}
             insights={insights}
             userRole={operatorSession?.role || "operator"}

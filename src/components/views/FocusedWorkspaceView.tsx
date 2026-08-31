@@ -87,6 +87,7 @@ const STATUS_OPTIONS: Array<{
 
 interface FocusedWorkspaceViewProps {
   issues: Issue[];
+  initialSelectedIssueId?: string;
   problems?: any[];
   insights?: any[];
   userRole?: string;
@@ -106,6 +107,7 @@ interface FocusedWorkspaceViewProps {
 
 export function FocusedWorkspaceView({
   issues,
+  initialSelectedIssueId,
   problems = [],
   insights = [],
   userRole = "operator",
@@ -123,14 +125,42 @@ export function FocusedWorkspaceView({
   onNotify,
 }: FocusedWorkspaceViewProps) {
   const isContractorUser = userRole === "contractor" || userRole === "technician" || userRole === "contractor_lead";
-  const [selectedIssueId, setSelectedIssueId] = useState<string>(issues[0]?.id || "");
-  const [queueStatusFilter, setQueueStatusFilter] = useState<"active" | "all" | "resolved">("active");
+  const [selectedIssueId, setSelectedIssueId] = useState<string>(() => {
+    if (initialSelectedIssueId) {
+      const match = issues.find((i) => i.id === initialSelectedIssueId || i.externalId === initialSelectedIssueId);
+      if (match) return match.id;
+    }
+    return issues[0]?.id || "";
+  });
+  const [queueStatusFilter, setQueueStatusFilter] = useState<"active" | "all" | "resolved">(() => {
+    if (initialSelectedIssueId) {
+      const match = issues.find((i) => i.id === initialSelectedIssueId || i.externalId === initialSelectedIssueId);
+      if (match && (match.status === "resolved" || match.status === "closed")) {
+        return "resolved";
+      }
+    }
+    return "active";
+  });
   const [filterType, setFilterType] = useState<"all" | "customers" | "contractors" | "urgent">(
     isContractorUser ? "contractors" : "all"
   );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showInsightsDrawer, setShowInsightsDrawer] = useState<boolean>(false);
   const [executingInsightId, setExecutingInsightId] = useState<string | null>(null);
+
+  // Sync initialSelectedIssueId when navigating from external views (e.g. Issues Explorer)
+  useEffect(() => {
+    if (initialSelectedIssueId) {
+      const match = issues.find((i) => i.id === initialSelectedIssueId || i.externalId === initialSelectedIssueId);
+      if (match) {
+        setSelectedIssueId(match.id);
+        const isClosedOrResolved = match.status === "resolved" || match.status === "closed";
+        if (isClosedOrResolved) {
+          setQueueStatusFilter("resolved");
+        }
+      }
+    }
+  }, [initialSelectedIssueId, issues]);
 
   // Mobile Screen Pane Switcher State
   const [mobileActivePane, setMobileActivePane] = useState<"queue" | "details" | "actions">(
@@ -1262,6 +1292,27 @@ export function FocusedWorkspaceView({
                       <span className="font-bold">PRIORITY FRONT OF LINE ACTIVE</span>
                     </div>
                     <span className="text-[10px] text-[#B4C2D0]">Elevated to top of triage queue</span>
+                  </div>
+                )}
+
+                {/* Archived / Resolved Context Banner */}
+                {(selectedIssue.status === "resolved" || selectedIssue.status === "closed") && (
+                  <div className="p-2.5 rounded-xl bg-[#4CC38A]/10 border border-[#4CC38A]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs font-mono">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#4CC38A] shrink-0" />
+                      <span className="text-[#EAF1F8] text-[11px]">
+                        Ticket is <strong>{selectedIssue.status.toUpperCase()}</strong>. Filtered from active queue, managed in <strong>Resolved</strong> archive.
+                      </span>
+                    </div>
+                    {queueStatusFilter === "active" && (
+                      <button
+                        type="button"
+                        onClick={() => setQueueStatusFilter("resolved")}
+                        className="px-2 py-1 rounded-lg bg-[#4CC38A]/20 hover:bg-[#4CC38A]/30 text-[#4CC38A] border border-[#4CC38A]/40 text-[10px] font-bold cursor-pointer transition-colors shrink-0"
+                      >
+                        Switch to Resolved Filter &rarr;
+                      </button>
+                    )}
                   </div>
                 )}
 

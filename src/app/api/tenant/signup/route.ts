@@ -36,22 +36,13 @@ export async function POST(req: NextRequest) {
       const cleanEmail = adminEmail.toLowerCase().trim();
       const resolvedAdminName = adminName?.trim() || `${name} Administrator`;
 
-      // Check if user already exists
-      const existingUser = credentialStore.getUserByEmail(cleanEmail);
-      if (existingUser) {
-        credentialStore.resetPassword(cleanEmail, password);
-        existingUser.tenantSlug = cleanDomain;
-        existingUser.name = resolvedAdminName;
-        existingUser.role = "cx_lead";
-      } else {
-        credentialStore.registerUser({
-          email: cleanEmail,
-          password,
-          name: resolvedAdminName,
-          tenantSlug: cleanDomain,
-          role: "cx_lead",
-        });
-      }
+      credentialStore.upsertUser({
+        email: cleanEmail,
+        password,
+        name: resolvedAdminName,
+        tenantSlug: cleanDomain,
+        role: "cx_lead",
+      });
 
       // Enforce Keycloak user registration when Keycloak admin credentials exist
       if (process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || process.env.KEYCLOAK_ADMIN_BASE_URL) {

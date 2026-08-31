@@ -147,19 +147,40 @@ export class UserCredentialStore {
     name?: string;
     tenantSlug?: string;
     role?: UserCredentialRecord["role"];
+    allowOverwrite?: boolean;
   }): { success: boolean; user?: UserCredentialRecord; error?: string } {
     const cleanEmail = params.email.toLowerCase().trim();
     if (!cleanEmail || !params.password) {
       return { success: false, error: "Email and password are required." };
     }
 
-    if (this.users.has(cleanEmail)) {
-      return { success: false, error: `An account with email '${cleanEmail}' already exists.` };
-    }
-
     const cleanSlug = (params.tenantSlug || cleanEmail.split("@")[1].split(".")[0] || "acme").toLowerCase().trim();
     const name = params.name?.trim() || cleanEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     const passwordHash = hashPassword(params.password);
+
+    let existing = this.users.get(cleanEmail);
+    if (!existing) {
+      const persisted = loadPersistedUsers();
+      if (persisted[cleanEmail]) {
+        existing = persisted[cleanEmail];
+      }
+    }
+
+    if (existing) {
+      if (!params.allowOverwrite) {
+        return { success: false, error: `An account with email '${cleanEmail}' already exists.` };
+      }
+      existing.passwordHash = passwordHash;
+      existing.name = name;
+      existing.tenantSlug = cleanSlug;
+      if (params.role) existing.role = params.role;
+      existing.status = "active";
+      existing.passwordModified = true;
+      existing.lastLoginAt = new Date().toISOString();
+      this.users.set(cleanEmail, existing);
+      savePersistedUsers(this.users);
+      return { success: true, user: existing };
+    }
 
     const newUser: UserCredentialRecord = {
       id: `usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -176,6 +197,16 @@ export class UserCredentialStore {
     this.users.set(cleanEmail, newUser);
     savePersistedUsers(this.users);
     return { success: true, user: newUser };
+  }
+
+  public upsertUser(params: {
+    email: string;
+    password: string;
+    name?: string;
+    tenantSlug?: string;
+    role?: UserCredentialRecord["role"];
+  }): { success: boolean; user?: UserCredentialRecord; error?: string } {
+    return this.registerUser({ ...params, allowOverwrite: true });
   }
 
   public async authenticate(

@@ -1403,20 +1403,29 @@ class SupportDatabase {
       };
     }
 
-    // Clean tenant for any newly registered domain (e.g. acme-movers)
-    const formattedName = cleanSlug
-      .split("-")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
+    // Dynamic registered tenant workspaces
+    const dynamicTenant = this.dynamicTenants.get(cleanSlug);
+    const resolvedName =
+      dynamicTenant?.name ||
+      (cleanSlug.includes("lexi") && cleanSlug.includes("plant")
+        ? "Lexi's Planthouse"
+        : cleanSlug.includes("winnie")
+        ? "Winnie Shoes Demo"
+        : cleanSlug.includes("windows")
+        ? "Windows Demo"
+        : cleanSlug
+            .split("-")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" "));
 
     const dynamicIssues = this.dynamicTenantIssues.get(cleanSlug) || [];
 
     return {
       tenant: {
-        tenantId: `tenant_${cleanSlug}`,
-        name: formattedName,
-        mode: "copilot" as OperatingMode,
-        featureFlags: {
+        tenantId: dynamicTenant?.tenantId || `tenant_${cleanSlug}`,
+        name: resolvedName,
+        mode: dynamicTenant?.mode || ("copilot" as OperatingMode),
+        featureFlags: dynamicTenant?.featureFlags || {
           observeMode: true,
           copilotMode: true,
           autonomousMode: false,
@@ -1427,6 +1436,7 @@ class SupportDatabase {
           staleWorkSweep: false,
         },
       },
+      adminName: dynamicTenant?.adminName,
       issues: dynamicIssues,
       problems: [] as Problem[],
       insights: [] as Insight[],
@@ -1439,6 +1449,72 @@ class SupportDatabase {
   }
 
   private dynamicTenantIssues: Map<string, Issue[]> = new Map();
+  private dynamicTenants: Map<
+    string,
+    { tenantId: string; name: string; adminName?: string; mode?: OperatingMode; featureFlags?: any }
+  > = new Map([
+    [
+      "lexi-s-planthouse",
+      {
+        tenantId: "tenant_lexi_s_planthouse",
+        name: "Lexi's Planthouse",
+        adminName: "Alexis Akpabio",
+        mode: "copilot",
+      },
+    ],
+    [
+      "winnie-shoes-demo",
+      {
+        tenantId: "tenant_winnie_shoes_demo",
+        name: "Winnie Shoes Demo",
+        adminName: "Winifred Douglas",
+        mode: "copilot",
+      },
+    ],
+    [
+      "windowsdemo",
+      {
+        tenantId: "tenant_windowsdemo",
+        name: "Windows Demo",
+        adminName: "Alexis Akpabio",
+        mode: "copilot",
+      },
+    ],
+  ]);
+
+  public setTenant(
+    slug: string,
+    config: {
+      name: string;
+      adminName?: string;
+      mode?: OperatingMode;
+      featureFlags?: any;
+    }
+  ) {
+    const clean = slug.toLowerCase().trim();
+    const existing = this.dynamicTenants.get(clean) || {
+      tenantId: `tenant_${clean.replace(/[^a-z0-9]/g, "_")}`,
+      name: config.name,
+    };
+
+    const updated = {
+      ...existing,
+      name: config.name || existing.name,
+      adminName: config.adminName || existing.adminName,
+      mode: config.mode || existing.mode || "copilot",
+      featureFlags: config.featureFlags || existing.featureFlags,
+    };
+
+    this.dynamicTenants.set(clean, updated);
+  }
+
+  public getTenantAdminName(slug: string = "acme"): string {
+    const clean = slug.toLowerCase().trim();
+    if (clean === "acme" || clean === "default") return "Sarah Chen";
+    if (clean === "meridian") return "Meridian Dispatch";
+    const found = this.dynamicTenants.get(clean);
+    return found?.adminName || "Support Lead";
+  }
 
   public addIssue(issue: Issue, tenantSlug: string = "default") {
     const clean = tenantSlug.toLowerCase().trim();
@@ -1447,6 +1523,8 @@ class SupportDatabase {
     } else {
       const existing = this.dynamicTenantIssues.get(clean) || [];
       this.dynamicTenantIssues.set(clean, [issue, ...existing.filter((i) => i.id !== issue.id)]);
+      // Also add to global issues list so it appears in workdesk
+      this.issues.unshift(issue);
     }
   }
 }

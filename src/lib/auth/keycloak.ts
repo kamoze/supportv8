@@ -33,10 +33,10 @@ export function getKeycloakConfig(): KeycloakAuthConfig {
   const adminBaseUrl =
     process.env.KEYCLOAK_ADMIN_BASE_URL ||
     process.env.SERVICEV8_OIDC_ISSUER ||
-    undefined;
+    "https://keycloak.servicev8.com";
 
   return {
-    adminBaseUrl: adminBaseUrl ? adminBaseUrl.replace(/\/$/, "") : undefined,
+    adminBaseUrl: adminBaseUrl ? adminBaseUrl.replace(/\/$/, "") : "https://keycloak.servicev8.com",
     realm: process.env.SUPPORTV8_OIDC_REALM || "supportv8",
     clientId: process.env.SUPPORTV8_OIDC_CLIENT_ID || "supportv8-app",
     adminClientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || "supportv8-admin-sa",

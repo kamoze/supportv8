@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
 
     const tenantId = `tenant_${cleanDomain.replace(/[^a-z0-9]/g, "_")}`;
     
+    const resolvedAdminName = adminName?.trim() || `${name} Administrator`;
+    
     // Register administrator credentials with cryptographic scrypt password hashing
     if (adminEmail && password) {
       const cleanEmail = adminEmail.toLowerCase().trim();
-      const resolvedAdminName = adminName?.trim() || `${name} Administrator`;
 
       credentialStore.upsertUser({
         email: cleanEmail,
@@ -77,11 +78,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // By default, tenant is provisioned in UI-only + basic copilot automation mode
-    // Full autonomous AI Employee assignment is a commercial activation via Studio Marketplace
+    // Persist registered tenant workspace and custom organization name
+    db.setTenant(cleanDomain, {
+      name: name.trim(),
+      adminName: resolvedAdminName,
+      mode: initialMode,
+    });
+
     db.tenant = {
       tenantId,
-      name,
+      name: name.trim(),
       mode: initialMode,
       featureFlags: {
         observeMode: true,

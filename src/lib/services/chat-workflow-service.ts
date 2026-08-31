@@ -520,7 +520,8 @@ export class ChatWorkflowService {
 
     // Resolve Tenant Subdomain Brand & Routing
     const rawSubdomain = (params.tenantDomain || "acme").toLowerCase().replace(".support.servicev8.com", "").replace(".support.servicev8.internal", "").replace(".support.", "");
-    let tenantBrand = "Acme Cloud Support";
+    const tenantData = db.getTenantData(rawSubdomain);
+    let tenantBrand = tenantData.tenant?.name ? `${tenantData.tenant.name} Support` : "Acme Cloud Support";
     let tenantGreetingSpecialty = "";
 
     if (rawSubdomain.includes("timeforbed") || rawSubdomain.includes("tfb")) {
@@ -532,6 +533,9 @@ export class ChatWorkflowService {
     } else if (rawSubdomain.includes("aplogistics") || rawSubdomain.includes("apex")) {
       tenantBrand = "AP Logistics Dispatch";
       tenantGreetingSpecialty = "freight shipments, dock scheduling, or carrier manifests";
+    } else if (tenantData.tenant?.name) {
+      tenantBrand = `${tenantData.tenant.name} Support`;
+      tenantGreetingSpecialty = "account assistance, order status, or technical support";
     }
 
     const isAiEnabledForStream = activeGuardrails.enabledStreams.includes(params.stream);
@@ -773,10 +777,11 @@ export class ChatWorkflowService {
       });
 
     if (needsEscalation && (session.assignedType === "ai" || isHumanActionRequested)) {
+      const resolvedAdmin = db.getTenantAdminName(session.tenantDomain) || "Support Lead";
       session.status = "escalated";
       session.priority = "urgent";
       session.assignedType = "human";
-      session.assignedName = "Ini Godwin (Escalated Lead)";
+      session.assignedName = `${resolvedAdmin} (Support Lead)`;
       session.assignedAvatar = "/avatars/beaver-manager.jpg";
 
       // Elevate ticket in db.issues with urgent priority and front-of-line elevation
@@ -792,15 +797,15 @@ export class ChatWorkflowService {
         existingIssue.priority = "urgent";
         existingIssue.sentiment = "urgent";
         existingIssue.status = "open";
-        existingIssue.assignedTo = "Ini Godwin (Escalated Lead)";
-        existingIssue.recommendedAction = "🚨 Live Human Lead Escalation: Customer requested human operator. Ready for operator takeover in Work Desk.";
+        existingIssue.assignedTo = `${resolvedAdmin} (Support Lead)`;
+        existingIssue.recommendedAction = `🚨 Live Human Lead Escalation: Customer requested human operator. Assigned to ${resolvedAdmin}. Ready for operator takeover in Work Desk.`;
       }
 
       const escalationMsg: CustomerChatMessage = {
         id: `msg_${Date.now()}_esc`,
         sender: "system",
         senderName: "System Safety Guardrail",
-        content: "🚨 Conversation Transferred to Live Human Operator: You are now connected with a Senior Support Lead (Ini Godwin). An operator in the Work Desk is reviewing your transcript.",
+        content: `🚨 Conversation Transferred to Live Human Operator: You are now connected with a Senior Support Lead (${resolvedAdmin}). An operator in the Work Desk is reviewing your transcript.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       session.messages.push(escalationMsg);

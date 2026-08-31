@@ -113,6 +113,10 @@ export function SupportChatWidget({
       intakeData: formData,
     });
 
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: session }));
+    }
+
     setActiveSession(session);
     setActiveStep("chat");
     setTimeout(() => setIsTyping(false), 600);
@@ -137,6 +141,9 @@ export function SupportChatWidget({
 
       if (res?.session) {
         setActiveSession({ ...res.session });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: res.session }));
+        }
       }
     }, 450);
   };

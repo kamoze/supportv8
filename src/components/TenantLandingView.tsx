@@ -57,14 +57,16 @@ export function TenantLandingView({
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Dynamic formatted tenant name
-  const formattedName = isMeridian
-    ? "Meridian Logistics"
-    : cleanSlug === "acme"
-    ? "Acme Corp"
-    : cleanSlug
-        .split("-")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+  const formattedName =
+    tenantData.tenant?.name ||
+    (isMeridian
+      ? "Meridian Logistics"
+      : cleanSlug === "acme"
+      ? "Acme Corp"
+      : cleanSlug
+          .split("-")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" "));
 
   // Curated Knowledge Base Articles (Empty for clean tenants like acme-movers until published)
   const kbArticles = isClean

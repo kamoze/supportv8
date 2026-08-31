@@ -141,6 +141,7 @@ import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
+import { db } from "@/lib/db/mock-data";
 
 export interface ChatMessage {
   id: string;
@@ -816,9 +817,36 @@ export default function SupportV8Dashboard() {
         setIsChatOpen((prev) => !prev);
       }
     };
+    const handleTicketCreated = () => {
+      fetchData(currentTenantSlug);
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("sv8_ticket_created", handleTicketCreated);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("sv8_ticket_created", handleTicketCreated);
+    };
   }, []);
+
+  // Real-time polling for new tickets in Cockpit view
+  useEffect(() => {
+    if (viewMode !== "cockpit") return;
+    const interval = setInterval(() => {
+      const activeSlug = currentTenantSlug || "acme";
+      fetch(`/api/issues?tenant=${encodeURIComponent(activeSlug)}`, {
+        headers: { "x-tenant-slug": activeSlug },
+      })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res?.success && Array.isArray(res.data)) {
+            setIssues(res.data);
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [viewMode, currentTenantSlug]);
 
   // Re-fetch data whenever active tenant changes & guard against cross-tenant session leaks
   useEffect(() => {
@@ -7653,7 +7681,7 @@ export default function SupportV8Dashboard() {
       {/* Floating Support Chat Widget */}
       <SupportChatWidget
         tenantSlug={currentTenantSlug}
-        tenantName={currentTenantSlug.charAt(0).toUpperCase() + currentTenantSlug.slice(1) + " Corp"}
+        tenantName={db.getTenantData(currentTenantSlug).tenant?.name || currentTenantSlug}
       />
 
       {/* GrowthV8-Inspired Tenant Provisioning & Signup Modal */}

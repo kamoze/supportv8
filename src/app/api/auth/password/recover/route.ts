@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     // ACTION 1: Send Password Reset Verification Code (OTP)
     if (action === "send_otp") {
-      const user = credentialStore.getUserByEmail(cleanEmail);
+      const user = credentialStore.getUserByEmail(cleanEmail, tenantSlug);
       if (!user) {
         return NextResponse.json(
           { success: false, error: `Account with email '${cleanEmail}' was not found. Please verify your address or sign up.` },
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       // Check tenant domain match if tenantSlug was provided
       if (tenantSlug) {
         const cleanTenant = tenantSlug.toLowerCase().trim();
-        if (user.role !== "superadmin" && user.tenantSlug.toLowerCase() !== cleanTenant) {
+        if (cleanTenant !== "global" && user.role !== "superadmin" && user.tenantSlug.toLowerCase() !== cleanTenant) {
           return NextResponse.json(
             {
               success: false,
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const resetResult = credentialStore.resetPassword(cleanEmail, newPassword);
+      const resetResult = credentialStore.resetPassword(cleanEmail, newPassword, tenantSlug);
       if (!resetResult.success) {
         return NextResponse.json(
           { success: false, error: resetResult.error || "Failed to update password." },

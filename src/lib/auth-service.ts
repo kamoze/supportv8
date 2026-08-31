@@ -22,7 +22,11 @@ interface StoredOtp {
   expiresAt: number;
 }
 
-const memoryOtpStore: Record<string, StoredOtp> = {};
+const globalForAuthService = globalThis as unknown as { __sv8_otp_store?: Record<string, StoredOtp> };
+const memoryOtpStore: Record<string, StoredOtp> = globalForAuthService.__sv8_otp_store ?? {};
+if (process.env.NODE_ENV !== "production") {
+  globalForAuthService.__sv8_otp_store = memoryOtpStore;
+}
 
 export const AuthService = {
   /**

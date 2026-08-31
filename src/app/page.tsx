@@ -33,6 +33,7 @@ import {
   Flame,
   Gauge,
   Globe,
+  HardHat,
   HeartPulse,
   Key,
   Layers,
@@ -93,6 +94,10 @@ import type {
   SupportPolicy,
   OverviewMetrics,
   OperatingMode,
+  PriorityLevel,
+  SentimentClass,
+  TicketTimelineEvent,
+  TicketMessageItem,
 } from "@/lib/types";
 import type {
   MarketplaceConnector,
@@ -401,10 +406,21 @@ export default function SupportV8Dashboard() {
   const [policySimTier, setPolicySimTier] = useState<"standard" | "pro" | "enterprise">("enterprise");
   const [policySimResult, setPolicySimResult] = useState<any | null>(null);
 
-  // Issue Filter States
-  const [issueSearch, setIssueSearch] = useState<string>("" );
+  // Issue Filter & Explorer Drawer States
+  const [issueSearch, setIssueSearch] = useState<string>("");
   const [issueSentimentFilter, setIssueSentimentFilter] = useState<string>("all");
   const [issueSourceFilter, setIssueSourceFilter] = useState<string>("all");
+  const [isExplorerEditMode, setIsExplorerEditMode] = useState<boolean>(false);
+  const [explorerEditSummary, setExplorerEditSummary] = useState<string>("");
+  const [explorerEditCategory, setExplorerEditCategory] = useState<string>("");
+  const [explorerEditPriority, setExplorerEditPriority] = useState<PriorityLevel>("normal");
+  const [explorerEditStatus, setExplorerEditStatus] = useState<string>("open");
+  const [explorerEditSentiment, setExplorerEditSentiment] = useState<SentimentClass>("neutral");
+  const [explorerEditAssignee, setExplorerEditAssignee] = useState<string>("David Kim (Operator)");
+  const [explorerEditRecommendedAction, setExplorerEditRecommendedAction] = useState<string>("");
+  const [explorerNewNoteText, setExplorerNewNoteText] = useState<string>("");
+  const [explorerReplyChannel, setExplorerReplyChannel] = useState<string>("internal_note");
+  const [isExplorerSaving, setIsExplorerSaving] = useState<boolean>(false);
 
   // Marketplace & Governance States
   const [connectors, setConnectors] = useState<MarketplaceConnector[]>(INITIAL_CONNECTORS);
@@ -568,6 +584,190 @@ export default function SupportV8Dashboard() {
       console.error("Failed to load supportv8 data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Synchronize Explorer edit fields when selectedIssue changes
+  useEffect(() => {
+    if (selectedIssue) {
+      setExplorerEditSummary(selectedIssue.summary || "");
+      setExplorerEditCategory(selectedIssue.category || "General");
+      setExplorerEditPriority(selectedIssue.priority || "normal");
+      setExplorerEditStatus(selectedIssue.status || "open");
+      setExplorerEditSentiment(selectedIssue.sentiment || "neutral");
+      setExplorerEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || "David Kim (Operator)");
+      setExplorerEditRecommendedAction(selectedIssue.recommendedAction || "");
+      setIsExplorerEditMode(false);
+      setExplorerNewNoteText("");
+    }
+  }, [selectedIssue]);
+
+  const handleExplorerStatusChange = async (newStatus: string) => {
+    if (!selectedIssue) return;
+    const now = new Date().toLocaleTimeString();
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: operatorSession?.name || "David Kim (Operator)",
+      actorType: "human_operator",
+      action: `Status transitioned to ${newStatus.toUpperCase()}`,
+      details: `Status updated via Issues Explorer Inspector`,
+    };
+    const updated: Issue = {
+      ...selectedIssue,
+      status: newStatus,
+      priority: newStatus === "escalated" ? "urgent" : selectedIssue.priority,
+      timeline: [event, ...(selectedIssue.timeline || [])],
+    };
+    setSelectedIssue(updated);
+    handleUpdateIssue(updated);
+    setExplorerEditStatus(newStatus);
+    notify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
+
+    try {
+      await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          issueId: selectedIssue.id,
+          updates: { status: newStatus, priority: updated.priority, timeline: updated.timeline },
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to update status on server:", err);
+    }
+  };
+
+  const handleSaveExplorerEdits = async () => {
+    if (!selectedIssue) return;
+    setIsExplorerSaving(true);
+    try {
+      const now = new Date().toLocaleTimeString();
+      const event: TicketTimelineEvent = {
+        id: "tl_" + Date.now(),
+        timestamp: now,
+        actor: operatorSession?.name || "David Kim (Operator)",
+        actorType: "human_operator",
+        action: `Ticket metadata edited`,
+        details: `Summary, Category (${explorerEditCategory}), Priority (${explorerEditPriority}), Status (${explorerEditStatus}) updated.`,
+      };
+      const updated: Issue = {
+        ...selectedIssue,
+        summary: explorerEditSummary,
+        category: explorerEditCategory,
+        priority: explorerEditPriority,
+        status: explorerEditStatus,
+        sentiment: explorerEditSentiment,
+        assignedTo: explorerEditAssignee,
+        assignedAgent: explorerEditAssignee,
+        recommendedAction: explorerEditRecommendedAction,
+        timeline: [event, ...(selectedIssue.timeline || [])],
+      };
+      setSelectedIssue(updated);
+      handleUpdateIssue(updated);
+      setIsExplorerEditMode(false);
+      notify(`Ticket ${selectedIssue.externalId} details updated successfully!`, "success");
+
+      await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          issueId: selectedIssue.id,
+          updates: {
+            summary: explorerEditSummary,
+            category: explorerEditCategory,
+            priority: explorerEditPriority,
+            status: explorerEditStatus,
+            sentiment: explorerEditSentiment,
+            assignedTo: explorerEditAssignee,
+            assignedAgent: explorerEditAssignee,
+            recommendedAction: explorerEditRecommendedAction,
+            timeline: updated.timeline,
+          },
+        }),
+      });
+    } catch (err) {
+      notify("Failed to save ticket edits", "error");
+    } finally {
+      setIsExplorerSaving(false);
+    }
+  };
+
+  const handleAddExplorerNote = async () => {
+    if (!selectedIssue || !explorerNewNoteText.trim()) return;
+    const now = new Date().toLocaleTimeString();
+    const event: TicketTimelineEvent = {
+      id: "tl_" + Date.now(),
+      timestamp: now,
+      actor: operatorSession?.name || "David Kim (Operator)",
+      actorType: "human_operator",
+      action: `Internal Note Added`,
+      details: explorerNewNoteText.trim(),
+    };
+    const newMsg: TicketMessageItem = {
+      id: "msg_" + Date.now(),
+      timestamp: now,
+      sender: "operator",
+      senderName: operatorSession?.name || "David Kim (Operator)",
+      content: explorerNewNoteText.trim(),
+      channel: explorerReplyChannel || "internal_note",
+    };
+    const updated: Issue = {
+      ...selectedIssue,
+      timeline: [event, ...(selectedIssue.timeline || [])],
+      messages: [...(selectedIssue.messages || []), newMsg],
+    };
+    setSelectedIssue(updated);
+    handleUpdateIssue(updated);
+    setExplorerNewNoteText("");
+    notify(`Added note to ticket ${selectedIssue.externalId}`, "success");
+
+    await fetch("/api/issues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update",
+        issueId: selectedIssue.id,
+        updates: { timeline: updated.timeline, messages: updated.messages },
+      }),
+    }).catch(() => {});
+  };
+
+  const handleExplorerIndexToRag = async () => {
+    if (!selectedIssue) return;
+    try {
+      await knowledgev8Connector.ingestResolvedTicket({
+        externalId: selectedIssue.externalId,
+        summary: selectedIssue.summary,
+        customerName: selectedIssue.customerName,
+        product: selectedIssue.product,
+        resolutionNotes: selectedIssue.recommendedAction || "Resolved via Issues Explorer triage.",
+        category: selectedIssue.category,
+        tags: selectedIssue.tags,
+      });
+      await handleDeductCredits(20, `Indexed ticket ${selectedIssue.externalId} into pgvector RAG corpus`);
+      const now = new Date().toLocaleTimeString();
+      const event: TicketTimelineEvent = {
+        id: "tl_" + Date.now(),
+        timestamp: now,
+        actor: "Jordan (KB Refresh Specialist)",
+        actorType: "ai_employee",
+        action: `1-Click RAG Vector Corpus Ingestion`,
+        details: `Resolution grounded into pgvector knowledge base.`,
+      };
+      const updated: Issue = {
+        ...selectedIssue,
+        ragIngested: true,
+        ragIngestedAt: new Date().toISOString(),
+        timeline: [event, ...(selectedIssue.timeline || [])],
+      };
+      setSelectedIssue(updated);
+      handleUpdateIssue(updated);
+      notify(`🧠 Indexed ticket ${selectedIssue.externalId} into KnowledgeV8 RAG corpus (Deducted 20 Credits)`, "success");
+    } catch (err) {
+      notify("Failed to index ticket into RAG corpus", "error");
     }
   };
 
@@ -3887,100 +4087,407 @@ export default function SupportV8Dashboard() {
             </div>
 
             {/* ========================================================================= */}
-            {/* FLOATING SLIDE-OVER SIDE PANEL FOR ISSUE DETAILS */}
+            {/* COMPREHENSIVE TICKET INSPECTOR & EDIT SUITE SLIDE-OVER DRAWER */}
             {/* ========================================================================= */}
             {selectedIssue && (
               <>
                 {/* Backdrop Blur Overlay */}
                 <div
                   className="fixed inset-0 z-40 bg-[#0B1017]/70 backdrop-blur-sm transition-opacity"
-                  onClick={() => setSelectedIssue(null)}
+                  onClick={() => {
+                    setSelectedIssue(null);
+                    setIsExplorerEditMode(false);
+                  }}
                 />
 
                 {/* Floating Slide-over Drawer Panel */}
-                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-6 overflow-y-auto flex flex-col justify-between space-y-6 animate-in slide-in-from-right duration-200">
+                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-6 overflow-y-auto flex flex-col justify-between space-y-6 animate-in slide-in-from-right duration-200">
                   <div className="space-y-5">
                     {/* Header */}
                     <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-[#2ED8B6]">{selectedIssue.externalId}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm font-extrabold text-[#2ED8B6]">{selectedIssue.externalId}</span>
+                          <span className="pill uppercase text-[10px] font-mono">{selectedIssue.source}</span>
                           <span className="pill uppercase text-[10px] font-mono">{selectedIssue.category}</span>
-                          <span className={`pill ${selectedIssue.status === "resolved" ? "ok" : "warn"} text-[10px] uppercase font-mono`}>
+                          <span
+                            className={`pill text-[10px] uppercase font-mono font-bold ${
+                              selectedIssue.status === "escalated"
+                                ? "bg-[#E5484D]/20 text-[#FF7575] border border-[#E5484D]/40"
+                                : selectedIssue.status === "resolved"
+                                ? "bg-[#4CC38A]/20 text-[#4CC38A] border border-[#4CC38A]/40"
+                                : selectedIssue.status === "in_progress"
+                                ? "bg-[#4D9FFF]/20 text-[#4D9FFF] border border-[#4D9FFF]/40"
+                                : "bg-[#18222E] text-[#2ED8B6] border border-[#2ED8B6]/30"
+                            }`}
+                          >
                             <i className="dot"></i>
-                            {selectedIssue.status}
+                            {selectedIssue.status || "open"}
                           </span>
                         </div>
-                        <h3 className="text-base font-bold text-[#EAF1F8] mt-1.5 leading-snug">
+                        <h3 className="text-base sm:text-lg font-bold text-[#EAF1F8] mt-1.5 leading-snug">
                           {selectedIssue.summary}
                         </h3>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedIssue(null)}
-                        className="p-1.5 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* Customer 360 & Account Snapshot */}
-                    <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-[#EAF1F8] text-sm">{selectedIssue.customerName}</span>
-                        <span className="pill ok uppercase text-[10px]">{selectedIssue.customerTier} Tier</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B7C8D] font-mono pt-1">
-                        <div>
-                          <span>Customer Ref:</span> <strong className="text-[#EAF1F8]">{selectedIssue.customerRef || "CUST-9921"}</strong>
-                        </div>
-                        <div>
-                          <span>Risk Score:</span> <strong className="text-[#F5A623]">{selectedIssue.resolutionRiskScore || "Low Risk (0.18)"}</strong>
-                        </div>
-                        <div>
-                          <span>Ingress Line:</span> <strong className="text-[#2ED8B6] uppercase">{selectedIssue.source}</strong>
-                        </div>
-                        <div>
-                          <span>Assigned Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Sophia (AI)"}</strong>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsExplorerEditMode(!isExplorerEditMode)}
+                          className={`p-2 rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer border transition-colors ${
+                            isExplorerEditMode
+                              ? "bg-[#2ED8B6] text-[#04201C] border-[#2ED8B6] font-bold"
+                              : "bg-[#18222E] hover:bg-[#1E2B3A] text-[#2ED8B6] border-[var(--line-2)]"
+                          }`}
+                          title="Edit Ticket Details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>{isExplorerEditMode ? "Cancel" : "Edit"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedIssue(null);
+                            setIsExplorerEditMode(false);
+                          }}
+                          className="p-2 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-xl hover:bg-[#18222E] cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
 
-                    {/* AI Triage & Reasoning */}
-                    <div className="space-y-2 text-xs">
-                      <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
-                        AI Recommended Action &amp; Triage Rationale
-                      </label>
-                      <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] text-[#B4C2D0] leading-relaxed">
-                        {selectedIssue.recommendedAction}
+                    {/* Interactive 5-Button Status Lifecycle Bar */}
+                    <div className="space-y-1.5 p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)]">
+                      <div className="flex items-center justify-between text-[10px] font-mono uppercase font-bold text-[#8E9AA8]">
+                        <span>Ticket Lifecycle Status Actions</span>
+                        <span className="text-[#2ED8B6]">{selectedIssue.status?.toUpperCase() || "OPEN"}</span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1.5 pt-1">
+                        {[
+                          { id: "open", label: "Open", color: "bg-[#18222E] text-[#2ED8B6] border-[#2ED8B6]" },
+                          { id: "in_progress", label: "In Progress", color: "bg-[#4D9FFF]/20 text-[#4D9FFF] border-[#4D9FFF]" },
+                          { id: "escalated", label: "Escalated", color: "bg-[#E5484D]/20 text-[#FF7575] border-[#E5484D]" },
+                          { id: "resolved", label: "Resolved", color: "bg-[#4CC38A]/20 text-[#4CC38A] border-[#4CC38A]" },
+                          { id: "closed", label: "Closed", color: "bg-[#6B7C8D]/20 text-[#8E9AA8] border-[#6B7C8D]" },
+                        ].map((st) => {
+                          const isActive = (selectedIssue.status || "open") === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => handleExplorerStatusChange(st.id)}
+                              className={`py-2 px-1 rounded-xl text-xs font-mono font-bold text-center border transition-all cursor-pointer ${
+                                isActive
+                                  ? `${st.color} shadow-md ring-1 ring-white/20`
+                                  : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/40"
+                              }`}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* AI Confidence Meter */}
-                    <div className="space-y-1 text-xs font-mono">
-                      <div className="flex justify-between">
-                        <span className="text-[#6B7C8D]">Autonomous Confidence Score:</span>
-                        <span className="text-[#4CC38A] font-bold">{(selectedIssue.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                      <div className="w-full bg-[#18222E] h-2 rounded-full overflow-hidden border border-[var(--line)]">
-                        <div
-                          className="h-full rounded-full bg-[#4CC38A]"
-                          style={{ width: `${selectedIssue.confidence * 100}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Correlated Problem Incident */}
-                    {selectedIssue.problemId && (
-                      <div className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#E5484D] font-bold font-mono">Correlated Systemic Problem</span>
-                          <span className="pill err text-[9px]">{selectedIssue.problemId}</span>
+                    {/* IN-DRAWER EDIT MODE FORM */}
+                    {isExplorerEditMode ? (
+                      <div className="card p-4 bg-[#141C26] border border-[#2ED8B6]/40 rounded-2xl space-y-3.5 animate-in fade-in-50 duration-150">
+                        <div className="flex items-center justify-between border-b border-[var(--line)] pb-2 text-xs font-mono text-[#2ED8B6] font-bold">
+                          <span className="flex items-center gap-1.5">
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit Ticket #{selectedIssue.externalId}</span>
+                          </span>
+                          <span className="text-[10px] text-[#8E9AA8]">Direct Update</span>
                         </div>
-                        <p className="text-[#B4C2D0] text-[11px]">
-                          This ticket is correlated to active systemic incident <strong className="text-[#EAF1F8]">{selectedIssue.problemId}</strong>. Root-cause mitigations are in progress.
-                        </p>
+
+                        <div className="space-y-2.5 text-xs font-mono">
+                          <div>
+                            <label className="text-[10px] text-[#8E9AA8] block mb-1">Issue Summary / Title</label>
+                            <input
+                              type="text"
+                              value={explorerEditSummary}
+                              onChange={(e) => setExplorerEditSummary(e.target.value)}
+                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-[#8E9AA8] block mb-1">Category</label>
+                              <input
+                                type="text"
+                                value={explorerEditCategory}
+                                onChange={(e) => setExplorerEditCategory(e.target.value)}
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-[#8E9AA8] block mb-1">Priority</label>
+                              <select
+                                value={explorerEditPriority}
+                                onChange={(e) => setExplorerEditPriority(e.target.value as any)}
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                              >
+                                <option value="urgent">Urgent</option>
+                                <option value="high">High</option>
+                                <option value="normal">Normal</option>
+                                <option value="low">Low</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-[#8E9AA8] block mb-1">Lifecycle Status</label>
+                              <select
+                                value={explorerEditStatus}
+                                onChange={(e) => setExplorerEditStatus(e.target.value)}
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                              >
+                                <option value="open">Open</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="escalated">Escalated</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-[#8E9AA8] block mb-1">Sentiment</label>
+                              <select
+                                value={explorerEditSentiment}
+                                onChange={(e) => setExplorerEditSentiment(e.target.value as any)}
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                              >
+                                <option value="urgent">Urgent</option>
+                                <option value="angry">Angry</option>
+                                <option value="frustrated">Frustrated</option>
+                                <option value="neutral">Neutral</option>
+                                <option value="positive">Positive</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-[#8E9AA8] block mb-1">Assigned Agent / Operator</label>
+                            <input
+                              type="text"
+                              value={explorerEditAssignee}
+                              onChange={(e) => setExplorerEditAssignee(e.target.value)}
+                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-[#8E9AA8] block mb-1">AI Recommended Action / Resolution Notes</label>
+                            <textarea
+                              rows={3}
+                              value={explorerEditRecommendedAction}
+                              onChange={(e) => setExplorerEditRecommendedAction(e.target.value)}
+                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] p-3 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] resize-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--line)]">
+                          <button
+                            type="button"
+                            onClick={() => setIsExplorerEditMode(false)}
+                            className="btn btn-secondary text-xs px-3 py-1.5 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveExplorerEdits}
+                            disabled={isExplorerSaving}
+                            className="btn btn-primary text-xs px-4 py-1.5 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{isExplorerSaving ? "Saving..." : "Save Changes"}</span>
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {/* Customer 360 & Account Snapshot */}
+                        <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-[#EAF1F8] text-sm">{selectedIssue.customerName}</span>
+                            <span className="pill ok uppercase text-[10px]">{selectedIssue.customerTier} Tier</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B7C8D] font-mono pt-1">
+                            <div>
+                              <span>Customer Ref:</span> <strong className="text-[#EAF1F8]">{selectedIssue.customerRef || "CUST-9921"}</strong>
+                            </div>
+                            <div>
+                              <span>Risk Score:</span> <strong className="text-[#F5A623]">{selectedIssue.resolutionRiskScore || "Low Risk (0.18)"}</strong>
+                            </div>
+                            <div>
+                              <span>Ingress Line:</span> <strong className="text-[#2ED8B6] uppercase">{selectedIssue.source}</strong>
+                            </div>
+                            <div>
+                              <span>Assigned Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Sophia (AI)"}</strong>
+                            </div>
+                            <div>
+                              <span>Product / Version:</span> <strong className="text-[#EAF1F8]">{selectedIssue.product} ({selectedIssue.version})</strong>
+                            </div>
+                            <div>
+                              <span>Created:</span> <strong className="text-[#8E9AA8]">{selectedIssue.createdAt ? new Date(selectedIssue.createdAt).toLocaleString() : "Just now"}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Contractor / Field Ops Dispatch Card (if contractor entity) */}
+                        {selectedIssue.contractor && (
+                          <div className="p-4 rounded-2xl bg-[#141C26] border border-[#F5A623]/40 space-y-2.5 text-xs font-mono">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-[#F5A623] font-bold">
+                                <HardHat className="w-4 h-4" />
+                                <span>Contractor &amp; Field Dispatch Context</span>
+                              </span>
+                              <span className="pill warn text-[10px] uppercase font-bold">{selectedIssue.contractor.dispatchStatus}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-[#8E9AA8]">
+                              <div>
+                                <span>Company:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.company}</strong>
+                              </div>
+                              <div>
+                                <span>Technician:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.contactName}</strong>
+                              </div>
+                              <div>
+                                <span>Site Location:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.siteLocation}</strong>
+                              </div>
+                              <div>
+                                <span>Trade:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.trade}</strong>
+                              </div>
+                            </div>
+                            {selectedIssue.contractor.accessCode && (
+                              <div className="flex items-center justify-between p-2 rounded-xl bg-[#0E1520] border border-[var(--line)]">
+                                <span className="text-[10px] text-[#6B7C8D]">Electronic Lockbox PIN:</span>
+                                <span className="text-xs font-bold text-[#F5A623]">{selectedIssue.contractor.accessCode}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* AI Triage & Reasoning */}
+                        <div className="space-y-2 text-xs">
+                          <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
+                            AI Recommended Action &amp; Triage Rationale
+                          </label>
+                          <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] text-[#B4C2D0] leading-relaxed">
+                            {selectedIssue.recommendedAction || "Autonomous assessment completed. Ready for standard procedure dispatch."}
+                          </div>
+                        </div>
+
+                        {/* AI Confidence Meter */}
+                        <div className="space-y-1 text-xs font-mono p-3 rounded-2xl bg-[#141C26] border border-[var(--line)]">
+                          <div className="flex justify-between">
+                            <span className="text-[#6B7C8D]">Autonomous Confidence Score:</span>
+                            <span className="text-[#4CC38A] font-bold">{(selectedIssue.confidence * 100).toFixed(0)}%</span>
+                          </div>
+                          <div className="w-full bg-[#0E1520] h-2 rounded-full overflow-hidden border border-[var(--line)] mt-1">
+                            <div
+                              className="h-full rounded-full bg-[#4CC38A]"
+                              style={{ width: `${selectedIssue.confidence * 100}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 1-Click Save Resolution to Knowledge Base (RAG) */}
+                        <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                              <Brain className="w-4 h-4 text-[#2ED8B6]" />
+                              <span>KnowledgeV8 RAG Ingestion</span>
+                            </div>
+                            <div className="text-[10px] text-[#6B7C8D] font-mono mt-0.5">
+                              {selectedIssue.ragIngested ? "Indexed into pgvector knowledge base" : "Ground resolution into vector corpus (20 Credits)"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleExplorerIndexToRag}
+                            disabled={selectedIssue.ragIngested}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all border ${
+                              selectedIssue.ragIngested
+                                ? "bg-[#4CC38A]/20 text-[#4CC38A] border-[#4CC38A]/40"
+                                : "bg-[#182635] hover:bg-[#203348] text-[#2ED8B6] border-[#2ED8B6]/50"
+                            }`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>{selectedIssue.ragIngested ? "Ingested" : "Index to RAG"}</span>
+                          </button>
+                        </div>
+
+                        {/* Correlated Problem Incident */}
+                        {selectedIssue.problemId && (
+                          <div className="p-3.5 rounded-2xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[#E5484D] font-bold font-mono">Correlated Systemic Problem</span>
+                              <span className="pill err text-[9px]">{selectedIssue.problemId}</span>
+                            </div>
+                            <p className="text-[#B4C2D0] text-[11px]">
+                              This ticket is correlated to active systemic incident <strong className="text-[#EAF1F8]">{selectedIssue.problemId}</strong>. Root-cause mitigations are in progress.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Ticket Activity Timeline & Internal Notes */}
+                        <div className="space-y-2 pt-2">
+                          <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
+                            Activity Timeline &amp; Internal Notes
+                          </label>
+
+                          <div className="p-3 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={explorerNewNoteText}
+                                onChange={(e) => setExplorerNewNoteText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleAddExplorerNote();
+                                  }
+                                }}
+                                placeholder="Add an internal note or dispatch action..."
+                                className="flex-1 bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-1.5 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleAddExplorerNote}
+                                className="btn btn-secondary text-xs px-3 py-1.5 cursor-pointer font-bold"
+                              >
+                                Post Note
+                              </button>
+                            </div>
+
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                              {(selectedIssue.timeline || [
+                                {
+                                  id: "tl_init",
+                                  timestamp: "Initial Ingest",
+                                  actor: "Omnichannel Ingress",
+                                  actorType: "system",
+                                  action: `Ticket ingested from ${selectedIssue.source}`,
+                                },
+                              ]).map((ev) => (
+                                <div key={ev.id} className="p-2 rounded-xl bg-[#0E1520] border border-[var(--line)] text-xs font-mono flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="font-bold text-[#EAF1F8] text-[11px]">{ev.action}</div>
+                                    {ev.details && <div className="text-[10px] text-[#8E9AA8] mt-0.5">{ev.details}</div>}
+                                    <div className="text-[9px] text-[#6B7C8D] mt-0.5">{ev.actor}</div>
+                                  </div>
+                                  <span className="text-[9px] text-[#6B7C8D] shrink-0">{ev.timestamp}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -3992,23 +4499,18 @@ export default function SupportV8Dashboard() {
                         setWorkspaceSelectedIssueId(selectedIssue.id);
                         setSelectedIssue(null);
                         setActiveTab("workspace");
-                        notify(`Opened ${selectedIssue.externalId} in Workspace`, "info");
+                        notify(`Opened ${selectedIssue.externalId} in Focused Work Desk`, "info");
                       }}
                       className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer"
                     >
                       <Layers className="w-4 h-4" />
-                      <span>Open in Workspace Desk →</span>
+                      <span>Open in Focused Work Desk →</span>
                     </button>
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          selectedIssue.status = "resolved";
-                          notify(`Marked ${selectedIssue.externalId} as Resolved`, "success");
-                          setSelectedIssue({ ...selectedIssue });
-                          fetchData();
-                        }}
+                        onClick={() => handleExplorerStatusChange("resolved")}
                         className="btn btn-secondary flex-1 py-2 text-xs flex items-center justify-center gap-1.5 cursor-pointer hover:text-[#4CC38A] hover:border-[#4CC38A]"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />

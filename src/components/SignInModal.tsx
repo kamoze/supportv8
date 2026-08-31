@@ -35,7 +35,7 @@ export function SignInModal({
   onOpenSignup,
 }: SignInModalProps) {
   const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || "acme");
-  const [selectedRole, setSelectedRole] = useState<"operator" | "contractor" | "customer">("operator");
+  const [selectedRole, setSelectedRole] = useState<"operator" | "contractor" | "cx_lead" | "customer">("operator");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -118,7 +118,7 @@ export function SignInModal({
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
-  const handleQuickFill = (emailVal: string, slugVal: string, roleVal: "operator" | "contractor" | "customer") => {
+  const handleQuickFill = (emailVal: string, slugVal: string, roleVal: "operator" | "contractor" | "cx_lead" | "customer") => {
     setEmail(emailVal);
     setPassword("SupportV8#2026!Secure");
     if (!lockedTenantSlug) setTenantSlug(slugVal);
@@ -166,14 +166,14 @@ export function SignInModal({
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => handleQuickFill("acme@servicev8.com", "acme", "operator")}
+                onClick={() => handleQuickFill("acme@servicev8.com", "acme", "cx_lead")}
                 className="px-2.5 py-1.5 rounded-xl bg-[#18222E] hover:bg-[#202E3E] border border-[var(--line-2)] text-xs text-[#EAF1F8] font-medium transition cursor-pointer"
               >
                 👑 Acme CX Lead
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickFill("admin@acme-movers.com", "acme-movers", "operator")}
+                onClick={() => handleQuickFill("admin@acme-movers.com", "acme-movers", "cx_lead")}
                 className="px-2.5 py-1.5 rounded-xl bg-[#18222E] hover:bg-[#202E3E] border border-[var(--line-2)] text-xs text-[#EAF1F8] font-medium transition cursor-pointer"
               >
                 🚚 Acme Movers Admin
@@ -205,12 +205,12 @@ export function SignInModal({
           <form id="signin-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Actor / Role Selection Tabs */}
             <div className="space-y-1.5">
-              <label className="text-xs font-mono text-[#B4C2D0] block">Select who is signing in:</label>
+              <label className="text-xs font-mono text-[#B4C2D0] block">Select role persona:</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "operator", label: "Internal Staff", sub: "Cockpit & Desk", icon: Shield },
-                  { id: "contractor", label: "Contractor", sub: "Field Dispatches", icon: HardHat },
-                  { id: "customer", label: "Customer", sub: "Case Portal", icon: Users },
+                  { id: "cx_lead", label: "CX Operations Lead", sub: "Cockpit, Governance & Roster", icon: Shield },
+                  { id: "operator", label: "Support Operator", sub: "Frontline Triage & Desk", icon: Users },
+                  { id: "contractor", label: "Field Contractor", sub: "Orders, PINs & Comms", icon: HardHat },
                 ].map((tab) => {
                   const Icon = tab.icon;
                   const isActive = selectedRole === tab.id;
@@ -227,9 +227,9 @@ export function SignInModal({
                     >
                       <div className="flex items-center gap-1.5">
                         <Icon className={`w-3.5 h-3.5 ${isActive ? "text-[#2ED8B6]" : "text-[#6B7C8D]"}`} />
-                        <span className="text-xs font-bold">{tab.label}</span>
+                        <span className="text-xs font-bold truncate">{tab.label}</span>
                       </div>
-                      <p className="text-[10px] font-mono text-[#6B7C8D] mt-0.5">{tab.sub}</p>
+                      <p className="text-[10px] font-mono text-[#6B7C8D] mt-0.5 truncate">{tab.sub}</p>
                     </button>
                   );
                 })}

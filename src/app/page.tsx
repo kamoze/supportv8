@@ -1214,53 +1214,208 @@ export default function SupportV8Dashboard() {
     return matchesSearch && matchesSentiment && matchesSource;
   });
 
-  const navSections = [
+  const currentRole: AuthSession["role"] = operatorSession?.role || "cx_lead";
+  const isContractorRole = currentRole === "contractor" || currentRole === "contractor_lead" || currentRole === "technician";
+
+  const allNavSections = [
     {
-      title: "Work Desk",
+      title: isContractorRole ? "Field Operations" : "Work Desk",
       items: [
-        { id: "workspace", label: "Work Desk", icon: Briefcase, flaticon: "fi fi-rr-briefcase", badge: issues.length },
-        { id: "problems", label: "Problem Matrix", icon: AlertTriangle, flaticon: "fi fi-rr-triangle-warning", badge: problems.length, badgeColor: "err" },
-        { id: "issues", label: "Issues Explorer", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-middle", badge: issues.length },
-        { id: "cx_cockpit", label: "CX Cockpit", icon: Target, flaticon: "fi fi-rr-target", badge: slaData.atRiskCount, badgeColor: "warn" },
+        {
+          id: "workspace",
+          label: isContractorRole ? "Field Work Desk" : "Work Desk",
+          icon: Briefcase,
+          flaticon: "fi fi-rr-briefcase",
+          badge: isContractorRole
+            ? issues.filter((i) => i.category === "contractor" || i.contractor).length || issues.length
+            : issues.length,
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "problems",
+          label: "Problem Matrix",
+          icon: AlertTriangle,
+          flaticon: "fi fi-rr-triangle-warning",
+          badge: problems.length,
+          badgeColor: "err",
+          roles: ["operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "issues",
+          label: isContractorRole ? "Work Orders Explorer" : "Issues Explorer",
+          icon: MessageSquare,
+          flaticon: "fi fi-rr-comment-alt-middle",
+          badge: isContractorRole
+            ? issues.filter((i) => i.category === "contractor" || i.contractor).length || issues.length
+            : issues.length,
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "cx_cockpit",
+          label: "CX Cockpit",
+          icon: Target,
+          flaticon: "fi fi-rr-target",
+          badge: slaData.atRiskCount,
+          badgeColor: "warn",
+          roles: ["cx_lead", "superadmin"],
+        },
       ],
     },
     {
-      title: "Core Intelligence",
+      title: isContractorRole ? "Field Assistant & Comms" : "Core Intelligence",
       items: [
-        { id: "overview", label: "Overview", icon: LayoutDashboard, flaticon: "fi fi-rr-dashboard" },
-        { id: "ask", label: "Ask supportV8", icon: MessageSquare, flaticon: "fi fi-rr-comment-alt-dots" },
-        { id: "studio", label: "Autonomous Studio", icon: Cpu, flaticon: "fi fi-rr-microchip" },
-        { id: "workforce", label: "AI Workforce", icon: Users, flaticon: "fi fi-rr-users-alt", badge: workforce.length },
-        { id: "voice", label: "Voice Telephony", icon: PhoneCall, flaticon: "fi fi-rr-headset", badge: voiceData.sessions?.length },
+        {
+          id: "overview",
+          label: "Overview",
+          icon: LayoutDashboard,
+          flaticon: "fi fi-rr-dashboard",
+          roles: ["operator", "cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "ask",
+          label: isContractorRole ? "Field Assistant (AI)" : "Ask supportV8",
+          icon: MessageSquare,
+          flaticon: "fi fi-rr-comment-alt-dots",
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "studio",
+          label: "Autonomous Studio",
+          icon: Cpu,
+          flaticon: "fi fi-rr-microchip",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "workforce",
+          label: "AI Workforce",
+          icon: Users,
+          flaticon: "fi fi-rr-users-alt",
+          badge: workforce.length,
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "voice",
+          label: isContractorRole ? "Dispatch Audio (Comms)" : "Voice Telephony",
+          icon: PhoneCall,
+          flaticon: "fi fi-rr-headset",
+          badge: voiceData.sessions?.length,
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
       ],
     },
     {
       title: "Knowledge & Radar",
       items: [
-        { id: "trends", label: "Trend Radar", icon: TrendingUp, flaticon: "fi fi-rr-chart-line-up" },
-        { id: "knowledge", label: "Knowledge Suite", icon: Brain, flaticon: "fi fi-rr-brain" },
-        { id: "stale_work", label: "Work Sweep", icon: Clock, flaticon: "fi fi-rr-time-past", badge: 43 },
+        {
+          id: "trends",
+          label: "Trend Radar",
+          icon: TrendingUp,
+          flaticon: "fi fi-rr-chart-line-up",
+          roles: ["operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "knowledge",
+          label: "Knowledge Suite",
+          icon: Brain,
+          flaticon: "fi fi-rr-brain",
+          roles: ["operator", "cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "stale_work",
+          label: "Work Sweep",
+          icon: Clock,
+          flaticon: "fi fi-rr-time-past",
+          badge: 43,
+          roles: ["cx_lead", "superadmin"],
+        },
       ],
     },
     {
       title: "Marketplace & Registry",
       items: [
-        { id: "studio_marketplace", label: "Studio Marketplace", icon: ShoppingBag, flaticon: "fi fi-rr-shopping-bag" },
-        { id: "market_workforce", label: "Active Capabilities", icon: Users, flaticon: "fi fi-rr-users-alt" },
-        { id: "market_plans", label: "Plans & Credits", icon: CreditCard, flaticon: "fi fi-rr-credit-card" },
+        {
+          id: "studio_marketplace",
+          label: "Studio Marketplace",
+          icon: ShoppingBag,
+          flaticon: "fi fi-rr-shopping-bag",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "market_workforce",
+          label: "Active Capabilities",
+          icon: Users,
+          flaticon: "fi fi-rr-users-alt",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "market_plans",
+          label: "Plans & Credits",
+          icon: CreditCard,
+          flaticon: "fi fi-rr-credit-card",
+          roles: ["cx_lead", "superadmin"],
+        },
       ],
     },
     {
       title: "Governance",
       items: [
-        { id: "gov_settings", label: "Settings", icon: Settings, flaticon: "fi fi-rr-settings" },
-        { id: "gov_members", label: "Members", icon: User, flaticon: "fi fi-rr-user", badge: members.length },
-        { id: "gov_audit", label: "Audit Logs", icon: ShieldCheck, flaticon: "fi fi-rr-shield-check", badge: auditLogs.length },
-        { id: "gov_reports", label: "Reports", icon: FileText, flaticon: "fi fi-rr-document" },
-        { id: "policies", label: "Policies & Rules", icon: Shield, flaticon: "fi fi-rr-shield-check" },
+        {
+          id: "gov_settings",
+          label: "Settings",
+          icon: Settings,
+          flaticon: "fi fi-rr-settings",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "gov_members",
+          label: "Members",
+          icon: User,
+          flaticon: "fi fi-rr-user",
+          badge: members.length,
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "gov_audit",
+          label: "Audit Logs",
+          icon: ShieldCheck,
+          flaticon: "fi fi-rr-shield-check",
+          badge: auditLogs.length,
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "gov_reports",
+          label: "Reports",
+          icon: FileText,
+          flaticon: "fi fi-rr-document",
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "policies",
+          label: "Policies & Rules",
+          icon: Shield,
+          flaticon: "fi fi-rr-shield-check",
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
       ],
     },
   ];
+
+  // Dynamically filter sections and items according to authenticated user RBAC role
+  const navSections = allNavSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => item.roles.includes(currentRole)),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  // Automatically enforce tab route guards for role-restricted personas
+  useEffect(() => {
+    const allowedTabs = navSections.flatMap((s) => s.items).map((i) => i.id);
+    if (allowedTabs.length > 0 && !allowedTabs.includes(activeTab)) {
+      const fallback = allowedTabs.includes("workspace") ? "workspace" : allowedTabs[0];
+      setActiveTab(fallback);
+    }
+  }, [currentRole, activeTab, navSections]);
 
   if (viewMode === "global_landing") {
     return (
@@ -1489,9 +1644,14 @@ export default function SupportV8Dashboard() {
                 </kbd>
               </button>
               <div className="flex items-center justify-between px-2 pt-1 text-[11px] font-mono text-[#6B7C8D]">
-                <div className="flex items-center gap-1.5 truncate max-w-[120px]">
+                <div className="flex items-center gap-1.5 truncate max-w-[140px]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse"></span>
-                  <span className="truncate">{operatorSession?.name || currentTenantSlug}</span>
+                  <div className="flex flex-col truncate">
+                    <span className="truncate text-[#EAF1F8] font-bold">{operatorSession?.name || currentTenantSlug}</span>
+                    <span className="text-[9px] text-[#2ED8B6] uppercase tracking-wider font-semibold">
+                      {isContractorRole ? "🛠️ Contractor" : currentRole === "operator" ? "🎧 Operator" : "👑 CX Lead"}
+                    </span>
+                  </div>
                 </div>
                 <button
                   onClick={handleLogout}
@@ -1552,6 +1712,43 @@ export default function SupportV8Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Demo Persona Switcher */}
+            <div className="flex items-center gap-1.5 bg-[#141C26] px-3 py-1.5 rounded-xl border border-[var(--line)] text-xs font-mono">
+              <span className="text-[10px] text-[#6B7C8D] hidden xl:inline">Role Persona:</span>
+              <select
+                value={currentRole}
+                onChange={(e) => {
+                  const targetRole = e.target.value as AuthSession["role"];
+                  let newEmail = "admin@acme.com";
+                  let newName = "Sarah Chen";
+                  let newSlug = currentTenantSlug;
+                  if (targetRole === "contractor_lead" || targetRole === "contractor" || targetRole === "technician") {
+                    newEmail = "dispatch@meridian.com";
+                    newName = "Meridian Field Dispatch";
+                    newSlug = "meridian";
+                  } else if (targetRole === "operator") {
+                    newEmail = "david.kim@acme.com";
+                    newName = "David Kim";
+                    newSlug = "acme";
+                  } else if (targetRole === "cx_lead") {
+                    newEmail = "admin@acme.com";
+                    newName = "Sarah Chen";
+                    newSlug = "acme";
+                  }
+                  setCurrentTenantSlug(newSlug);
+                  const session = AuthService.createSession(newSlug, newEmail, targetRole);
+                  setOperatorSession(session);
+                  notify(`Switched active demo persona to ${newName} (${targetRole.replace(/_/g, " ").toUpperCase()})`, "info");
+                }}
+                className="bg-transparent text-xs font-mono font-bold text-[#2ED8B6] focus:outline-none cursor-pointer"
+              >
+                <option value="contractor_lead" className="bg-[#121A24] text-[#F5A623]">🛠️ Meridian Field Dispatch (Contractor)</option>
+                <option value="operator" className="bg-[#121A24] text-[#4D9FFF]">🎧 David Kim (Frontline Operator)</option>
+                <option value="cx_lead" className="bg-[#121A24] text-[#2ED8B6]">👑 Sarah Chen (CX Operations Lead)</option>
+                <option value="observer" className="bg-[#121A24] text-[#8E9AA8]">👁️ Compliance Auditor (Observer)</option>
+              </select>
+            </div>
+
             {/* ForgeGW vs BYOM Model Governance & Remainder Credits Strip */}
             <div className="hidden md:flex items-center bg-[#141C26] px-3 py-1.5 rounded-xl border border-[var(--line)] text-xs font-mono">
               <button

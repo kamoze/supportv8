@@ -160,7 +160,6 @@ USERS=(
   "acme@servicev8.com:SupportV8#2026!Secure:Acme:Admin:tenant_acme:support_cx_lead,support_superadmin:/CX Directors & Leads"
   "admin@acme.com:SupportV8#2026!Secure:Sarah:Chen:tenant_acme:support_cx_lead:/CX Directors & Leads"
   "david.kim@acme.com:SupportV8#2026!Secure:David:Kim:tenant_acme:support_operator:/Frontline Support Operators"
-  "admin@acme-movers.com:SupportV8#2026!Secure:Admin:Acme Movers:tenant_acme_movers:support_cx_lead:/CX Directors & Leads"
   "dispatch@meridian.com:SupportV8#2026!Secure:Meridian:Dispatch:tenant_meridian:support_contractor_lead:/Field Contractors & Technicians"
 )
 

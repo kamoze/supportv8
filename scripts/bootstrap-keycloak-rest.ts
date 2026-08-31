@@ -170,13 +170,6 @@ async function run() {
       tenant: "tenant_acme",
     },
     {
-      email: "admin@acme-movers.com",
-      firstName: "Admin",
-      lastName: "Acme Movers",
-      roles: ["support_cx_lead"],
-      tenant: "tenant_acme_movers",
-    },
-    {
       email: "dispatch@meridian.com",
       firstName: "Meridian",
       lastName: "Dispatch",

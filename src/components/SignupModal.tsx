@@ -414,7 +414,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                       setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
                       if (errorMsg) setErrorMsg("");
                     }}
-                    placeholder="acme-movers"
+                    placeholder="your-company"
                     required
                     className="flex-1 bg-[#141C26] border border-r-0 border-[var(--line)] rounded-l-2xl px-4 py-3 text-sm font-mono text-[#2ED8B6] focus:outline-none focus:border-[#2ED8B6]"
                   />

@@ -60,16 +60,6 @@ export const INITIAL_USER_CREDENTIALS: UserCredentialRecord[] = [
     createdAt: "2026-01-01T00:00:00.000Z",
   },
   {
-    id: "usr_acme_movers_admin",
-    email: "admin@acme-movers.com",
-    passwordHash: DEFAULT_DEMO_HASH,
-    name: "Admin Acme Movers",
-    tenantSlug: "acme-movers",
-    role: "cx_lead",
-    status: "active",
-    createdAt: "2026-08-01T00:00:00.000Z",
-  },
-  {
     id: "usr_meridian_lead",
     email: "dispatch@meridian.com",
     passwordHash: DEFAULT_DEMO_HASH,
@@ -189,7 +179,6 @@ export class UserCredentialStore {
     const isDemoUser =
       cleanEmail.endsWith("@servicev8.com") ||
       cleanEmail.endsWith("@acme.com") ||
-      cleanEmail.endsWith("@acme-movers.com") ||
       cleanEmail.endsWith("@meridian.com");
 
     const isFallbackDemoPass =

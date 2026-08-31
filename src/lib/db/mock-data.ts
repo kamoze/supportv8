@@ -1125,7 +1125,46 @@ class SupportDatabase {
     },
   ];
 
-  public getOverviewMetrics(): OverviewMetrics {
+  public getOverviewMetrics(tenantSlug?: string): OverviewMetrics {
+    const cleanSlug = (tenantSlug || "acme").toLowerCase().trim();
+    const tenantData = this.getTenantData(cleanSlug);
+
+    // Customer tenants (e.g. acme-movers or any newly registered customer workspace)
+    if (cleanSlug !== "acme" && cleanSlug !== "meridian" && cleanSlug !== "default") {
+      const dynamicIssues = tenantData.issues;
+      const positiveIssues = dynamicIssues.filter(
+        (i) => (i.sentimentScore ?? 0) >= -0.3 && i.sentiment !== "angry" && i.sentiment !== "urgent"
+      ).length;
+      const csat = dynamicIssues.length > 0 ? parseFloat(((positiveIssues / dynamicIssues.length) * 100).toFixed(1)) : 100;
+      const autonomousResolvedCount = dynamicIssues.filter(
+        (i) =>
+          i.tags.includes("autonomous_resolved") ||
+          (i.confidence >= 0.85 && (i.sourceStatus === "closed" || i.resolutionRiskScore < 0.25))
+      ).length;
+      const varrRate = dynamicIssues.length > 0 ? parseFloat(((autonomousResolvedCount / dynamicIssues.length) * 100).toFixed(1)) : 0;
+
+      return {
+        csat,
+        csatChange: 0,
+        issueVolume: dynamicIssues.length,
+        issueVolumeChange: 0,
+        activeProblems: 0,
+        varrRate,
+        businessExposure: 0,
+        needsAttention: [],
+        aiDiscovered: [],
+        recentActivity: dynamicIssues.slice(0, 5).map((iss, idx) => ({
+          id: `act_${iss.id}_${idx}`,
+          timestamp: "Just now",
+          type: "action_executed",
+          description: `Ticket ${iss.id} created: ${iss.summary}`,
+          actor: "Customer Support System",
+          badgeColor: "emerald",
+        })),
+        aiWorkforce: [],
+      };
+    }
+
     const totalIssues = this.issues.length;
     const activeProblemsList = this.problems.filter((p) => p.status !== "resolved");
     const activeProblemsCount = activeProblemsList.length;

@@ -41,11 +41,11 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       expect(acmeMaster.user?.tenantSlug).toBe("acme");
       expect(acmeMaster.user?.role).toBe("cx_lead");
 
-      // 2. Acme Movers Admin
-      const moversAdmin = await store.authenticate("admin@acme-movers.com", "SupportV8#2026!Secure");
-      expect(moversAdmin.success).toBe(true);
-      expect(moversAdmin.user?.tenantSlug).toBe("acme-movers");
-      expect(moversAdmin.user?.name).toBe("Admin Acme Movers");
+      // 2. Acme Admin
+      const acmeAdmin = await store.authenticate("admin@acme.com", "SupportV8#2026!Secure");
+      expect(acmeAdmin.success).toBe(true);
+      expect(acmeAdmin.user?.tenantSlug).toBe("acme");
+      expect(acmeAdmin.user?.name).toBe("Sarah Chen");
 
       // 3. Meridian Field Dispatch
       const meridianDispatch = await store.authenticate("dispatch@meridian.com", "SupportV8#2026!Secure");
@@ -98,18 +98,18 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       const store = new UserCredentialStore();
 
       // Wrong current password
-      const badChange = store.changePassword("admin@acme-movers.com", "WrongCurrent", "BrandNewPassword#2026");
+      const badChange = store.changePassword("david.kim@acme.com", "WrongCurrent", "BrandNewPassword#2026");
       expect(badChange.success).toBe(false);
 
       // Correct current password
-      const goodChange = store.changePassword("admin@acme-movers.com", "SupportV8#2026!Secure", "BrandNewPassword#2026");
+      const goodChange = store.changePassword("david.kim@acme.com", "SupportV8#2026!Secure", "BrandNewPassword#2026");
       expect(goodChange.success).toBe(true);
 
       // Old password fails, new password succeeds
-      const oldAuth = await store.authenticate("admin@acme-movers.com", "SupportV8#2026!Secure");
+      const oldAuth = await store.authenticate("david.kim@acme.com", "SupportV8#2026!Secure");
       expect(oldAuth.success).toBe(false);
 
-      const newAuth = await store.authenticate("admin@acme-movers.com", "BrandNewPassword#2026");
+      const newAuth = await store.authenticate("david.kim@acme.com", "BrandNewPassword#2026");
       expect(newAuth.success).toBe(true);
     });
 

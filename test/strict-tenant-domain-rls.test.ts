@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { credentialStore } from "@/lib/auth/credential-store";
+import { credentialStore, INITIAL_USER_CREDENTIALS } from "@/lib/auth/credential-store";
 import { issueService } from "@/lib/services/issue-service";
 import { problemService } from "@/lib/services/problem-service";
 import { insightsService } from "@/lib/services/insights-service";
@@ -8,6 +8,14 @@ import { db } from "@/lib/db/mock-data";
 describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
   describe("1. Strict Tenant Authentication & Cross-Domain Boundary Checks", () => {
     it("should REJECT cross-tenant login attempts (acme-movers account logging into acme domain)", async () => {
+      // Register a customer tenant account
+      credentialStore.registerUser({
+        email: "admin@acme-movers.com",
+        password: "SupportV8#2026!Secure",
+        tenantSlug: "acme-movers",
+        role: "cx_lead",
+      });
+
       const email = "admin@acme-movers.com";
       const pass = "SupportV8#2026!Secure";
       const targetTenant = "acme"; // Attempting to login to acme workspace
@@ -122,8 +130,36 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
       const acmeData = issueService.getAll({ tenant: "acme" });
 
       expect(acmeMoversData.map((i) => i.id)).toContain("ISS-MOVERS-001");
-      // Must not leak into default acme tenant
       expect(acmeData.map((i) => i.id)).not.toContain("ISS-MOVERS-001");
+    });
+
+    it("should return a clean overview metrics slate for customer tenants without demo data leakage", () => {
+      const moversMetrics = db.getOverviewMetrics("acme-movers");
+      expect(moversMetrics.issueVolume).toBe(1); // from the newly added issue in previous test
+      expect(moversMetrics.activeProblems).toBe(0);
+      expect(moversMetrics.businessExposure).toBe(0);
+      expect(moversMetrics.needsAttention.length).toBe(0);
+      expect(moversMetrics.recentActivity.length).toBe(1); // contains activity for ISS-MOVERS-001
+      expect(moversMetrics.aiWorkforce.length).toBe(0);
+
+      const brandNewTenantMetrics = db.getOverviewMetrics("fresh-customer");
+      expect(brandNewTenantMetrics.issueVolume).toBe(0);
+      expect(brandNewTenantMetrics.activeProblems).toBe(0);
+      expect(brandNewTenantMetrics.businessExposure).toBe(0);
+      expect(brandNewTenantMetrics.needsAttention.length).toBe(0);
+      expect(brandNewTenantMetrics.recentActivity.length).toBe(0);
+      expect(brandNewTenantMetrics.aiDiscovered.length).toBe(0);
+      expect(brandNewTenantMetrics.aiWorkforce.length).toBe(0);
+    });
+
+    it("should ensure customer tenant accounts are NOT pre-seeded in INITIAL_USER_CREDENTIALS", () => {
+      const acmeMoversUser = INITIAL_USER_CREDENTIALS.find((u) => u.tenantSlug === "acme-movers");
+      expect(acmeMoversUser).toBeUndefined();
+
+      // Only demo tenants (acme, meridian) have pre-seeded accounts
+      INITIAL_USER_CREDENTIALS.forEach((u) => {
+        expect(["acme", "meridian"]).toContain(u.tenantSlug);
+      });
     });
   });
 });

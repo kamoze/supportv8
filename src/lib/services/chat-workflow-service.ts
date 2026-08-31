@@ -113,7 +113,7 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
         name: "email",
         label: "Work Email",
         type: "email",
-        placeholder: "elena@acme-movers.com",
+        placeholder: "elena@enterprise.com",
         required: true,
       },
       {

@@ -2112,44 +2112,47 @@ export default function SupportV8Dashboard() {
                       </div>
                     </div>
 
-                    {/* Persona Switcher List */}
-                    <div className="space-y-1">
-                      <div className="px-2 pt-1 text-[10px] font-bold text-[#6B7C8D] uppercase tracking-wider">
-                        Switch Demo Persona
+                    {/* Persona Switcher List: ONLY rendered for official demo sandboxes (acme / meridian) */}
+                    {(currentTenantSlug === "acme" || currentTenantSlug === "meridian") && (
+                      <div className="space-y-1">
+                        <div className="px-2 pt-1 text-[10px] font-bold text-[#6B7C8D] uppercase tracking-wider">
+                          Switch Demo Persona ({currentTenantSlug})
+                        </div>
+                        {[
+                          { role: "contractor_lead", email: "dispatch@meridian.com", name: "Meridian Field Dispatch", slug: "meridian", icon: "🛠️", label: "Field Dispatch (Contractor)" },
+                          { role: "operator", email: "david.kim@acme.com", name: "David Kim", slug: "acme", icon: "🎧", label: "David Kim (Operator)" },
+                          { role: "cx_lead", email: "admin@acme.com", name: "Sarah Chen", slug: "acme", icon: "👑", label: "Sarah Chen (CX Lead)" },
+                          { role: "observer", email: "auditor@compliance.org", name: "Audit Officer", slug: "acme", icon: "👁️", label: "Compliance Auditor" },
+                        ]
+                          .filter((p) => p.slug === currentTenantSlug)
+                          .map((p) => {
+                            const isCurrent = currentRole === p.role;
+                            return (
+                              <button
+                                key={p.role}
+                                type="button"
+                                onClick={() => {
+                                  const session = AuthService.createSession(p.slug, p.email, p.role as any);
+                                  setOperatorSession(session);
+                                  setIsUserMenuOpen(false);
+                                  notify(`Switched active persona to ${p.name} (${p.role.toUpperCase()})`, "info");
+                                }}
+                                className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors cursor-pointer ${
+                                  isCurrent
+                                    ? "bg-[#182635] text-[#2ED8B6] border border-[#2ED8B6]/30 font-bold"
+                                    : "text-[#B4C2D0] hover:bg-[#141C26] hover:text-[#EAF1F8]"
+                                }`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span>{p.icon}</span>
+                                  <span className="truncate">{p.label}</span>
+                                </span>
+                                {isCurrent && <Check className="w-3.5 h-3.5 text-[#2ED8B6]" />}
+                              </button>
+                            );
+                          })}
                       </div>
-                      {[
-                        { role: "contractor_lead", email: "dispatch@meridian.com", name: "Meridian Field Dispatch", slug: "meridian", icon: "🛠️", label: "Field Dispatch (Contractor)" },
-                        { role: "operator", email: "david.kim@acme.com", name: "David Kim", slug: "acme", icon: "🎧", label: "David Kim (Operator)" },
-                        { role: "cx_lead", email: "admin@acme.com", name: "Sarah Chen", slug: "acme", icon: "👑", label: "Sarah Chen (CX Lead)" },
-                        { role: "observer", email: "auditor@compliance.org", name: "Audit Officer", slug: "acme", icon: "👁️", label: "Compliance Auditor" },
-                      ].map((p) => {
-                        const isCurrent = currentRole === p.role;
-                        return (
-                          <button
-                            key={p.role}
-                            type="button"
-                            onClick={() => {
-                              setCurrentTenantSlug(p.slug);
-                              const session = AuthService.createSession(p.slug, p.email, p.role as any);
-                              setOperatorSession(session);
-                              setIsUserMenuOpen(false);
-                              notify(`Switched active persona to ${p.name} (${p.role.toUpperCase()})`, "info");
-                            }}
-                            className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors cursor-pointer ${
-                              isCurrent
-                                ? "bg-[#182635] text-[#2ED8B6] border border-[#2ED8B6]/30 font-bold"
-                                : "text-[#B4C2D0] hover:bg-[#141C26] hover:text-[#EAF1F8]"
-                            }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span>{p.icon}</span>
-                              <span className="truncate">{p.label}</span>
-                            </span>
-                            {isCurrent && <Check className="w-3.5 h-3.5 text-[#2ED8B6]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    )}
 
                     {/* Divider */}
                     <div className="border-t border-[var(--line)] my-1" />

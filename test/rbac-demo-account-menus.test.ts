@@ -203,7 +203,7 @@ describe("Demo Accounts RBAC Navigation & Menu Restrictions", () => {
     expect(itemIds).not.toContain("policies");
   });
 
-  it("3. CX Lead & Admin Demo Account (admin@acme-movers.com, acme@servicev8.com) must see full menu suite", () => {
+  it("3. CX Lead & Admin Demo Account (admin@acme.com, acme@servicev8.com) must see full menu suite", () => {
     const cxLeadSections = getFilteredNavSections("cx_lead");
     const itemIds = cxLeadSections.flatMap((s) => s.items.map((i) => i.id));
 

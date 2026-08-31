@@ -97,14 +97,20 @@ export function SignInModal({
 
     setIsLoading(true);
 
-    // Cryptographic operator session generation with selected actor role
-    setTimeout(() => {
-      setIsLoading(false);
-      const role = selectedRole === "contractor" ? "technician" : selectedRole === "customer" ? "customer" : "operator";
-      const session = AuthService.createSession(targetSlug, email, role as any);
-      onSuccess(session);
-      onClose();
-    }, 450);
+    AuthService.loginWithPassword(email.trim(), password.trim(), targetSlug)
+      .then((loginRes) => {
+        setIsLoading(false);
+        if (loginRes.success && loginRes.session) {
+          onSuccess(loginRes.session);
+          onClose();
+        } else {
+          setErrorMsg(loginRes.error || "Incorrect email or password. Please try again.");
+        }
+      })
+      .catch(() => {
+        setIsLoading(false);
+        setErrorMsg("Authentication service unavailable.");
+      });
   };
 
   const formattedTenantName = (lockedTenantSlug || tenantSlug)

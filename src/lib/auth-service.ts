@@ -145,6 +145,35 @@ export const AuthService = {
   },
 
   /**
+   * Authenticate with email & password against the credential store / API
+   */
+  async loginWithPassword(
+    email: string,
+    password: string,
+    tenantSlug?: string
+  ): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, tenantSlug }),
+      }).then((r) => r.json());
+
+      if (res.success && res.session) {
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(res.session));
+          } catch (_) {}
+        }
+        return { success: true, session: res.session };
+      }
+      return { success: false, error: res.error || "Invalid email or password." };
+    } catch (err) {
+      return { success: false, error: "Authentication service unavailable." };
+    }
+  },
+
+  /**
    * Authenticate demo credentials with zero-trust envelope verification
    */
   authenticateDemo(tenantSlug: "acme" | "meridian"): AuthSession {

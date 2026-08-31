@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/mock-data";
+import { credentialStore } from "@/lib/auth/credential-store";
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, domain, adminEmail, initialMode = "copilot", primaryStream = "customers" } = await req.json();
+    const { name, domain, adminEmail, password = "SupportV8#2026!Secure", initialMode = "copilot", primaryStream = "customers" } = await req.json();
 
     if (!name || !domain) {
       return NextResponse.json({ success: false, error: "Name and domain are required" }, { status: 400 });
@@ -21,6 +22,17 @@ export async function POST(req: NextRequest) {
 
     const tenantId = `tenant_${cleanDomain.replace(/[^a-z0-9]/g, "_")}`;
     
+    // Register administrator credentials with cryptographic scrypt password hashing
+    if (adminEmail && password) {
+      credentialStore.registerUser({
+        email: adminEmail,
+        password,
+        name: `${name} Administrator`,
+        tenantSlug: cleanDomain,
+        role: "cx_lead",
+      });
+    }
+
     // By default, tenant is provisioned in UI-only + basic copilot automation mode
     // Full autonomous AI Employee assignment is a commercial activation via Studio Marketplace
     db.tenant = {

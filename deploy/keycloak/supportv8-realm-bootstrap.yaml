@@ -1,0 +1,183 @@
+# Bootstraps the `supportv8` Keycloak realm — the unified standalone-auth
+# pattern established by knowledgev8 and growthv8 (see keycloak-growthv8-realm-bootstrap):
+# completely separate from `servicev8-sa` — external SupportV8
+# customers and operators authenticate via dedicated realm roles and scopes.
+#
+# Clients provisioned:
+#   - supportv8-app: PUBLIC, direct-access-grants (ROPC) + standard auth-code/PKCE.
+#     Used to verify user credentials and power web portal sessions.
+#   - supportv8-admin-sa: CONFIDENTIAL, service-accounts-enabled, granted only
+#     realm-management `manage-users` for THIS realm. Deliberately NOT the master admin.
+#   - supportv8-service: CONFIDENTIAL, interservice principal for Operation Gateway,
+#     Temporal WorkerV8, and OrderV8 dispatch APIs.
+#
+# Secret flow (ESO): the admin-sa secret is a CHOSEN value stored in AWS SSM Parameter Store at
+# /servicev8/supportv8-keycloak-client#client_secret. ESO materializes it as the `supportv8-keycloak-client`
+# Secret on BOTH primary (for the SQL step below) and workload clusters.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-supportv8-realm-bootstrap
+  namespace: default
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        # 1. kcadm bootstrap: Realm + Clients + Roles + Scopes + Groups + Grants
+        - name: kcadm-bootstrap
+          image: quay.io/keycloak/keycloak:26.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KC_ADMIN_USER
+              valueFrom:
+                secretKeyRef: { name: keycloak-admin, key: username }
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: keycloak-admin, key: password }
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              KC=/opt/keycloak/bin/kcadm.sh
+              REALM=supportv8
+              $KC config credentials --server http://keycloak:8080 \
+                --realm master --client meridian-bootstrap-cli \
+                --user "$KC_ADMIN_USER" --password "$KC_ADMIN_PASSWORD"
+
+              # 1. Realm creation / update
+              if $KC get "realms/$REALM" >/dev/null 2>&1; then
+                $KC update "realms/$REALM" \
+                  -s enabled=true -s registrationAllowed=false \
+                  -s loginWithEmailAllowed=true -s registrationEmailAsUsername=true \
+                  -s resetPasswordAllowed=true -s sslRequired=external \
+                  -s bruteForceProtected=true
+                echo "realm $REALM exists and updated"
+              else
+                $KC create realms \
+                  -s realm=$REALM -s enabled=true -s registrationAllowed=false \
+                  -s loginWithEmailAllowed=true -s registrationEmailAsUsername=true \
+                  -s resetPasswordAllowed=true -s sslRequired=external \
+                  -s bruteForceProtected=true \
+                  -s displayName="ServiceV8 Support (SupportV8)"
+                echo "realm $REALM created"
+              fi
+
+              # 2. Realm Roles
+              for ROLE in support_superadmin support_cx_lead support_operator support_contractor_lead support_technician support_observer; do
+                $KC create roles -r $REALM -s name=$ROLE 2>/dev/null || echo "role $ROLE exists"
+              done
+
+              # 3. Client Scopes
+              for SCOPE in support.tickets support.refunds support.voice support.knowledge support.tenant; do
+                $KC create client-scopes -r $REALM -s name=$SCOPE -s protocol=openid-connect 2>/dev/null || echo "scope $SCOPE exists"
+              done
+
+              # 4. Public Web Client: supportv8-app (ROPC & Auth Code)
+              if $KC get clients -r $REALM -q clientId=supportv8-app --fields id 2>/dev/null | grep -q id; then
+                echo "client supportv8-app exists"
+              else
+                $KC create clients -r $REALM \
+                  -s clientId=supportv8-app -s enabled=true -s publicClient=true \
+                  -s standardFlowEnabled=true -s directAccessGrantsEnabled=true \
+                  -s 'redirectUris=["https://*.support.servicev8.com/*", "https://support.servicev8.com/*", "http://localhost:3000/*", "http://localhost:3001/*"]' \
+                  -s 'webOrigins=["+"]'
+                echo "client supportv8-app created"
+              fi
+
+              # 5. Confidential Admin Client: supportv8-admin-sa
+              if $KC get clients -r $REALM -q clientId=supportv8-admin-sa --fields id 2>/dev/null | grep -q id; then
+                echo "client supportv8-admin-sa exists"
+              else
+                $KC create clients -r $REALM \
+                  -s clientId=supportv8-admin-sa -s enabled=true -s publicClient=false \
+                  -s serviceAccountsEnabled=true -s standardFlowEnabled=false \
+                  -s directAccessGrantsEnabled=false
+                echo "client supportv8-admin-sa created"
+              fi
+
+              # Grant its service account manage-users scoped to supportv8 realm only
+              $KC add-roles -r $REALM \
+                --uusername service-account-supportv8-admin-sa \
+                --cclientid realm-management --rolename manage-users \
+                2>/dev/null && echo "manage-users granted" || echo "manage-users already granted"
+
+              # 6. Confidential Interservice Principal: supportv8-service
+              if $KC get clients -r $REALM -q clientId=supportv8-service --fields id 2>/dev/null | grep -q id; then
+                echo "client supportv8-service exists"
+              else
+                $KC create clients -r $REALM \
+                  -s clientId=supportv8-service -s enabled=true -s publicClient=false \
+                  -s serviceAccountsEnabled=true -s standardFlowEnabled=false \
+                  -s directAccessGrantsEnabled=false
+                echo "client supportv8-service created"
+              fi
+
+              # 7. Groups
+              for GRP in "Platform Administrators" "CX Directors & Leads" "Frontline Support Operators" "Field Contractors & Technicians" "Compliance & Audit Observers"; do
+                $KC create groups -r $REALM -s name="$GRP" 2>/dev/null || echo "group $GRP exists"
+              done
+
+              echo "kcadm bootstrap done"
+
+        # 2. SQL initContainer: Set CHOSEN admin-sa secret from ESO
+        - name: set-client-secret
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: { name: postgres-credentials, key: password }
+            - name: PGHOST
+              value: "postgres-app-postgresql-primary.default.svc.cluster.local"
+            - name: PGUSER
+              value: "postgres"
+            - name: PGDATABASE
+              value: "postgres"
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: supportv8-keycloak-client
+                  key: client_secret
+                  optional: true
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              if [ -z "$OIDC_CLIENT_SECRET" ]; then
+                echo "OIDC_CLIENT_SECRET not set yet -- skipping SQL client-secret update"
+                exit 0
+              fi
+              psql -v ON_ERROR_STOP=1 <<SQL
+              UPDATE client
+              SET secret = '$OIDC_CLIENT_SECRET'
+              WHERE client_id = 'supportv8-admin-sa'
+                AND realm_id = (SELECT id FROM realm WHERE name = 'supportv8');
+              SQL
+              echo "supportv8-admin-sa client secret updated in postgres"
+
+      # 3. Main container: Clear Realm Cache
+      containers:
+        - name: clear-realm-cache
+          image: quay.io/keycloak/keycloak:26.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KC_ADMIN_USER
+              valueFrom:
+                secretKeyRef: { name: keycloak-admin, key: username }
+            - name: KC_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: keycloak-admin, key: password }
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              KC=/opt/keycloak/bin/kcadm.sh
+              $KC config credentials --server http://keycloak:8080 \
+                --realm master --client meridian-bootstrap-cli \
+                --user "$KC_ADMIN_USER" --password "$KC_ADMIN_PASSWORD"
+              $KC create clear-realm-cache -r supportv8 2>/dev/null || true
+              $KC create clear-user-cache -r supportv8 2>/dev/null || true
+              echo "supportv8 realm and user cache cleared"

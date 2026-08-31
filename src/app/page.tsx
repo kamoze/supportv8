@@ -12,8 +12,10 @@ import {
   Bot,
   Brain,
   Briefcase,
+  Building2,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   Code2,
@@ -157,6 +159,7 @@ export default function SupportV8Dashboard() {
   const [isSignInModalOpen, setIsSignInModalOpen] = useState<boolean>(false);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
   const [targetDemoSlug, setTargetDemoSlug] = useState<string>("acme");
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
 
   // Gated Demo Access Handler
   const handleRequestDemoAccess = (slug: string = "acme") => {
@@ -1692,154 +1695,219 @@ export default function SupportV8Dashboard() {
           activeTab === "ask" || activeTab === "workspace" ? "overflow-hidden" : "overflow-y-auto"
         }`}
       >
-        {/* Topbar Header */}
-        <header className="sticky top-0 z-20 bg-[#0B1017]/90 backdrop-blur-md border-b border-[var(--line)] px-6 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center tracking-[-0.035em] font-sans select-none">
-                <span className="text-white font-extrabold">support</span>
-                <span className="text-[#2ED8B6] font-mono font-extrabold tracking-[-0.02em] ml-0.5">V8</span>
+        {/* Optimized Sticky Topbar Header */}
+        <header className="sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 select-none">
+          {/* Left: Breadcrumbs & Active Tenant Tag */}
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
+              <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
+                <span className="text-white font-extrabold text-sm">support</span>
+                <span className="text-[#2ED8B6] font-mono font-extrabold text-sm tracking-[-0.02em] ml-0.5">V8</span>
               </span>
               <span className="text-[#6B7C8D] font-mono">/</span>
-              <span className="text-[#EAF1F8] font-bold font-mono">
+              <span className="text-[#EAF1F8] font-bold font-mono text-xs truncate max-w-[130px] sm:max-w-[200px]">
                 {navSections.flatMap((s) => s.items).find((i) => i.id === activeTab)?.label || activeTab}
               </span>
             </div>
-            <span className="pill ok hidden sm:inline-flex text-[10px]">
-              <i className="dot"></i>
-              AUTONOMOUS MESH
+
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#121A24] border border-[var(--line)] text-[10px] font-mono text-[#8E9AA8]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse"></span>
+              <span className="text-[#EAF1F8] font-bold">{currentTenantSlug}.support.servicev8.com</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Demo Persona Switcher */}
-            <div className="flex items-center gap-1.5 bg-[#141C26] px-3 py-1.5 rounded-xl border border-[var(--line)] text-xs font-mono">
-              <span className="text-[10px] text-[#6B7C8D] hidden xl:inline">Role Persona:</span>
-              <select
-                value={currentRole}
-                onChange={(e) => {
-                  const targetRole = e.target.value as AuthSession["role"];
-                  let newEmail = "admin@acme.com";
-                  let newName = "Sarah Chen";
-                  let newSlug = currentTenantSlug;
-                  if (targetRole === "contractor_lead" || targetRole === "contractor" || targetRole === "technician") {
-                    newEmail = "dispatch@meridian.com";
-                    newName = "Meridian Field Dispatch";
-                    newSlug = "meridian";
-                  } else if (targetRole === "operator") {
-                    newEmail = "david.kim@acme.com";
-                    newName = "David Kim";
-                    newSlug = "acme";
-                  } else if (targetRole === "cx_lead") {
-                    newEmail = "admin@acme.com";
-                    newName = "Sarah Chen";
-                    newSlug = "acme";
-                  }
-                  setCurrentTenantSlug(newSlug);
-                  const session = AuthService.createSession(newSlug, newEmail, targetRole);
-                  setOperatorSession(session);
-                  notify(`Switched active demo persona to ${newName} (${targetRole.replace(/_/g, " ").toUpperCase()})`, "info");
-                }}
-                className="bg-transparent text-xs font-mono font-bold text-[#2ED8B6] focus:outline-none cursor-pointer"
-              >
-                <option value="contractor_lead" className="bg-[#121A24] text-[#F5A623]">🛠️ Meridian Field Dispatch (Contractor)</option>
-                <option value="operator" className="bg-[#121A24] text-[#4D9FFF]">🎧 David Kim (Frontline Operator)</option>
-                <option value="cx_lead" className="bg-[#121A24] text-[#2ED8B6]">👑 Sarah Chen (CX Operations Lead)</option>
-                <option value="observer" className="bg-[#121A24] text-[#8E9AA8]">👁️ Compliance Auditor (Observer)</option>
-              </select>
+          {/* Center: Autonomy Mode & ForgeGW Credits Capsule */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            {/* Autonomy Mode Selector */}
+            <div className="flex items-center bg-[#101722] p-1 rounded-xl border border-[var(--line)]">
+              {(["observe", "copilot", "autonomous"] as OperatingMode[]).map((mode) => {
+                const isActive = operatingMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      setOperatingMode(mode);
+                      notify(`Tenant operating mode set to ${mode.toUpperCase()}`, "info");
+                    }}
+                    title={`Autonomy Mode: ${mode.toUpperCase()}`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-[#182635] text-[#2ED8B6] border border-[#2ED8B6]/40 font-bold shadow-sm"
+                        : "text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#141C26]"
+                    }`}
+                  >
+                    {mode === "observe" && <Eye className="w-3 h-3 text-[#8E9AA8]" />}
+                    {mode === "copilot" && <Zap className="w-3 h-3 text-[#F5A623]" />}
+                    {mode === "autonomous" && <Bot className="w-3 h-3 text-[#2ED8B6]" />}
+                    <span className="capitalize">{mode}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* ForgeGW vs BYOM Model Governance & Remainder Credits Strip */}
-            <div className="hidden md:flex items-center bg-[#141C26] px-3 py-1.5 rounded-xl border border-[var(--line)] text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => setIsForgeGwModalOpen(true)}
-                className="flex items-center gap-2 text-[#EAF1F8] hover:text-[#2ED8B6] transition-colors cursor-pointer"
-                title="Manage ForgeGW Subscription & Credits"
-              >
-                <Zap className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span className="font-bold">
-                  {modelProvider === "forgegw" ? "ForgeGW Managed" : "BYOM Model"}
-                </span>
-                <span className="text-[#6B7C8D]">|</span>
-                <span className="text-[#2ED8B6] font-bold">
-                  {modelProvider === "forgegw" ? `${forgeGwCredits.toLocaleString()} Credits` : "Direct Key"}
-                </span>
-              </button>
-            </div>
+            {/* ForgeGW Credits Pill Button */}
+            <button
+              type="button"
+              onClick={() => setIsForgeGwModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#101722] hover:bg-[#141E2B] border border-[var(--line)] hover:border-[#2ED8B6]/40 text-xs font-mono transition-all cursor-pointer"
+              title="Manage ForgeGW Credits & Compute Routing"
+            >
+              <Zap className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <span className="text-[#EAF1F8] font-bold">
+                {modelProvider === "forgegw" ? `${forgeGwCredits.toLocaleString()} Credits` : "BYOM Key"}
+              </span>
+            </button>
+          </div>
 
-            {/* Operating Mode Selector */}
-            <div className="flex items-center gap-1 bg-[#18222E] p-1 rounded-lg border border-[var(--line)]">
-              {(["observe", "copilot", "autonomous"] as OperatingMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => {
-                    setOperatingMode(mode);
-                    notify(`Tenant operating mode set to ${mode.toUpperCase()}`, "info");
-                  }}
-                  className={`btn text-xs capitalize ${
-                    operatingMode === mode
-                      ? "btn-primary shadow-sm"
-                      : "btn-secondary border-transparent bg-transparent text-[#6B7C8D] hover:text-[#EAF1F8]"
-                  }`}
-                >
-                  {mode === "observe" && <Eye className="w-3 h-3" />}
-                  {mode === "copilot" && <Zap className="w-3 h-3" />}
-                  {mode === "autonomous" && <Bot className="w-3 h-3" />}
-                  <span className="hidden md:inline">{mode}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Surface Mode Switchers */}
-            <div className="hidden xl:flex items-center gap-1.5 bg-[#141C26] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => setViewMode("global_landing")}
-                className="px-2.5 py-1 rounded-lg text-[#8E9AA8] hover:text-[#EAF1F8] hover:bg-[#1C2836] transition-colors cursor-pointer"
-              >
-                Global Landing
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("tenant_landing")}
-                className="px-2.5 py-1 rounded-lg text-[#4D9FFF] hover:bg-[#1C2836] transition-colors cursor-pointer flex items-center gap-1"
-              >
-                <Globe className="w-3 h-3" />
-                <span>Tenant ({currentTenantSlug})</span>
-              </button>
-            </div>
-
-            {/* Quick Ask Chat Button */}
+          {/* Right: Quick Search, Refresh & Unified User/Persona Profile Dropdown */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Ask / Command Trigger */}
             <button
               onClick={() => setIsChatOpen(true)}
-              className="btn btn-secondary text-xs cursor-pointer"
+              className="btn btn-secondary px-2.5 sm:px-3 py-1.5 text-xs flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[#8E9AA8] hover:text-[#EAF1F8]"
             >
-              <i className="fi fi-rr-comment-alt-dots text-sm text-[#2ED8B6]" />
-              <span className="hidden sm:inline">Ask supportV8...</span>
+              <Search className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <span className="hidden sm:inline text-[11px] font-mono">Ask / Search</span>
               <kbd className="hidden lg:inline-block bg-[#121A24] px-1.5 py-0.5 rounded text-[10px] text-[#6B7C8D] font-mono border border-[var(--line)]">
                 ⌘K
               </kbd>
             </button>
 
-            {/* Refresh Intelligence Data */}
+            {/* Refresh Live Data Icon */}
             <button
               onClick={fetchData}
               title="Refresh Intelligence Data"
-              className="btn btn-secondary p-2 cursor-pointer"
+              className="p-2 rounded-xl bg-[#101722] hover:bg-[#18222E] border border-[var(--line)] text-[#6B7C8D] hover:text-[#2ED8B6] cursor-pointer transition-colors"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#2ED8B6]" : ""}`} />
             </button>
 
-            {/* Sign Out Action Button */}
-            <button
-              onClick={handleLogout}
-              title="Sign out of Admin Cockpit"
-              className="btn bg-[#18222E] hover:bg-[#E5484D]/15 hover:border-[#E5484D]/40 text-[#8E9AA8] hover:text-[#FF7575] border border-[var(--line)] text-xs font-mono px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Sign Out</span>
-            </button>
+            {/* Unified User & Persona Profile Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
+                  isUserMenuOpen
+                    ? "bg-[#182635] border-[#2ED8B6] text-[#EAF1F8] shadow-md shadow-[#2ED8B6]/10"
+                    : "bg-[#101722] hover:bg-[#141E2B] border-[var(--line)] text-[#B4C2D0] hover:text-[#EAF1F8]"
+                }`}
+              >
+                <div className="w-6 h-6 rounded-lg bg-[#182635] border border-[var(--line-2)] flex items-center justify-center text-xs font-bold text-[#2ED8B6]">
+                  {isContractorRole ? "🛠️" : currentRole === "operator" ? "🎧" : "👑"}
+                </div>
+                <div className="hidden lg:flex flex-col text-left text-xs font-mono">
+                  <span className="font-bold text-[#EAF1F8] leading-tight truncate max-w-[110px]">
+                    {operatorSession?.name || "Admin"}
+                  </span>
+                  <span className="text-[9px] text-[#2ED8B6] uppercase tracking-wider">
+                    {isContractorRole ? "Contractor" : currentRole === "operator" ? "Operator" : "CX Lead"}
+                  </span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-[#6B7C8D] transition-transform ${isUserMenuOpen ? "rotate-180 text-[#2ED8B6]" : ""}`} />
+              </button>
+
+              {/* Popover Dropdown Menu */}
+              {isUserMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-72 bg-[#0E1520] border border-[var(--line-2)] rounded-2xl shadow-2xl z-50 p-2 space-y-2 animate-in fade-in-50 zoom-in-95 duration-100 font-mono text-xs">
+                    {/* Active Profile Header */}
+                    <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)]">
+                      <div className="font-bold text-sm text-[#EAF1F8]">{operatorSession?.name || currentTenantSlug}</div>
+                      <div className="text-[11px] text-[#6B7C8D] truncate">{operatorSession?.email || "admin@servicev8.com"}</div>
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#2ED8B6]/10 text-[#2ED8B6] text-[10px] font-bold uppercase">
+                        <Shield className="w-3 h-3" />
+                        <span>{currentRole.replace(/_/g, " ")}</span>
+                      </div>
+                    </div>
+
+                    {/* Persona Switcher List */}
+                    <div className="space-y-1">
+                      <div className="px-2 pt-1 text-[10px] font-bold text-[#6B7C8D] uppercase tracking-wider">
+                        Switch Demo Persona
+                      </div>
+                      {[
+                        { role: "contractor_lead", email: "dispatch@meridian.com", name: "Meridian Field Dispatch", slug: "meridian", icon: "🛠️", label: "Field Dispatch (Contractor)" },
+                        { role: "operator", email: "david.kim@acme.com", name: "David Kim", slug: "acme", icon: "🎧", label: "David Kim (Operator)" },
+                        { role: "cx_lead", email: "admin@acme.com", name: "Sarah Chen", slug: "acme", icon: "👑", label: "Sarah Chen (CX Lead)" },
+                        { role: "observer", email: "auditor@compliance.org", name: "Audit Officer", slug: "acme", icon: "👁️", label: "Compliance Auditor" },
+                      ].map((p) => {
+                        const isCurrent = currentRole === p.role;
+                        return (
+                          <button
+                            key={p.role}
+                            type="button"
+                            onClick={() => {
+                              setCurrentTenantSlug(p.slug);
+                              const session = AuthService.createSession(p.slug, p.email, p.role as any);
+                              setOperatorSession(session);
+                              setIsUserMenuOpen(false);
+                              notify(`Switched active persona to ${p.name} (${p.role.toUpperCase()})`, "info");
+                            }}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-colors cursor-pointer ${
+                              isCurrent
+                                ? "bg-[#182635] text-[#2ED8B6] border border-[#2ED8B6]/30 font-bold"
+                                : "text-[#B4C2D0] hover:bg-[#141C26] hover:text-[#EAF1F8]"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span>{p.icon}</span>
+                              <span className="truncate">{p.label}</span>
+                            </span>
+                            {isCurrent && <Check className="w-3.5 h-3.5 text-[#2ED8B6]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-[var(--line)] my-1" />
+
+                    {/* Workspace Navigation Links */}
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setViewMode("tenant_landing");
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl text-[#B4C2D0] hover:text-[#EAF1F8] hover:bg-[#141C26] transition-colors cursor-pointer"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-[#4D9FFF]" />
+                        <span>Tenant Portal ({currentTenantSlug})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setViewMode("global_landing");
+                        }}
+                        className="w-full flex items-center gap-2 p-2 rounded-xl text-[#B4C2D0] hover:text-[#EAF1F8] hover:bg-[#141C26] transition-colors cursor-pointer"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-[#8E9AA8]" />
+                        <span>Global Landing</span>
+                      </button>
+                    </div>
+
+                    {/* Divider & Sign Out */}
+                    <div className="border-t border-[var(--line)] my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2 p-2 rounded-xl text-[#E5484D] hover:bg-[#E5484D]/10 hover:text-[#FF7575] transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 

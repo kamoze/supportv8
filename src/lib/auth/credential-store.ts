@@ -235,4 +235,8 @@ export class UserCredentialStore {
   }
 }
 
-export const credentialStore = new UserCredentialStore();
+const globalForAuth = globalThis as unknown as { __sv8_credential_store?: UserCredentialStore };
+export const credentialStore = globalForAuth.__sv8_credential_store ?? new UserCredentialStore();
+if (process.env.NODE_ENV !== "production") {
+  globalForAuth.__sv8_credential_store = credentialStore;
+}

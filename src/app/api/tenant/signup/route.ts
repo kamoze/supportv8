@@ -53,24 +53,36 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Best-effort Keycloak user registration if admin service account credentials exist
-      try {
-        const { createKeycloakUser } = await import("@/lib/auth/keycloak");
-        const nameParts = resolvedAdminName.split(" ");
-        const firstName = nameParts[0] || name;
-        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Administrator";
+      // Enforce Keycloak user registration when Keycloak admin credentials exist
+      if (process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || process.env.KEYCLOAK_ADMIN_BASE_URL) {
+        try {
+          const { createKeycloakUser } = await import("@/lib/auth/keycloak");
+          const nameParts = resolvedAdminName.split(" ");
+          const firstName = nameParts[0] || name;
+          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Administrator";
 
-        await createKeycloakUser(cleanEmail, password, {
-          firstName,
-          lastName,
-          tenantId,
-          organizationName: name,
-          roles: ["support_cx_lead"],
-        }).catch((kcErr) => {
-          console.warn("[supportV8] Keycloak user registration notice:", kcErr);
-        });
-      } catch (err) {
-        console.warn("[supportV8] Keycloak module notice:", err);
+          await createKeycloakUser(cleanEmail, password, {
+            firstName,
+            lastName,
+            tenantId,
+            organizationName: name,
+            roles: ["support_cx_lead"],
+          });
+        } catch (kcErr: any) {
+          if (kcErr?.name === "KeycloakUserExists") {
+            return NextResponse.json(
+              { success: false, error: `An account with email '${cleanEmail}' already exists in Keycloak IdP.` },
+              { status: 409 }
+            );
+          }
+          if (process.env.KEYCLOAK_ADMIN_CLIENT_SECRET) {
+            return NextResponse.json(
+              { success: false, error: `Keycloak IdP user creation failed: ${kcErr.message || kcErr}` },
+              { status: 502 }
+            );
+          }
+          console.warn("[supportV8] Keycloak dev notice:", kcErr?.message || kcErr);
+        }
       }
     }
 

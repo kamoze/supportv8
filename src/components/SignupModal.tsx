@@ -27,7 +27,7 @@ import { AuthService } from "@/lib/auth-service";
 interface SignupModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (tenantSlug: string) => void;
+  onSuccess: (tenantSlug: string, email?: string, password?: string) => void;
   onOpenSignIn?: () => void;
 }
 
@@ -805,12 +805,12 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 type="button"
                 disabled={isProvisioning}
                 onClick={() => {
-                  onSuccess(slug);
+                  onSuccess(slug, adminEmail);
                   onClose();
                 }}
                 className="btn btn-primary px-8 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xl shadow-[#2ED8B6]/30 disabled:opacity-50"
               >
-                <span>Launch Tenant Portal</span>
+                <span>Proceed to Sign In &rarr;</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

@@ -1753,7 +1753,9 @@ export default function SupportV8Dashboard() {
           onClose={() => setIsSignupModalOpen(false)}
           onSuccess={(slug) => {
             setCurrentTenantSlug(slug);
-            setViewMode("tenant_landing");
+            setIsSignupModalOpen(false);
+            setIsSignInModalOpen(true);
+            notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
           }}
           onOpenSignIn={() => {
             setIsSignupModalOpen(false);
@@ -1814,7 +1816,9 @@ export default function SupportV8Dashboard() {
           onClose={() => setIsSignupModalOpen(false)}
           onSuccess={(slug) => {
             setCurrentTenantSlug(slug);
-            setViewMode("tenant_landing");
+            setIsSignupModalOpen(false);
+            setIsSignInModalOpen(true);
+            notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
           }}
           onOpenSignIn={() => {
             setIsSignupModalOpen(false);
@@ -7646,7 +7650,9 @@ export default function SupportV8Dashboard() {
         onClose={() => setIsSignupModalOpen(false)}
         onSuccess={(slug) => {
           setCurrentTenantSlug(slug);
-          setViewMode("tenant_landing");
+          setIsSignupModalOpen(false);
+          setIsSignInModalOpen(true);
+          notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
         }}
       />
     </div>

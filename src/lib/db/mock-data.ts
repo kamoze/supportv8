@@ -1451,4 +1451,8 @@ class SupportDatabase {
   }
 }
 
-export const db = new SupportDatabase();
+const globalForDb = globalThis as unknown as { __sv8_db?: SupportDatabase };
+export const db = globalForDb.__sv8_db ?? new SupportDatabase();
+if (process.env.NODE_ENV !== "production") {
+  globalForDb.__sv8_db = db;
+}

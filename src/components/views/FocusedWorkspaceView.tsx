@@ -124,6 +124,7 @@ export function FocusedWorkspaceView({
 }: FocusedWorkspaceViewProps) {
   const isContractorUser = userRole === "contractor" || userRole === "technician" || userRole === "contractor_lead";
   const [selectedIssueId, setSelectedIssueId] = useState<string>(issues[0]?.id || "");
+  const [queueStatusFilter, setQueueStatusFilter] = useState<"active" | "all" | "resolved">("active");
   const [filterType, setFilterType] = useState<"all" | "customers" | "contractors" | "urgent">(
     isContractorUser ? "contractors" : "all"
   );
@@ -384,7 +385,22 @@ export function FocusedWorkspaceView({
       onUpdateIssue(updated);
     }
     setEditStatus(newStatus as any);
-    onNotify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
+
+    if (newStatus === "resolved" || newStatus === "closed") {
+      onNotify(`Ticket ${selectedIssue.externalId} marked ${newStatus.toUpperCase()} & left active queue`, "success");
+      // Auto-advance to the next active open ticket in queue
+      const remainingActive = issues.filter(
+        (i) => i.id !== selectedIssue.id && i.status !== "resolved" && i.status !== "closed"
+      );
+      if (remainingActive.length > 0) {
+        setTimeout(() => {
+          setSelectedIssueId(remainingActive[0].id);
+        }, 300);
+      }
+    } else {
+      onNotify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
+    }
+
     if (onTriggerTemporalActivity) {
       onTriggerTemporalActivity(selectedIssue.id, "ticket_status_change", { status: newStatus });
     }
@@ -532,7 +548,19 @@ export function FocusedWorkspaceView({
     onNotify(`Attached ${file.name} to ticket context!`, "success");
   };
 
+  const activeCount = issues.filter((i) => i.status !== "resolved" && i.status !== "closed").length;
+  const resolvedCount = issues.filter((i) => i.status === "resolved" || i.status === "closed").length;
+
   const filteredIssues = issues.filter((i) => {
+    // 1. Queue Status Filter: Resolved and closed tickets leave the active work desk queue by default
+    const isClosedOrResolved = i.status === "resolved" || i.status === "closed";
+    if (queueStatusFilter === "active" && isClosedOrResolved) {
+      return false;
+    }
+    if (queueStatusFilter === "resolved" && !isClosedOrResolved) {
+      return false;
+    }
+
     const matchesSearch =
       !searchQuery ||
       i.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -596,10 +624,20 @@ export function FocusedWorkspaceView({
       }
       onNotify(
         isContractor
-          ? `Work order ${selectedIssue.externalId} completed autonomously. Summary dispatched to contractor.`
-          : `Ticket ${selectedIssue.externalId} resolved autonomously. (Deducted 35 ForgeGW Credits)`,
+          ? `Work order ${selectedIssue.externalId} completed & removed from active queue.`
+          : `Ticket ${selectedIssue.externalId} resolved & removed from active queue. (Deducted 35 ForgeGW Credits)`,
         "success"
       );
+
+      // Auto-advance to the next active open ticket in queue
+      const remainingActive = issues.filter(
+        (i) => i.id !== selectedIssue.id && i.status !== "resolved" && i.status !== "closed"
+      );
+      if (remainingActive.length > 0) {
+        setTimeout(() => {
+          setSelectedIssueId(remainingActive[0].id);
+        }, 300);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -931,7 +969,44 @@ export function FocusedWorkspaceView({
           }`}
         >
           {/* Filter Bar */}
-          <div className="p-3 border-b border-[var(--line)] space-y-2">
+          <div className="p-3 border-b border-[var(--line)] space-y-2 select-none">
+            {/* Status Queue Mode: Active Queue vs Resolved Archive */}
+            <div className="flex items-center bg-[#101722] p-1 rounded-xl border border-[var(--line)] text-[10px] font-mono">
+              <button
+                type="button"
+                onClick={() => setQueueStatusFilter("active")}
+                className={`flex-1 py-1 rounded-lg text-center transition-all cursor-pointer font-bold ${
+                  queueStatusFilter === "active"
+                    ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                }`}
+              >
+                Active ({activeCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setQueueStatusFilter("resolved")}
+                className={`flex-1 py-1 rounded-lg text-center transition-all cursor-pointer font-bold ${
+                  queueStatusFilter === "resolved"
+                    ? "bg-[#4CC38A] text-[#04201C] shadow-sm"
+                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                }`}
+              >
+                Resolved ({resolvedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setQueueStatusFilter("all")}
+                className={`flex-1 py-1 rounded-lg text-center transition-all cursor-pointer font-bold ${
+                  queueStatusFilter === "all"
+                    ? "bg-[#182635] text-[#2ED8B6] border border-[#2ED8B6]/40"
+                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                }`}
+              >
+                All ({issues.length})
+              </button>
+            </div>
+
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
               <input
@@ -969,8 +1044,29 @@ export function FocusedWorkspaceView({
           {/* Queue Items */}
           <div className="flex-1 overflow-y-auto p-2 space-y-2">
             {sortedIssues.length === 0 ? (
-              <div className="p-6 text-center text-xs font-mono text-[#6B7C8D]">
-                No active tickets in queue.
+              <div className="p-8 text-center space-y-3 font-mono">
+                <div className="w-10 h-10 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] mx-auto">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#EAF1F8]">
+                    {queueStatusFilter === "active" ? "✨ Active Queue Clear" : "No Tickets Found"}
+                  </h4>
+                  <p className="text-[10px] text-[#6B7C8D] mt-1 leading-relaxed">
+                    {queueStatusFilter === "active"
+                      ? "All customer tickets & field orders have been resolved or closed."
+                      : "No tickets match the selected filters."}
+                  </p>
+                </div>
+                {queueStatusFilter === "active" && resolvedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setQueueStatusFilter("resolved")}
+                    className="px-3 py-1.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line-2)] text-[11px] text-[#2ED8B6] cursor-pointer"
+                  >
+                    View Resolved Archive ({resolvedCount}) &rarr;
+                  </button>
+                )}
               </div>
             ) : (
               sortedIssues.map((issue) => {

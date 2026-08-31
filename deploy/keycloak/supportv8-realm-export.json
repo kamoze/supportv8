@@ -1,338 +1,102 @@
 {
-  "id": "supportv8",
   "realm": "supportv8",
   "displayName": "ServiceV8 Support (SupportV8)",
-  "displayNameHtml": "<div class=\"kc-logo-text\"><span>ServiceV8</span> Support</div>",
-  "notBefore": 0,
-  "defaultSignatureAlgorithm": "RS256",
-  "revokeRefreshToken": false,
-  "refreshTokenProtection": false,
-  "accessTokenLifespan": 3600,
-  "ssoSessionIdleTimeout": 28800,
-  "ssoSessionMaxLifespan": 86400,
-  "offlineSessionIdleTimeout": 2592000,
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
   "registrationEmailAsUsername": true,
-  "rememberMe": true,
-  "verifyEmail": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
-  "editUsernameAllowed": false,
   "bruteForceProtected": true,
-  "permanentLockout": false,
-  "maxFailureWaitSeconds": 900,
-  "minimumQuickLoginWaitSeconds": 60,
-  "waitIncrementSeconds": 60,
-  "quickLoginCheckMilliSeconds": 1000,
-  "maxDeltaTimeSeconds": 43200,
-  "failureFactor": 5,
   "roles": {
     "realm": [
       {
-        "id": "role_superadmin",
         "name": "support_superadmin",
-        "description": "Full platform administration, cross-tenant observability, and system overrides",
-        "composite": false,
-        "clientRole": false
+        "description": "Full platform administration and system overrides"
       },
       {
-        "id": "role_cx_lead",
         "name": "support_cx_lead",
-        "description": "CX Director / Lead, manages triage rules, policy authoring, auto-refunds up to $500",
-        "composite": false,
-        "clientRole": false
+        "description": "CX Director / Lead, triage rules, policy authoring, auto-refunds up to $500"
       },
       {
-        "id": "role_operator",
         "name": "support_operator",
-        "description": "Frontline support operator, ticket triage, live chat resolution dispatch, knowledge curation",
-        "composite": false,
-        "clientRole": false
+        "description": "Frontline support operator, ticket triage, live chat resolution"
       },
       {
-        "id": "role_contractor_lead",
         "name": "support_contractor_lead",
-        "description": "Contractor technician lead, job orders, PIN verification, on-site telemetry dispatch",
-        "composite": false,
-        "clientRole": false
+        "description": "Contractor technician lead, job orders, PIN verification"
       },
       {
-        "id": "role_technician",
         "name": "support_technician",
-        "description": "Field technician, electronic lockbox site passes, work order execution",
-        "composite": false,
-        "clientRole": false
+        "description": "Field technician, electronic lockbox site passes"
       },
       {
-        "id": "role_observer",
         "name": "support_observer",
-        "description": "Read-only access to metrics, compliance audit logs, and QA scorecards",
-        "composite": false,
-        "clientRole": false
+        "description": "Read-only access to metrics and audit logs"
       }
     ]
   },
   "groups": [
     {
-      "id": "grp_platform_admins",
       "name": "Platform Administrators",
       "path": "/Platform Administrators",
       "realmRoles": ["support_superadmin", "support_cx_lead"]
     },
     {
-      "id": "grp_cx_leads",
       "name": "CX Directors & Leads",
       "path": "/CX Directors & Leads",
       "realmRoles": ["support_cx_lead"]
     },
     {
-      "id": "grp_operators",
       "name": "Frontline Support Operators",
       "path": "/Frontline Support Operators",
       "realmRoles": ["support_operator"]
     },
     {
-      "id": "grp_contractors",
       "name": "Field Contractors & Technicians",
       "path": "/Field Contractors & Technicians",
       "realmRoles": ["support_contractor_lead", "support_technician"]
     },
     {
-      "id": "grp_auditors",
       "name": "Compliance & Audit Observers",
       "path": "/Compliance & Audit Observers",
       "realmRoles": ["support_observer"]
     }
   ],
-  "clientScopes": [
-    {
-      "id": "scope_support_tickets",
-      "name": "support.tickets",
-      "description": "Read and manage customer support tickets and issue queues",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      }
-    },
-    {
-      "id": "scope_support_refunds",
-      "name": "support.refunds",
-      "description": "Issue autonomous refunds and credit vouchers under policy limits",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      }
-    },
-    {
-      "id": "scope_support_voice",
-      "name": "support.voice",
-      "description": "Configure voice telephony agents, SIP bindings, and live speech sessions",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      }
-    },
-    {
-      "id": "scope_support_knowledge",
-      "name": "support.knowledge",
-      "description": "Query pgvector knowledge base and manage verified articles",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      }
-    },
-    {
-      "id": "scope_support_tenant",
-      "name": "support.tenant",
-      "description": "Access tenant organization profile, settings, and team roster",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      }
-    }
-  ],
   "clients": [
     {
-      "id": "client_supportv8_app",
       "clientId": "supportv8-app",
       "name": "SupportV8 Web Application & ROPC Client",
-      "description": "Public OIDC client for user password checks (ROPC) and interactive PKCE login",
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
       "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "serviceAccountsEnabled": false,
       "redirectUris": [
         "https://*.support.servicev8.com/*",
         "https://support.servicev8.com/*",
         "http://localhost:3000/*",
         "http://localhost:3001/*"
       ],
-      "webOrigins": ["+"],
-      "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "roles",
-        "profile",
-        "email",
-        "support.tickets",
-        "support.knowledge",
-        "support.tenant"
-      ],
-      "optionalClientScopes": [
-        "support.refunds",
-        "support.voice"
-      ]
+      "webOrigins": ["+"]
     },
     {
-      "id": "client_supportv8_admin_sa",
       "clientId": "supportv8-admin-sa",
       "name": "SupportV8 Admin Service Account",
-      "description": "Confidential service account granted manage-users scoped to supportv8 realm only",
       "enabled": true,
       "publicClient": false,
       "directAccessGrantsEnabled": false,
       "standardFlowEnabled": false,
-      "serviceAccountsEnabled": true,
-      "clientAuthenticatorType": "client-secret",
-      "defaultClientScopes": ["roles", "profile", "email"]
+      "serviceAccountsEnabled": true
     },
     {
-      "id": "client_supportv8_service",
       "clientId": "supportv8-service",
       "name": "SupportV8 Interservice Principal",
-      "description": "Confidential principal for Operation Gateway, Temporal WorkerV8, and OrderV8 interservice calls",
       "enabled": true,
       "publicClient": false,
       "directAccessGrantsEnabled": false,
       "standardFlowEnabled": false,
-      "serviceAccountsEnabled": true,
-      "clientAuthenticatorType": "client-secret",
-      "defaultClientScopes": ["roles", "support.tickets", "support.refunds", "support.voice"]
-    }
-  ],
-  "users": [
-    {
-      "id": "usr_kc_acme_master",
-      "username": "acme@servicev8.com",
-      "email": "acme@servicev8.com",
-      "firstName": "Acme",
-      "lastName": "Admin",
-      "enabled": true,
-      "emailVerified": true,
-      "attributes": {
-        "tenant_id": ["tenant_acme"],
-        "organization_name": ["Acme Cloud Services"],
-        "service_tier": ["enterprise"]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "SupportV8#2026!Secure",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["support_superadmin", "support_cx_lead"],
-      "groups": ["/CX Directors & Leads", "/Platform Administrators"]
-    },
-    {
-      "id": "usr_kc_sarah_chen",
-      "username": "admin@acme.com",
-      "email": "admin@acme.com",
-      "firstName": "Sarah",
-      "lastName": "Chen",
-      "enabled": true,
-      "emailVerified": true,
-      "attributes": {
-        "tenant_id": ["tenant_acme"],
-        "organization_name": ["Acme Cloud Services"],
-        "service_tier": ["enterprise"]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "SupportV8#2026!Secure",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["support_cx_lead"],
-      "groups": ["/CX Directors & Leads"]
-    },
-    {
-      "id": "usr_kc_david_kim",
-      "username": "david.kim@acme.com",
-      "email": "david.kim@acme.com",
-      "firstName": "David",
-      "lastName": "Kim",
-      "enabled": true,
-      "emailVerified": true,
-      "attributes": {
-        "tenant_id": ["tenant_acme"],
-        "organization_name": ["Acme Cloud Services"]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "SupportV8#2026!Secure",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["support_operator"],
-      "groups": ["/Frontline Support Operators"]
-    },
-    {
-      "id": "usr_kc_acme_movers",
-      "username": "admin@acme-movers.com",
-      "email": "admin@acme-movers.com",
-      "firstName": "Admin",
-      "lastName": "Acme Movers",
-      "enabled": true,
-      "emailVerified": true,
-      "attributes": {
-        "tenant_id": ["tenant_acme_movers"],
-        "organization_name": ["Acme Movers Inc"],
-        "service_tier": ["starter"]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "SupportV8#2026!Secure",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["support_cx_lead"],
-      "groups": ["/CX Directors & Leads"]
-    },
-    {
-      "id": "usr_kc_meridian_dispatch",
-      "username": "dispatch@meridian.com",
-      "email": "dispatch@meridian.com",
-      "firstName": "Meridian",
-      "lastName": "Dispatch",
-      "enabled": true,
-      "emailVerified": true,
-      "attributes": {
-        "tenant_id": ["tenant_meridian"],
-        "organization_name": ["Meridian Field Services"]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "SupportV8#2026!Secure",
-          "temporary": false
-        }
-      ],
-      "realmRoles": ["support_contractor_lead"],
-      "groups": ["/Field Contractors & Technicians"]
+      "serviceAccountsEnabled": true
     }
   ]
 }

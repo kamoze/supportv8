@@ -23,6 +23,8 @@ import { AuthService, type AuthSession } from "@/lib/auth-service";
 interface SignInModalProps {
   isOpen: boolean;
   lockedTenantSlug?: string;
+  initialTenantSlug?: string;
+  initialEmail?: string;
   onClose: () => void;
   onSuccess: (session: AuthSession) => void;
   onOpenSignup: () => void;
@@ -33,13 +35,15 @@ type ModalView = "signin" | "forgot_email" | "forgot_otp";
 export function SignInModal({
   isOpen,
   lockedTenantSlug,
+  initialTenantSlug,
+  initialEmail,
   onClose,
   onSuccess,
   onOpenSignup,
 }: SignInModalProps) {
   const [modalView, setModalView] = useState<ModalView>("signin");
-  const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || "acme");
-  const [email, setEmail] = useState("");
+  const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || initialTenantSlug || "acme");
+  const [email, setEmail] = useState(initialEmail || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,12 +77,16 @@ export function SignInModal({
     if (isOpen) {
       if (lockedTenantSlug) {
         setTenantSlug(lockedTenantSlug);
+      } else if (initialTenantSlug) {
+        setTenantSlug(initialTenantSlug);
+      }
+      if (initialEmail) {
+        setEmail(initialEmail);
       }
       setModalView("signin");
       refreshCaptcha();
       setErrorMsg("");
       setSuccessMsg("");
-      setEmail("");
       setPassword("");
       setForgotEmail("");
       setForgotOtp("");
@@ -86,7 +94,7 @@ export function SignInModal({
       setForgotConfirmPassword("");
       setDebugOtpCode("");
     }
-  }, [isOpen, lockedTenantSlug]);
+  }, [isOpen, lockedTenantSlug, initialTenantSlug, initialEmail]);
 
   if (!isOpen) return null;
 

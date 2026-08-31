@@ -162,6 +162,7 @@ export default function SupportV8Dashboard() {
   const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
   const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState<boolean>(false);
+  const [signInPrefillEmail, setSignInPrefillEmail] = useState<string>("");
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
   const [targetDemoSlug, setTargetDemoSlug] = useState<string>("acme");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
@@ -1736,7 +1737,12 @@ export default function SupportV8Dashboard() {
         />
         <SignInModal
           isOpen={isSignInModalOpen}
-          onClose={() => setIsSignInModalOpen(false)}
+          initialTenantSlug={currentTenantSlug}
+          initialEmail={signInPrefillEmail}
+          onClose={() => {
+            setIsSignInModalOpen(false);
+            setSignInPrefillEmail("");
+          }}
           onSuccess={(session) => {
             setOperatorSession(session);
             setCurrentTenantSlug(session.tenantSlug);
@@ -1751,8 +1757,9 @@ export default function SupportV8Dashboard() {
         <SignupModal
           isOpen={isSignupModalOpen}
           onClose={() => setIsSignupModalOpen(false)}
-          onSuccess={(slug) => {
+          onSuccess={(slug, adminEmail) => {
             setCurrentTenantSlug(slug);
+            setSignInPrefillEmail(adminEmail || "");
             setIsSignupModalOpen(false);
             setIsSignInModalOpen(true);
             notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
@@ -1799,7 +1806,11 @@ export default function SupportV8Dashboard() {
         <SignInModal
           isOpen={isSignInModalOpen}
           lockedTenantSlug={currentTenantSlug}
-          onClose={() => setIsSignInModalOpen(false)}
+          initialEmail={signInPrefillEmail}
+          onClose={() => {
+            setIsSignInModalOpen(false);
+            setSignInPrefillEmail("");
+          }}
           onSuccess={(session) => {
             setOperatorSession(session);
             setCurrentTenantSlug(session.tenantSlug);
@@ -1814,8 +1825,9 @@ export default function SupportV8Dashboard() {
         <SignupModal
           isOpen={isSignupModalOpen}
           onClose={() => setIsSignupModalOpen(false)}
-          onSuccess={(slug) => {
+          onSuccess={(slug, adminEmail) => {
             setCurrentTenantSlug(slug);
+            setSignInPrefillEmail(adminEmail || "");
             setIsSignupModalOpen(false);
             setIsSignInModalOpen(true);
             notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
@@ -7648,8 +7660,9 @@ export default function SupportV8Dashboard() {
       <SignupModal
         isOpen={isSignupModalOpen}
         onClose={() => setIsSignupModalOpen(false)}
-        onSuccess={(slug) => {
+        onSuccess={(slug, adminEmail) => {
           setCurrentTenantSlug(slug);
+          setSignInPrefillEmail(adminEmail || "");
           setIsSignupModalOpen(false);
           setIsSignInModalOpen(true);
           notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");

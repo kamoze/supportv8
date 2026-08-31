@@ -43,7 +43,13 @@ export interface MarketplacePlan {
   badge?: string;
   priceMonthly: number;
   priceAnnual: number;
+  priceDisplay?: string;
+  creditsDisplay?: string;
+  description?: string;
+  actionLabel?: string;
+  actionNote?: string;
   isCurrent: boolean;
+  isSelfServe?: boolean;
   features: string[];
   slaCommitment: string;
   computeUnits: string;

@@ -59,7 +59,8 @@ describe("Omnichannel Chat Workflow & Group RBAC Engine", () => {
 
     expect(session.id).toBeDefined();
     expect(session.stream).toBe("customers");
-    expect(session.assignedName).toContain("Barnaby");
+    expect(session.assignedType).toBe("ai");
+    expect(session.assignedName).toContain("Jordan");
   });
 
   it("should handle customer messages and generate grounded AI response with citations", () => {
@@ -134,6 +135,24 @@ describe("Omnichannel Chat Workflow & Group RBAC Engine", () => {
 
     const deleted = ChatWorkflowService.deleteGroup(newGroup.id);
     expect(deleted).toBe(true);
+  });
+
+  it("should route directly to human staff queue when direct_human routing is configured under guardrails", () => {
+    ChatWorkflowService.updateGuardrails({ defaultChatRouting: "direct_human" });
+
+    const session = ChatWorkflowService.startSession({
+      tenantDomain: "acme",
+      stream: "customers",
+      customerName: "David Miller",
+      customerEmail: "david@acme.com",
+      intakeData: { details: "I want to talk directly to human staff." },
+    });
+
+    expect(session.assignedType).toBe("human");
+    expect(session.messages[1].content).toContain("operator work desk");
+
+    // Restore to ai_first
+    ChatWorkflowService.updateGuardrails({ defaultChatRouting: "ai_first" });
   });
 
   it("should toggle human staff online presence", () => {

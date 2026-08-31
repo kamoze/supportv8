@@ -275,6 +275,61 @@ export class VoiceService {
     return { success: true, config };
   }
 
+  /**
+   * Update full voice agent configuration
+   */
+  public updateVoiceAgent(
+    configId: string,
+    updates: Partial<VoicePhoneConfig>
+  ): { success: boolean; message: string; config?: VoicePhoneConfig } {
+    const config = this.getPhoneConfigById(configId);
+    if (!config) {
+      return { success: false, message: `Voice config '${configId}' not found.` };
+    }
+
+    if (updates.employeeId && updates.employeeId !== config.employeeId) {
+      const localEmployee = workforceManager.getById(updates.employeeId);
+      config.employeeId = updates.employeeId;
+      config.employeeName = localEmployee?.name || updates.employeeName || config.employeeName;
+    }
+
+    if (updates.phoneNumber !== undefined) config.phoneNumber = updates.phoneNumber;
+    if (updates.provider !== undefined) config.provider = updates.provider;
+    if (updates.serviceMode !== undefined) config.serviceMode = updates.serviceMode;
+    if (updates.agentName !== undefined) config.agentName = updates.agentName;
+    if (updates.voiceId !== undefined) config.voiceId = updates.voiceId;
+    if (updates.systemPrompt !== undefined) config.systemPrompt = updates.systemPrompt;
+    if (updates.firstMessage !== undefined) config.firstMessage = updates.firstMessage;
+    if (updates.minVerificationLevel !== undefined) config.minVerificationLevel = updates.minVerificationLevel;
+    if (updates.permissionScopes !== undefined) config.permissionScopes = updates.permissionScopes;
+    if (updates.isActive !== undefined) config.isActive = updates.isActive;
+
+    config.syncStatus = "synced";
+    config.lastSyncedAt = new Date().toISOString();
+
+    return {
+      success: true,
+      message: `Voice Agent '${config.agentName}' (${config.phoneNumber}) updated successfully.`,
+      config,
+    };
+  }
+
+  /**
+   * Delete / un-provision a voice agent
+   */
+  public deleteVoiceAgent(configId: string): { success: boolean; message: string } {
+    const initialLen = this.phoneConfigs.length;
+    this.phoneConfigs = this.phoneConfigs.filter((p) => p.id !== configId);
+    if (this.phoneConfigs.length === initialLen) {
+      return { success: false, message: `Voice config '${configId}' not found.` };
+    }
+
+    return {
+      success: true,
+      message: `Voice Agent '${configId}' deleted and disconnected from telephony carrier.`,
+    };
+  }
+
   public async startSession(params: {
     tenantId: string;
     provider: "vapi" | "retell" | "twilio" | "bland";

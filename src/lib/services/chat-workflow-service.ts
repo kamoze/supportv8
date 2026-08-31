@@ -9,6 +9,7 @@ import type {
   Issue,
 } from "@/lib/types";
 import { db } from "@/lib/db/mock-data";
+import { INITIAL_WORKFORCE } from "@/lib/workforce";
 
 // =============================================================================
 // Default Workflows Configuration (Configurable by Admin)
@@ -87,67 +88,67 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
       },
     ],
     defaultAssignedGroupId: "group_contractors",
-    defaultAiEmployeeId: "beaver-alex",
+    defaultAiEmployeeId: "emp_support_lead",
     autoEscalateKeywords: ["hazard", "injury", "lawsuit", "stop work", "lien", "emergency"],
   },
 
   enquiries: {
     stream: "enquiries",
     title: "General Enquiries",
-    subtitle: "Product questions, enterprise licensing, and API partnerships",
+    subtitle: "Product capabilities, integrations, pricing, and architecture",
     icon: "HelpCircle",
     badgeColor: "#4D9FFF",
-    description: "General pre-sales inquiries, product questions, technical architecture reviews, and integration partnerships.",
+    description: "Public-facing helpdesk for prospective buyers, API integration questions, security whitepapers, and SLA tier comparisons.",
     intakeFields: [
       {
         id: "name",
         name: "name",
-        label: "Your Full Name",
+        label: "Contact Name",
         type: "text",
-        placeholder: "e.g. Sarah Jenkins",
+        placeholder: "e.g. Elena Rostova",
         required: true,
       },
       {
         id: "email",
         name: "email",
-        label: "Business Email",
+        label: "Work Email",
         type: "email",
-        placeholder: "sarah@innovate.co",
+        placeholder: "elena@acme-movers.com",
         required: true,
       },
       {
-        id: "companyName",
-        name: "companyName",
+        id: "company",
+        name: "company",
         label: "Company / Organization",
         type: "text",
-        placeholder: "e.g. Innovate Labs",
+        placeholder: "Acme Logistics Inc.",
         required: true,
       },
       {
         id: "enquiryType",
         name: "enquiryType",
-        label: "Enquiry Topic",
+        label: "Inquiry Type",
         type: "select",
         required: true,
         options: [
-          "Product Capabilities & Demo",
-          "Enterprise Pricing & SLAs",
-          "API & ForgeGW Integration",
-          "Security, SOC2 & Compliance",
-          "Partnership & Reseller Program",
+          "Platform Demo & Architecture Deep-Dive",
+          "Pricing & Enterprise Volume Licensing",
+          "Custom API & Telephony Integrations",
+          "Security, HIPAA & SOC-2 Compliance",
+          "Other Technical Question",
         ],
       },
       {
         id: "details",
         name: "details",
-        label: "How can we help you today?",
+        label: "Inquiry Details",
         type: "textarea",
         placeholder: "Tell us about your team size, current challenges, or specific questions...",
         required: true,
       },
     ],
     defaultAssignedGroupId: "group_enquiries",
-    defaultAiEmployeeId: "beaver-curator",
+    defaultAiEmployeeId: "emp_kb_refresh",
     autoEscalateKeywords: ["rfp", "custom pricing", "enterprise security", "procurement", "dpa"],
   },
 
@@ -157,7 +158,7 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
     subtitle: "Account support, billing & refund, and high-priority technical triage",
     icon: "Users",
     badgeColor: "#2ED8B6",
-    description: "Full-service customer care desk for active platform subscribers, billing inquiries, OrderV8 dispatch tokens, and SLA priority incidents.",
+    description: "Full-service customer care desk for active platform subscribers, billing inquiries, OrderV8 dispatch vouchers, and SLA priority incidents.",
     intakeFields: [
       {
         id: "name",
@@ -215,7 +216,7 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
       },
     ],
     defaultAssignedGroupId: "group_support",
-    defaultAiEmployeeId: "beaver-curator",
+    defaultAiEmployeeId: "emp_kb_refresh",
     autoEscalateKeywords: ["outage", "chargeback", "cancel subscription", "talk to human", "fraud"],
   },
 };
@@ -238,23 +239,23 @@ export const DEFAULT_MEMBER_GROUPS: MemberGroup[] = [
   },
   {
     id: "group_enquiries",
-    name: "Enquiries & Pre-Sales Desk",
+    name: "Solutions & Architecture Desk",
     streamType: "enquiries",
-    description: "Handles prospective client inquiries, enterprise architecture evaluations, and partnership requests.",
+    description: "Evaluates pre-sales technical requirements, RAG vector topologies, and SLA contracts.",
     color: "#4D9FFF",
-    permissions: ["tickets.view", "tickets.reply", "enquiries.qualify", "knowledge.read"],
-    memberEmails: ["sarah.sales@servicev8.com", "marcus.partner@servicev8.com"],
+    permissions: ["tickets.view", "tickets.reply", "knowledge.curate", "leads.qualify"],
+    memberEmails: ["alex.solutions@servicev8.com", "sarah.enterprise@servicev8.com"],
     isSystem: true,
     createdAt: "2026-08-01T10:00:00Z",
   },
   {
     id: "group_support",
-    name: "Customer & Client Support",
+    name: "Customer Support & Triage Lead",
     streamType: "customers",
-    description: "Frontline customer support handling billing inquiries, technical incidents, and SLA resolutions.",
+    description: "Tier 1 & Tier 2 customer support, billing reconciliations, OrderV8 credit voucher dispatches.",
     color: "#2ED8B6",
-    permissions: ["tickets.view", "tickets.reply", "orderv8.refund", "knowledge.read", "tickets.escalate"],
-    memberEmails: ["support.lead@servicev8.com", "alex.cx@servicev8.com", "inigodwin@redoo.solutions"],
+    permissions: ["tickets.view", "tickets.reply", "tickets.escalate", "refunds.issue", "forgev8.dispatch"],
+    memberEmails: ["marcus.support@servicev8.com", "ini.escalations@servicev8.com"],
     isSystem: true,
     createdAt: "2026-08-01T10:00:00Z",
   },
@@ -296,6 +297,7 @@ export const DEFAULT_MEMBER_GROUPS: MemberGroup[] = [
 // =============================================================================
 
 export const DEFAULT_AI_GUARDRAILS: AiChatGuardrailConfig = {
+  defaultChatRouting: "ai_first",
   enabledStreams: ["contractors", "enquiries", "customers"],
   maxAutonomousRefundAmount: 500, // Maximum $ refund AI can issue autonomously without supervisor
   escalateOnSentimentBelow: 0.45, // Trigger human escalation if sentiment drops below 0.45
@@ -384,47 +386,46 @@ let chatSessions: CustomerChatSession[] = [
       accountOrOrderId: "ORD-94021",
       issueType: "Billing, Invoices & Refund Request",
       urgency: "High Impact (P2)",
-      details: "Need verification on the $420 refund token dispatch for broken sensor shipment.",
+      details: "Need verification on the $420 refund voucher dispatch for broken sensor shipment.",
     },
-    assignedType: "ai",
-    assignedId: "beaver-curator",
-    assignedName: "Barnaby — Knowledge & Solutions Lead",
-    assignedAvatar: "/avatars/beaver-curator.jpg",
     status: "active",
     priority: "high",
-    unreadCount: 0,
-    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    assignedType: "ai",
+    assignedId: "emp_support_lead",
+    assignedName: "Alex — Support Intelligence Lead",
+    assignedAvatar: "/avatars/beaver-manager.jpg",
+    createdAt: "2026-08-30T17:30:00Z",
+    updatedAt: "2026-08-30T17:34:00Z",
     messages: [
       {
-        id: "msg_1",
+        id: "msg_pre_1",
         sender: "customer",
         senderName: "Marcus Vance",
-        content: "Hi! I submitted a refund request for Order ORD-94021 because 3 sensors arrived broken.",
-        timestamp: "10:15 AM",
+        content: "Hi, our shipment ORD-94021 arrived with 4 crushed pressure sensors. We need immediate replacement or credit adjustment before Monday.",
+        timestamp: "17:30",
       },
       {
-        id: "msg_2",
+        id: "msg_pre_2",
         sender: "ai_employee",
-        senderName: "Barnaby — Knowledge & Solutions Lead",
-        senderAvatar: "/avatars/beaver-curator.jpg",
-        content: "Hello Marcus! I have reviewed Order #ORD-94021. Since your account is in Enterprise Tier ($420k ARR), I have pre-authorized a replacement shipment and can immediately issue an instant $420 OrderV8 credit token to your account balance.",
-        timestamp: "10:16 AM",
+        senderName: "Alex — Support Intelligence Lead",
+        senderAvatar: "/avatars/beaver-manager.jpg",
+        content: "Hello Marcus! I have reviewed Order #ORD-94021. Since your account is in Enterprise Tier ($420k ARR), I have pre-authorized a replacement shipment and can immediately issue an instant $420 OrderV8 credit voucher to your account balance.",
+        timestamp: "17:31",
         citations: [
           {
-            id: "cit_1",
-            title: "SLA Policy §4.2 — Enterprise Hardware Replacements",
-            snippet: "Tier-1 enterprise accounts qualify for instant autonomous replacement upon photographic receipt.",
+            id: "cit_ord_policy",
+            title: "Meridian Enterprise Tier Replacements & Instant Adjustment Policy",
+            snippet: "Accounts exceeding $100k ARR are authorized for immediate auto-credit up to $500.00 without Tier 2 manual supervisor signoff.",
           },
         ],
         suggestedActions: [
           {
-            label: "Dispatch $420 Refund Token",
             actionId: "action_refund_420",
+            label: "Dispatch $420 Refund Voucher",
           },
           {
-            label: "Expedite Overnight Sensor Replacement",
             actionId: "action_replace_shipment",
+            label: "Expedite Overnight Sensor Replacement",
           },
         ],
       },
@@ -534,37 +535,39 @@ export class ChatWorkflowService {
     }
 
     const isAiEnabledForStream = activeGuardrails.enabledStreams.includes(params.stream);
+    const isDirectHumanRouting = activeGuardrails.defaultChatRouting === "direct_human";
 
     let assignedType: "human" | "ai" = "ai";
-    let assignedId = workflow.defaultAiEmployeeId || "beaver-curator";
-    let assignedName = "Barnaby — Knowledge & Solutions Lead";
-    let assignedAvatar = "/avatars/beaver-curator.jpg";
+    let assignedId = "";
+    let assignedName = "";
+    let assignedAvatar = "";
 
-    if (onlineHumanStaff && !isAiEnabledForStream) {
+    if (isDirectHumanRouting || !isAiEnabledForStream) {
       // Direct human operator routing
       assignedType = "human";
-      assignedId = onlineHumanStaff.email;
-      assignedName = onlineHumanStaff.name;
-      assignedAvatar = onlineHumanStaff.avatar;
-      onlineHumanStaff.activeChatCount += 1;
+      assignedId = onlineHumanStaff ? onlineHumanStaff.email : "human_support_queue";
+      assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Human Support Desk (Live Operator)";
+      assignedAvatar = onlineHumanStaff ? onlineHumanStaff.avatar : "/avatars/beaver-manager.jpg";
+      if (onlineHumanStaff) onlineHumanStaff.activeChatCount += 1;
     } else {
-      // AI employee lead assignment based on Subdomain & Stream
-      if (params.stream === "contractors") {
-        assignedId = "beaver-alex";
-        assignedName = "Alex — Contractor Dispatch Lead";
-        assignedAvatar = "/avatars/beaver-manager.jpg";
-      } else if (rawSubdomain.includes("timeforbed") || rawSubdomain.includes("tfb")) {
-        assignedId = "beaver-curator";
-        assignedName = "Barnaby — TimeForBed Concierge";
-        assignedAvatar = "/avatars/beaver-curator.jpg";
-      } else if (rawSubdomain.includes("meridian")) {
-        assignedId = "beaver-alex";
-        assignedName = "Alex — Meridian Enterprise Lead";
-        assignedAvatar = "/avatars/beaver-manager.jpg";
+      // Dynamic AI Employee Resolution: Only use configured AI employees that are actively hired in the workforce
+      const configuredEmployeeId = workflow.defaultAiEmployeeId;
+      const hiredEmployee = INITIAL_WORKFORCE.find((emp) => 
+        (emp.id === configuredEmployeeId || (configuredEmployeeId === "beaver-curator" && emp.id === "emp_kb_refresh") || (configuredEmployeeId === "beaver-alex" && emp.id === "emp_support_lead")) && emp.hired
+      ) || INITIAL_WORKFORCE.find((emp) => emp.hired && emp.canReceiveDirectWork);
+
+      if (hiredEmployee) {
+        assignedType = "ai";
+        assignedId = hiredEmployee.id;
+        assignedName = hiredEmployee.name;
+        assignedAvatar = hiredEmployee.avatarUrl;
       } else {
-        assignedId = "beaver-curator";
-        assignedName = "Barnaby — Knowledge & Solutions Lead";
-        assignedAvatar = "/avatars/beaver-curator.jpg";
+        // Fallback: If no hired employee exists in the active workforce for this channel, route directly to Human Staff Queue
+        assignedType = "human";
+        assignedId = onlineHumanStaff ? onlineHumanStaff.email : "human_support_queue";
+        assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Human Support Desk (Live Operator)";
+        assignedAvatar = onlineHumanStaff ? onlineHumanStaff.avatar : "/avatars/beaver-manager.jpg";
+        if (onlineHumanStaff) onlineHumanStaff.activeChatCount += 1;
       }
     }
 
@@ -748,12 +751,17 @@ export class ChatWorkflowService {
 
     const lowerContent = params.content.toLowerCase();
 
-    // Check for auto-escalation keywords or explicit human supervisor request
+    // Check for auto-escalation keywords or explicit human supervisor / operator request
     const isHumanActionRequested =
-      lowerContent.includes("request human") ||
-      lowerContent.includes("human supervisor") ||
-      lowerContent.includes("speak with human") ||
-      lowerContent.includes("escalat");
+      lowerContent.includes("human") ||
+      lowerContent.includes("operator") ||
+      lowerContent.includes("live agent") ||
+      lowerContent.includes("supervisor") ||
+      lowerContent.includes("real person") ||
+      lowerContent.includes("talk to someone") ||
+      lowerContent.includes("speak with someone") ||
+      lowerContent.includes("escalat") ||
+      lowerContent.includes("act_human");
 
     const needsEscalation =
       isHumanActionRequested ||
@@ -785,14 +793,14 @@ export class ChatWorkflowService {
         existingIssue.sentiment = "urgent";
         existingIssue.status = "open";
         existingIssue.assignedTo = "Ini Godwin (Escalated Lead)";
-        existingIssue.recommendedAction = "🚨 Live Human Lead Escalation: Customer requested human supervisor. Ready for operator takeover.";
+        existingIssue.recommendedAction = "🚨 Live Human Lead Escalation: Customer requested human operator. Ready for operator takeover in Work Desk.";
       }
 
       const escalationMsg: CustomerChatMessage = {
         id: `msg_${Date.now()}_esc`,
         sender: "system",
         senderName: "System Safety Guardrail",
-        content: "🚨 This conversation has been escalated to a live Senior Human Support Lead based on safety guardrail keywords. A team member is joining now.",
+        content: "🚨 Conversation Transferred to Live Human Operator: You are now connected with a Senior Support Lead (Ini Godwin). An operator in the Work Desk is reviewing your transcript.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       session.messages.push(escalationMsg);

@@ -497,6 +497,7 @@ export interface MemberGroup {
 }
 
 export interface AiChatGuardrailConfig {
+  defaultChatRouting?: "ai_first" | "direct_human";
   enabledStreams: ChatStreamType[];
   maxAutonomousRefundAmount: number;
   escalateOnSentimentBelow: number;

@@ -74,7 +74,7 @@ export function MarketplacePlansView({
       </div>
 
       {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {plans.map((plan) => {
           const price = billingCycle === "annual" ? plan.priceAnnual : plan.priceMonthly;
           const isCurrent = plan.isCurrent;
@@ -82,81 +82,114 @@ export function MarketplacePlansView({
           return (
             <div
               key={plan.id}
-              className={`card p-6 rounded-2xl border transition-all flex flex-col justify-between space-y-6 ${
+              className={`card p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-4 ${
                 isCurrent
                   ? "bg-[#121A24] border-2 border-[#2ED8B6] shadow-xl ring-1 ring-[#2ED8B6]/30 relative"
                   : "bg-[#0E1520] border-[var(--line)] hover:border-[var(--line-2)]"
               }`}
             >
               {plan.badge && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 pill ok text-[10px] font-bold uppercase font-mono shadow-md">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 pill ok text-[9px] font-bold uppercase font-mono shadow-md whitespace-nowrap">
                   {plan.badge}
                 </span>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-[#EAF1F8]">{plan.name}</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-[#EAF1F8] font-mono">
-                      ${price}
-                    </span>
-                    <span className="text-xs text-[#6B7C8D] font-mono">/ month</span>
+                    {plan.priceDisplay ? (
+                      <span className="text-2xl font-extrabold text-[#EAF1F8] font-mono">
+                        {plan.priceDisplay}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-extrabold text-[#EAF1F8] font-mono">
+                          ${price}
+                        </span>
+                        <span className="text-[11px] text-[#6B7C8D] font-mono">/ mo</span>
+                      </>
+                    )}
                   </div>
-                  <div className="text-[11px] text-[#2ED8B6] font-mono font-semibold">
-                    {plan.slaCommitment}
-                  </div>
+                  {plan.creditsDisplay && (
+                    <div className="text-[11px] font-mono font-bold text-[#2ED8B6] bg-[#2ED8B6]/10 border border-[#2ED8B6]/25 px-2 py-1 rounded-lg">
+                      {plan.creditsDisplay}
+                    </div>
+                  )}
                 </div>
 
-                <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] text-xs font-mono space-y-1">
-                  <div className="flex items-center justify-between text-[#B4C2D0]">
-                    <span>Compute Units:</span>
-                    <strong className="text-[#EAF1F8]">{plan.computeUnits}</strong>
-                  </div>
-                  <div className="flex items-center justify-between text-[#B4C2D0]">
-                    <span>AI Employee Seats:</span>
-                    <strong className="text-[#2ED8B6]">{plan.aiEmployeeSeats} Included</strong>
-                  </div>
-                </div>
+                {plan.description && (
+                  <p className="text-xs text-[#B4C2D0] leading-relaxed min-h-[36px]">
+                    {plan.description}
+                  </p>
+                )}
 
                 {/* Features List */}
-                <div className="space-y-2.5 pt-2">
-                  <span className="text-[10px] font-mono text-[#6B7C8D] uppercase block">
-                    Plan Capabilities:
+                <div className="space-y-2 pt-1 border-t border-[var(--line)]">
+                  <span className="text-[9px] font-mono text-[#6B7C8D] uppercase block">
+                    Capabilities:
                   </span>
                   {plan.features.map((feat, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-[#EAF1F8]">
+                    <div key={idx} className="flex items-start gap-1.5 text-xs text-[#EAF1F8]">
                       <Check className="w-3.5 h-3.5 text-[#2ED8B6] shrink-0 mt-0.5" />
-                      <span className="leading-snug">{feat}</span>
+                      <span className="leading-snug text-[11px]">{feat}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div className="pt-4 border-t border-[var(--line)]">
-                <button
-                  type="button"
-                  onClick={() => onSelectPlan(plan.id)}
-                  disabled={isCurrent}
-                  className={`btn w-full py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer ${
-                    isCurrent
-                      ? "btn-secondary text-[#4CC38A] border-[#4CC38A]/40 bg-[#4CC38A]/10 cursor-default"
-                      : "btn-primary shadow-lg"
-                  }`}
-                >
-                  {isCurrent ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Current Active Plan</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      <span>Upgrade to {plan.name}</span>
-                    </>
-                  )}
-                </button>
+              {/* Action Button & Note */}
+              <div className="pt-3 border-t border-[var(--line)]">
+                {plan.id === "plan_trial" ? (
+                  <div>
+                    <button
+                      type="button"
+                      disabled
+                      className="btn w-full py-2.5 text-xs font-bold border border-[var(--line)] bg-[#141C26] text-[#8E9AA8] cursor-not-allowed"
+                    >
+                      Not self-serve
+                    </button>
+                    <p className="text-[10px] text-[#8E9AA8] text-center mt-2 leading-tight">
+                      Trials aren&apos;t started from this page — talk to ServiceV8 to arrange one.
+                    </p>
+                  </div>
+                ) : isCurrent ? (
+                  <div>
+                    <button
+                      type="button"
+                      disabled
+                      className="btn btn-secondary text-[#4CC38A] border-[#4CC38A]/40 bg-[#4CC38A]/10 w-full py-2.5 text-xs font-bold cursor-default flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Current plan</span>
+                    </button>
+                    <p className="text-[10px] text-[#4CC38A] text-center mt-2 leading-tight">
+                      This is the package this account is on.
+                    </p>
+                  </div>
+                ) : plan.id === "plan_enterprise" ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => onSelectPlan(plan.id)}
+                      className="btn btn-secondary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 hover:border-[#2ED8B6]/60 cursor-pointer"
+                    >
+                      <span>CONTACT SALES</span>
+                    </button>
+                    <p className="text-[10px] text-[#8E9AA8] text-center mt-2 leading-tight">
+                      Custom allowance, invoicing and terms.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelectPlan(plan.id)}
+                    className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-[#2ED8B6]/20 cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>CHOOSE PLAN</span>
+                  </button>
+                )}
               </div>
             </div>
           );

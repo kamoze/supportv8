@@ -1109,9 +1109,23 @@ export function FocusedWorkspaceView({
                 })}
               </div>
 
-              {/* Quick Canned Takeover Chips */}
+              {/* Quick Canned Takeover Chips & AI Draft */}
               <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operator Quick Actions:</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operator Quick Actions:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lastMsg = [...matchingChatSession.messages].reverse().find(m => m.sender === "customer")?.content || selectedIssue.summary;
+                      const draft = `Hello ${selectedIssue.customerName}! I am reviewing your request regarding "${lastMsg.slice(0, 42)}...". I have verified your account telemetry and am taking action directly from the Work Desk.`;
+                      setOperatorReplyText(draft);
+                    }}
+                    className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#2ED8B6]" />
+                    <span>AI Co-Pilot Auto-Draft</span>
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-1">
                   {[
                     "Hello! I am taking over this live chat to assist you directly.",

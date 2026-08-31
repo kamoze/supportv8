@@ -76,7 +76,7 @@ export class RagIngestionService {
           tenantId: "tenant_default",
           chunkIndex: 1,
           section: "Circuit Breaker Mitigation & Auto-Refund",
-          content: "When circuit breaker trips for payment gateways, switch traffic to secondary Adyen gateway or invoke OrderV8 refund token idempotency dispatch with auth key SEC-04.",
+          content: "When circuit breaker trips for payment gateways, switch traffic to secondary Adyen gateway or invoke OrderV8 refund voucher idempotency dispatch with auth key SEC-04.",
           weight: 1.0,
           tokenCount: 38,
           updatedAt: new Date().toISOString(),

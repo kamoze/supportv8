@@ -22,6 +22,7 @@ import {
   Database,
   DollarSign,
   Download,
+  Edit3,
   ExternalLink,
   Eye,
   EyeOff,
@@ -367,6 +368,22 @@ export default function SupportV8Dashboard() {
   const [selectedConfigForPermissions, setSelectedConfigForPermissions] = useState<any | null>(null);
   const [isEditPermissionsModalOpen, setIsEditPermissionsModalOpen] = useState<boolean>(false);
   const [editPermissionScopes, setEditPermissionScopes] = useState<string[]>([]);
+
+  // Voice Edit Modal States
+  const [isVoiceEditModalOpen, setIsVoiceEditModalOpen] = useState<boolean>(false);
+  const [selectedConfigForEdit, setSelectedConfigForEdit] = useState<any | null>(null);
+  const [editVoiceAgentName, setEditVoiceAgentName] = useState<string>("");
+  const [editVoiceEmployeeId, setEditVoiceEmployeeId] = useState<string>("emp_voice_specialist");
+  const [editVoiceProvider, setEditVoiceProvider] = useState<"vapi" | "twilio" | "retell" | "bland">("vapi");
+  const [editVoicePhoneNumber, setEditVoicePhoneNumber] = useState<string>("");
+  const [editVoiceServiceMode, setEditVoiceServiceMode] = useState<"customer" | "official">("customer");
+  const [editVoiceVoiceId, setEditVoiceVoiceId] = useState<string>("jennifer-neural-v2");
+  const [editVoiceSystemPrompt, setEditVoiceSystemPrompt] = useState<string>("");
+  const [editVoiceFirstMessage, setEditVoiceFirstMessage] = useState<string>("");
+  const [editVoiceMinVerification, setEditVoiceMinVerification] = useState<string>("phone_match");
+  const [editVoiceScopes, setEditVoiceScopes] = useState<string[]>([]);
+  const [editVoiceIsActive, setEditVoiceIsActive] = useState<boolean>(true);
+  const [isSavingVoiceEdit, setIsSavingVoiceEdit] = useState<boolean>(false);
 
   // Simulator States
   const [simMessage, setSimMessage] = useState<string>("I demand an immediate refund for $49.00 double charge on checkout!");
@@ -986,6 +1003,89 @@ export default function SupportV8Dashboard() {
       }
     } catch (err) {
       notify("Failed to update permissions", "error");
+    }
+  };
+
+  const handleOpenEditVoiceAgent = (cfg: any) => {
+    setSelectedConfigForEdit(cfg);
+    setEditVoiceAgentName(cfg.agentName || "");
+    setEditVoiceEmployeeId(cfg.employeeId || "emp_voice_specialist");
+    setEditVoiceProvider(cfg.provider || "vapi");
+    setEditVoicePhoneNumber(cfg.phoneNumber || "");
+    setEditVoiceServiceMode(cfg.serviceMode || "customer");
+    setEditVoiceVoiceId(cfg.voiceId || "jennifer-neural-v2");
+    setEditVoiceSystemPrompt(cfg.systemPrompt || "");
+    setEditVoiceFirstMessage(cfg.firstMessage || "");
+    setEditVoiceMinVerification(cfg.minVerificationLevel || "phone_match");
+    setEditVoiceScopes(cfg.permissionScopes || [
+      "support.problem.status",
+      "support.ticket.lookup",
+      "support.ticket.create",
+      "knowledge.rag.search",
+    ]);
+    setEditVoiceIsActive(cfg.isActive !== false);
+    setIsVoiceEditModalOpen(true);
+  };
+
+  const handleSaveEditVoiceAgent = async () => {
+    if (!selectedConfigForEdit) return;
+    setIsSavingVoiceEdit(true);
+    try {
+      const res = await fetch("/api/voice/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          configId: selectedConfigForEdit.id,
+          updates: {
+            agentName: editVoiceAgentName,
+            employeeId: editVoiceEmployeeId,
+            provider: editVoiceProvider,
+            phoneNumber: editVoicePhoneNumber,
+            serviceMode: editVoiceServiceMode,
+            voiceId: editVoiceVoiceId,
+            systemPrompt: editVoiceSystemPrompt,
+            firstMessage: editVoiceFirstMessage,
+            minVerificationLevel: editVoiceMinVerification,
+            permissionScopes: editVoiceScopes,
+            isActive: editVoiceIsActive,
+          },
+        }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || "Voice agent updated successfully!", "success");
+        setIsVoiceEditModalOpen(false);
+        fetchData();
+      } else {
+        notify(res.error || "Failed to update voice agent", "error");
+      }
+    } catch (err) {
+      notify("Failed to update voice agent", "error");
+    } finally {
+      setIsSavingVoiceEdit(false);
+    }
+  };
+
+  const handleDeleteVoiceAgent = async (configId: string, phone: string) => {
+    if (!window.confirm(`Are you sure you want to delete and disconnect Voice Agent for ${phone}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/voice/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", configId }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        notify(res.message || `Deleted voice agent ${phone}`, "success");
+        fetchData();
+      } else {
+        notify(res.error || "Failed to delete voice agent", "error");
+      }
+    } catch (err) {
+      notify("Failed to delete voice agent", "error");
     }
   };
 
@@ -1965,7 +2065,7 @@ export default function SupportV8Dashboard() {
                         </div>
                         <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
                           <div className="h-full bg-[#F5A623]/70 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(15, humanEscalatedFunnelRate)}%` }}>
-                            Transferred with Pre-drafted Handoff Tokens
+                            Transferred with Pre-drafted Handoff Context
                           </div>
                         </div>
                       </div>
@@ -3986,7 +4086,7 @@ export default function SupportV8Dashboard() {
 
                         <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between">
                           <span className="text-[10px] font-mono text-[#6B7C8D]">
-                            Hiring assigns initial token budget &amp; unlocks task dispatch
+                            Hiring assigns initial credit budget &amp; unlocks task dispatch
                           </span>
                           <button
                             type="button"
@@ -4162,15 +4262,25 @@ export default function SupportV8Dashboard() {
                       </div>
 
                       {/* Card Actions */}
-                      <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                      <div className="pt-3 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditVoiceAgent(cfg)}
+                          className="btn btn-secondary py-1.5 px-2.5 text-xs font-mono flex items-center gap-1 cursor-pointer text-[#EAF1F8] hover:text-[#2ED8B6]"
+                          title="Edit Voice Agent Configuration"
+                        >
+                          <Edit3 className="w-3 h-3 text-[#2ED8B6]" />
+                          <span>Edit</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleSyncVoiceBot(cfg.id)}
-                          className="btn btn-secondary py-1.5 px-2.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer flex-1 justify-center"
+                          className="btn btn-secondary py-1.5 px-2 text-xs font-mono flex items-center gap-1 cursor-pointer text-[#B4C2D0] hover:text-[#2ED8B6]"
                           title="Re-synchronize remote provider assistant with local AI employee"
                         >
                           <RefreshCw className="w-3 h-3 text-[#2ED8B6]" />
-                          <span>Re-Sync API</span>
+                          <span>Re-Sync</span>
                         </button>
 
                         <button
@@ -4185,11 +4295,11 @@ export default function SupportV8Dashboard() {
                             ]);
                             setIsEditPermissionsModalOpen(true);
                           }}
-                          className="btn btn-secondary py-1.5 px-2.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+                          className="btn btn-secondary py-1.5 px-2 text-xs font-mono flex items-center gap-1 cursor-pointer"
                           title="Edit granted capability scopes"
                         >
                           <Sliders className="w-3 h-3 text-[#4D9FFF]" />
-                          <span>Permissions</span>
+                          <span>Scopes</span>
                         </button>
 
                         <button
@@ -4206,6 +4316,15 @@ export default function SupportV8Dashboard() {
                         >
                           <PhoneCall className="w-3 h-3" />
                           <span>Test</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVoiceAgent(cfg.id, cfg.phoneNumber)}
+                          className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#E5484D]/20 text-[#6B7C8D] hover:text-[#E5484D] border border-[var(--line-2)] hover:border-[#E5484D]/40 transition-colors cursor-pointer"
+                          title="Delete & un-provision voice agent"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -5025,11 +5144,11 @@ export default function SupportV8Dashboard() {
             <div className="space-y-3.5 text-xs">
               <div className="p-3 rounded-xl bg-[#18222E]/80 border border-[var(--line-2)] space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#EAF1F8] font-mono text-[11px]">Service App Connection Tokens</span>
+                  <span className="font-bold text-[#EAF1F8] font-mono text-[11px]">Service App Connection Credentials</span>
                   <span className="pill ok text-[9px]"><i className="dot"></i> MUTUAL AUTH</span>
                 </div>
                 <p className="text-[10px] text-[#6B7C8D]">
-                  Configure the outbound Bearer token and HMAC webhook secret required to authenticate and synchronize with this service app.
+                  Configure the outbound access credentials and HMAC webhook secret required to authenticate and synchronize with this service app.
                 </p>
               </div>
 
@@ -5043,11 +5162,11 @@ export default function SupportV8Dashboard() {
               </div>
 
               <div>
-                <label className="text-[#6B7C8D] block mb-1 font-mono uppercase text-[10px]">Service Connection Bearer Token</label>
+                <label className="text-[#6B7C8D] block mb-1 font-mono uppercase text-[10px]">Service Connection Bearer Key</label>
                 <div className="relative">
                   <input
                     type="password"
-                    defaultValue={`sec_tok_${selectedConnectorForConfig.id}_${selectedConnectorForConfig.category}_live_9921`}
+                    defaultValue={`sec_key_${selectedConnectorForConfig.id}_${selectedConnectorForConfig.category}_live_9921`}
                     className="w-full bg-[#18222E] p-2.5 rounded-xl border border-[var(--line-2)] font-mono text-xs text-[#2ED8B6] focus:outline-none focus:border-[#2ED8B6]"
                   />
                 </div>
@@ -5078,7 +5197,7 @@ export default function SupportV8Dashboard() {
             <div className="flex items-center justify-between pt-3 border-t border-[var(--line)]">
               <span className="text-[10px] text-[#4CC38A] font-mono flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                TLS 1.3 / AES-256 Token Vault
+                TLS 1.3 / AES-256 Secret Vault
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -5092,7 +5211,7 @@ export default function SupportV8Dashboard() {
                   type="button"
                   onClick={() => {
                     setIsConnectorConfigOpen(false);
-                    notify(`Verified token handshake & saved connection for ${selectedConnectorForConfig.name}`, "success");
+                    notify(`Verified authorization handshake & saved connection for ${selectedConnectorForConfig.name}`, "success");
                   }}
                   className="btn btn-primary text-xs flex items-center gap-1.5"
                 >
@@ -6174,6 +6293,248 @@ export default function SupportV8Dashboard() {
                 <Check className="w-3.5 h-3.5" />
                 <span>Save Permissions</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* EDIT VOICE AGENT MODAL */}
+      {/* ========================================================================= */}
+      {isVoiceEditModalOpen && selectedConfigForEdit && (
+        <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl card shadow-2xl p-6 space-y-4 border-[var(--line)] bg-[#0C121A] rounded-2xl max-h-[90vh] overflow-y-auto font-mono text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2.5">
+                <Edit3 className="w-5 h-5 text-[#2ED8B6]" />
+                <div>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">Edit Voice Agent &amp; Telephony Binding</h3>
+                  <span className="text-[10px] text-[#6B7C8D]">
+                    ID: {selectedConfigForEdit.id} • Provider: {selectedConfigForEdit.provider.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVoiceEditModalOpen(false)}
+                className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Local AI Employee Mapping */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">
+                  1. Match Local AI Employee Persona
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {workforce
+                    .filter((w) => w.level === "ai_employee")
+                    .map((emp) => {
+                      const isSelected = editVoiceEmployeeId === emp.id;
+                      return (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onClick={() => setEditVoiceEmployeeId(emp.id)}
+                          className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#2ED8B6]"
+                              : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                          }`}
+                        >
+                          <img
+                            src={emp.avatarUrl || "/avatars/beaver-sophia.jpg"}
+                            alt={emp.name}
+                            className="w-8 h-8 rounded-lg object-cover border border-[#2ED8B6]/40 shrink-0"
+                          />
+                          <div className="truncate">
+                            <div className="font-bold text-[11px] text-[#EAF1F8] font-sans truncate">{emp.name}</div>
+                            <div className="text-[9.5px] opacity-75 font-mono truncate">{emp.role}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Agent Name & Phone Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Agent Name</label>
+                  <input
+                    type="text"
+                    value={editVoiceAgentName}
+                    onChange={(e) => setEditVoiceAgentName(e.target.value)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editVoicePhoneNumber}
+                    onChange={(e) => setEditVoicePhoneNumber(e.target.value)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs font-mono focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </div>
+              </div>
+
+              {/* Telephony Provider, Service Mode & Voice ID */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Provider</label>
+                  <select
+                    value={editVoiceProvider}
+                    onChange={(e) => setEditVoiceProvider(e.target.value as any)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                  >
+                    <option value="vapi">Vapi.ai</option>
+                    <option value="twilio">Twilio Voice</option>
+                    <option value="retell">Retell AI</option>
+                    <option value="bland">Bland AI</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Service Mode</label>
+                  <select
+                    value={editVoiceServiceMode}
+                    onChange={(e) => setEditVoiceServiceMode(e.target.value as any)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                  >
+                    <option value="customer">Customer Inbound</option>
+                    <option value="official">Official Staff &amp; Field</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Min Auth Gate</label>
+                  <select
+                    value={editVoiceMinVerification}
+                    onChange={(e) => setEditVoiceMinVerification(e.target.value)}
+                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                  >
+                    <option value="phone_match">Phone Match (Tier 1)</option>
+                    <option value="otp_verified">OTP Verified (Tier 2)</option>
+                    <option value="authenticated">Full Authenticated</option>
+                    <option value="anonymous">Anonymous Ingress</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Granted Scopes */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1.5 uppercase text-[10px] font-bold">
+                  Granted Tool Permissions
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: "support.problem.status", label: "Problem Status" },
+                    { id: "support.ticket.lookup", label: "Ticket Search" },
+                    { id: "support.ticket.create", label: "Ticket Create" },
+                    { id: "support.account.unlock_request", label: "MFA Unlock" },
+                    { id: "knowledge.rag.search", label: "Knowledge RAG" },
+                    { id: "orderv8.refund", label: "Refund (<$500)" },
+                  ].map((scope) => {
+                    const isChecked = editVoiceScopes.includes(scope.id);
+                    return (
+                      <button
+                        key={scope.id}
+                        type="button"
+                        onClick={() => {
+                          if (isChecked) {
+                            setEditVoiceScopes(editVoiceScopes.filter((s) => s !== scope.id));
+                          } else {
+                            setEditVoiceScopes([...editVoiceScopes, scope.id]);
+                          }
+                        }}
+                        className={`p-2 rounded-xl border text-left flex items-center justify-between text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#2ED8B6]"
+                            : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                        }`}
+                      >
+                        <span className="text-[10px]">{scope.label}</span>
+                        {isChecked && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Spoken Greeting */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">Initial Spoken Greeting</label>
+                <input
+                  type="text"
+                  value={editVoiceFirstMessage}
+                  onChange={(e) => setEditVoiceFirstMessage(e.target.value)}
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              {/* System Prompt */}
+              <div>
+                <label className="text-[#6B7C8D] block mb-1 uppercase text-[10px] font-bold">System Prompt</label>
+                <textarea
+                  rows={3}
+                  value={editVoiceSystemPrompt}
+                  onChange={(e) => setEditVoiceSystemPrompt(e.target.value)}
+                  className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6]"
+                />
+              </div>
+
+              {/* Status Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#18222E] border border-[var(--line)]">
+                <div>
+                  <span className="text-[11px] font-bold text-[#EAF1F8] block">Voice Line Active Status</span>
+                  <span className="text-[9.5px] text-[#6B7C8D]">When active, inbound telephony routes through this agent.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditVoiceIsActive(!editVoiceIsActive)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono cursor-pointer transition-colors ${
+                    editVoiceIsActive ? "bg-[#2ED8B6] text-[#04201C]" : "bg-[#223040] text-[#8E9AA8]"
+                  }`}
+                >
+                  {editVoiceIsActive ? "ACTIVE" : "PAUSED"}
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteVoiceAgent(selectedConfigForEdit.id, selectedConfigForEdit.phoneNumber);
+                  setIsVoiceEditModalOpen(false);
+                }}
+                className="btn bg-[#E5484D]/15 hover:bg-[#E5484D]/30 border border-[#E5484D]/40 text-[#FF7575] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Agent</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceEditModalOpen(false)}
+                  className="btn btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditVoiceAgent}
+                  disabled={isSavingVoiceEdit}
+                  className="btn btn-primary text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingVoiceEdit ? "Saving..." : "Save Changes"}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

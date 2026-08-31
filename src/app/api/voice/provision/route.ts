@@ -79,10 +79,62 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 4. Update Voice Agent
+    if (action === "update") {
+      if (!configId) {
+        return NextResponse.json({ success: false, error: "configId is required" }, { status: 400 });
+      }
+      const result = voiceService.updateVoiceAgent(configId, body.updates || body);
+      return NextResponse.json(result);
+    }
+
+    // 5. Delete Voice Agent
+    if (action === "delete") {
+      if (!configId) {
+        return NextResponse.json({ success: false, error: "configId is required" }, { status: 400 });
+      }
+      const result = voiceService.deleteVoiceAgent(configId);
+      return NextResponse.json(result);
+    }
+
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: unknown) {
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Voice provisioning request failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { configId, ...updates } = body;
+    if (!configId) {
+      return NextResponse.json({ success: false, error: "configId is required" }, { status: 400 });
+    }
+    const result = voiceService.updateVoiceAgent(configId, updates);
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Voice agent update failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const configId = searchParams.get("configId");
+    if (!configId) {
+      return NextResponse.json({ success: false, error: "configId is required" }, { status: 400 });
+    }
+    const result = voiceService.deleteVoiceAgent(configId);
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Voice agent deletion failed" },
       { status: 500 }
     );
   }

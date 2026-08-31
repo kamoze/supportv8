@@ -312,7 +312,7 @@ export function GovernanceSettingsView({
           { id: "embeddings", label: "Embeddings & Vectors", icon: Database },
           { id: "forgegw", label: "ForgeGW Action Gateway", icon: Zap },
           { id: "guardrails", label: "AI Chat Guardrails", icon: Bot },
-          { id: "api_tokens", label: "API Keys & Issue Tokens", icon: Key },
+          { id: "api_tokens", label: "API Keys & Access Credentials", icon: Key },
           { id: "general", label: "Workspace & Security", icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -451,8 +451,8 @@ export function GovernanceSettingsView({
 
               <div>
                 <div className="flex justify-between mb-1">
-                  <span className="text-[#6B7C8D] font-mono">Max Output Tokens: <strong className="text-[#2ED8B6]">{byomMaxTokens}</strong></span>
-                  <span className="text-[10px] text-[#6B7C8D]">1k - 8k tokens</span>
+                  <span className="text-[#6B7C8D] font-mono">Max Output Budget (Credits): <strong className="text-[#2ED8B6]">{byomMaxTokens}</strong></span>
+                  <span className="text-[10px] text-[#6B7C8D]">1k - 8k Credits</span>
                 </div>
                 <input
                   type="range"
@@ -475,7 +475,7 @@ export function GovernanceSettingsView({
                     <span>{byomStatusMsg}</span>
                   </span>
                 ) : (
-                  <span className="text-[#6B7C8D]">Click test to verify token authorization and round-trip latency.</span>
+                  <span className="text-[#6B7C8D]">Click test to verify authorization and round-trip latency.</span>
                 )}
               </div>
 
@@ -606,25 +606,25 @@ export function GovernanceSettingsView({
             {/* Chunk Size & Overlap */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#18222E] border border-[var(--line)]">
               <div>
-                <label className="text-[#6B7C8D] block mb-1 font-mono">Document Chunk Size (Tokens)</label>
+                <label className="text-[#6B7C8D] block mb-1 font-mono">Document Chunk Size (Credits / Words)</label>
                 <input
                   type="number"
                   value={embeddingChunkSize}
                   onChange={(e) => setEmbeddingChunkSize(parseInt(e.target.value))}
                   className="w-full bg-[#0E1520] text-[#EAF1F8] p-2 rounded-lg border border-[var(--line-2)] text-xs font-mono"
                 />
-                <span className="text-[10px] text-[#6B7C8D]">Recommended: 512 tokens for heading sections</span>
+                <span className="text-[10px] text-[#6B7C8D]">Recommended: 512 credits for heading sections</span>
               </div>
 
               <div>
-                <label className="text-[#6B7C8D] block mb-1 font-mono">Chunk Overlap Boundary (Tokens)</label>
+                <label className="text-[#6B7C8D] block mb-1 font-mono">Chunk Overlap Boundary (Credits)</label>
                 <input
                   type="number"
                   value={embeddingChunkOverlap}
                   onChange={(e) => setEmbeddingChunkOverlap(parseInt(e.target.value))}
                   className="w-full bg-[#0E1520] text-[#EAF1F8] p-2 rounded-lg border border-[var(--line-2)] text-xs font-mono"
                 />
-                <span className="text-[10px] text-[#6B7C8D]">Recommended: 64 tokens overlap</span>
+                <span className="text-[10px] text-[#6B7C8D]">Recommended: 64 credits overlap</span>
               </div>
             </div>
 
@@ -667,7 +667,7 @@ export function GovernanceSettingsView({
                 <span>ServiceV8 ForgeGW (Action Gateway) Credentials</span>
               </h3>
               <p className="text-xs text-[#B4C2D0]">
-                Zero-trust execution proxy that gates autonomous external mutations (refunds, ticket escalations, DNS shifts) with idempotency tokens and rate limits.
+                Zero-trust execution proxy that gates autonomous external mutations (refunds, ticket escalations, DNS shifts) with idempotency keys and rate limits.
               </p>
             </div>
             <span className="pill ok text-[10px] font-mono">SEC-04 GATEWAY ACTIVE</span>
@@ -688,7 +688,7 @@ export function GovernanceSettingsView({
 
             {/* ForgeGW API Key */}
             <div>
-              <label className="text-[#6B7C8D] block mb-1 font-mono">ForgeGW Action Gateway Secret Token</label>
+              <label className="text-[#6B7C8D] block mb-1 font-mono">ForgeGW Action Gateway Secret Key</label>
               <div className="relative flex items-center gap-2">
                 <input
                   type={showForgeKey ? "text" : "password"}
@@ -828,7 +828,7 @@ export function GovernanceSettingsView({
                 {[
                   { id: "contractors", label: "Contractors & Vendors Desk", desc: "Work order triage & emergency lockbox PINs" },
                   { id: "enquiries", label: "General Enquiries Desk", desc: "Knowledge graph citations & pre-sales" },
-                  { id: "customers", label: "Customers & Clients Desk", desc: "OrderV8 refund tokens & account support" },
+                  { id: "customers", label: "Customers & Clients Desk", desc: "OrderV8 refund vouchers & account support" },
                 ].map((st) => {
                   const isEnabled = guardrails.enabledStreams.includes(st.id as any);
                   return (
@@ -942,31 +942,69 @@ export function GovernanceSettingsView({
               Default Inbound Live Chat Routing Engine
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[#2ED8B6]/40 flex items-start justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = ChatWorkflowService.updateGuardrails({ defaultChatRouting: "ai_first" });
+                  setGuardrails({ ...updated });
+                }}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-start justify-between ${
+                  (guardrails.defaultChatRouting || "ai_first") === "ai_first"
+                    ? "bg-[#2ED8B6]/10 border-[#2ED8B6] shadow-sm ring-1 ring-[#2ED8B6]/30"
+                    : "bg-[#141C26] border-[var(--line)] opacity-70 hover:opacity-100 hover:border-[var(--line-2)]"
+                }`}
+              >
                 <div className="space-y-1">
                   <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
                     <Bot className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                    <span>AI Autonomous Co-pilot (Default First)</span>
+                    <span>AI Autonomous Agent (Default First)</span>
                   </span>
-                  <p className="text-[10px] text-[#6B7C8D]">
-                    AI employees (Sophia, Alex, Barnaby) triage, synthesize knowledge citations, and resolve issues autonomously before human handover.
+                  <p className="text-[10px] text-[#B4C2D0]">
+                    Configured active AI employees triage, synthesize knowledge citations, and resolve issues autonomously.
                   </p>
                 </div>
-                <span className="pill ok text-[9px]">ACTIVE</span>
-              </div>
+                <span
+                  className={`pill text-[9px] font-mono shrink-0 ml-2 ${
+                    (guardrails.defaultChatRouting || "ai_first") === "ai_first"
+                      ? "ok font-bold"
+                      : "text-[#6B7C8D]"
+                  }`}
+                >
+                  {(guardrails.defaultChatRouting || "ai_first") === "ai_first" ? "ACTIVE" : "SELECT"}
+                </span>
+              </button>
 
-              <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-start justify-between opacity-80">
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = ChatWorkflowService.updateGuardrails({ defaultChatRouting: "direct_human" });
+                  setGuardrails({ ...updated });
+                }}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-start justify-between ${
+                  guardrails.defaultChatRouting === "direct_human"
+                    ? "bg-[#4D9FFF]/10 border-[#4D9FFF] shadow-sm ring-1 ring-[#4D9FFF]/30"
+                    : "bg-[#141C26] border-[var(--line)] opacity-70 hover:opacity-100 hover:border-[var(--line-2)]"
+                }`}
+              >
                 <div className="space-y-1">
                   <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
                     <Shield className="w-3.5 h-3.5 text-[#4D9FFF]" />
                     <span>Direct Human Staff Queue (Live Operator First)</span>
                   </span>
-                  <p className="text-[10px] text-[#6B7C8D]">
+                  <p className="text-[10px] text-[#B4C2D0]">
                     Incoming chat requests bypass AI triage and alert on-call human support agents directly in the Work Desk queue.
                   </p>
                 </div>
-                <span className="pill text-[9px] text-[#6B7C8D]">AVAILABLE</span>
-              </div>
+                <span
+                  className={`pill text-[9px] font-mono shrink-0 ml-2 ${
+                    guardrails.defaultChatRouting === "direct_human"
+                      ? "border-[#4D9FFF]/50 text-[#4D9FFF] bg-[#4D9FFF]/15 font-bold"
+                      : "text-[#6B7C8D]"
+                  }`}
+                >
+                  {guardrails.defaultChatRouting === "direct_human" ? "ACTIVE" : "SELECT"}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -1024,7 +1062,7 @@ export function GovernanceSettingsView({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 5: API KEYS & ISSUE TOKENS (SUPPORTV8 INBOUND & SERVICE TOKENS) */}
+      {/* TAB 5: API KEYS & ACCESS CREDENTIALS (SUPPORTV8 INBOUND & SERVICE ACCESS) */}
       {/* ========================================================================= */}
       {activeSettingsTab === "api_tokens" && (
         <div className="space-y-6">
@@ -1033,10 +1071,10 @@ export function GovernanceSettingsView({
               <div>
                 <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                   <Key className="w-4 h-4 text-[#2ED8B6]" />
-                  <span>SupportV8 API Credentials &amp; Issue Tokens</span>
+                  <span>SupportV8 API Keys &amp; Access Credentials</span>
                 </h3>
                 <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Issue scoped Bearer tokens for external service apps (GrowthV8, OrderV8, KnowledgeV8) and automated workers to authenticate with SupportV8.
+                  Issue scoped access credentials for external service apps (GrowthV8, OrderV8, KnowledgeV8) and automated workers to authenticate with SupportV8.
                 </p>
               </div>
 
@@ -1049,7 +1087,7 @@ export function GovernanceSettingsView({
                 className="btn btn-primary text-xs flex items-center gap-2 cursor-pointer self-start sm:self-auto"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Issue New Token</span>
+                <span>Issue New Key</span>
               </button>
             </div>
 
@@ -1058,10 +1096,10 @@ export function GovernanceSettingsView({
               <div className="p-4 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/40 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#2ED8B6]">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Token Issued Successfully! Copy it now.</span>
+                  <span>Key Issued Successfully! Copy it now.</span>
                 </div>
                 <p className="text-[11px] text-[#B4C2D0]">
-                  This token will never be displayed in full again. Store it securely in your secret manager or environment variables.
+                  This key will never be displayed in full again. Store it securely in your secret manager or environment variables.
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <input

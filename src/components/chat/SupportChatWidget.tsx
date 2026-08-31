@@ -118,77 +118,70 @@ export function SupportChatWidget({
     setTimeout(() => setIsTyping(false), 600);
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = (e?: React.FormEvent, directText?: string) => {
     e?.preventDefault();
-    if (!inputMessage.trim() || !activeSession) return;
+    const textToSend = (directText !== undefined ? directText : inputMessage).trim();
+    if (!textToSend || !activeSession) return;
 
-    const userText = inputMessage.trim();
     setInputMessage("");
-
-    // Append user message
-    const res = ChatWorkflowService.sendMessage({
-      sessionId: activeSession.id,
-      content: userText,
-      sender: "customer",
-      senderName: activeSession.customerName,
-    });
-
-    if (res?.session) {
-      setActiveSession({ ...res.session });
-    }
-
-    // Simulate response with Grounded Intelligence
     setIsTyping(true);
+
     setTimeout(() => {
       setIsTyping(false);
-      let reply = `Thank you for reaching out. We have logged your request under ticket reference SV8-CHAT-${Math.floor(1000 + Math.random() * 9000)}. Our on-call operations team is actively reviewing your account telemetry.`;
-
-      const lower = userText.toLowerCase();
-      if (lower.includes("refund") || lower.includes("credit") || lower.includes("charge")) {
-        reply = `I have verified your recent billing transaction on the OrderV8 ledger. Under your tier policy, you qualify for an instant autonomous adjustment credit voucher up to $500.00.`;
-      } else if (lower.includes("pin") || lower.includes("lockbox") || lower.includes("access") || lower.includes("gate")) {
-        reply = `Your electronic lockbox security PIN for Building B telecom closet is valid for 24 hours: 8492-X. Ground technician Dave Miller has been notified via SMS.`;
-      } else if (lower.includes("status") || lower.includes("order") || lower.includes("track")) {
-        reply = `Your request is currently marked In Progress with priority Normal. Average resolution SLA for your vertical is under 15 minutes.`;
-      }
-
-      const answered = ChatWorkflowService.sendMessage({
+      const res = ChatWorkflowService.sendMessage({
         sessionId: activeSession.id,
-        content: reply,
-        sender: "agent",
-        senderName: activeSession.assignedName,
+        content: textToSend,
+        sender: "customer",
+        senderName: activeSession.customerName,
       });
-      if (answered?.session) {
-        setActiveSession({ ...answered.session });
+
+      if (res?.session) {
+        setActiveSession({ ...res.session });
       }
-    }, 900);
+    }, 450);
   };
 
   const handleActionClick = (actionId: string, label: string) => {
     if (!activeSession) return;
-    setInputMessage(`[Action Requested: ${label}]`);
-    setTimeout(() => {
-      handleSendMessage();
-    }, 50);
+    if (actionId === "act_human" || label.toLowerCase().includes("human")) {
+      handleRequestHuman();
+      return;
+    }
+    if (actionId === "act_resolve" || label.toLowerCase().includes("confirm resolution")) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(false);
+        const res = ChatWorkflowService.sendMessage({
+          sessionId: activeSession.id,
+          content: "I confirm this issue is resolved. Thank you!",
+          sender: "customer",
+          senderName: activeSession.customerName,
+        });
+        if (res?.session) {
+          res.session.status = "resolved";
+          setActiveSession({ ...res.session });
+        }
+      }, 300);
+      return;
+    }
+    handleSendMessage(undefined, `[Action Requested: ${label}]`);
   };
 
   const handleRequestHuman = () => {
     if (!activeSession) return;
-    const res = ChatWorkflowService.sendMessage({
-      sessionId: activeSession.id,
-      content: "Requesting live human operator escalation.",
-      sender: "customer",
-      senderName: activeSession.customerName,
-    });
-    if (res?.session) {
-      const escalated: CustomerChatSession = {
-        ...res.session,
-        status: "escalated",
-        assignedType: "human",
-        assignedName: "Ini Godwin (Escalated Lead)",
-      };
-      setActiveSession(escalated);
-    }
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      const res = ChatWorkflowService.sendMessage({
+        sessionId: activeSession.id,
+        content: "I would like to speak directly with a live human operator.",
+        sender: "customer",
+        senderName: activeSession.customerName,
+      });
+      if (res?.session) {
+        setActiveSession({ ...res.session });
+      }
+    }, 350);
   };
 
   const handleResetChat = () => {

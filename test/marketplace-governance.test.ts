@@ -27,17 +27,17 @@ describe("Marketplace & Governance Suite", () => {
     expect(hired.avatarUrl).toContain("beaver-eleanor.jpg");
   });
 
-  it("should switch subscription tiers between Growth, Scale, and Enterprise", () => {
+  it("should switch subscription tiers between Trial, Starter, Growth, Scale, and Enterprise", () => {
     const plans = marketplaceService.getPlans();
-    expect(plans.length).toBe(3);
+    expect(plans.length).toBe(5);
 
     const growth = marketplaceService.selectPlan("plan_growth");
     expect(growth.isCurrent).toBe(true);
     expect(growth.aiEmployeeSeats).toBe(4);
 
     const allPlans = marketplaceService.getPlans();
-    const scale = allPlans.find((p) => p.id === "plan_scale");
-    expect(scale?.isCurrent).toBe(false);
+    const starter = allPlans.find((p) => p.id === "plan_starter");
+    expect(starter?.isCurrent).toBe(false);
   });
 
   it("should invite and register tenant team members with RBAC roles", () => {

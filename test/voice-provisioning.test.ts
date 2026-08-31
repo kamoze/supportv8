@@ -121,4 +121,38 @@ describe("Voice Telephony Bot Provisioning & Remote-to-Local Agent Matching (Gro
     expect(refundExec.data.refundIssued).toBe(true);
     expect(refundExec.data.amountUsd).toBe(250.0);
   });
+
+  it("should update full voice agent configuration parameters", () => {
+    const configs = voiceService.getPhoneConfigs("tenant_default");
+    const target = configs[0];
+
+    const updateRes = voiceService.updateVoiceAgent(target.id, {
+      agentName: "Sophia — Senior Voice Director",
+      phoneNumber: "+1 (800) 999-1122",
+      serviceMode: "official",
+      systemPrompt: "Updated conversational guardrails for enterprise VIP queue.",
+      isActive: false,
+    });
+
+    expect(updateRes.success).toBe(true);
+    expect(updateRes.config?.agentName).toBe("Sophia — Senior Voice Director");
+    expect(updateRes.config?.phoneNumber).toBe("+1 (800) 999-1122");
+    expect(updateRes.config?.serviceMode).toBe("official");
+    expect(updateRes.config?.systemPrompt).toContain("enterprise VIP queue");
+    expect(updateRes.config?.isActive).toBe(false);
+  });
+
+  it("should delete a voice agent connection and remove it from active lines", () => {
+    // Provision a temporary agent to delete
+    const tempConfigId = "cfg_voice_to_delete";
+    const configsBefore = voiceService.getPhoneConfigs("tenant_default");
+    const initialCount = configsBefore.length;
+
+    const deleteRes = voiceService.deleteVoiceAgent(configsBefore[0].id);
+    expect(deleteRes.success).toBe(true);
+    expect(deleteRes.message).toContain("deleted and disconnected");
+
+    const configsAfter = voiceService.getPhoneConfigs("tenant_default");
+    expect(configsAfter.length).toBe(initialCount - 1);
+  });
 });

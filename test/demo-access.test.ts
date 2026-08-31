@@ -58,6 +58,55 @@ describe("SupportV8 Demo Access & Sales Lead Capture", () => {
     expect(data.demoAccessToken).toMatch(/^demo_tk_/);
   });
 
+  it("should capture checkbox Q&A needs assessment and support volume in lead telemetry", async () => {
+    const req = new NextRequest("http://localhost:3000/api/leads/demo-access", {
+      method: "POST",
+      body: JSON.stringify({
+        workEmail: "cto@fintech-cloud.com",
+        fullName: "Dana Scully",
+        companyName: "Fintech Cloud Inc",
+        targetTenant: "acme",
+        needsAssessment: [
+          "Autonomous Action Gateway & Refunds",
+          "Sub-300ms Low-Latency AI Voice Telephony",
+          "Zero-Trust Governance & Multi-Sig Approvals",
+        ],
+        ticketVolume: "10k - 50k / mo",
+        optInEmail: true,
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.lead.needsAssessment.length).toBe(3);
+    expect(data.lead.needsAssessment).toContain("Autonomous Action Gateway & Refunds");
+    expect(data.lead.ticketVolume).toBe("10k - 50k / mo");
+    expect(data.growthv8SyncPayload.needsAssessment.length).toBe(3);
+    expect(data.growthv8SyncPayload.ticketVolume).toBe("10k - 50k / mo");
+  });
+
+  it("should support quick launch guest bypass without blocking access", async () => {
+    const req = new NextRequest("http://localhost:3000/api/leads/demo-access", {
+      method: "POST",
+      body: JSON.stringify({
+        workEmail: "",
+        companyName: "Guest Organization",
+        targetTenant: "meridian",
+        needsAssessment: ["Field Dispatch & Contractor Operations"],
+        source: "quick_launch_bypass",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.lead.targetTenant).toBe("meridian");
+    expect(data.lead.workEmail).toMatch(/guest_/);
+  });
+
   it("should return list of captured leads on GET", async () => {
     const res = await GET();
     expect(res.status).toBe(200);

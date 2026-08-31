@@ -13,6 +13,8 @@ export interface LeadEmailPayload {
   optInEmail: boolean;
   capturedAt: string;
   ipAddress?: string;
+  needsAssessment?: string[];
+  ticketVolume?: string;
 }
 
 export interface SendLeadEmailResult {
@@ -59,6 +61,11 @@ export class ResendService {
         ? "MERIDIAN (Field Dispatch & Contractor Desk)"
         : "ACME (SaaS Customer Care & Billing Desk)";
 
+    const needsList =
+      payload.needsAssessment && payload.needsAssessment.length > 0
+        ? payload.needsAssessment.map((n) => `  - ${n}`).join("\n")
+        : "  - General AI Support Sandbox Exploration";
+
     return `[LEAD:SUPPORTV8_SANDBOX]
 =============================================================
 LEAD_SOURCE: supportv8_sandbox_demo
@@ -68,9 +75,13 @@ COMPANY_NAME: ${payload.companyName}
 FULL_NAME: ${payload.fullName || "Not provided"}
 TARGET_TENANT: ${payload.targetTenant}
 TARGET_VERTICAL: ${tenantLabel}
+TICKET_VOLUME: ${payload.ticketVolume || "Unspecified"}
 EMAIL_OPT_IN: ${payload.optInEmail ? "true" : "false"}
 CAPTURED_AT: ${payload.capturedAt}
 IP_ADDRESS: ${payload.ipAddress || "127.0.0.1"}
+
+STATED AI SUPPORT REQUIREMENTS:
+${needsList}
 =============================================================
 
 A new prospect has requested live operator access to the SupportV8 sandbox demo.

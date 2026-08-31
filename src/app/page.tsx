@@ -1711,13 +1711,9 @@ export default function SupportV8Dashboard() {
             setCurrentTenantSlug(slug || "acme");
             setViewMode("tenant_landing");
           }}
-          onOpenDemoLogin={(slug = "acme") => {
-            const demoSlug = slug === "meridian" ? "meridian" : "acme";
-            const session = AuthService.authenticateDemo(demoSlug);
-            setOperatorSession(session);
-            setCurrentTenantSlug(session.tenantSlug);
-            setViewMode("cockpit");
-            notify(`Demo session initiated: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`, "success");
+          onOpenDemoGate={(slug = "acme") => {
+            setTargetDemoSlug(slug);
+            setIsDemoModalOpen(true);
           }}
           onOpenSignup={() => setIsSignupModalOpen(true)}
         />
@@ -1726,9 +1722,12 @@ export default function SupportV8Dashboard() {
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
           onSuccess={(slug, email) => {
-            setCurrentTenantSlug(slug);
-            setViewMode("tenant_landing");
-            notify(`Live demo unlocked for ${email}. Telemetry routed to GrowthV8 sales desk.`, "success");
+            const demoSlug = slug === "meridian" ? "meridian" : "acme";
+            const session = AuthService.authenticateDemo(demoSlug);
+            setOperatorSession(session);
+            setCurrentTenantSlug(session.tenantSlug);
+            setViewMode("cockpit");
+            notify(`Demo session unlocked for ${email || "Guest"}: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`, "success");
           }}
           onOpenSignIn={() => {
             setIsDemoModalOpen(false);
@@ -1783,9 +1782,12 @@ export default function SupportV8Dashboard() {
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
           onSuccess={(slug, email) => {
-            setCurrentTenantSlug(slug);
-            setViewMode("tenant_landing");
-            notify(`Live demo unlocked for ${email}. Telemetry routed to GrowthV8 sales desk.`, "success");
+            const demoSlug = slug === "meridian" ? "meridian" : "acme";
+            const session = AuthService.authenticateDemo(demoSlug);
+            setOperatorSession(session);
+            setCurrentTenantSlug(session.tenantSlug);
+            setViewMode("cockpit");
+            notify(`Demo session unlocked for ${email || "Guest"}: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`, "success");
           }}
           onOpenSignIn={() => {
             setIsDemoModalOpen(false);

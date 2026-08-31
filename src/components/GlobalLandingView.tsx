@@ -35,6 +35,7 @@ import { SupportV8Logo } from "@/components/SupportV8Logo";
 interface GlobalLandingViewProps {
   onOpenSignIn: () => void;
   onOpenTenantPortal: (slug?: string) => void;
+  onOpenDemoGate?: (slug?: string) => void;
   onOpenDemoLogin?: (slug?: string) => void;
   onOpenSignup: () => void;
 }
@@ -42,13 +43,16 @@ interface GlobalLandingViewProps {
 export function GlobalLandingView({
   onOpenSignIn,
   onOpenTenantPortal,
+  onOpenDemoGate,
   onOpenDemoLogin,
   onOpenSignup,
 }: GlobalLandingViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const handleLaunchDemo = (slug: string) => {
-    if (onOpenDemoLogin) {
+    if (onOpenDemoGate) {
+      onOpenDemoGate(slug);
+    } else if (onOpenDemoLogin) {
       onOpenDemoLogin(slug);
     } else {
       onOpenTenantPortal(slug);

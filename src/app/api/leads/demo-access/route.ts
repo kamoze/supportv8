@@ -8,6 +8,8 @@ export interface DemoLeadRecord {
   companyName: string;
   targetTenant: string;
   optInEmail?: boolean;
+  needsAssessment?: string[];
+  ticketVolume?: string;
   source: string;
   capturedAt: string;
   ipAddress?: string;
@@ -21,25 +23,41 @@ const demoLeadsStore: DemoLeadRecord[] = [];
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { workEmail, fullName, companyName, targetTenant = "acme", optInEmail = false, source = "landing_demo_gate" } = body;
+    const {
+      workEmail,
+      fullName,
+      companyName,
+      targetTenant = "acme",
+      optInEmail = false,
+      needsAssessment = [],
+      ticketVolume,
+      source = "landing_demo_gate",
+    } = body;
 
-    if (!workEmail || !workEmail.includes("@") || !workEmail.includes(".")) {
-      return NextResponse.json(
-        { success: false, error: "A valid business work email is required to access live sandbox demos." },
-        { status: 400 }
-      );
-    }
+    const isGuestLaunch = !workEmail && (!companyName || companyName === "Guest Organization");
 
-    if (!companyName || companyName.trim().length < 2) {
-      return NextResponse.json(
-        { success: false, error: "Company name is required for sales qualification." },
-        { status: 400 }
-      );
+    let cleanEmail = (workEmail || "").trim().toLowerCase();
+    let cleanCompany = (companyName || "").trim();
+
+    if (!isGuestLaunch) {
+      if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+        return NextResponse.json(
+          { success: false, error: "A valid business work email is required to access live sandbox demos." },
+          { status: 400 }
+        );
+      }
+      if (!cleanCompany || cleanCompany.length < 2) {
+        return NextResponse.json(
+          { success: false, error: "Company name is required for sales qualification." },
+          { status: 400 }
+        );
+      }
+    } else {
+      cleanEmail = `guest_${Date.now()}@servicev8.com`;
+      cleanCompany = "Guest Sandbox Evaluator";
     }
 
     const leadId = `lead_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const cleanCompany = companyName.trim();
-    const cleanEmail = workEmail.trim().toLowerCase();
 
     const lead: DemoLeadRecord = {
       id: leadId,
@@ -48,6 +66,8 @@ export async function POST(req: NextRequest) {
       companyName: cleanCompany,
       targetTenant: targetTenant.toLowerCase(),
       optInEmail: Boolean(optInEmail),
+      needsAssessment: Array.isArray(needsAssessment) ? needsAssessment : [],
+      ticketVolume: ticketVolume || undefined,
       source,
       capturedAt: new Date().toISOString(),
       ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1",
@@ -62,6 +82,8 @@ export async function POST(req: NextRequest) {
       companyName: lead.companyName,
       targetTenant: lead.targetTenant,
       optInEmail: lead.optInEmail ?? false,
+      needsAssessment: lead.needsAssessment,
+      ticketVolume: lead.ticketVolume,
       capturedAt: lead.capturedAt,
       ipAddress: lead.ipAddress,
     });
@@ -79,6 +101,8 @@ export async function POST(req: NextRequest) {
       email: lead.workEmail,
       company: lead.companyName,
       optInEmail: lead.optInEmail,
+      needsAssessment: lead.needsAssessment,
+      ticketVolume: lead.ticketVolume,
       verticalInterest: targetTenant === "meridian" ? "field_operations_dispatch" : "customer_care_saas",
       campaign: "supportv8_live_demo_gate",
     };

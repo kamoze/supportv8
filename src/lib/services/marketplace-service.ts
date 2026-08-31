@@ -508,7 +508,7 @@ export const INITIAL_PLANS: MarketplacePlan[] = [
     badge: "No card required",
     priceMonthly: 0,
     priceAnnual: 0,
-    priceDisplay: "£0",
+    priceDisplay: "$0",
     creditsDisplay: "2,000 credits/month",
     description: "A first look at managed AI on this account.",
     actionLabel: "Not self-serve",

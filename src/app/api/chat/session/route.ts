@@ -6,6 +6,7 @@ import {
   requireChatOperatorRole,
 } from "@/lib/chatbot/security/ingress-security";
 import type { ChatStreamType } from "@/lib/types";
+import { InvalidChatMessageCursorError } from "@/lib/chat/message-cursor";
 
 const CHAT_STREAMS = new Set<ChatStreamType>(["contractors", "enquiries", "customers"]);
 
@@ -22,6 +23,9 @@ function sanitizeIntakeData(value: unknown): Record<string, string> {
 }
 
 function errorResponse(error: unknown, fallback: string) {
+  if (error instanceof InvalidChatMessageCursorError) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
   if (error instanceof ChatIngressError || error instanceof RequestAuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
@@ -35,21 +39,37 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("sessionId");
+    const afterCursor = searchParams.get("after");
+    const listCursor = searchParams.get("cursor");
+    const requestedLimit = Number(searchParams.get("limit") || 100);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 200)
+      : 100;
     const tenant = await resolveRequestTenant(request, {
       requireAuthentication: !sessionId,
     });
 
     if (sessionId) {
-      const session = await chatRepository.getSession(tenant.tenantId, sessionId);
-      if (!session) {
+      const page = await chatRepository.getSessionPage(tenant.tenantId, sessionId, {
+        afterCursor,
+        limit,
+      });
+      if (!page) {
         return NextResponse.json({ error: "Session not found" }, { status: 404 });
       }
-      return NextResponse.json({ session });
+      return NextResponse.json({
+        session: page.session,
+        nextCursor: page.nextCursor,
+        hasEarlierMessages: page.hasEarlierMessages,
+      });
     }
 
     requireChatOperatorRole(tenant);
-    const sessions = await chatRepository.listSessions(tenant.tenantId);
-    return NextResponse.json({ sessions });
+    const page = await chatRepository.listSessionsPage(tenant.tenantId, {
+      afterCursor: listCursor,
+      limit,
+    });
+    return NextResponse.json(page);
   } catch (error) {
     return errorResponse(error, "Failed to load chat sessions");
   }

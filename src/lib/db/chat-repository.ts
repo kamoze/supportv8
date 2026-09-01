@@ -7,6 +7,10 @@ import type {
   Issue,
   PriorityLevel,
 } from "@/lib/types";
+import {
+  decodeChatMessageCursor,
+  encodeChatMessageCursor,
+} from "@/lib/chat/message-cursor";
 import { pgClient, type DatabaseSession, type PostgresClient } from "./pg-client";
 
 type Sender = "customer" | "agent";
@@ -39,6 +43,7 @@ interface SessionRow extends QueryResultRow {
   assigned_group_id: string | null;
   assigned_operator_id: string | null;
   issue_id: string | null;
+  last_message_at: Date | string;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -100,6 +105,20 @@ export interface SendChatMessageInput {
   senderName?: string;
   senderId?: string;
   content: string;
+  clientMessageId?: string;
+}
+
+export interface ChatSessionPage {
+  session: CustomerChatSession;
+  nextCursor?: string;
+  hasEarlierMessages: boolean;
+  hasMoreMessages: boolean;
+}
+
+export interface ChatSessionListPage {
+  sessions: CustomerChatSession[];
+  nextCursor?: string;
+  hasMore: boolean;
 }
 
 const ASSIGNMENTS: Record<ChatStreamType, Assignment> = {
@@ -195,6 +214,7 @@ function mapMessage(row: MessageRow): CustomerChatMessage {
   const metadata = row.metadata || {};
   return {
     id: row.id,
+    cursor: encodeChatMessageCursor(row.created_at, row.id),
     sender:
       row.sender_type === "operator"
         ? "agent"
@@ -231,7 +251,7 @@ function mapSession(row: SessionRow, messages: MessageRow[]): CustomerChatSessio
     priority: row.priority,
     unreadCount: 0,
     createdAt: iso(row.created_at),
-    updatedAt: iso(row.updated_at),
+    updatedAt: iso(row.last_message_at || row.updated_at),
     messages: messages.filter((message) => message.session_id === row.id).map(mapMessage),
   };
 }
@@ -303,24 +323,63 @@ async function insertMessage(
   );
 }
 
-async function loadSession(db: DatabaseSession, sessionId: string, lock = false): Promise<CustomerChatSession | null> {
+async function loadSession(
+  db: DatabaseSession,
+  sessionId: string,
+  options: { lock?: boolean; messageLimit?: number; afterCursor?: string | null } = {},
+): Promise<ChatSessionPage | null> {
+  const lock = options.lock ?? false;
+  const messageLimit = Math.min(Math.max(options.messageLimit ?? 100, 1), 200);
+  const after = decodeChatMessageCursor(options.afterCursor);
   const rows = await db.query<SessionRow>(
     `SELECT id, tenant_id, stream, customer_name, customer_email, intake_data,
             status, priority, assigned_group_id, assigned_operator_id, issue_id,
-            created_at, updated_at
+            last_message_at, created_at, updated_at
        FROM supportv8.chat_sessions
       WHERE id = $1${lock ? " FOR UPDATE" : ""}`,
     [sessionId]
   );
   if (!rows[0]) return null;
-  const messages = await db.query<MessageRow>(
-    `SELECT id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
-       FROM supportv8.chat_messages
-      WHERE session_id = $1
-      ORDER BY created_at ASC, id ASC`,
-    [sessionId]
-  );
-  return mapSession(rows[0], messages);
+  const messages = after
+    ? await db.query<MessageRow>(
+        `SELECT id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
+           FROM supportv8.chat_messages
+          WHERE session_id = $1
+            AND (created_at, id) > ($2::timestamptz, $3)
+          ORDER BY created_at ASC, id ASC
+          LIMIT $4`,
+        [sessionId, after.createdAt, after.messageId, messageLimit + 1],
+      )
+    : await db.query<MessageRow>(
+        `SELECT id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
+           FROM (
+             SELECT id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
+               FROM supportv8.chat_messages
+              WHERE session_id = $1
+              ORDER BY created_at DESC, id DESC
+              LIMIT $2
+           ) recent
+          ORDER BY created_at ASC, id ASC`,
+        [sessionId, messageLimit + 1],
+      );
+  const hasOverflow = messages.length > messageLimit;
+  const pageMessages = after
+    ? messages.slice(0, messageLimit)
+    : hasOverflow
+      ? messages.slice(messages.length - messageLimit)
+      : messages;
+  const session = mapSession(rows[0], pageMessages);
+  const lastMessage = pageMessages[pageMessages.length - 1];
+  session.nextCursor = lastMessage
+    ? encodeChatMessageCursor(lastMessage.created_at, lastMessage.id)
+    : options.afterCursor || undefined;
+  session.hasEarlierMessages = !after && hasOverflow;
+  return {
+    session,
+    nextCursor: session.nextCursor,
+    hasEarlierMessages: session.hasEarlierMessages,
+    hasMoreMessages: Boolean(after && hasOverflow),
+  };
 }
 
 export class ChatRepository {
@@ -459,35 +518,74 @@ export class ChatRepository {
         [input.tenantId, sessionId, JSON.stringify({ sessionId, issueId, messageIds: [userMessageId, greetingMessageId] })]
       );
 
-      const session = await loadSession(db, sessionId);
-      if (!session) throw new Error("Created chat session could not be loaded");
-      return session;
+      const sessionPage = await loadSession(db, sessionId);
+      if (!sessionPage) throw new Error("Created chat session could not be loaded");
+      return sessionPage.session;
     });
   }
 
   async getSession(tenantId: string, sessionId: string): Promise<CustomerChatSession | null> {
-    return this.client.withTenantSession(tenantId, (db) => loadSession(db, sessionId));
+    return this.client.withTenantSession(tenantId, async (db) => {
+      const page = await loadSession(db, sessionId);
+      return page?.session || null;
+    });
+  }
+
+  async getSessionPage(
+    tenantId: string,
+    sessionId: string,
+    options: { afterCursor?: string | null; limit?: number } = {},
+  ): Promise<ChatSessionPage | null> {
+    return this.client.withTenantSession(tenantId, (db) =>
+      loadSession(db, sessionId, {
+        afterCursor: options.afterCursor,
+        messageLimit: options.limit,
+      }),
+    );
   }
 
   async listSessions(tenantId: string): Promise<CustomerChatSession[]> {
+    const page = await this.listSessionsPage(tenantId);
+    return page.sessions;
+  }
+
+  async listSessionsPage(
+    tenantId: string,
+    options: { afterCursor?: string | null; limit?: number } = {},
+  ): Promise<ChatSessionListPage> {
     return this.client.withTenantSession(tenantId, async (db) => {
+      const limit = Math.min(Math.max(options.limit ?? 100, 1), 250);
+      const after = decodeChatMessageCursor(options.afterCursor);
       const sessions = await db.query<SessionRow>(
         `SELECT id, tenant_id, stream, customer_name, customer_email, intake_data,
                 status, priority, assigned_group_id, assigned_operator_id, issue_id,
-                created_at, updated_at
+                last_message_at, created_at, updated_at
            FROM supportv8.chat_sessions
-          ORDER BY last_message_at DESC, created_at DESC
-          LIMIT 250`
+          WHERE ($1::timestamptz IS NULL OR (last_message_at, id) < ($1::timestamptz, $2))
+          ORDER BY last_message_at DESC, id DESC
+          LIMIT $3`,
+        [after?.createdAt || null, after?.messageId || null, limit + 1],
       );
-      if (sessions.length === 0) return [];
+      if (sessions.length === 0) return { sessions: [], hasMore: false };
+      const hasMore = sessions.length > limit;
+      const pageSessions = sessions.slice(0, limit);
       const messages = await db.query<MessageRow>(
-        `SELECT id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
+        `SELECT DISTINCT ON (session_id)
+                id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
            FROM supportv8.chat_messages
           WHERE session_id = ANY($1::varchar[])
-          ORDER BY created_at ASC, id ASC`,
-        [sessions.map((session) => session.id)]
+          ORDER BY session_id, created_at DESC, id DESC`,
+        [pageSessions.map((session) => session.id)]
       );
-      return sessions.map((session) => mapSession(session, messages));
+      const mapped = pageSessions.map((session) => mapSession(session, messages));
+      const lastSession = pageSessions[pageSessions.length - 1];
+      return {
+        sessions: mapped,
+        hasMore,
+        nextCursor: lastSession
+          ? encodeChatMessageCursor(lastSession.last_message_at, lastSession.id)
+          : undefined,
+      };
     });
   }
 
@@ -499,11 +597,26 @@ export class ChatRepository {
     if (!content || content.length > 20_000) throw new Error("Message content must be between 1 and 20,000 characters");
 
     return this.client.withTenantSession(input.tenantId, async (db) => {
-      const current = await loadSession(db, input.sessionId, true);
+      const currentPage = await loadSession(db, input.sessionId, { lock: true, messageLimit: 1 });
+      const current = currentPage?.session;
       if (!current) throw new Error("Chat session not found");
       if (current.status === "resolved") throw new Error("Chat session is already resolved");
 
-      const incomingId = `msg_${randomUUID().replace(/-/g, "")}`;
+      const requestedMessageId = input.clientMessageId?.trim();
+      const incomingId = requestedMessageId && /^msg_[a-zA-Z0-9_-]{8,120}$/.test(requestedMessageId)
+        ? requestedMessageId
+        : `msg_${randomUUID().replace(/-/g, "")}`;
+      const existing = await db.query<MessageRow>(
+        `SELECT id, session_id, sender_type, sender_id, sender_name, content, metadata, created_at
+           FROM supportv8.chat_messages
+          WHERE id = $1 AND session_id = $2`,
+        [incomingId, input.sessionId],
+      );
+      if (existing[0]) {
+        const duplicatePage = await loadSession(db, input.sessionId, { messageLimit: 100 });
+        if (!duplicatePage) throw new Error("Chat session not found");
+        return { session: duplicatePage.session };
+      }
       const senderName = input.sender === "customer" ? current.customerName : input.senderName || "Support Operator";
       await insertMessage(db, {
         id: incomingId,
@@ -614,7 +727,8 @@ export class ChatRepository {
         ]
       );
 
-      const session = await loadSession(db, input.sessionId);
+      const sessionPage = await loadSession(db, input.sessionId, { messageLimit: 100 });
+      const session = sessionPage?.session;
       if (!session) throw new Error("Updated chat session could not be loaded");
       return {
         session,
@@ -635,7 +749,8 @@ export class ChatRepository {
     suggestedActions?: CustomerChatMessage["suggestedActions"];
   }): Promise<CustomerChatMessage> {
     return this.client.withTenantSession(input.tenantId, async (db) => {
-      const current = await loadSession(db, input.sessionId, true);
+      const currentPage = await loadSession(db, input.sessionId, { lock: true, messageLimit: 1 });
+      const current = currentPage?.session;
       if (!current) throw new Error("Chat session not found");
       const messageId = `msg_${randomUUID().replace(/-/g, "")}`;
       const senderType: MessageRow["sender_type"] =
@@ -668,8 +783,8 @@ export class ChatRepository {
          VALUES ($1, 'chat_session', $2, 'chat.message.appended', $3::jsonb)`,
         [input.tenantId, input.sessionId, JSON.stringify({ sessionId: input.sessionId, messageIds: [messageId] })]
       );
-      const session = await loadSession(db, input.sessionId);
-      const message = session?.messages.find((item) => item.id === messageId);
+      const sessionPage = await loadSession(db, input.sessionId, { messageLimit: 100 });
+      const message = sessionPage?.session.messages.find((item) => item.id === messageId);
       if (!message) throw new Error("Created runtime message could not be loaded");
       return message;
     });
@@ -686,7 +801,8 @@ export class ChatRepository {
     priority?: PriorityLevel;
   }): Promise<CustomerChatSession> {
     return this.client.withTenantSession(input.tenantId, async (db) => {
-      const current = await loadSession(db, input.sessionId, true);
+      const currentPage = await loadSession(db, input.sessionId, { lock: true, messageLimit: 1 });
+      const current = currentPage?.session;
       if (!current) throw new Error("Chat session not found");
       const metadata: SessionMetadata = {
         assignedType: input.assignedType || current.assignedType,
@@ -736,9 +852,9 @@ export class ChatRepository {
           metadata.assignedId,
         ]
       );
-      const session = await loadSession(db, input.sessionId);
-      if (!session) throw new Error("Updated runtime session could not be loaded");
-      return session;
+      const sessionPage = await loadSession(db, input.sessionId, { messageLimit: 100 });
+      if (!sessionPage) throw new Error("Updated runtime session could not be loaded");
+      return sessionPage.session;
     });
   }
 

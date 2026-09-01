@@ -9,7 +9,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, sender = "customer", content } = body;
+    const { sessionId, sender = "customer", content, clientMessageId } = body;
 
     if (!sessionId || typeof content !== "string" || !content.trim()) {
       return NextResponse.json({ error: "Missing sessionId or content" }, { status: 400 });
@@ -30,9 +30,14 @@ export async function POST(request: NextRequest) {
       senderName: sender === "agent" ? tenant.username || "Support Operator" : undefined,
       senderId: sender === "agent" ? tenant.userId : undefined,
       content,
+      clientMessageId: typeof clientMessageId === "string" ? clientMessageId : undefined,
     });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({
+      success: true,
+      ...result,
+      nextCursor: result.session.nextCursor,
+    });
   } catch (error) {
     if (error instanceof ChatIngressError || error instanceof RequestAuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

@@ -38,7 +38,7 @@ export class SlaEngineService {
     riskLevel: "healthy" | "at_risk" | "breached";
   }> = new Map();
 
-  public getSlaOverview(): {
+  public getSlaOverview(tenantSlug?: string): {
     attainmentRate: number;
     totalTracked: number;
     healthyCount: number;
@@ -46,8 +46,20 @@ export class SlaEngineService {
     breachedCount: number;
     tickets: TicketSlaStatus[];
   } {
-    const rawIssues = Array.isArray(db.issues) ? db.issues : [];
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    const rawIssues = tenantSlug ? db.getTenantData(clean).issues : (Array.isArray(db.issues) ? db.issues : []);
     const activeIssues = rawIssues.filter((i) => i.status !== "resolved");
+
+    if (activeIssues.length === 0) {
+      return {
+        attainmentRate: 100,
+        totalTracked: 0,
+        healthyCount: 0,
+        atRiskCount: 0,
+        breachedCount: 0,
+        tickets: [],
+      };
+    }
 
     const derivedTickets: TicketSlaStatus[] = activeIssues.map((issue, index) => {
       const tier = (issue.customerTier || "standard") as "enterprise" | "pro" | "standard";

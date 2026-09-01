@@ -3,11 +3,14 @@ import { db } from "@/lib/db/mock-data";
 import { interactionGateway } from "@/lib/services/interaction-gateway";
 import { issueService } from "@/lib/services/issue-service";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const tenantData = db.getTenantData(tenant);
   return NextResponse.json({
     success: true,
-    count: db.sources.length,
-    data: db.sources,
+    count: tenantData.sources.length,
+    data: tenantData.sources,
   });
 }
 

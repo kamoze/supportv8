@@ -18,11 +18,27 @@ export interface SweepDryRunResult {
 }
 
 export class StaleWorkSweeper {
-  public getCandidates(): StaleWorkCandidate[] {
+  public getCandidates(tenantSlug?: string): StaleWorkCandidate[] {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return [];
+    }
     return [...db.staleWork];
   }
 
-  public runDryRun(): SweepDryRunResult {
+  public runDryRun(tenantSlug?: string): SweepDryRunResult {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return {
+        totalScanned: 0,
+        candidatesFound: 0,
+        safeToCloseCount: 0,
+        remindCustomerCount: 0,
+        linkToProblemCount: 0,
+        candidates: [],
+      };
+    }
+
     const candidates = db.staleWork.filter((c) => c.status !== "executed" && c.status !== "dismissed");
     const safeToClose = candidates.filter((c) => c.recommendedAction === "close").length;
     const remind = candidates.filter((c) => c.recommendedAction === "remind_customer" || c.recommendedAction === "remind_agent").length;

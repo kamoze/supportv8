@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { qaSynthesizer } from "@/lib/services/qa-scorecard-service";
 
-export async function GET() {
-  const metrics = qaSynthesizer.getQaMetrics();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const metrics = qaSynthesizer.getQaMetrics(tenant);
   return NextResponse.json({
     success: true,
     data: metrics,

@@ -4,6 +4,7 @@
  * Dispatches customer issues dynamically according to skill rules and agent capacity.
  */
 
+import { db } from "../db/mock-data";
 import type { ChannelLoadMeter, SkillRoutingRule } from "../types/cx-types";
 
 export const INITIAL_CHANNEL_LOADS: ChannelLoadMeter[] = [
@@ -88,12 +89,62 @@ export class QueueLoadBalancerService {
   private channels: ChannelLoadMeter[] = [...INITIAL_CHANNEL_LOADS];
   private rules: SkillRoutingRule[] = [...INITIAL_SKILL_ROUTING_RULES];
 
-  public getQueueMetrics(): {
+  public getQueueMetrics(tenantSlug?: string): {
     overallCapacityPercentage: number;
     totalActiveConversations: number;
     channels: ChannelLoadMeter[];
     rules: SkillRoutingRule[];
   } {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      const tenantData = db.getTenantData(clean);
+      const activeCount = tenantData.issues.length;
+      const cleanChannels: ChannelLoadMeter[] = [
+        {
+          channel: "email",
+          name: "Async Email & Web Form",
+          activeConversations: 0,
+          maxCapacity: 100,
+          loadPercentage: 0,
+          status: "optimal",
+          avgWaitTimeSeconds: 0,
+        },
+        {
+          channel: "live_chat",
+          name: "In-App Live Chat",
+          activeConversations: activeCount,
+          maxCapacity: 100,
+          loadPercentage: Math.min(100, activeCount * 5),
+          status: "optimal",
+          avgWaitTimeSeconds: 0,
+        },
+        {
+          channel: "voice",
+          name: "Voice Telephony",
+          activeConversations: 0,
+          maxCapacity: 40,
+          loadPercentage: 0,
+          status: "optimal",
+          avgWaitTimeSeconds: 0,
+        },
+        {
+          channel: "slack",
+          name: "Enterprise Slack Connect",
+          activeConversations: 0,
+          maxCapacity: 50,
+          loadPercentage: 0,
+          status: "optimal",
+          avgWaitTimeSeconds: 0,
+        },
+      ];
+      return {
+        overallCapacityPercentage: 0,
+        totalActiveConversations: activeCount,
+        channels: cleanChannels,
+        rules: this.rules,
+      };
+    }
+
     const totalActive = this.channels.reduce((sum, c) => sum + c.activeConversations, 0);
     const totalMax = this.channels.reduce((sum, c) => sum + c.maxCapacity, 0);
     const overallCapacityPercentage = Math.round((totalActive / totalMax) * 100);

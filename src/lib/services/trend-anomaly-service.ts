@@ -26,7 +26,11 @@ export interface AnomalyAlert {
 }
 
 export class TrendAnomalyService {
-  public getTrendSeries(): TrendDataPoint[] {
+  public getTrendSeries(tenantSlug?: string): TrendDataPoint[] {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return [];
+    }
     return [
       { date: "Aug 20", totalVolume: 120, checkoutFailures: 14, ssoAuth: 8, billing: 25, mfaSms: 12, csat: 95.0, sentimentNegativePct: 12 },
       { date: "Aug 21", totalVolume: 135, checkoutFailures: 18, ssoAuth: 10, billing: 28, mfaSms: 15, csat: 94.5, sentimentNegativePct: 14 },
@@ -38,7 +42,11 @@ export class TrendAnomalyService {
     ];
   }
 
-  public getAnomalies(): AnomalyAlert[] {
+  public getAnomalies(tenantSlug?: string): AnomalyAlert[] {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return [];
+    }
     return [
       {
         id: "anom_1",

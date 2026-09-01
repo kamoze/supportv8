@@ -88,7 +88,7 @@ export function SupportChatWidget({
     }
   };
 
-  const handleSubmitIntake = (e: React.FormEvent) => {
+  const handleSubmitIntake = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
 
@@ -105,24 +105,57 @@ export function SupportChatWidget({
 
     // Start session
     setIsTyping(true);
-    const session = ChatWorkflowService.startSession({
-      tenantDomain: activeSlug,
-      stream: selectedStream,
-      customerName: formData.name || "Customer",
-      customerEmail: formData.email || "user@example.com",
-      intakeData: formData,
-    });
 
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: session }));
+    try {
+      const res = await fetch("/api/chat/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantDomain: activeSlug,
+          stream: selectedStream,
+          customerName: formData.name || "Customer",
+          customerEmail: formData.email || "user@example.com",
+          intakeData: formData,
+        }),
+      }).then((r) => r.json());
+
+      const session =
+        res?.session ||
+        ChatWorkflowService.startSession({
+          tenantDomain: activeSlug,
+          stream: selectedStream,
+          customerName: formData.name || "Customer",
+          customerEmail: formData.email || "user@example.com",
+          intakeData: formData,
+        });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: session }));
+      }
+
+      setActiveSession(session);
+      setActiveStep("chat");
+    } catch (_) {
+      const session = ChatWorkflowService.startSession({
+        tenantDomain: activeSlug,
+        stream: selectedStream,
+        customerName: formData.name || "Customer",
+        customerEmail: formData.email || "user@example.com",
+        intakeData: formData,
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: session }));
+      }
+
+      setActiveSession(session);
+      setActiveStep("chat");
+    } finally {
+      setTimeout(() => setIsTyping(false), 500);
     }
-
-    setActiveSession(session);
-    setActiveStep("chat");
-    setTimeout(() => setIsTyping(false), 600);
   };
 
-  const handleSendMessage = (e?: React.FormEvent, directText?: string) => {
+  const handleSendMessage = async (e?: React.FormEvent, directText?: string) => {
     e?.preventDefault();
     const textToSend = (directText !== undefined ? directText : inputMessage).trim();
     if (!textToSend || !activeSession) return;
@@ -130,22 +163,53 @@ export function SupportChatWidget({
     setInputMessage("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      setIsTyping(false);
-      const res = ChatWorkflowService.sendMessage({
-        sessionId: activeSession.id,
-        content: textToSend,
-        sender: "customer",
-        senderName: activeSession.customerName,
-      });
+    try {
+      const res = await fetch("/api/chat/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: activeSession.id,
+          content: textToSend,
+          sender: "customer",
+          senderName: activeSession.customerName,
+        }),
+      }).then((r) => r.json());
 
       if (res?.session) {
         setActiveSession({ ...res.session });
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: res.session }));
         }
+      } else {
+        const localRes = ChatWorkflowService.sendMessage({
+          sessionId: activeSession.id,
+          content: textToSend,
+          sender: "customer",
+          senderName: activeSession.customerName,
+        });
+        if (localRes?.session) {
+          setActiveSession({ ...localRes.session });
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: localRes.session }));
+          }
+        }
       }
-    }, 450);
+    } catch (_) {
+      const localRes = ChatWorkflowService.sendMessage({
+        sessionId: activeSession.id,
+        content: textToSend,
+        sender: "customer",
+        senderName: activeSession.customerName,
+      });
+      if (localRes?.session) {
+        setActiveSession({ ...localRes.session });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: localRes.session }));
+        }
+      }
+    } finally {
+      setTimeout(() => setIsTyping(false), 450);
+    }
   };
 
   const handleActionClick = (actionId: string, label: string) => {
@@ -155,20 +219,7 @@ export function SupportChatWidget({
       return;
     }
     if (actionId === "act_resolve" || label.toLowerCase().includes("confirm resolution")) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        const res = ChatWorkflowService.sendMessage({
-          sessionId: activeSession.id,
-          content: "I confirm this issue is resolved. Thank you!",
-          sender: "customer",
-          senderName: activeSession.customerName,
-        });
-        if (res?.session) {
-          res.session.status = "resolved";
-          setActiveSession({ ...res.session });
-        }
-      }, 300);
+      handleSendMessage(undefined, "I confirm this issue is resolved. Thank you!");
       return;
     }
     handleSendMessage(undefined, `[Action Requested: ${label}]`);
@@ -176,19 +227,7 @@ export function SupportChatWidget({
 
   const handleRequestHuman = () => {
     if (!activeSession) return;
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const res = ChatWorkflowService.sendMessage({
-        sessionId: activeSession.id,
-        content: "I would like to speak directly with a live human operator.",
-        sender: "customer",
-        senderName: activeSession.customerName,
-      });
-      if (res?.session) {
-        setActiveSession({ ...res.session });
-      }
-    }, 350);
+    handleSendMessage(undefined, "I would like to speak directly with a live human operator.");
   };
 
   const handleResetChat = () => {

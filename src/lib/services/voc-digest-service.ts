@@ -94,7 +94,7 @@ export class VocDigestService {
   private csatDistribution: CsatDistribution[] = [...INITIAL_CSAT_DISTRIBUTION];
   private topArticles: TopDelightKbArticle[] = [...TOP_DELIGHT_ARTICLES];
 
-  public getVocOverview(): {
+  public getVocOverview(tenantSlug?: string): {
     overallCsat: number;
     customerEffortScore: number;
     netPromoterScore: number;
@@ -104,6 +104,26 @@ export class VocDigestService {
     topDelightArticles: TopDelightKbArticle[];
     clusters: VocDriverCluster[];
   } {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return {
+        overallCsat: 100,
+        customerEffortScore: 5.0,
+        netPromoterScore: 75,
+        topDiscontentDriver: "None reported",
+        topDelightDriver: "Pristine Workspace",
+        csatDistribution: [
+          { score: 5, percentage: 100, count: 0 },
+          { score: 4, percentage: 0, count: 0 },
+          { score: 3, percentage: 0, count: 0 },
+          { score: 2, percentage: 0, count: 0 },
+          { score: 1, percentage: 0, count: 0 },
+        ],
+        topDelightArticles: [],
+        clusters: [],
+      };
+    }
+
     const neg = this.vocClusters.find((c) => c.category === "negative_discontent");
     const pos = this.vocClusters.find((c) => c.category === "positive_delight");
 
@@ -119,18 +139,25 @@ export class VocDigestService {
     };
   }
 
-  public generateShiftDigest(): ShiftHandoffDigest {
-    const sla = slaEngine.getSlaOverview();
-    const health = customerHealth.getHealthRadar();
-    const metrics = db.getOverviewMetrics();
-    const activeProblems = db.problems.filter((p) => p.status !== "resolved");
-    const estimatedSavings = 38400;
+  public generateShiftDigest(tenantSlug?: string): ShiftHandoffDigest {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    const isClean = clean !== "acme" && clean !== "meridian";
+    const sla = slaEngine.getSlaOverview(tenantSlug);
+    const health = customerHealth.getHealthRadar(tenantSlug);
+    const metrics = db.getOverviewMetrics(tenantSlug);
+    const tenantData = db.getTenantData(clean);
+    const activeProblems = tenantData.problems.filter((p) => p.status !== "resolved");
+    const estimatedSavings = isClean ? 0 : 38400;
+
+    const summaryText = isClean
+      ? `supportV8 workspace **${tenantData.tenant.name}** is active and operational. **0 active systemic problems** detected and **0 tickets** at risk. Real-time omnichannel ingress lines ready for inbound customer interactions.`
+      : `supportV8 autonomous operations maintained a **${metrics.varrRate}% VARR** over the past 24 hours, saving an estimated **142 engineering hours** ($${estimatedSavings.toLocaleString()}). **${activeProblems.length} active systemic problems** are undergoing mitigation with $${metrics.businessExposure.toLocaleString()} in revenue exposure. **${sla.atRiskCount} tickets** are currently flagged by the SLA Breach Predictor.`;
 
     return {
       id: `digest_${Date.now().toString().slice(-4)}`,
       shiftName: "Morning Standup & CX Operations Briefing",
       generatedAt: new Date().toISOString(),
-      executiveSummary: `supportV8 autonomous operations maintained a **${metrics.varrRate}% VARR** over the past 24 hours, saving an estimated **142 engineering hours** ($${estimatedSavings.toLocaleString()}). **${activeProblems.length} active systemic problems** are undergoing mitigation with $${metrics.businessExposure.toLocaleString()} in revenue exposure. **${sla.atRiskCount} tickets** are currently flagged by the SLA Breach Predictor.`,
+      executiveSummary: summaryText,
       keyMetrics: {
         varrRate: metrics.varrRate,
         totalTicketsResolved: metrics.issueVolume,

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { customerHealth } from "@/lib/services/customer-health-service";
 
-export async function GET() {
-  const radar = customerHealth.getHealthRadar();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const radar = customerHealth.getHealthRadar(tenant);
   return NextResponse.json({
     success: true,
     data: radar,

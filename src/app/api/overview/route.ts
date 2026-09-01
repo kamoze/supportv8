@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
   const tenantData = db.getTenantData(tenant);
-  const overview = db.getOverviewMetrics();
+  const overview = db.getOverviewMetrics(tenant);
 
   return NextResponse.json({
     success: true,

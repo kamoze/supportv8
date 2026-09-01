@@ -82,7 +82,7 @@ export const INITIAL_ACCOUNT_HEALTH_PROFILES: AccountHealthProfile[] = [
 export class CustomerHealthService {
   private profiles: AccountHealthProfile[] = [...INITIAL_ACCOUNT_HEALTH_PROFILES];
 
-  public getHealthRadar(): {
+  public getHealthRadar(tenantSlug?: string): {
     avgHealthScore: number;
     totalArrAtRisk: number;
     criticalCount: number;
@@ -91,6 +91,19 @@ export class CustomerHealthService {
     activeVipChurnAlerts: VipChurnAlert[];
     accounts: AccountHealthProfile[];
   } {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return {
+        avgHealthScore: 100,
+        totalArrAtRisk: 0,
+        criticalCount: 0,
+        concerningCount: 0,
+        healthyCount: 0,
+        activeVipChurnAlerts: [],
+        accounts: [],
+      };
+    }
+
     const totalArrAtRisk = this.profiles
       .filter((p) => p.riskLevel !== "healthy")
       .reduce((sum, p) => sum + p.arrExposure, 0);

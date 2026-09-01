@@ -784,14 +784,22 @@ export class ChatWorkflowService {
       session.assignedName = `${resolvedAdmin} (Support Lead)`;
       session.assignedAvatar = "/avatars/beaver-manager.jpg";
 
-      // Elevate ticket in db.issues with urgent priority and front-of-line elevation
+      // Elevate ticket in tenant issues and db.issues with urgent priority and front-of-line elevation
       const sessNum = session.id.replace("chat_sess_", "");
-      const existingIssue = db.issues.find(
-        (i) =>
-          i.externalId.includes(sessNum) ||
-          i.summary.includes(session.customerName) ||
-          i.customerName === session.customerName
-      );
+      const tenantIssues = db.getTenantData(session.tenantDomain).issues;
+      const existingIssue =
+        tenantIssues.find(
+          (i) =>
+            i.externalId.includes(sessNum) ||
+            i.summary.includes(session.customerName) ||
+            i.customerName === session.customerName
+        ) ||
+        db.issues.find(
+          (i) =>
+            i.externalId.includes(sessNum) ||
+            i.summary.includes(session.customerName) ||
+            i.customerName === session.customerName
+        );
 
       if (existingIssue) {
         existingIssue.priority = "urgent";

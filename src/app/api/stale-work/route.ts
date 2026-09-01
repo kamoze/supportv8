@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { staleWorkSweeper } from "@/lib/services/stale-work-sweeper";
 
-export async function GET() {
-  const candidates = staleWorkSweeper.getCandidates();
-  const dryRun = staleWorkSweeper.runDryRun();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const candidates = staleWorkSweeper.getCandidates(tenant);
+  const dryRun = staleWorkSweeper.runDryRun(tenant);
 
   return NextResponse.json({
     success: true,

@@ -158,9 +158,18 @@ export interface ChatMessage {
 
 export default function SupportV8Dashboard() {
   // Global View Mode & Multi-Tenant Routing
-  const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("global_landing");
-  const [currentTenantSlug, setCurrentTenantSlug] = useState<string>("acme");
   const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
+  const [currentTenantSlug, setCurrentTenantSlug] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const active = AuthService.getActiveSession();
+      if (active?.tenantSlug) return active.tenantSlug;
+      const params = new URLSearchParams(window.location.search);
+      const tenant = params.get("tenant") || params.get("slug");
+      if (tenant) return tenant;
+    }
+    return "acme";
+  });
+  const [viewMode, setViewMode] = useState<"cockpit" | "global_landing" | "tenant_landing">("global_landing");
   const [isSignupModalOpen, setIsSignupModalOpen] = useState<boolean>(false);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState<boolean>(false);
   const [signInPrefillEmail, setSignInPrefillEmail] = useState<string>("");
@@ -777,7 +786,7 @@ export default function SupportV8Dashboard() {
   };
 
   useEffect(() => {
-    fetchData();
+    let initialTenant = currentTenantSlug;
 
     // Detect Subdomain & URL parameters for tenant vs global landing vs cockpit
     if (typeof window !== "undefined") {
@@ -787,15 +796,12 @@ export default function SupportV8Dashboard() {
       const tenantParam = params.get("tenant") || params.get("slug");
       const landingParam = params.get("landing");
       const host = window.location.hostname;
+      const active = AuthService.getActiveSession();
 
-      if (viewParam === "cockpit" || adminParam === "true" || params.has("tab")) {
-        setViewMode("cockpit");
-        if (tenantParam) setCurrentTenantSlug(tenantParam);
-      } else if (landingParam === "global" || viewParam === "global") {
-        setViewMode("global_landing");
-      } else if (tenantParam || viewParam === "tenant") {
-        if (tenantParam) setCurrentTenantSlug(tenantParam);
-        setViewMode("tenant_landing");
+      if (tenantParam) {
+        initialTenant = tenantParam;
+      } else if (active?.tenantSlug) {
+        initialTenant = active.tenantSlug;
       } else if (
         host.includes(".support.") &&
         !host.startsWith("www.") &&
@@ -803,13 +809,33 @@ export default function SupportV8Dashboard() {
       ) {
         const slug = host.split(".")[0];
         if (slug && slug !== "support" && slug !== "localhost") {
-          setCurrentTenantSlug(slug);
-          setViewMode("tenant_landing");
+          initialTenant = slug;
         }
+      }
+
+      if (initialTenant !== currentTenantSlug) {
+        setCurrentTenantSlug(initialTenant);
+      }
+
+      if (viewParam === "cockpit" || adminParam === "true" || params.has("tab")) {
+        setViewMode("cockpit");
+        if (!active) {
+          setIsSignInModalOpen(true);
+        }
+      } else if (landingParam === "global" || viewParam === "global") {
+        setViewMode("global_landing");
+      } else if (tenantParam || viewParam === "tenant") {
+        setViewMode("tenant_landing");
+      } else if (active) {
+        setViewMode("cockpit");
+      } else if (initialTenant && initialTenant !== "acme") {
+        setViewMode("tenant_landing");
       } else {
         setViewMode("global_landing");
       }
     }
+
+    fetchData(initialTenant);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -817,8 +843,9 @@ export default function SupportV8Dashboard() {
         setIsChatOpen((prev) => !prev);
       }
     };
-    const handleTicketCreated = () => {
-      fetchData(currentTenantSlug);
+    const handleTicketCreated = (e?: any) => {
+      const tenantFromEvent = e?.detail?.tenantDomain;
+      fetchData(tenantFromEvent || currentTenantSlug);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -4164,18 +4191,37 @@ export default function SupportV8Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredIssues.map((issue) => (
-                      <tr
-                        key={issue.id}
-                        onClick={() => setSelectedIssue(issue)}
-                        className={`cursor-pointer transition-colors hover:bg-[#18222E]/60 ${
-                          selectedIssue?.id === issue.id ? "bg-[#18222E] border-l-2 border-[#2ED8B6]" : ""
-                        }`}
-                      >
-                        <td className="font-mono">
-                          <span className="font-bold text-[#EAF1F8] text-xs block">{issue.externalId}</span>
-                          <span className="pill text-[9px] uppercase mt-0.5 inline-block">{issue.source}</span>
+                    {filteredIssues.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-[#8E9AA8]">
+                          <div className="flex flex-col items-center justify-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-[#182635] border border-[#2ED8B6]/30 flex items-center justify-center text-[#2ED8B6]">
+                              <CheckCircle2 className="w-6 h-6" />
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-bold text-[#EAF1F8]">No Active Issues in this Workspace</h4>
+                              <p className="text-xs text-[#6B7C8D] max-w-md mx-auto">
+                                {currentTenantSlug === "acme"
+                                  ? "All issues have been resolved or filtered out."
+                                  : `Workspace '${currentTenantSlug}' is clean and operational. Inbound customer tickets from live chat, webhooks, or email will appear here in real-time.`}
+                              </p>
+                            </div>
+                          </div>
                         </td>
+                      </tr>
+                    ) : (
+                      filteredIssues.map((issue) => (
+                        <tr
+                          key={issue.id}
+                          onClick={() => setSelectedIssue(issue)}
+                          className={`cursor-pointer transition-colors hover:bg-[#18222E]/60 ${
+                            selectedIssue?.id === issue.id ? "bg-[#18222E] border-l-2 border-[#2ED8B6]" : ""
+                          }`}
+                        >
+                          <td className="font-mono">
+                            <span className="font-bold text-[#EAF1F8] text-xs block">{issue.externalId}</span>
+                            <span className="pill text-[9px] uppercase mt-0.5 inline-block">{issue.source}</span>
+                          </td>
                         <td>
                           <div className="font-bold text-[#EAF1F8] text-xs">{issue.customerName}</div>
                           <span className="text-[10px] text-[#6B7C8D] font-mono">{issue.customerTier} Tier</span>
@@ -4235,7 +4281,7 @@ export default function SupportV8Dashboard() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>

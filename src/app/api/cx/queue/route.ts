@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queueLoadBalancer } from "@/lib/services/queue-load-balancer-service";
 
-export async function GET() {
-  const metrics = queueLoadBalancer.getQueueMetrics();
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const metrics = queueLoadBalancer.getQueueMetrics(tenant);
   return NextResponse.json({
     success: true,
     data: metrics,

@@ -84,7 +84,7 @@ export const INITIAL_QA_SCORECARDS: QaScorecard[] = [
 export class QaScorecardService {
   private scorecards: QaScorecard[] = [...INITIAL_QA_SCORECARDS];
 
-  public getQaMetrics(): {
+  public getQaMetrics(tenantSlug?: string): {
     overallQaAverage: number;
     aiEmployeeAverage: number;
     humanAgentAverage: number;
@@ -92,6 +92,18 @@ export class QaScorecardService {
     fcrAverage: number;
     scorecards: QaScorecard[];
   } {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean !== "acme" && clean !== "meridian") {
+      return {
+        overallQaAverage: 100,
+        aiEmployeeAverage: 100,
+        humanAgentAverage: 100,
+        hallucinationRate: 0,
+        fcrAverage: 100,
+        scorecards: [],
+      };
+    }
+
     const total = this.scorecards.length;
     const overallQaAverage = Math.round(
       this.scorecards.reduce((sum, s) => sum + s.overallScore, 0) / total

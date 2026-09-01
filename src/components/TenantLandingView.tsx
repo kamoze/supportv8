@@ -593,6 +593,7 @@ export function TenantLandingView({
 
       {/* Embedded Tenant-Scoped Support Chat Widget */}
       <SupportChatWidget
+        key={tenantSlug}
         defaultStream={isMeridian ? "contractors" : "customers"}
         tenantDomain={tenantSlug}
       />

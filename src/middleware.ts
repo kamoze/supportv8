@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  browserTenantSlugFromHostname,
+  isTrustedServiceV8Hostname,
+} from "@/lib/tenant-host";
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") || "";
 
-  // Extract tenant from subdomain: <tenant>.support.servicev8.com or <tenant>.support.servicev8.internal
-  let tenantDomain = "tenant_default";
-  if (hostname.includes(".support.servicev8.com") || hostname.includes(".support.servicev8.internal") || hostname.includes(".support.")) {
-    const parts = hostname.split(".support.");
-    const sub = parts[0]?.toLowerCase().trim();
-    if (sub && sub !== "support" && sub !== "www" && sub !== "localhost") {
-      tenantDomain = sub;
-    }
+  // Public chat intake is only accepted on an exact ServiceV8 tenant or root
+  // hostname. This prevents a forged Host such as tenant.support.attacker.tld
+  // from becoming trusted tenant context.
+  if (url.pathname.startsWith("/api/chat/") && !isTrustedServiceV8Hostname(hostname)) {
+    return NextResponse.json({ error: "Unknown SupportV8 host" }, { status: 421 });
   }
+
+  const tenantDomain = browserTenantSlugFromHostname(hostname) || "tenant_default";
 
   // Overwrite, rather than trust, any inbound tenant header. Route handlers use
   // this request header as the public-host tenant boundary.

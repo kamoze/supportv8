@@ -34,8 +34,12 @@ import {
   ChatWorkflowService,
 } from "@/lib/services/chat-workflow-service";
 import {
+  clearStoredChatSessionId,
   createOptimisticChatMessage,
   mergeChatSession,
+  readStoredChatSessionId,
+  recoverStoredChatSession,
+  storeChatSessionId,
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
 
@@ -71,6 +75,50 @@ export function SupportChatWidget({
 
   const workflows = ChatWorkflowService.getWorkflows();
   const currentWorkflow: ChatWorkflowConfig = workflows[selectedStream] || DEFAULT_CHAT_WORKFLOWS.customers;
+  const tenantSessionKey = tenantDomain || tenantSlug;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setActiveSession(null);
+    setActiveStep("select_stream");
+    setSelectedStream(defaultStream || "customers");
+    setFormData({});
+    setFormErrors({});
+    setInputMessage("");
+    setChatError(null);
+    if (!readStoredChatSessionId(window.sessionStorage, tenantSessionKey)) return;
+
+    let cancelled = false;
+    setIsTyping(true);
+    setChatError(null);
+    recoverStoredChatSession(window.sessionStorage, tenantSessionKey, async (storedSessionId) => {
+      const response = await fetch(`/api/chat/session?sessionId=${encodeURIComponent(storedSessionId)}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      const result = await response.json();
+      return { status: response.status, session: result?.session as CustomerChatSession | undefined };
+    })
+      .then((recovery) => {
+        if (cancelled) return;
+        if (recovery.state === "restored") {
+          setSelectedStream(recovery.session.stream);
+          setFormData(recovery.session.intakeData || {});
+          setActiveSession(recovery.session);
+          setActiveStep("chat");
+        } else if (recovery.state === "retry") {
+          setChatError("We could not restore your chat yet. Reload to retry without losing the conversation.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsTyping(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [defaultStream, tenantSessionKey]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -122,6 +170,7 @@ export function SupportChatWidget({
         signal: AbortSignal.timeout(15_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          tenantSlug: tenantSessionKey,
           stream: selectedStream,
           customerName: formData.name || "Customer",
           customerEmail: formData.email || "user@example.com",
@@ -140,6 +189,9 @@ export function SupportChatWidget({
 
       setActiveSession(session);
       setActiveStep("chat");
+      if (typeof window !== "undefined") {
+        storeChatSessionId(window.sessionStorage, tenantSessionKey, session.id);
+      }
     } catch (error) {
       setChatError(error instanceof Error ? error.message : "Unable to start chat. Please try again.");
     } finally {
@@ -220,6 +272,9 @@ export function SupportChatWidget({
   };
 
   const handleResetChat = () => {
+    if (typeof window !== "undefined") {
+      clearStoredChatSessionId(window.sessionStorage, tenantSessionKey);
+    }
     setActiveSession(null);
     setFormData({});
     setFormErrors({});

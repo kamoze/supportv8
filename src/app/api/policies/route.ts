@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { policyEngine } from "@/lib/services/policy-engine";
 
-export async function GET() {
-  const policy = policyEngine.getPolicy();
+export async function GET(req?: NextRequest) {
+  const searchParams = req?.url ? new URL(req.url).searchParams : undefined;
+  const tenant = searchParams?.get("tenant") || req?.headers?.get("x-tenant-slug") || req?.headers?.get("x-tenant-id") || undefined;
+  const policy = policyEngine.getPolicy(tenant);
   return NextResponse.json({
     success: true,
     data: policy,

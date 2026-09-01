@@ -21,13 +21,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
     const body = await req.json();
     const { action, issueId, id, updates, ...rest } = body;
+    const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || req.headers.get("x-tenant-id") || body.tenant || body.tenantSlug || undefined;
 
     if (action === "update" || action === "resolve" || action === "change_status") {
       const targetId = issueId || id;
       const payload = updates || (action === "resolve" ? { status: "resolved" } : rest);
-      const updated = issueService.updateIssue(targetId, payload);
+      const updated = issueService.updateIssue(targetId, payload, tenant);
       if (!updated) {
         return NextResponse.json({ success: false, error: `Issue ${targetId} not found` }, { status: 404 });
       }
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const issue = issueService.createFromInteraction(body);
+    const issue = issueService.createFromInteraction({ ...body, tenant });
     return NextResponse.json({
       success: true,
       data: issue,
@@ -53,13 +55,15 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
     const body = await req.json();
     const { id, issueId, ...updates } = body;
+    const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || req.headers.get("x-tenant-id") || body.tenant || body.tenantSlug || undefined;
     const targetId = id || issueId;
     if (!targetId) {
       return NextResponse.json({ success: false, error: "Missing issue ID" }, { status: 400 });
     }
-    const updated = issueService.updateIssue(targetId, updates);
+    const updated = issueService.updateIssue(targetId, updates, tenant);
     if (!updated) {
       return NextResponse.json({ success: false, error: `Issue ${targetId} not found` }, { status: 404 });
     }

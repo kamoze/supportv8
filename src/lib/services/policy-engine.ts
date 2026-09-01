@@ -149,9 +149,20 @@ export class PolicyEngine {
     },
   ];
 
-  public getPolicy(): SupportPolicy {
+  public getPolicy(tenantSlug?: string): SupportPolicy {
+    let tenantMode = db.policy.operatingMode;
+    if (tenantSlug) {
+      const clean = tenantSlug.toLowerCase().trim();
+      if (clean !== "acme" && clean !== "default") {
+        const tenantData = db.getTenantData(clean);
+        if (tenantData.tenant?.mode) {
+          tenantMode = tenantData.tenant.mode;
+        }
+      }
+    }
     return {
       ...db.policy,
+      operatingMode: tenantMode,
       rules: this.initialRules,
     };
   }

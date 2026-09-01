@@ -45,8 +45,17 @@ export class IssueService {
     return result;
   }
 
-  public getById(id: string): Issue | undefined {
-    return db.issues.find((i) => i.id === id);
+  public getById(id: string, tenantSlug?: string): Issue | undefined {
+    if (tenantSlug) {
+      return db.getTenantData(tenantSlug).issues.find((i) => i.id === id);
+    }
+    const seeded = db.issues.find((i) => i.id === id);
+    if (seeded) return seeded;
+    for (const issues of (db as any).dynamicTenantIssues?.values?.() || []) {
+      const match = issues.find((i: Issue) => i.id === id);
+      if (match) return match;
+    }
+    return undefined;
   }
 
   public createFromInteraction(params: {
@@ -58,10 +67,12 @@ export class IssueService {
     text: string;
     product?: string;
     version?: string;
+    tenant?: string;
   }): Issue {
     const triage = triageEngine.classify(params.text, params.customerTier);
     const id = `ISS-${1000 + db.issues.length + 1}`;
     const timestamp = new Date().toISOString();
+    const tenantSlug = (params.tenant || "acme").toLowerCase().trim();
 
     let sourceUrl = `https://support.acme.com/agent/tickets/${params.externalId}`;
     if (params.source === "zendesk") {
@@ -74,7 +85,7 @@ export class IssueService {
 
     const newIssue: Issue = {
       id,
-      tenantId: db.tenant.tenantId,
+      tenantId: `tenant_${tenantSlug.replace(/[^a-z0-9-]/g, "_")}`,
       source: params.source,
       externalId: params.externalId,
       sourceUrl,
@@ -99,12 +110,12 @@ export class IssueService {
       updatedAt: timestamp,
     };
 
-    db.issues.unshift(newIssue);
+    db.addIssue(newIssue, tenantSlug);
     return newIssue;
   }
 
-  public updateIssue(id: string, partial: Partial<Issue>): Issue | undefined {
-    const issue = db.issues.find((i) => i.id === id);
+  public updateIssue(id: string, partial: Partial<Issue>, tenantSlug?: string): Issue | undefined {
+    const issue = this.getById(id, tenantSlug);
     if (!issue) return undefined;
     Object.assign(issue, { ...partial, updatedAt: new Date().toISOString() });
     return issue;

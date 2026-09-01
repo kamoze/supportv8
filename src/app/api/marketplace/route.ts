@@ -1,7 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 
-export async function GET() {
+export async function GET(req?: NextRequest) {
+  const searchParams = req?.url ? new URL(req.url).searchParams : undefined;
+  const tenant = searchParams?.get("tenant") || req?.headers?.get("x-tenant-slug") || req?.headers?.get("x-tenant-id") || "acme";
+  const clean = tenant.toLowerCase().trim();
+
+  if (clean !== "acme" && clean !== "meridian" && clean !== "default") {
+    const connectors = marketplaceService.getConnectors().map((c) => ({
+      ...c,
+      isSubscribed: false,
+      status: "available" as const,
+    }));
+    const workforce = marketplaceService.getWorkforceCatalog().map((w) => ({
+      ...w,
+      isHired: false,
+      hiredCount: 0,
+    }));
+    const plans = marketplaceService.getPlans();
+    const settings = {
+      ...marketplaceService.getSettings(),
+      tenantId: `tenant_${clean}`,
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        credits: 1000,
+        connectors,
+        workforce,
+        plans,
+        members: [],
+        settings,
+        reports: [],
+        auditLogs: [],
+      },
+    });
+  }
+
   const credits = marketplaceService.getCredits();
   const connectors = marketplaceService.getConnectors();
   const workforce = marketplaceService.getWorkforceCatalog();

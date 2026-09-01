@@ -628,10 +628,10 @@ export class ChatWorkflowService {
     const extId = `SV8-CHAT-${seqChat}`;
     const newIssue: Issue = {
       id: `iss_chat_${seqChat}`,
-      tenantId: `tenant_${params.tenantDomain || "default"}`,
+      tenantId: `tenant_${rawSubdomain.replace(/[^a-z0-9-]/g, "_")}`,
       externalId: extId,
       source: "chat",
-      sourceUrl: `https://${params.tenantDomain || "support"}.servicev8.com/chat/${sessionId}`,
+      sourceUrl: `https://${rawSubdomain || "support"}.servicev8.com/chat/${sessionId}`,
       customerRef: `cust_${params.customerEmail ? params.customerEmail.split("@")[0] : "live"}`,
       entityType: params.stream === "contractors" ? "contractor" : "customer",
       customerName: params.customerName,
@@ -652,7 +652,7 @@ export class ChatWorkflowService {
       recommendedAction: assignedType === "human"
         ? "Human operator requested. Immediate live assistance assigned."
         : `AI Employee ${assignedName} active on session ${extId}.`,
-      tags: ["chat_intake", params.stream, params.tenantDomain || "default"],
+      tags: ["chat_intake", params.stream, rawSubdomain || "default"],
       assignedTo: assignedName,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -669,11 +669,11 @@ export class ChatWorkflowService {
     };
 
     // Store in shared tenant database
-    db.addIssue(newIssue, params.tenantDomain);
+    db.addIssue(newIssue, rawSubdomain);
 
     const session: CustomerChatSession = {
       id: sessionId,
-      tenantDomain: params.tenantDomain,
+      tenantDomain: rawSubdomain,
       stream: params.stream,
       customerName: params.customerName,
       customerEmail: params.customerEmail,
@@ -698,7 +698,26 @@ export class ChatWorkflowService {
    * Get all active sessions for a tenant
    */
   static listSessions(tenantDomain = "tenant_default"): CustomerChatSession[] {
-    return chatSessions;
+    const rawSubdomain = (tenantDomain || "acme")
+      .toLowerCase()
+      .replace(/^tenant_/, "")
+      .replace(".support.servicev8.com", "")
+      .replace(".support.servicev8.internal", "")
+      .replace(".support.", "");
+
+    return chatSessions.filter((s) => {
+      const sessDomain = (s.tenantDomain || "acme")
+        .toLowerCase()
+        .replace(/^tenant_/, "")
+        .replace(".support.servicev8.com", "")
+        .replace(".support.servicev8.internal", "")
+        .replace(".support.", "");
+
+      if (rawSubdomain === "acme" || rawSubdomain === "default") {
+        return sessDomain === "acme" || sessDomain === "default";
+      }
+      return sessDomain === rawSubdomain;
+    });
   }
 
   static getSession(sessionId: string): CustomerChatSession | null {

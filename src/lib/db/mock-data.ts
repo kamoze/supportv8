@@ -1366,12 +1366,16 @@ class SupportDatabase {
 
   public getTenantData(slug: string = "acme") {
     const cleanSlug = slug.toLowerCase().trim();
+    // Allowed seed tenantIds for the "acme" demo workspace
+    const ACME_ALLOWED_TENANT_IDS = new Set(["tenant_default", "tenant_acme"]);
+    const MERIDIAN_ALLOWED_TENANT_IDS = new Set(["tenant_meridian"]);
+
     if (cleanSlug === "acme" || cleanSlug === "default") {
       return {
         tenant: { ...this.tenant, name: "Acme Corp", tenantId: "tenant_acme" },
         issues: this.issues.filter(
           (i) =>
-            (i.tenantId === "tenant_default" || i.tenantId === "tenant_acme" || !i.tenantId) &&
+            (ACME_ALLOWED_TENANT_IDS.has(i.tenantId || "tenant_default")) &&
             !i.category?.includes("contractor") &&
             !i.tags?.includes("contractor")
         ),
@@ -1390,15 +1394,15 @@ class SupportDatabase {
         tenant: { ...this.tenant, name: "Meridian Logistics", tenantId: "tenant_meridian" },
         issues: this.issues.filter(
           (i) =>
-            (i.tenantId === "tenant_meridian" || i.tenantId === "tenant_default" || !i.tenantId) &&
+            (MERIDIAN_ALLOWED_TENANT_IDS.has(i.tenantId || "") || ACME_ALLOWED_TENANT_IDS.has(i.tenantId || "tenant_default")) &&
             (i.category?.includes("contractor") || i.tags?.includes("contractor") || i.entityType === "contractor")
         ),
         problems: this.problems.filter((p) => p.title.toLowerCase().includes("lockbox") || p.title.toLowerCase().includes("dispatch") || p.title.toLowerCase().includes("contractor")),
-        insights: this.insights,
-        sources: this.sources,
-        documents: this.documents,
-        documentChunks: this.documentChunks,
-        webSources: this.webSources,
+        insights: [] as Insight[],
+        sources: [] as SourceConnector[],
+        documents: [] as KnowledgeDocument[],
+        documentChunks: [] as KnowledgeDocumentChunk[],
+        webSources: [] as KnowledgeWebSource[],
         isClean: false,
       };
     }
@@ -1518,13 +1522,20 @@ class SupportDatabase {
 
   public addIssue(issue: Issue, tenantSlug: string = "default") {
     const clean = tenantSlug.toLowerCase().trim();
-    if (clean === "acme" || clean === "meridian" || clean === "default") {
+    // Ensure the issue has a properly scoped tenantId
+    if (!issue.tenantId || issue.tenantId === "tenant_default") {
+      issue.tenantId = `tenant_${clean.replace(/[^a-z0-9-]/g, "_")}`;
+    }
+    if (clean === "acme" || clean === "default") {
+      issue.tenantId = clean === "default" ? "tenant_default" : "tenant_acme";
+      this.issues.unshift(issue);
+    } else if (clean === "meridian") {
+      issue.tenantId = "tenant_meridian";
       this.issues.unshift(issue);
     } else {
+      // Dynamic (customer) tenants: store ONLY in the tenant-scoped map, never pollute the global array
       const existing = this.dynamicTenantIssues.get(clean) || [];
       this.dynamicTenantIssues.set(clean, [issue, ...existing.filter((i) => i.id !== issue.id)]);
-      // Also add to global issues list so it appears in workdesk
-      this.issues.unshift(issue);
     }
   }
 }

@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verticalClients, type VerticalTarget } from "@/lib/verticals/vertical-clients";
 
-export async function GET() {
+export async function GET(req?: NextRequest) {
+  const searchParams = req?.url ? new URL(req.url).searchParams : undefined;
+  const tenant = searchParams?.get("tenant") || req?.headers?.get("x-tenant-slug") || req?.headers?.get("x-tenant-id") || "acme";
+  const clean = tenant.toLowerCase().trim();
+
+  if (clean !== "acme" && clean !== "meridian" && clean !== "default") {
+    return NextResponse.json({
+      success: true,
+      count: 0,
+      data: [],
+    });
+  }
+
   const verticals = await verticalClients.getVerticalsStatus();
   return NextResponse.json({
     success: true,

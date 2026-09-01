@@ -13,7 +13,10 @@ export class ProblemService {
     return db.getTenantData(tenantSlug).problems;
   }
 
-  public getById(id: string): Problem | undefined {
+  public getById(id: string, tenantSlug?: string): Problem | undefined {
+    if (tenantSlug) {
+      return db.getTenantData(tenantSlug).problems.find((p) => p.id === id);
+    }
     return db.problems.find((p) => p.id === id);
   }
 

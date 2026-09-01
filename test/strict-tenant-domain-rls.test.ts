@@ -161,5 +161,29 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
         expect(["acme", "meridian"]).toContain(u.tenantSlug);
       });
     });
+
+    it("should isolate insights and sources for meridian without leaking acme data", () => {
+      const meridianData = db.getTenantData("meridian");
+      expect(meridianData.insights.length).toBe(0);
+      expect(meridianData.sources.length).toBe(0);
+    });
+
+    it("should enforce tenant scoping on issueService getById and updateIssue", () => {
+      const acmeIssues = issueService.getAll({ tenant: "acme" });
+      const targetAcmeIssue = acmeIssues[0];
+
+      // Lookup within acme succeeds
+      const foundInAcme = issueService.getById(targetAcmeIssue.id, "acme");
+      expect(foundInAcme).toBeDefined();
+      expect(foundInAcme?.id).toBe(targetAcmeIssue.id);
+
+      // Cross-tenant lookup for acme issue in acme-movers returns undefined
+      const crossTenantLookup = issueService.getById(targetAcmeIssue.id, "acme-movers");
+      expect(crossTenantLookup).toBeUndefined();
+
+      // Cross-tenant update for acme issue in acme-movers fails
+      const crossTenantUpdate = issueService.updateIssue(targetAcmeIssue.id, { status: "closed" }, "acme-movers");
+      expect(crossTenantUpdate).toBeUndefined();
+    });
   });
 });

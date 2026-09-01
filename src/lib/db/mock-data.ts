@@ -1130,12 +1130,12 @@ class SupportDatabase {
     const tenantData = this.getTenantData(cleanSlug);
 
     // Customer tenants (e.g. acme-movers or any newly registered customer workspace)
-    if (cleanSlug !== "acme" && cleanSlug !== "meridian" && cleanSlug !== "default") {
+    if (cleanSlug !== "acme" && cleanSlug !== "meridian") {
       const dynamicIssues = tenantData.issues;
       const positiveIssues = dynamicIssues.filter(
         (i) => (i.sentimentScore ?? 0) >= -0.3 && i.sentiment !== "angry" && i.sentiment !== "urgent"
       ).length;
-      const csat = dynamicIssues.length > 0 ? parseFloat(((positiveIssues / dynamicIssues.length) * 100).toFixed(1)) : 100;
+      const csat = dynamicIssues.length > 0 ? parseFloat(((positiveIssues / dynamicIssues.length) * 100).toFixed(1)) : 0;
       const autonomousResolvedCount = dynamicIssues.filter(
         (i) =>
           i.tags.includes("autonomous_resolved") ||
@@ -1370,7 +1370,7 @@ class SupportDatabase {
     const ACME_ALLOWED_TENANT_IDS = new Set(["tenant_default", "tenant_acme"]);
     const MERIDIAN_ALLOWED_TENANT_IDS = new Set(["tenant_meridian"]);
 
-    if (cleanSlug === "acme" || cleanSlug === "default") {
+    if (cleanSlug === "acme") {
       return {
         tenant: { ...this.tenant, name: "Acme Corp", tenantId: "tenant_acme" },
         issues: this.issues.filter(
@@ -1426,7 +1426,7 @@ class SupportDatabase {
 
     return {
       tenant: {
-        tenantId: dynamicTenant?.tenantId || `tenant_${cleanSlug}`,
+        tenantId: dynamicTenant?.tenantId || `tenant_${cleanSlug.replace(/-/g, "_")}`,
         name: resolvedName,
         mode: dynamicTenant?.mode || ("copilot" as OperatingMode),
         featureFlags: dynamicTenant?.featureFlags || {
@@ -1514,20 +1514,20 @@ class SupportDatabase {
 
   public getTenantAdminName(slug: string = "acme"): string {
     const clean = slug.toLowerCase().trim();
-    if (clean === "acme" || clean === "default") return "Sarah Chen";
+    if (clean === "acme") return "Sarah Chen";
     if (clean === "meridian") return "Meridian Dispatch";
     const found = this.dynamicTenants.get(clean);
     return found?.adminName || "Support Lead";
   }
 
-  public addIssue(issue: Issue, tenantSlug: string = "default") {
+  public addIssue(issue: Issue, tenantSlug: string = "acme") {
     const clean = tenantSlug.toLowerCase().trim();
     // Ensure the issue has a properly scoped tenantId
     if (!issue.tenantId || issue.tenantId === "tenant_default") {
       issue.tenantId = `tenant_${clean.replace(/[^a-z0-9-]/g, "_")}`;
     }
-    if (clean === "acme" || clean === "default") {
-      issue.tenantId = clean === "default" ? "tenant_default" : "tenant_acme";
+    if (clean === "acme") {
+      issue.tenantId = "tenant_acme";
       this.issues.unshift(issue);
     } else if (clean === "meridian") {
       issue.tenantId = "tenant_meridian";

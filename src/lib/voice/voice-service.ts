@@ -23,7 +23,7 @@ import { kv8RetrievalEngine } from "../rag/retrieval";
 export const INITIAL_PHONE_CONFIGS: VoicePhoneConfig[] = [
   {
     id: "phone_01",
-    tenantId: "tenant_default",
+    tenantId: "tenant_acme",
     phoneNumber: "+1 (800) 555-0199",
     provider: "vapi",
     serviceMode: "customer",
@@ -50,7 +50,7 @@ export const INITIAL_PHONE_CONFIGS: VoicePhoneConfig[] = [
   },
   {
     id: "phone_02",
-    tenantId: "tenant_default",
+    tenantId: "tenant_acme",
     phoneNumber: "+1 (888) 420-7711",
     provider: "twilio",
     serviceMode: "official",
@@ -76,7 +76,7 @@ export const INITIAL_PHONE_CONFIGS: VoicePhoneConfig[] = [
   },
   {
     id: "phone_03",
-    tenantId: "tenant_default",
+    tenantId: "tenant_acme",
     phoneNumber: "+1 (800) 772-9100",
     provider: "vapi",
     serviceMode: "customer",
@@ -108,7 +108,7 @@ export const INITIAL_PHONE_CONFIGS: VoicePhoneConfig[] = [
 export const INITIAL_VOICE_SESSIONS: VoiceSession[] = [
   {
     id: "vcall_101",
-    tenantId: "tenant_default",
+    tenantId: "tenant_acme",
     provider: "vapi",
     providerCallRef: "call_vapi_9941a8",
     callerNumber: "+1 (415) 890-1234",
@@ -150,7 +150,9 @@ export class VoiceService {
   }
 
   public getSessions(tenantId: string): VoiceSession[] {
-    return [...this.sessions].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+    return this.sessions
+      .filter((session) => session.tenantId === tenantId)
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
   }
 
   public getPhoneConfigById(configId: string): VoicePhoneConfig | undefined {

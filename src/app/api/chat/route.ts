@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const citations: Array<{ type: "problem" | "issue" | "insight" | "metric" | "document"; id: string; title: string }> = [];
     const suggestedActions: Array<{ label: string; action: string; targetTab?: string; payload?: any }> = [];
 
-    const isDemoTenant = ["acme", "meridian", "default"].includes(tenant.tenantSlug);
+    const isDemoTenant = ["acme", "meridian"].includes(tenant.tenantSlug);
     if (!isDemoTenant) {
       const tenantData = db.getTenantData(tenant.tenantSlug);
       answer = `**${employee.name}:**\n\nThis workspace currently has ${tenantData.issues.length} tenant-scoped issue${tenantData.issues.length === 1 ? "" : "s"} and ${tenantData.problems.length} active problem${tenantData.problems.length === 1 ? "" : "s"}. I will only use data from ${tenant.tenantSlug}.`;

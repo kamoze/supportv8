@@ -145,15 +145,15 @@ const ASSIGNMENTS: Record<ChatStreamType, Assignment> = {
   },
 };
 
-function assignmentForTenant(tenantSlug: string, stream: ChatStreamType): Assignment {
+export function assignmentForTenant(tenantSlug: string, stream: ChatStreamType): Assignment {
   const clean = tenantSlug.trim().toLowerCase();
-  if (clean === "acme" || clean === "meridian" || clean === "default") {
+  if (clean === "acme" || clean === "meridian") {
     return ASSIGNMENTS[stream];
   }
   return {
     type: "human",
     id: "human_support_queue",
-    name: "Support team",
+    name: "Available online operator",
     avatar: "",
     groupId: `group_${stream}`,
   };
@@ -411,7 +411,7 @@ export class ChatRepository {
     const initialContent = input.intakeData.details || `Hello, I need assistance with ${workflowTitle}.`;
     const greeting = assignment.type === "ai"
       ? `Hello ${input.customerName}! I’m ${assignment.name} from ${tenantName} Support. Your ${workflowTitle} request (${externalId}) is now recorded in the operator work desk.`
-      : `Hello ${input.customerName}! Your ${workflowTitle} request (${externalId}) is recorded in the operator work desk. A member of the ${tenantName} support team will reply here.`;
+      : `Hello ${input.customerName}! Your ${workflowTitle} request (${externalId}) is recorded in the operator work desk. An available online operator will reply here.`;
 
     return this.client.withTenantSession(input.tenantId, async (db) => {
       await db.query(

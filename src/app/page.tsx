@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Activity,
   AlertCircle,
@@ -177,6 +177,42 @@ const EMPTY_PLANS = INITIAL_PLANS.map((plan) => ({
   actionNote: plan.id === "plan_starter" ? undefined : plan.actionNote,
 }));
 
+function EmptyAnalyticsState({
+  onOpenWorkDesk,
+  onOpenChannels,
+}: {
+  onOpenWorkDesk: () => void;
+  onOpenChannels: () => void;
+}) {
+  return (
+    <section className="card min-h-[420px] px-6 py-12 flex items-center justify-center" aria-labelledby="empty-analytics-title">
+      <div className="max-w-xl text-center space-y-5">
+        <div className="mx-auto w-12 h-12 rounded-xl border border-[var(--line-2)] bg-[#18222E] flex items-center justify-center">
+          <BarChart3 className="w-5 h-5 text-[#2ED8B6]" aria-hidden="true" />
+        </div>
+        <div className="space-y-2">
+          <h1 id="empty-analytics-title" className="text-xl font-bold text-[#EAF1F8]">
+            Analytics will appear after your first conversation
+          </h1>
+          <p className="text-sm text-[#B4C2D0] leading-relaxed">
+            This workspace has no imported history, subscriptions, employees, or generated metrics. New customer chats will route to the available online operator queue.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+          <button type="button" onClick={onOpenWorkDesk} className="btn btn-primary justify-center">
+            <Briefcase className="w-3.5 h-3.5" aria-hidden="true" />
+            Open Work Desk
+          </button>
+          <button type="button" onClick={onOpenChannels} className="btn btn-secondary justify-center">
+            <Plug className="w-3.5 h-3.5" aria-hidden="true" />
+            Connect a channel
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function SupportV8Dashboard() {
   // Global View Mode & Multi-Tenant Routing
   const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
@@ -199,6 +235,8 @@ export default function SupportV8Dashboard() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
   const [targetDemoSlug, setTargetDemoSlug] = useState<string>("acme");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
+  const loadedTenantSlugRef = useRef<string | null>(null);
+  const tenantFetchGenerationRef = useRef(0);
 
   // Gated Demo Access Handler
   const handleRequestDemoAccess = (slug: string = "acme") => {
@@ -292,7 +330,7 @@ export default function SupportV8Dashboard() {
     atRiskCount: number;
     breachedCount: number;
     tickets: any[];
-  }>({ attainmentRate: 98.4, totalTracked: 5, healthyCount: 3, atRiskCount: 2, breachedCount: 1, tickets: [] });
+  }>({ attainmentRate: 0, totalTracked: 0, healthyCount: 0, atRiskCount: 0, breachedCount: 0, tickets: [] });
 
   const [customerHealthData, setCustomerHealthData] = useState<{
     avgHealthScore: number;
@@ -302,7 +340,7 @@ export default function SupportV8Dashboard() {
     healthyCount: number;
     activeVipChurnAlerts: any[];
     accounts: any[];
-  }>({ avgHealthScore: 78, totalArrAtRisk: 420000, criticalCount: 1, concerningCount: 1, healthyCount: 2, activeVipChurnAlerts: [], accounts: [] });
+  }>({ avgHealthScore: 0, totalArrAtRisk: 0, criticalCount: 0, concerningCount: 0, healthyCount: 0, activeVipChurnAlerts: [], accounts: [] });
 
   const [healthViewMode, setHealthViewMode] = useState<"card" | "list">("card");
   const [selectedAccountForForm, setSelectedAccountForForm] = useState<any | null>(null);
@@ -315,7 +353,7 @@ export default function SupportV8Dashboard() {
     hallucinationRate: number;
     fcrAverage: number;
     scorecards: any[];
-  }>({ overallQaAverage: 94, aiEmployeeAverage: 92, humanAgentAverage: 95, hallucinationRate: 2.1, fcrAverage: 88, scorecards: [] });
+  }>({ overallQaAverage: 0, aiEmployeeAverage: 0, humanAgentAverage: 0, hallucinationRate: 0, fcrAverage: 0, scorecards: [] });
 
   const [vocDigestData, setVocDigestData] = useState<{
     voc: {
@@ -331,9 +369,9 @@ export default function SupportV8Dashboard() {
     digest: any;
   }>({
     voc: {
-      overallCsat: 91.4,
-      customerEffortScore: 4.6,
-      netPromoterScore: 54,
+      overallCsat: 0,
+      customerEffortScore: 0,
+      netPromoterScore: 0,
       topDiscontentDriver: "",
       topDelightDriver: "",
       csatDistribution: [],
@@ -348,7 +386,7 @@ export default function SupportV8Dashboard() {
     totalActiveConversations: number;
     channels: any[];
     rules: any[];
-  }>({ overallCapacityPercentage: 46, totalActiveConversations: 142, channels: [], rules: [] });
+  }>({ overallCapacityPercentage: 0, totalActiveConversations: 0, channels: [], rules: [] });
 
   const [knowledge, setKnowledge] = useState<{
     articles: KnowledgeArticle[];
@@ -531,7 +569,51 @@ export default function SupportV8Dashboard() {
     try {
       setLoading(true);
       const activeSlug = overrideTenant || currentTenantSlug || "acme";
-      if (!["acme", "meridian", "default"].includes(activeSlug)) {
+      const fetchGeneration = ++tenantFetchGenerationRef.current;
+      if (loadedTenantSlugRef.current !== activeSlug) {
+        setOverview({
+          csat: 0,
+          csatChange: 0,
+          issueVolume: 0,
+          issueVolumeChange: 0,
+          activeProblems: 0,
+          varrRate: 0,
+          businessExposure: 0,
+          needsAttention: [],
+          aiDiscovered: [],
+          recentActivity: [],
+          aiWorkforce: [],
+        });
+        setIssues([]);
+        setProblems([]);
+        setInsights([]);
+        setKnowledge({ articles: [], gaps: [], proposals: [], documents: [], webSources: [] });
+        setStaleWork({ candidates: [], dryRun: null });
+        setSources([]);
+        setPolicy(null);
+        setTrends({ series: [], anomalies: [] });
+        setWorkforce([]);
+        setSelectedEmployeeId("");
+        setVoiceData({ phoneConfigs: [], sessions: [] });
+        setSelectedVoiceSession(null);
+        setVerticals([]);
+        setSlaData({ attainmentRate: 0, totalTracked: 0, healthyCount: 0, atRiskCount: 0, breachedCount: 0, tickets: [] });
+        setCustomerHealthData({ avgHealthScore: 0, totalArrAtRisk: 0, criticalCount: 0, concerningCount: 0, healthyCount: 0, activeVipChurnAlerts: [], accounts: [] });
+        setQaData({ overallQaAverage: 0, aiEmployeeAverage: 0, humanAgentAverage: 0, hallucinationRate: 0, fcrAverage: 0, scorecards: [] });
+        setVocDigestData({
+          voc: {
+            overallCsat: 0,
+            customerEffortScore: 0,
+            netPromoterScore: 0,
+            topDiscontentDriver: "",
+            topDelightDriver: "",
+            csatDistribution: [],
+            topDelightArticles: [],
+            clusters: [],
+          },
+          digest: null,
+        });
+        setQueueData({ overallCapacityPercentage: 0, totalActiveConversations: 0, channels: [], rules: [] });
         setConnectors(EMPTY_CONNECTORS);
         setMarketplaceWorkforce(EMPTY_MARKETPLACE_WORKFORCE);
         setPlans(EMPTY_PLANS);
@@ -562,6 +644,9 @@ export default function SupportV8Dashboard() {
         fetch(`/api/cx/queue${tenantQuery}`, { headers }).then((r) => r.json()),
         fetch(`/api/marketplace${tenantQuery}`, { headers }).then((r) => r.json()).catch(() => ({ success: false })),
       ]);
+
+      if (fetchGeneration !== tenantFetchGenerationRef.current) return;
+      loadedTenantSlugRef.current = activeSlug;
 
       if (ovRes.success) setOverview(ovRes.data);
       if (issRes.success) setIssues(issRes.data);
@@ -1562,6 +1647,16 @@ export default function SupportV8Dashboard() {
     return matchesSearch && matchesSentiment && matchesSource;
   });
 
+  const hasOperationalAnalytics = Boolean(
+    issues.length > 0 ||
+      problems.length > 0 ||
+      insights.length > 0 ||
+      sources.length > 0 ||
+      knowledge.articles.length > 0 ||
+      knowledge.documents?.length ||
+      overview?.recentActivity?.length,
+  );
+
   const currentRole: AuthSession["role"] = operatorSession?.role || "cx_lead";
   const isContractorRole = currentRole === "contractor" || currentRole === "contractor_lead" || currentRole === "technician";
 
@@ -1673,7 +1768,7 @@ export default function SupportV8Dashboard() {
           label: "Work Sweep",
           icon: Clock,
           flaticon: "fi fi-rr-time-past",
-          badge: 43,
+          badge: staleWork.candidates.length,
           roles: ["cx_lead", "superadmin"],
         },
       ],
@@ -2377,7 +2472,14 @@ export default function SupportV8Dashboard() {
         {/* ========================================================================= */}
         {/* TAB: OVERVIEW (GROWTHV8 DASHBOARD REPLICATION) */}
         {/* ========================================================================= */}
-        {activeTab === "overview" && overview && (
+        {activeTab === "overview" && overview && !hasOperationalAnalytics && (
+          <EmptyAnalyticsState
+            onOpenWorkDesk={() => setActiveTab("workspace")}
+            onOpenChannels={() => setActiveTab("sources")}
+          />
+        )}
+
+        {activeTab === "overview" && overview && hasOperationalAnalytics && (
           <div className="space-y-6">
             {/* GrowthV8 Hero Banner */}
             <div className="card p-6 relative overflow-hidden bg-gradient-to-r from-[#121A24] via-[#121A24] to-[#18222E]">
@@ -2600,7 +2702,14 @@ export default function SupportV8Dashboard() {
         {/* ========================================================================= */}
         {/* TAB: CX MANAGER COCKPIT (GROWTHV8 6 OPERATIONAL PILLARS) */}
         {/* ========================================================================= */}
-        {activeTab === "cx_cockpit" && (
+        {activeTab === "cx_cockpit" && !hasOperationalAnalytics && (
+          <EmptyAnalyticsState
+            onOpenWorkDesk={() => setActiveTab("workspace")}
+            onOpenChannels={() => setActiveTab("sources")}
+          />
+        )}
+
+        {activeTab === "cx_cockpit" && hasOperationalAnalytics && (
           <div className="space-y-6">
             {/* Header & Sub-Navigation for the 6 Pillars */}
             <div className="card p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
@@ -2656,22 +2765,30 @@ export default function SupportV8Dashboard() {
             {/* PERFORMANCE FUNNEL & EXECUTIVE INVOLVEMENT SCORECARD */}
             {/* ========================================================================= */}
             {cxSubView === "funnel" && (() => {
-              const totalFunnelVolume = issues.length || 16;
+              const totalFunnelVolume = issues.length;
               const aiInvolvedFunnelCount = issues.filter((i) => (i.confidence && i.confidence > 0) || (i.assignedTo && i.assignedTo.includes("AI"))).length;
-              const aiInvolvementFunnelRate = Number(((aiInvolvedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+              const aiInvolvementFunnelRate = totalFunnelVolume > 0
+                ? Number(((aiInvolvedFunnelCount / totalFunnelVolume) * 100).toFixed(1))
+                : 0;
 
               const autonomousFunnelCount = issues.filter(
                 (i) => i.status === "resolved" || i.tags?.includes("autonomous_resolved") || i.confidence >= 0.85
               ).length;
-              const varrFunnelRate = overview?.varrRate || Number(((autonomousFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+              const varrFunnelRate = overview?.varrRate ?? (totalFunnelVolume > 0
+                ? Number(((autonomousFunnelCount / totalFunnelVolume) * 100).toFixed(1))
+                : 0);
 
               const aiTriagedFunnelCount = issues.filter((i) => i.confidence >= 0.65).length;
-              const aiTriagedFunnelRate = Number(((aiTriagedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+              const aiTriagedFunnelRate = totalFunnelVolume > 0
+                ? Number(((aiTriagedFunnelCount / totalFunnelVolume) * 100).toFixed(1))
+                : 0;
 
               const humanEscalatedFunnelCount = Math.max(0, totalFunnelVolume - autonomousFunnelCount);
-              const humanEscalatedFunnelRate = Number(((humanEscalatedFunnelCount / totalFunnelVolume) * 100).toFixed(1));
+              const humanEscalatedFunnelRate = totalFunnelVolume > 0
+                ? Number(((humanEscalatedFunnelCount / totalFunnelVolume) * 100).toFixed(1))
+                : 0;
 
-              const csatVal = overview?.csat || 93.8;
+              const csatVal = overview?.csat ?? 0;
 
               return (
                 <div className="space-y-6">
@@ -3788,7 +3905,7 @@ export default function SupportV8Dashboard() {
                       <span className="pill ok"><i className="dot"></i> High</span>
                     </div>
                     <strong className="text-[#2ED8B6]">
-                      {vocDigestData.voc.overallCsat || 91.4}%
+                      {vocDigestData.voc.overallCsat}%
                     </strong>
                     <small>1,842 survey responses</small>
                   </div>
@@ -3799,7 +3916,7 @@ export default function SupportV8Dashboard() {
                       <span className="pill ok"><i className="dot"></i> Top 5%</span>
                     </div>
                     <strong className="text-[#4CC38A]">
-                      {vocDigestData.voc.customerEffortScore || 4.6} / 5.0
+                      {vocDigestData.voc.customerEffortScore} / 5.0
                     </strong>
                     <small>Low Friction Experience</small>
                   </div>
@@ -3810,7 +3927,7 @@ export default function SupportV8Dashboard() {
                       <span className="pill"><i className="dot"></i> Benchmarked</span>
                     </div>
                     <strong className="text-[#EAF1F8]">
-                      +{vocDigestData.voc.netPromoterScore || 54}
+                      {vocDigestData.voc.netPromoterScore >= 0 ? "+" : ""}{vocDigestData.voc.netPromoterScore}
                     </strong>
                     <small>Enterprise Target: +45</small>
                   </div>
@@ -3821,16 +3938,7 @@ export default function SupportV8Dashboard() {
                   <div className="card p-5 space-y-4">
                     <h3 className="text-sm font-bold text-[#EAF1F8]">CSAT Rating Distribution (1 to 5 Stars)</h3>
                     <div className="space-y-3 text-xs font-mono">
-                      {(vocDigestData.voc.csatDistribution && vocDigestData.voc.csatDistribution.length > 0
-                        ? vocDigestData.voc.csatDistribution
-                        : [
-                            { score: 5, count: 1248, percentage: 67.8 },
-                            { score: 4, count: 435, percentage: 23.6 },
-                            { score: 3, count: 72, percentage: 3.9 },
-                            { score: 2, count: 51, percentage: 2.8 },
-                            { score: 1, count: 36, percentage: 1.9 },
-                          ]
-                      ).map((dist: any) => (
+                      {vocDigestData.voc.csatDistribution.map((dist: any) => (
                         <div key={dist.score} className="space-y-1">
                           <div className="flex justify-between">
                             <span className="text-[#EAF1F8]">{dist.score} Stars ★</span>
@@ -3846,20 +3954,18 @@ export default function SupportV8Dashboard() {
                           </div>
                         </div>
                       ))}
+                      {vocDigestData.voc.csatDistribution.length === 0 && (
+                        <p className="py-8 text-center text-[#8E9AA8]">
+                          No customer satisfaction responses have been collected yet.
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div className="card p-5 space-y-4">
                     <h3 className="text-sm font-bold text-[#EAF1F8]">Top-Performing Knowledge Articles (Delight Drivers)</h3>
                     <div className="space-y-3 text-xs font-mono">
-                      {(vocDigestData.voc.topDelightArticles && vocDigestData.voc.topDelightArticles.length > 0
-                        ? vocDigestData.voc.topDelightArticles
-                        : [
-                            { articleId: "KB-101", title: "Resolving Stripe 3DS Card Authentication Errors in Sandbox", category: "Billing", csatBoost: 98.4, resolutionCount: 284 },
-                            { articleId: "KB-102", title: "Zero-Downtime Database Migration & Failover Runbook", category: "Infrastructure", csatBoost: 96.2, resolutionCount: 196 },
-                            { articleId: "KB-103", title: "FIDO2 & Hardware Security Keys (YubiKey) Setup", category: "Auth", csatBoost: 95.8, resolutionCount: 142 },
-                          ]
-                      ).map((art: any) => (
+                      {vocDigestData.voc.topDelightArticles.map((art: any) => (
                         <div key={art.articleId} className="bg-[#18222E] p-3.5 rounded-lg border border-[var(--line)] space-y-1">
                           <div className="flex justify-between">
                             <span className="font-medium text-[#EAF1F8]">{art.title}</span>
@@ -3871,6 +3977,11 @@ export default function SupportV8Dashboard() {
                           </div>
                         </div>
                       ))}
+                      {vocDigestData.voc.topDelightArticles.length === 0 && (
+                        <p className="py-8 text-center text-[#8E9AA8]">
+                          No knowledge article performance data is available yet.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3963,15 +4074,7 @@ export default function SupportV8Dashboard() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {(queueData.channels && queueData.channels.length > 0
-                      ? queueData.channels
-                      : [
-                          { channel: "email", name: "Email & Web Forms", activeConversations: 38, maxCapacity: 100, loadPercentage: 38, status: "optimal", avgWaitTimeSeconds: 420 },
-                          { channel: "live_chat", name: "In-App Live Chat", activeConversations: 72, maxCapacity: 100, loadPercentage: 72, status: "elevated", avgWaitTimeSeconds: 45 },
-                          { channel: "voice", name: "Voice Telephony", activeConversations: 18, maxCapacity: 40, loadPercentage: 45, status: "optimal", avgWaitTimeSeconds: 12 },
-                          { channel: "slack", name: "Slack Connect", activeConversations: 14, maxCapacity: 50, loadPercentage: 28, status: "optimal", avgWaitTimeSeconds: 90 },
-                        ]
-                    ).map((chan: any) => (
+                    {queueData.channels.map((chan: any) => (
                       <div key={chan.channel} className="bg-[#18222E] p-4 rounded-lg border border-[var(--line)] space-y-3">
                         <div className="flex justify-between items-start">
                           <div>
@@ -4027,15 +4130,7 @@ export default function SupportV8Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(queueData.rules && queueData.rules.length > 0
-                          ? queueData.rules
-                          : [
-                              { id: "rule_billing", intentCategory: "billing_refunds", skillRequired: "Financial Reconciliation & Stripe", assignedAgentOrRole: "Maya — Finance Specialist (AI)", fallbackAgentOrRole: "Finance Operations Tier 2", priorityWeight: 90, active: true },
-                              { id: "rule_infra_504", intentCategory: "api_504_gateway", skillRequired: "Distributed Systems & Telemetry", assignedAgentOrRole: "Jordan — Escalations Lead (AI)", fallbackAgentOrRole: "Dominion SRE On-Call", priorityWeight: 100, active: true },
-                              { id: "rule_auth_sso", intentCategory: "auth_sso_saml", skillRequired: "Identity Provider Protocols", assignedAgentOrRole: "Alex — Lead Support Engineer (AI)", fallbackAgentOrRole: "Identity Solutions Architect", priorityWeight: 85, active: true },
-                              { id: "rule_general", intentCategory: "general_inquiry", skillRequired: "Multi-Source KB RAG Search", assignedAgentOrRole: "Chip — Auto-Triage Intern (AI)", fallbackAgentOrRole: "Alex — Lead Support", priorityWeight: 50, active: true },
-                            ]
-                        ).map((rule: any) => (
+                        {queueData.rules.map((rule: any) => (
                           <tr key={rule.id}>
                             <td className="font-mono font-bold text-[#2ED8B6]">{rule.intentCategory}</td>
                             <td className="text-[#B4C2D0]">{rule.skillRequired}</td>
@@ -4050,6 +4145,13 @@ export default function SupportV8Dashboard() {
                             </td>
                           </tr>
                         ))}
+                        {queueData.rules.length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-[#8E9AA8]">
+                              No routing rules are configured. Customer chats remain with the available online operator queue.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>

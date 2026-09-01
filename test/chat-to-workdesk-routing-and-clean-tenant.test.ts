@@ -9,6 +9,9 @@ import { qaSynthesizer } from "../src/lib/services/qa-scorecard-service";
 import { vocDigest } from "../src/lib/services/voc-digest-service";
 import { staleWorkSweeper } from "../src/lib/services/stale-work-sweeper";
 import { trendAnomalyService } from "../src/lib/services/trend-anomaly-service";
+import { assignmentForTenant } from "../src/lib/db/chat-repository";
+import { voiceService } from "../src/lib/voice/voice-service";
+import { policyEngine } from "../src/lib/services/policy-engine";
 
 describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () => {
   const testTenant = "qa-lexi-planthouse";
@@ -24,23 +27,30 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
   it("1. should strictly return a clean workspace (0 demo tickets) for new tenant", () => {
     const tenantData = db.getTenantData(testTenant);
     expect(tenantData.tenant.name).toBe("Lexi's Planthouse");
+    expect(tenantData.tenant.tenantId).toBe("tenant_qa_lexi_planthouse");
     expect(tenantData.issues.length).toBe(0);
     expect(tenantData.problems.length).toBe(0);
     expect(tenantData.sources.length).toBe(0);
 
     const overview = db.getOverviewMetrics(testTenant);
     expect(overview.issueVolume).toBe(0);
+    expect(overview.csat).toBe(0);
     expect(overview.activeProblems).toBe(0);
     expect(overview.businessExposure).toBe(0);
     expect(overview.needsAttention.length).toBe(0);
+    expect(overview.aiDiscovered).toEqual([]);
+    expect(overview.recentActivity).toEqual([]);
+    expect(overview.aiWorkforce).toEqual([]);
   });
 
   it("2. should return clean zero-state metrics across CX and monitoring services for new tenant", () => {
     const queue = queueLoadBalancer.getQueueMetrics(testTenant);
     expect(queue.totalActiveConversations).toBe(0);
     expect(queue.overallCapacityPercentage).toBe(0);
+    expect(queue.rules).toEqual([]);
 
     const sla = slaEngine.getSlaOverview(testTenant);
+    expect(sla.attainmentRate).toBe(0);
     expect(sla.totalTracked).toBe(0);
     expect(sla.healthyCount).toBe(0);
     expect(sla.atRiskCount).toBe(0);
@@ -48,13 +58,22 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(sla.tickets.length).toBe(0);
 
     const health = customerHealth.getHealthRadar(testTenant);
+    expect(health.avgHealthScore).toBe(0);
     expect(health.totalArrAtRisk).toBe(0);
     expect(health.accounts.length).toBe(0);
 
     const qa = qaSynthesizer.getQaMetrics(testTenant);
+    expect(qa.overallQaAverage).toBe(0);
+    expect(qa.aiEmployeeAverage).toBe(0);
+    expect(qa.humanAgentAverage).toBe(0);
+    expect(qa.fcrAverage).toBe(0);
     expect(qa.scorecards.length).toBe(0);
 
     const voc = vocDigest.getVocOverview(testTenant);
+    expect(voc.overallCsat).toBe(0);
+    expect(voc.customerEffortScore).toBe(0);
+    expect(voc.netPromoterScore).toBe(0);
+    expect(voc.csatDistribution).toEqual([]);
     expect(voc.clusters.length).toBe(0);
 
     const stale = staleWorkSweeper.getCandidates(testTenant);
@@ -62,6 +81,10 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
 
     const trends = trendAnomalyService.getTrendSeries(testTenant);
     expect(trends.length).toBe(0);
+
+    expect(voiceService.getPhoneConfigs(`tenant_${testTenant}`)).toEqual([]);
+    expect(voiceService.getSessions(`tenant_${testTenant}`)).toEqual([]);
+    expect(policyEngine.getPolicy(testTenant).rules).toEqual([]);
   });
 
   it("3. should route inbound chat intake directly to the Work Desk issue queue in real-time", () => {
@@ -81,7 +104,7 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(session).toBeDefined();
     expect(session.tenantDomain).toBe(testTenant);
     expect(session.assignedType).toBe("human");
-    expect(session.assignedName).toContain("Human Support Desk");
+    expect(session.assignedName).toBe("Available online operator");
     expect(session.messages.some((message) => message.sender === "ai_employee")).toBe(false);
     expect(session.messages.length).toBeGreaterThanOrEqual(2);
 
@@ -97,7 +120,22 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(createdIssue.externalId).toMatch(/^SV8-CHAT-\d+/);
   });
 
-  it("4. should dynamically transfer chat ticket to workspace supervisor when human is requested", () => {
+  it("4. treats the unresolved default workspace as empty and routes chat to an online operator", () => {
+    const defaultTenant = db.getTenantData("default");
+    expect(defaultTenant.isClean).toBe(true);
+    expect(defaultTenant.issues).toEqual([]);
+    expect(defaultTenant.problems).toEqual([]);
+    expect(defaultTenant.sources).toEqual([]);
+    expect(db.getOverviewMetrics("default").recentActivity).toEqual([]);
+    expect(policyEngine.getPolicy("default").rules).toEqual([]);
+
+    const assignment = assignmentForTenant("default", "customers");
+    expect(assignment.type).toBe("human");
+    expect(assignment.id).toBe("human_support_queue");
+    expect(assignment.name).toBe("Available online operator");
+  });
+
+  it("5. should dynamically transfer chat ticket to workspace supervisor when human is requested", () => {
     const session = ChatWorkflowService.startSession({
       tenantDomain: testTenant,
       stream: "customers",

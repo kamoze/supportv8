@@ -183,11 +183,7 @@ export function SignInModal({
       setModalView("forgot_otp");
     } catch (_) {
       setIsLoading(false);
-      // Fallback in case of network issue
-      const code = AuthService.issueOtp(cleanEmail);
-      setDebugOtpCode(code);
-      setSuccessMsg(`Recovery code generated for ${cleanEmail}. Enter code to continue.`);
-      setModalView("forgot_otp");
+      setErrorMsg("Password recovery service is unavailable. Please try again.");
     }
   };
 
@@ -205,8 +201,8 @@ export function SignInModal({
       return;
     }
 
-    if (!forgotNewPassword || forgotNewPassword.length < 6) {
-      setErrorMsg("New password must be at least 6 characters in length.");
+    if (!forgotNewPassword || forgotNewPassword.length < 8) {
+      setErrorMsg("New password must be at least 8 characters in length.");
       return;
     }
 
@@ -226,6 +222,7 @@ export function SignInModal({
           email: cleanEmail,
           code: cleanCode,
           newPassword: forgotNewPassword,
+          tenantSlug: lockedTenantSlug || tenantSlug || undefined,
         }),
       });
 

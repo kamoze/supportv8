@@ -14,19 +14,6 @@ export interface AuthSession {
 }
 
 const SESSION_STORAGE_KEY = "sv8_operator_session";
-const OTP_STORE_KEY = "sv8_otp_tokens";
-
-interface StoredOtp {
-  email: string;
-  code: string;
-  expiresAt: number;
-}
-
-const globalForAuthService = globalThis as unknown as { __sv8_otp_store?: Record<string, StoredOtp> };
-const memoryOtpStore: Record<string, StoredOtp> = globalForAuthService.__sv8_otp_store ?? {};
-if (process.env.NODE_ENV !== "production") {
-  globalForAuthService.__sv8_otp_store = memoryOtpStore;
-}
 
 export const AuthService = {
   /**
@@ -88,63 +75,6 @@ export const AuthService = {
       localStorage.removeItem("sv8_auth_user");
       void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => undefined);
     } catch (_) {}
-  },
-
-  /**
-   * Issue an Email OTP verification code (6-digit expiring token)
-   */
-  issueOtp(email: string): string {
-    const cleanEmail = email.trim().toLowerCase();
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpRecord: StoredOtp = {
-      email: cleanEmail,
-      code,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 mins
-    };
-
-    memoryOtpStore[cleanEmail] = otpRecord;
-
-    if (typeof window !== "undefined") {
-      try {
-        const raw = sessionStorage.getItem(OTP_STORE_KEY);
-        const store: Record<string, StoredOtp> = raw ? JSON.parse(raw) : {};
-        store[cleanEmail] = otpRecord;
-        sessionStorage.setItem(OTP_STORE_KEY, JSON.stringify(store));
-      } catch (_) {}
-    }
-
-    return code;
-  },
-
-  /**
-   * Verify an Email OTP code
-   */
-  verifyOtp(email: string, code: string): boolean {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanCode = code.trim();
-
-    // Check memory store
-    const memRecord = memoryOtpStore[cleanEmail];
-    if (memRecord) {
-      if (Date.now() > memRecord.expiresAt) return false;
-      return memRecord.code === cleanCode;
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        const raw = sessionStorage.getItem(OTP_STORE_KEY);
-        if (!raw) return false;
-        const store: Record<string, StoredOtp> = JSON.parse(raw);
-        const record = store[cleanEmail];
-        if (!record) return false;
-        if (Date.now() > record.expiresAt) return false;
-        return record.code === cleanCode;
-      } catch (_) {
-        return false;
-      }
-    }
-
-    return false;
   },
 
   /**

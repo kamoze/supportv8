@@ -1,5 +1,9 @@
 import type { NextRequest } from "next/server";
-import { verifySupportAccessToken, type VerifiedSupportToken } from "./keycloak";
+import {
+  supportRolesFromClaims,
+  verifySupportAccessToken,
+  type VerifiedSupportToken,
+} from "./keycloak";
 
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const PUBLIC_ROOT_HOSTS = new Set([
@@ -119,7 +123,7 @@ export async function resolveRequestTenant(
       authenticated: true,
       userId: typeof claims.sub === "string" ? claims.sub : undefined,
       username: typeof claims.preferred_username === "string" ? claims.preferred_username : undefined,
-      roles: claims.realm_access?.roles || [],
+      roles: supportRolesFromClaims(claims),
     };
   }
 

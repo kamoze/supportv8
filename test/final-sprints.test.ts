@@ -1,31 +1,35 @@
 import { describe, it, expect } from "vitest";
 import { AuthService } from "../src/lib/auth-service";
+import { InMemoryOtpBackend, OtpStore } from "../src/lib/auth/otp-store";
 import { db } from "../src/lib/db/mock-data";
 import { ChatWorkflowService } from "../src/lib/services/chat-workflow-service";
 import { ResendService } from "../src/lib/services/resend-service";
 
 describe("Final Sprints Features & Architecture Validation", () => {
   describe("1. First-Party Authentication & Email OTP Flow", () => {
-    it("should issue a 6-digit OTP code and verify it successfully", () => {
+    it("should issue a 6-digit OTP code and verify it successfully", async () => {
       const email = "admin@acme-movers.com";
-      const otp = AuthService.issueOtp(email);
+      const store = new OtpStore(new InMemoryOtpBackend());
+      const otp = await store.issue("signup", email, "acme-movers");
       expect(otp).toBeDefined();
       expect(otp.length).toBe(6);
 
-      const isValid = AuthService.verifyOtp(email, otp);
+      const isValid = await store.verify("signup", email, otp, "acme-movers");
       expect(isValid).toBe(true);
     });
 
-    it("should reject incorrect OTP codes", () => {
+    it("should reject incorrect OTP codes", async () => {
       const email = "admin@acme-movers.com";
-      AuthService.issueOtp(email);
-      const isInvalid = AuthService.verifyOtp(email, "000000");
+      const store = new OtpStore(new InMemoryOtpBackend());
+      await store.issue("signup", email, "acme-movers");
+      const isInvalid = await store.verify("signup", email, "000000", "acme-movers");
       expect(isInvalid).toBe(false);
     });
 
     it("should dispatch a 6-digit OTP verification email via Resend", async () => {
       const email = "admin@acme-movers.com";
-      const otp = AuthService.issueOtp(email);
+      const store = new OtpStore(new InMemoryOtpBackend());
+      const otp = await store.issue("signup", email, "acme-movers");
       const emailResult = await ResendService.dispatchOtpEmail({
         email,
         code: otp,
@@ -34,7 +38,7 @@ describe("Final Sprints Features & Architecture Validation", () => {
       });
 
       expect(emailResult.success).toBe(true);
-      expect(emailResult.subject).toContain(otp);
+      expect(emailResult.subject).not.toContain(otp);
       expect(emailResult.to).toBe(email);
       expect(emailResult.resendEmailId).toBeTruthy();
     });

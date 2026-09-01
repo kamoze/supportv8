@@ -1,7 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { hashPassword, verifyPasswordHash } from "../src/lib/auth/password";
 import { UserCredentialStore } from "../src/lib/auth/credential-store";
-import { mapRealmRolesToSupportRole } from "../src/lib/auth/keycloak";
+import {
+  createKeycloakUser,
+  mapRealmRolesToSupportRole,
+  supportRolesFromClaims,
+} from "../src/lib/auth/keycloak";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
   describe("Cryptographic Password Hashing", () => {
@@ -120,7 +128,92 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       expect(mapRealmRolesToSupportRole(["support_contractor_lead"])).toBe("contractor_lead");
       expect(mapRealmRolesToSupportRole(["support_technician"])).toBe("technician");
       expect(mapRealmRolesToSupportRole(["support_observer"])).toBe("observer");
-      expect(mapRealmRolesToSupportRole([])).toBe("operator");
+      expect(mapRealmRolesToSupportRole([])).toBeNull();
+      expect(mapRealmRolesToSupportRole(["admin", "operator", "viewer"])).toBeNull();
+    });
+
+    it("only extracts namespaced SupportV8 roles from token claims", () => {
+      expect(
+        supportRolesFromClaims({
+          realm_access: { roles: ["admin", "support_operator"] },
+          resource_access: {
+            "supportv8-app": { roles: ["support_cx_lead", "viewer"] },
+            "another-app": { roles: ["support_superadmin"] },
+          },
+        })
+      ).toEqual(["support_cx_lead", "support_operator"]);
+    });
+
+    it("assigns the requested namespaced realm role to a newly created user", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "admin-token" }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, {
+          status: 201,
+          headers: { location: "https://id.example/admin/realms/supportv8/users/user-123" },
+        }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ id: "role-1", name: "support_cx_lead" }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(createKeycloakUser(
+        "admin@example.com",
+        "StrongPassword#2026",
+        { tenantId: "tenant_alpha", roles: ["support_cx_lead"] },
+        {
+          adminBaseUrl: "https://id.example",
+          realm: "supportv8",
+          adminClientId: "admin-client",
+          adminClientSecret: "secret",
+        }
+      )).resolves.toEqual({ id: "user-123" });
+
+      expect(fetchMock.mock.calls[2][0]).toContain("/roles/support_cx_lead");
+      expect(fetchMock.mock.calls[3][0]).toContain("/users/user-123/role-mappings/realm");
+      expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual([
+        { id: "role-1", name: "support_cx_lead" },
+      ]);
+    });
+
+    it("never resets the password of an existing Keycloak user during signup", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "admin-token" }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(null, { status: 409 }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(createKeycloakUser(
+        "existing@example.com",
+        "AttackerChosenPassword#2026",
+        { tenantId: "tenant_alpha", roles: ["support_cx_lead"] },
+        {
+          adminBaseUrl: "https://id.example",
+          realm: "supportv8",
+          adminClientId: "admin-client",
+          adminClientSecret: "secret",
+        }
+      )).rejects.toMatchObject({ name: "KeycloakUserExists" });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("marks a lost create response as an identity that may already exist", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "admin-token" }), { status: 200 }))
+        .mockRejectedValueOnce(new Error("response timeout"));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(createKeycloakUser(
+        "ambiguous@example.com",
+        "StrongPassword#2026",
+        { tenantId: "tenant_alpha", roles: ["support_cx_lead"] },
+        {
+          adminBaseUrl: "https://id.example",
+          realm: "supportv8",
+          adminClientId: "admin-client",
+          adminClientSecret: "secret",
+        }
+      )).rejects.toMatchObject({
+        name: "KeycloakIdentityMayExistError",
+        identityMayExist: true,
+      });
     });
   });
 
@@ -196,4 +289,3 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
     });
   });
 });
-

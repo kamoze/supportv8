@@ -3,6 +3,8 @@ import { EdgeGateway } from "@/lib/chatbot/api-edge/edge-gateway";
 import { ChannelAdapters } from "@/lib/chatbot/experience/channel-adapters";
 import { AgentRuntimeCore } from "@/lib/chatbot/agent-runtime/agent-runtime-core";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+import { chatRepository } from "@/lib/db/chat-repository";
+import { selectServerOwnedSessionId } from "@/lib/chatbot/security/ingress-security";
 
 export async function POST(req: NextRequest) {
   const url = new URL(req.url);
@@ -33,9 +35,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
+  const sessionId = await selectServerOwnedSessionId(body.sessionId, async (candidate) =>
+    Boolean(await chatRepository.getSession(tenant.tenantId, candidate))
+  );
   const payload = ChannelAdapters.normalizeWebChat({
     tenantId: tenant.tenantId,
-    sessionId: body.sessionId || `sess_${Date.now()}`,
+    sessionId,
     stream: body.stream || "customers",
     customerName: body.customerName || "Customer",
     customerEmail: body.customerEmail,

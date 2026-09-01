@@ -82,6 +82,10 @@ PgBouncer on port 6432. Each operation starts a transaction and sets
 `app.current_tenant_id` locally before issuing any query. Customer chat is
 scoped by the hosted tenant domain; operator work-desk access requires a
 verified SupportV8 Keycloak access token carrying the matching `tenant_id`.
+Operator routes also require an explicit `support_operator`, `support_cx_lead`,
+or `support_superadmin` realm role. WhatsApp and email ingress fail closed by
+default; WhatsApp verifies Meta's raw-body HMAC before parsing, while email
+remains disabled until a provider-specific verifier is configured.
 
 ---
 

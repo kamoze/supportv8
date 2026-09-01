@@ -28,12 +28,16 @@ export class AgentRuntimeCore {
     onStreamEvent?.("start", { traceId, sessionId: payload.sessionId, stream: payload.stream });
 
     // 1. Conversation Manager: Get/Create Session & Record User Message
-    const session = ConversationManager.getOrCreateSession(payload);
-    ConversationManager.appendMessage(payload.sessionId, {
-      sender: "customer",
-      senderName: payload.senderName,
-      content: payload.content,
-    });
+    const conversation = await ConversationManager.getOrCreateSession(payload);
+    let session = conversation.session;
+    if (!conversation.created) {
+      await ConversationManager.appendMessage(payload.tenantId, payload.sessionId, {
+        sender: "customer",
+        senderName: payload.senderName,
+        content: payload.content,
+      });
+      session = (await ConversationManager.getSession(payload.tenantId, payload.sessionId)) || session;
+    }
 
     // 2. Context Builder: Assemble history, customer metadata, and KnowledgeV8 RAG citations
     const rawHistory = session.messages.map((m) => ({
@@ -52,7 +56,7 @@ export class AgentRuntimeCore {
 
     if (!guardrailResult.passed && guardrailResult.action === "block") {
       const blockMsg = "⚠️ This inquiry cannot be processed as it touches prohibited compliance topics.";
-      ConversationManager.appendMessage(payload.sessionId, {
+      await ConversationManager.appendMessage(payload.tenantId, payload.sessionId, {
         sender: "system",
         senderName: "Safety Guardrail",
         content: blockMsg,
@@ -63,9 +67,16 @@ export class AgentRuntimeCore {
     }
 
     if (guardrailResult.action === "escalate_to_human") {
-      ConversationManager.updateSessionStatus(payload.sessionId, "escalated", "human", "Ini Godwin (Senior Lead)", "urgent");
+      session = await ConversationManager.updateSessionStatus(
+        payload.tenantId,
+        payload.sessionId,
+        "escalated",
+        "human",
+        "Senior Support Lead",
+        "urgent"
+      );
       const escMsg = "🚨 This conversation has been escalated to a live Senior Human Support Lead based on safety guardrails. A team member is joining now.";
-      ConversationManager.appendMessage(payload.sessionId, {
+      await ConversationManager.appendMessage(payload.tenantId, payload.sessionId, {
         sender: "system",
         senderName: "Supervisor Escalation",
         content: escMsg,
@@ -113,7 +124,7 @@ export class AgentRuntimeCore {
     }
 
     // 7. Record AI Assistant message in Conversation Manager
-    ConversationManager.appendMessage(payload.sessionId, {
+    await ConversationManager.appendMessage(payload.tenantId, payload.sessionId, {
       sender: "ai_employee",
       senderName: session.assignedName,
       senderAvatar: session.assignedAvatar,

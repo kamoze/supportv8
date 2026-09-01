@@ -2,6 +2,7 @@
  * SupportV8 Keycloak OIDC Direct Access Grant (ROPC) & Admin Integration
  * Aligned with ServiceV8 Keycloak Standard (servicev8-symphony/forge, growthv8, & knowledgev8)
  */
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 
 export class KeycloakUserExists extends Error {
   constructor(email: string) {
@@ -20,6 +21,7 @@ export type VerifyPasswordResult = {
 };
 
 const KEYCLOAK_FETCH_TIMEOUT_MS = 1_500;
+const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 export interface KeycloakAuthConfig {
   adminBaseUrl?: string;
@@ -43,6 +45,40 @@ export function getKeycloakConfig(): KeycloakAuthConfig {
     adminClientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID || "supportv8-admin-sa",
     adminClientSecret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET,
   };
+}
+
+export type VerifiedSupportToken = JWTPayload & {
+  tenant_id?: string;
+  preferred_username?: string;
+  realm_access?: { roles?: string[] };
+  azp?: string;
+};
+
+/** Verify signature, issuer, expiry, and the client that received the token. */
+export async function verifySupportAccessToken(token: string): Promise<VerifiedSupportToken> {
+  const cfg = getKeycloakConfig();
+  const baseUrl = cfg.adminBaseUrl?.replace(/\/$/, "");
+  if (!baseUrl) throw new Error("Keycloak issuer is not configured");
+
+  const issuer = `${baseUrl}/realms/${cfg.realm}`;
+  let jwks = jwksByIssuer.get(issuer);
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(`${issuer}/protocol/openid-connect/certs`));
+    jwksByIssuer.set(issuer, jwks);
+  }
+
+  const { payload } = await jwtVerify(token, jwks, {
+    issuer,
+    algorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
+  });
+
+  const expectedClient = cfg.clientId || "supportv8-app";
+  const audiences = Array.isArray(payload.aud) ? payload.aud : payload.aud ? [payload.aud] : [];
+  if (payload.azp !== expectedClient && !audiences.includes(expectedClient)) {
+    throw new Error("Access token was not issued to SupportV8");
+  }
+
+  return payload as VerifiedSupportToken;
 }
 
 /**

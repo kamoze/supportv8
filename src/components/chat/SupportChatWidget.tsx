@@ -47,7 +47,6 @@ export function SupportChatWidget({
   tenantDomain,
   defaultStream = "customers",
 }: SupportChatWidgetProps) {
-  const activeSlug = tenantDomain || tenantSlug || "acme";
   const [isOpen, setIsOpen] = useState(false);
   const [isPromptMinimized, setIsPromptMinimized] = useState(false);
   const [activeStep, setActiveStep] = useState<"select_stream" | "intake_form" | "chat">("select_stream");
@@ -57,6 +56,7 @@ export function SupportChatWidget({
   const [activeSession, setActiveSession] = useState<CustomerChatSession | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -105,44 +105,24 @@ export function SupportChatWidget({
 
     // Start session
     setIsTyping(true);
+    setChatError(null);
 
     try {
-      const res = await fetch("/api/chat/session", {
+      const response = await fetch("/api/chat/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenantDomain: activeSlug,
           stream: selectedStream,
           customerName: formData.name || "Customer",
           customerEmail: formData.email || "user@example.com",
           intakeData: formData,
         }),
-      }).then((r) => r.json());
-
-      const session =
-        res?.session ||
-        ChatWorkflowService.startSession({
-          tenantDomain: activeSlug,
-          stream: selectedStream,
-          customerName: formData.name || "Customer",
-          customerEmail: formData.email || "user@example.com",
-          intakeData: formData,
-        });
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: session }));
-      }
-
-      setActiveSession(session);
-      setActiveStep("chat");
-    } catch (_) {
-      const session = ChatWorkflowService.startSession({
-        tenantDomain: activeSlug,
-        stream: selectedStream,
-        customerName: formData.name || "Customer",
-        customerEmail: formData.email || "user@example.com",
-        intakeData: formData,
       });
+      const res = await response.json();
+      if (!response.ok || !res?.session) {
+        throw new Error(res?.error || "Unable to start a durable chat session");
+      }
+      const session = res.session as CustomerChatSession;
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: session }));
@@ -150,6 +130,8 @@ export function SupportChatWidget({
 
       setActiveSession(session);
       setActiveStep("chat");
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : "Unable to start chat. Please try again.");
     } finally {
       setTimeout(() => setIsTyping(false), 500);
     }
@@ -162,9 +144,10 @@ export function SupportChatWidget({
 
     setInputMessage("");
     setIsTyping(true);
+    setChatError(null);
 
     try {
-      const res = await fetch("/api/chat/message", {
+      const response = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -173,40 +156,19 @@ export function SupportChatWidget({
           sender: "customer",
           senderName: activeSession.customerName,
         }),
-      }).then((r) => r.json());
-
-      if (res?.session) {
-        setActiveSession({ ...res.session });
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: res.session }));
-        }
-      } else {
-        const localRes = ChatWorkflowService.sendMessage({
-          sessionId: activeSession.id,
-          content: textToSend,
-          sender: "customer",
-          senderName: activeSession.customerName,
-        });
-        if (localRes?.session) {
-          setActiveSession({ ...localRes.session });
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: localRes.session }));
-          }
-        }
-      }
-    } catch (_) {
-      const localRes = ChatWorkflowService.sendMessage({
-        sessionId: activeSession.id,
-        content: textToSend,
-        sender: "customer",
-        senderName: activeSession.customerName,
       });
-      if (localRes?.session) {
-        setActiveSession({ ...localRes.session });
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: localRes.session }));
-        }
+      const res = await response.json();
+      if (!response.ok || !res?.session) {
+        throw new Error(res?.error || "Unable to save your message");
       }
+
+      setActiveSession({ ...res.session });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: res.session }));
+      }
+    } catch (error) {
+      setInputMessage(textToSend);
+      setChatError(error instanceof Error ? error.message : "Unable to save your message. Please try again.");
     } finally {
       setTimeout(() => setIsTyping(false), 450);
     }
@@ -236,6 +198,7 @@ export function SupportChatWidget({
     setFormErrors({});
     setActiveStep("select_stream");
     setInputMessage("");
+    setChatError(null);
   };
 
   return (
@@ -506,6 +469,11 @@ export function SupportChatWidget({
                       )}
                     </div>
                   ))}
+                  {chatError && (
+                    <p className="text-xs text-[#E5484D] bg-[#E5484D]/10 border border-[#E5484D]/30 rounded-xl p-2.5" role="alert">
+                      {chatError}
+                    </p>
+                  )}
                 </form>
               </div>
 
@@ -640,25 +608,32 @@ export function SupportChatWidget({
               </div>
 
               {/* Chat Input Bar */}
-              <form
-                onSubmit={handleSendMessage}
-                className="p-3 bg-[#121A24] border-t border-[var(--line)] flex items-center gap-2 pb-[max(env(safe-area-inset-bottom),12px)] sm:pb-3 shrink-0"
-              >
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Type a message, ask about PINs, or status..."
-                  className="flex-1 bg-[#18222E] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
-                />
-                <button
-                  type="submit"
-                  disabled={!inputMessage.trim()}
-                  className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[#2ED8B6] text-[#090E15] flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shrink-0 active:scale-95 shadow-md shadow-[#2ED8B6]/20"
+              <div className="bg-[#121A24] border-t border-[var(--line)] shrink-0">
+                {chatError && (
+                  <p className="px-3 pt-2 text-xs text-[#E5484D]" role="alert">
+                    {chatError}
+                  </p>
+                )}
+                <form
+                  onSubmit={handleSendMessage}
+                  className="p-3 flex items-center gap-2 pb-[max(env(safe-area-inset-bottom),12px)] sm:pb-3"
                 >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
+                  <input
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    placeholder="Type a message, ask about PINs, or status..."
+                    className="flex-1 bg-[#18222E] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!inputMessage.trim()}
+                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[#2ED8B6] text-[#090E15] flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shrink-0 active:scale-95 shadow-md shadow-[#2ED8B6]/20"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
             </div>
           )}
         </div>

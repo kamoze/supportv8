@@ -43,7 +43,8 @@ describe("ForgeGW Spendable Credits & Lifecycle Persistence", () => {
 
   it("4. GET /api/marketplace should return live server-persisted credits", async () => {
     marketplaceService.setCredits(4750);
-    const res = await getMarketplace();
+    const req = new NextRequest("http://localhost:3000/api/marketplace");
+    const res = await getMarketplace(req);
     const json = await res.json();
 
     expect(json.success).toBe(true);

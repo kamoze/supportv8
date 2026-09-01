@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 
-export async function GET(req?: NextRequest) {
-  const searchParams = req?.url ? new URL(req.url).searchParams : undefined;
-  const tenant = searchParams?.get("tenant") || req?.headers?.get("x-tenant-slug") || req?.headers?.get("x-tenant-id") || "acme";
+export async function GET(req: NextRequest) {
+  const searchParams = new URL(req.url).searchParams;
+  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || req.headers.get("x-tenant-id") || "acme";
   const clean = tenant.toLowerCase().trim();
 
   if (clean !== "acme" && clean !== "meridian" && clean !== "default") {

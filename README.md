@@ -40,6 +40,8 @@
 - **Runtime**: Node.js 22 LTS / Bun
 - **Styling**: Vanilla CSS + Tailwind design tokens (Dark Obsidian `#0B1017`, Radiant Electric Teal `#2ED8B6`)
 - **Vectors**: PostgreSQL `pgvector` (1536-dim cosine similarity embeddings)
+- **Chat system of record**: PostgreSQL (`supportv8.chat_sessions`, `chat_messages`, `workdesk_items`, and transactional `chat_outbox`)
+- **Tenant boundary**: verified Keycloak `tenant_id` claim + forced PostgreSQL RLS; Redis is transient only
 - **Container**: Multi-stage lightweight Alpine Docker image (`redoosolutions/supportv8:web-latest`)
 - **Ingress URL**: `https://support.servicev8.com`
 
@@ -74,6 +76,12 @@ Deployed via `servicev8-devops/apps/supportv8`:
 - **Wildcard Subdomains**: `https://*.support.servicev8.com`
 - **Internal Service**: `http://supportv8.default.svc.cluster.local:3005`
 - **Certificates**: Let's Encrypt automated TLS via cert-manager.
+
+Chat writes connect as the least-privilege `supportv8_app` role through
+PgBouncer on port 6432. Each operation starts a transaction and sets
+`app.current_tenant_id` locally before issuing any query. Customer chat is
+scoped by the hosted tenant domain; operator work-desk access requires a
+verified SupportV8 Keycloak access token carrying the matching `tenant_id`.
 
 ---
 

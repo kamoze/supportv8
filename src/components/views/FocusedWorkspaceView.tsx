@@ -59,8 +59,8 @@ import type {
   TicketTimelineEvent,
   TicketMessageItem,
   TicketAttachment,
+  CustomerChatSession,
 } from "@/lib/types";
-import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 
 const TEAM_MEMBERS = [
@@ -235,6 +235,7 @@ export function FocusedWorkspaceView({
   const [isSendingOperatorReply, setIsSendingOperatorReply] = useState(false);
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
+  const [matchingChatSession, setMatchingChatSession] = useState<CustomerChatSession | null>(null);
 
   // Re-Assignment & Context Attachments State
   const [isReassignDropdownOpen, setIsReassignDropdownOpen] = useState(false);
@@ -251,13 +252,66 @@ export function FocusedWorkspaceView({
   const [techStatus, setTechStatus] = useState<"assigned" | "accepted" | "en_route" | "in_progress" | "completed" | "released">("assigned");
 
   const isChatTicket = selectedIssue?.source === "chat" || selectedIssue?.externalId?.startsWith("SV8-CHAT-");
-  const matchingChatSession = isChatTicket
-    ? ChatWorkflowService.listSessions().find(
-        (s) =>
-          (selectedIssue?.externalId && s.id.includes(selectedIssue.externalId.replace("SV8-CHAT-", ""))) ||
-          s.customerName === selectedIssue?.customerName
-      )
-    : null;
+  const chatSessionId = isChatTicket
+    ? selectedIssue?.sourceUrl?.match(/\/chat\/([^/?#]+)/)?.[1]
+    : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!chatSessionId) {
+      setMatchingChatSession(null);
+      return;
+    }
+
+    fetch(`/api/chat/session?sessionId=${encodeURIComponent(chatSessionId)}`, {
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result?.error || "Unable to load chat transcript");
+        return result.session as CustomerChatSession;
+      })
+      .then((session) => {
+        if (!cancelled) setMatchingChatSession(session);
+      })
+      .catch(() => {
+        if (!cancelled) setMatchingChatSession(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chatSessionId, liveChatSessionKey]);
+
+  const sendDurableOperatorReply = async (content: string): Promise<boolean> => {
+    if (!matchingChatSession || !content.trim()) return false;
+    setIsSendingOperatorReply(true);
+    try {
+      const response = await fetch("/api/chat/message", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: matchingChatSession.id,
+          sender: "agent",
+          content: content.trim(),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.session) {
+        throw new Error(result?.error || "Unable to save operator reply");
+      }
+      setMatchingChatSession(result.session);
+      setLiveChatSessionKey((key) => key + 1);
+      return true;
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to save operator reply", "error");
+      return false;
+    } finally {
+      setIsSendingOperatorReply(false);
+    }
+  };
 
   // Initialize edit fields when selected issue changes
   useEffect(() => {
@@ -1865,18 +1919,13 @@ export function FocusedWorkspaceView({
               <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[var(--line)]">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!operatorReplyText.trim()) return;
-                    setIsSendingOperatorReply(true);
-                    ChatWorkflowService.replyFromOperator(
-                      matchingChatSession.id,
-                      "Ini Godwin (Escalated Lead)",
-                      operatorReplyText.trim()
-                    );
-                    setOperatorReplyText("");
-                    setIsSendingOperatorReply(false);
-                    setLiveChatSessionKey((k) => k + 1);
-                    onNotify("Live message sent to customer chat session!", "success");
+                    const sent = await sendDurableOperatorReply(operatorReplyText);
+                    if (sent) {
+                      setOperatorReplyText("");
+                      onNotify("Live message saved to the customer transcript.", "success");
+                    }
                   }}
                   disabled={!operatorReplyText.trim() || isSendingOperatorReply}
                   className="btn btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
@@ -1889,11 +1938,8 @@ export function FocusedWorkspaceView({
                   type="button"
                   onClick={async () => {
                     if (operatorReplyText.trim()) {
-                      ChatWorkflowService.replyFromOperator(
-                        matchingChatSession.id,
-                        "Ini Godwin (Escalated Lead)",
-                        operatorReplyText.trim()
-                      );
+                      const sent = await sendDurableOperatorReply(operatorReplyText);
+                      if (!sent) return;
                     }
                     await handleExecuteAutonomousResolution();
                   }}

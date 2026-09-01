@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { issueService } from "@/lib/services/issue-service";
 import { chatRepository } from "@/lib/db/chat-repository";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+import {
+  ChatIngressError,
+  requireChatOperatorRole,
+} from "@/lib/chatbot/security/ingress-security";
 import type { SentimentClass, SourceType } from "@/lib/types";
 
 const hasDurableDatabase = () => Boolean(process.env.DATABASE_URL);
@@ -15,6 +19,7 @@ export async function GET(req: NextRequest) {
     const problemId = searchParams.get("problemId") || undefined;
     const search = searchParams.get("search") || undefined;
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    requireChatOperatorRole(tenant);
 
     const [mockIssues, durableChatIssues] = await Promise.all([
       Promise.resolve(issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug })),
@@ -40,7 +45,7 @@ export async function GET(req: NextRequest) {
       data: issues,
     });
   } catch (error) {
-    if (error instanceof RequestAuthError) {
+    if (error instanceof ChatIngressError || error instanceof RequestAuthError) {
       return NextResponse.json({ success: false, error: error.message }, { status: error.status });
     }
     return NextResponse.json(
@@ -55,6 +60,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, issueId, id, updates, ...rest } = body;
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    requireChatOperatorRole(tenant);
 
     if (action === "update" || action === "resolve" || action === "change_status") {
       const targetId = issueId || id;
@@ -80,7 +86,7 @@ export async function POST(req: NextRequest) {
       data: issue,
     });
   } catch (err: unknown) {
-    if (err instanceof RequestAuthError) {
+    if (err instanceof ChatIngressError || err instanceof RequestAuthError) {
       return NextResponse.json({ success: false, error: err.message }, { status: err.status });
     }
     return NextResponse.json(
@@ -95,6 +101,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, issueId, ...updates } = body;
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    requireChatOperatorRole(tenant);
     const targetId = id || issueId;
     if (!targetId) {
       return NextResponse.json({ success: false, error: "Missing issue ID" }, { status: 400 });
@@ -112,7 +119,7 @@ export async function PATCH(req: NextRequest) {
       data: updated,
     });
   } catch (err: unknown) {
-    if (err instanceof RequestAuthError) {
+    if (err instanceof ChatIngressError || err instanceof RequestAuthError) {
       return NextResponse.json({ success: false, error: err.message }, { status: err.status });
     }
     return NextResponse.json(

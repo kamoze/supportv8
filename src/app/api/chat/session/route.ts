@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatRepository } from "@/lib/db/chat-repository";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+import {
+  ChatIngressError,
+  requireChatOperatorRole,
+} from "@/lib/chatbot/security/ingress-security";
 import type { ChatStreamType } from "@/lib/types";
 
 const CHAT_STREAMS = new Set<ChatStreamType>(["contractors", "enquiries", "customers"]);
@@ -18,7 +22,7 @@ function sanitizeIntakeData(value: unknown): Record<string, string> {
 }
 
 function errorResponse(error: unknown, fallback: string) {
-  if (error instanceof RequestAuthError) {
+  if (error instanceof ChatIngressError || error instanceof RequestAuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
   return NextResponse.json(
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ session });
     }
 
+    requireChatOperatorRole(tenant);
     const sessions = await chatRepository.listSessions(tenant.tenantId);
     return NextResponse.json({ sessions });
   } catch (error) {

@@ -71,6 +71,31 @@ describe("production login identity boundaries", () => {
     });
   });
 
+  it("keeps the browser session renewable after the short-lived access token expires", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    keycloakMocks.verifyKeycloakPassword.mockResolvedValue({
+      ok: true,
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresIn: 300,
+      refreshExpiresIn: 28_800,
+      decodedClaims: {
+        sub: "user-1",
+        exp: Math.floor(Date.now() / 1000) + 300,
+        tenant_id: "tenant_alpha",
+        realm_access: { roles: ["support_operator"] },
+      },
+    });
+
+    const response = await POST(loginRequest());
+    const cookies = response.headers.getSetCookie().join("\n");
+
+    expect(response.status).toBe(200);
+    expect(cookies).toContain("sv8_access_token=access-token");
+    expect(cookies).toContain("sv8_refresh_token=refresh-token");
+    expect(cookies).toContain("HttpOnly");
+  });
+
   it("rejects a missing or malformed authoritative tenant claim", async () => {
     vi.stubEnv("NODE_ENV", "production");
     for (const tenantId of [undefined, "alpha", "tenant_Invalid!"]) {

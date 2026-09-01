@@ -81,6 +81,10 @@ interface IssueRow extends QueryResultRow {
   resolution_risk_score: number | string;
   tags: string[];
   recommended_action: string | null;
+  timeline: Issue["timeline"] | null;
+  messages: Issue["messages"] | null;
+  assigned_to: string | null;
+  assigned_agent: string | null;
   created_at: Date | string;
   updated_at: Date | string;
   intake_data: Record<string, unknown> | null;
@@ -866,6 +870,7 @@ export class ChatRepository {
                 i.version, i.source_status, i.priority, i.sentiment, i.sentiment_score,
                 i.sentiment_trajectory, i.confidence, i.business_impact,
                 i.resolution_risk_score, i.tags, i.recommended_action,
+                i.timeline, i.messages, i.assigned_to, i.assigned_agent,
                 i.created_at, i.updated_at, s.intake_data
            FROM supportv8.issues i
            JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
@@ -899,7 +904,10 @@ export class ChatRepository {
           businessImpact: row.business_impact as Issue["businessImpact"],
           resolutionRiskScore: Number(row.resolution_risk_score),
           tags: row.tags || [],
-          assignedTo: metadata.assignedName,
+          assignedTo: row.assigned_to || metadata.assignedName,
+          assignedAgent: row.assigned_agent || undefined,
+          timeline: row.timeline || [],
+          messages: row.messages || [],
           recommendedAction: row.recommended_action || undefined,
           createdAt: iso(row.created_at),
           updatedAt: iso(row.updated_at),
@@ -921,7 +929,11 @@ export class ChatRepository {
                 priority = COALESCE($4, priority),
                 source_status = COALESCE($5, source_status),
                 sentiment = COALESCE($6, sentiment),
-                recommended_action = COALESCE($7, recommended_action)
+                recommended_action = COALESCE($7, recommended_action),
+                timeline = COALESCE($8::jsonb, timeline),
+                messages = COALESCE($9::jsonb, messages),
+                assigned_to = COALESCE($10, assigned_to),
+                assigned_agent = COALESCE($11, assigned_agent)
           WHERE id = $1 AND source = 'chat'
           RETURNING id`,
         [
@@ -932,13 +944,26 @@ export class ChatRepository {
           updates.status || null,
           updates.sentiment || null,
           updates.recommendedAction || null,
+          updates.timeline === undefined ? null : JSON.stringify(updates.timeline),
+          updates.messages === undefined ? null : JSON.stringify(updates.messages),
+          updates.assignedTo || null,
+          updates.assignedAgent || null,
         ]
       );
       if (!changed[0]) return null;
 
-      if (updates.status === "resolved" || updates.status === "closed") {
-        const dbStatus = updates.status;
-        const uiStatus: CustomerChatSession["status"] = "resolved";
+      if (updates.status) {
+        const dbStatus = updates.status === "resolved" || updates.status === "closed"
+          ? updates.status
+          : updates.status === "escalated"
+            ? "assigned"
+            : "open";
+        const uiStatus: CustomerChatSession["status"] =
+          updates.status === "resolved" || updates.status === "closed"
+            ? "resolved"
+            : updates.status === "escalated"
+              ? "escalated"
+              : "active";
         await db.query(
           `UPDATE supportv8.chat_sessions
               SET status = $2,
@@ -948,17 +973,23 @@ export class ChatRepository {
                     to_jsonb($3::text),
                     true
                   ),
-                  resolved_at = COALESCE(resolved_at, now()),
-                  closed_at = CASE WHEN $2 = 'closed' THEN COALESCE(closed_at, now()) ELSE closed_at END
+                  resolved_at = CASE WHEN $2 IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END,
+                  closed_at = CASE WHEN $2 = 'closed' THEN COALESCE(closed_at, now()) ELSE NULL END
             WHERE issue_id = $1`,
           [issueId, dbStatus, uiStatus]
         );
+        const workdeskStatus = updates.status === "resolved" || updates.status === "closed"
+          ? updates.status
+          : updates.status === "escalated"
+            ? "queued"
+            : "active";
         await db.query(
           `UPDATE supportv8.workdesk_items
               SET status = $2, version = version + 1,
-                  resolved_at = COALESCE(resolved_at, now()), updated_at = now()
+                  resolved_at = CASE WHEN $2 IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END,
+                  updated_at = now()
             WHERE issue_id = $1`,
-          [issueId, dbStatus]
+          [issueId, workdeskStatus]
         );
       }
 
@@ -968,6 +999,7 @@ export class ChatRepository {
                 i.version, i.source_status, i.priority, i.sentiment, i.sentiment_score,
                 i.sentiment_trajectory, i.confidence, i.business_impact,
                 i.resolution_risk_score, i.tags, i.recommended_action,
+                i.timeline, i.messages, i.assigned_to, i.assigned_agent,
                 i.created_at, i.updated_at, s.intake_data
            FROM supportv8.issues i
            JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
@@ -999,7 +1031,10 @@ export class ChatRepository {
         businessImpact: rows[0].business_impact as Issue["businessImpact"],
         resolutionRiskScore: Number(rows[0].resolution_risk_score),
         tags: rows[0].tags || [],
-        assignedTo: metadata.assignedName,
+        assignedTo: rows[0].assigned_to || metadata.assignedName,
+        assignedAgent: rows[0].assigned_agent || undefined,
+        timeline: rows[0].timeline || [],
+        messages: rows[0].messages || [],
         recommendedAction: rows[0].recommended_action || undefined,
         createdAt: iso(rows[0].created_at),
         updatedAt: iso(rows[0].updated_at),

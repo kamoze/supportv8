@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     let user;
     let keycloakAccessToken: string | undefined;
+    let keycloakRefreshToken: string | undefined;
+    let refreshExpiresIn: number | undefined;
     let tokenExpiresAt: number | undefined;
 
     // Production identity and tenant membership come directly from Keycloak.
@@ -92,6 +94,8 @@ export async function POST(req: NextRequest) {
               role,
             };
       keycloakAccessToken = keycloak.accessToken;
+      keycloakRefreshToken = keycloak.refreshToken;
+      refreshExpiresIn = keycloak.refreshExpiresIn;
       tokenExpiresAt = Number(keycloak.decodedClaims?.exp || 0) * 1000 || undefined;
     } else {
       const authResult = await credentialStore.authenticate(cleanEmail, password, tenantSlug);
@@ -110,6 +114,9 @@ export async function POST(req: NextRequest) {
       user.role,
       user.name,
     );
+    if (refreshExpiresIn) {
+      session.expiresAt = Date.now() + Math.min(refreshExpiresIn, 8 * 60 * 60) * 1000;
+    }
 
     const response = NextResponse.json({
       success: true,
@@ -130,6 +137,15 @@ export async function POST(req: NextRequest) {
         sameSite: "lax",
         path: "/",
         maxAge: Math.max(60, Math.floor(((tokenExpiresAt || Date.now() + 8 * 60 * 60 * 1000) - Date.now()) / 1000)),
+      });
+    }
+    if (keycloakRefreshToken) {
+      response.cookies.set("sv8_refresh_token", keycloakRefreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/api/auth",
+        maxAge: Math.max(60, Math.min(refreshExpiresIn || 8 * 60 * 60, 8 * 60 * 60)),
       });
     }
     return response;

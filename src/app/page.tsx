@@ -237,6 +237,7 @@ export default function SupportV8Dashboard() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const loadedTenantSlugRef = useRef<string | null>(null);
   const tenantFetchGenerationRef = useRef(0);
+  const pendingIssueUpdatesRef = useRef(new Set<string>());
 
   // Gated Demo Access Handler
   const handleRequestDemoAccess = (slug: string = "acme") => {
@@ -567,6 +568,10 @@ export default function SupportV8Dashboard() {
   // Load all initial data scoped to active tenant
   const fetchData = async (overrideTenant?: string) => {
     try {
+      if (!AuthService.getActiveSession()) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const activeSlug = overrideTenant || currentTenantSlug || "acme";
       const fetchGeneration = ++tenantFetchGenerationRef.current;
@@ -625,25 +630,31 @@ export default function SupportV8Dashboard() {
       const tenantQuery = `?tenant=${encodeURIComponent(activeSlug)}`;
       const headers = { "x-tenant-slug": activeSlug };
       const [ovRes, issRes, prbRes, insRes, kbRes, swRes, srcRes, polRes, trRes, wfRes, vcRes, vertRes, slaRes, healthRes, qaRes, vocRes, qRes, marketRes] = await Promise.all([
-        fetch(`/api/overview${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/issues${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/problems${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/insights${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/knowledge${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/stale-work${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/sources${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/policies${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/trends${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/workforce${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/voice/session${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/verticals${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/cx/sla${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/cx/customer-health${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/cx/qa-scorecards${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/cx/voc-digest${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/cx/queue${tenantQuery}`, { headers }).then((r) => r.json()),
-        fetch(`/api/marketplace${tenantQuery}`, { headers }).then((r) => r.json()).catch(() => ({ success: false })),
+        AuthService.authenticatedFetch(`/api/overview${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/issues${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/problems${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/insights${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/knowledge${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/stale-work${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/sources${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/policies${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/trends${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/workforce${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/voice/session${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/verticals${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/cx/sla${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/cx/customer-health${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/cx/qa-scorecards${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/cx/voc-digest${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/cx/queue${tenantQuery}`, { headers }).then((r) => r.json()),
+        AuthService.authenticatedFetch(`/api/marketplace${tenantQuery}`, { headers }).then((r) => r.json()).catch(() => ({ success: false })),
       ]);
+
+      if (!AuthService.getActiveSession()) {
+        setOperatorSession(null);
+        setIsSignInModalOpen(true);
+        throw new Error("Operator session expired");
+      }
 
       if (fetchGeneration !== tenantFetchGenerationRef.current) return;
       loadedTenantSlugRef.current = activeSlug;
@@ -723,6 +734,7 @@ export default function SupportV8Dashboard() {
 
   const handleExplorerStatusChange = async (newStatus: string) => {
     if (!selectedIssue) return;
+    setIsExplorerSaving(true);
     const now = new Date().toLocaleTimeString();
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
@@ -738,23 +750,14 @@ export default function SupportV8Dashboard() {
       priority: newStatus === "escalated" ? "urgent" : selectedIssue.priority,
       timeline: [event, ...(selectedIssue.timeline || [])],
     };
-    setSelectedIssue(updated);
-    handleUpdateIssue(updated);
-    setExplorerEditStatus(newStatus);
-    notify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
-
     try {
-      await fetch("/api/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update",
-          issueId: selectedIssue.id,
-          updates: { status: newStatus, priority: updated.priority, timeline: updated.timeline },
-        }),
-      });
+      await handleUpdateIssue(updated);
+      setExplorerEditStatus(newStatus);
+      notify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
     } catch (err) {
-      console.error("Failed to update status on server:", err);
+      notify(err instanceof Error ? err.message : "Failed to update ticket status", "error");
+    } finally {
+      setIsExplorerSaving(false);
     }
   };
 
@@ -783,32 +786,11 @@ export default function SupportV8Dashboard() {
         recommendedAction: explorerEditRecommendedAction,
         timeline: [event, ...(selectedIssue.timeline || [])],
       };
-      setSelectedIssue(updated);
-      handleUpdateIssue(updated);
+      await handleUpdateIssue(updated);
       setIsExplorerEditMode(false);
       notify(`Ticket ${selectedIssue.externalId} details updated successfully!`, "success");
-
-      await fetch("/api/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update",
-          issueId: selectedIssue.id,
-          updates: {
-            summary: explorerEditSummary,
-            category: explorerEditCategory,
-            priority: explorerEditPriority,
-            status: explorerEditStatus,
-            sentiment: explorerEditSentiment,
-            assignedTo: explorerEditAssignee,
-            assignedAgent: explorerEditAssignee,
-            recommendedAction: explorerEditRecommendedAction,
-            timeline: updated.timeline,
-          },
-        }),
-      });
     } catch (err) {
-      notify("Failed to save ticket edits", "error");
+      notify(err instanceof Error ? err.message : "Failed to save ticket edits", "error");
     } finally {
       setIsExplorerSaving(false);
     }
@@ -838,20 +820,13 @@ export default function SupportV8Dashboard() {
       timeline: [event, ...(selectedIssue.timeline || [])],
       messages: [...(selectedIssue.messages || []), newMsg],
     };
-    setSelectedIssue(updated);
-    handleUpdateIssue(updated);
-    setExplorerNewNoteText("");
-    notify(`Added note to ticket ${selectedIssue.externalId}`, "success");
-
-    await fetch("/api/issues", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "update",
-        issueId: selectedIssue.id,
-        updates: { timeline: updated.timeline, messages: updated.messages },
-      }),
-    }).catch(() => {});
+    try {
+      await handleUpdateIssue(updated);
+      setExplorerNewNoteText("");
+      notify(`Added note to ticket ${selectedIssue.externalId}`, "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Failed to add note", "error");
+    }
   };
 
   const handleExplorerIndexToRag = async () => {
@@ -882,8 +857,7 @@ export default function SupportV8Dashboard() {
         ragIngestedAt: new Date().toISOString(),
         timeline: [event, ...(selectedIssue.timeline || [])],
       };
-      setSelectedIssue(updated);
-      handleUpdateIssue(updated);
+      await handleUpdateIssue(updated);
       notify(`🧠 Indexed ticket ${selectedIssue.externalId} into KnowledgeV8 RAG corpus (Deducted 20 Credits)`, "success");
     } catch (err) {
       notify("Failed to index ticket into RAG corpus", "error");
@@ -931,7 +905,12 @@ export default function SupportV8Dashboard() {
       }
     }
 
-    fetchData(initialTenant);
+    const activeSession = AuthService.getActiveSession();
+    if (activeSession) {
+      void fetchData(initialTenant);
+    } else {
+      setLoading(false);
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -954,37 +933,46 @@ export default function SupportV8Dashboard() {
 
   // Real-time polling for new tickets in Cockpit view
   useEffect(() => {
-    if (viewMode !== "cockpit") return;
+    if (viewMode !== "cockpit" || !operatorSession) return;
     const interval = setInterval(() => {
       const activeSlug = currentTenantSlug || "acme";
-      fetch(`/api/issues?tenant=${encodeURIComponent(activeSlug)}`, {
+      AuthService.authenticatedFetch(`/api/issues?tenant=${encodeURIComponent(activeSlug)}`, {
         headers: { "x-tenant-slug": activeSlug },
       })
         .then((r) => r.json())
         .then((res) => {
           if (res?.success && Array.isArray(res.data)) {
-            setIssues(res.data);
+            setIssues((current) => {
+              const currentById = new Map(current.map((issue) => [issue.id, issue]));
+              return res.data.map((serverIssue: Issue) => {
+                const existing = currentById.get(serverIssue.id);
+                if (!existing) return serverIssue;
+                if (pendingIssueUpdatesRef.current.has(serverIssue.id)) return existing;
+                const existingUpdatedAt = new Date(existing.updatedAt || 0).getTime();
+                const serverUpdatedAt = new Date(serverIssue.updatedAt || 0).getTime();
+                return serverUpdatedAt < existingUpdatedAt ? existing : serverIssue;
+              });
+            });
           }
         })
         .catch(() => {});
     }, 4000);
     return () => clearInterval(interval);
-  }, [viewMode, currentTenantSlug]);
+  }, [viewMode, currentTenantSlug, operatorSession?.token]);
 
   // Re-fetch data whenever active tenant changes & guard against cross-tenant session leaks
   useEffect(() => {
-    fetchData(currentTenantSlug);
-
+    if (!operatorSession) return;
     if (
-      operatorSession &&
       operatorSession.role !== "superadmin" &&
       operatorSession.tenantSlug.toLowerCase() !== currentTenantSlug.toLowerCase()
     ) {
-      AuthService.clearSession();
-      setOperatorSession(null);
-      notify(`Session ended: Scoped to ${operatorSession.tenantSlug}, switched to ${currentTenantSlug}. Strict domain isolation enforced.`, "info");
+      setCurrentTenantSlug(operatorSession.tenantSlug);
+      notify(`This operator session is scoped to ${operatorSession.tenantSlug}.`, "info");
+      return;
     }
-  }, [currentTenantSlug]);
+    void fetchData(currentTenantSlug);
+  }, [currentTenantSlug, operatorSession?.tenantSlug, operatorSession?.role]);
 
   const notify = (text: string, type: "success" | "error" | "info" = "success") => {
     setActionNotice({ text, type });
@@ -1588,23 +1576,39 @@ export default function SupportV8Dashboard() {
   };
 
   const handleWorkspaceAutonomousResolve = async (issueId: string) => {
+    const issue = issues.find((candidate) => candidate.id === issueId);
+    if (!issue) throw new Error(`Issue ${issueId} not found`);
+    await handleUpdateIssue({ ...issue, status: "resolved" });
+  };
+
+  const handleUpdateIssue = async (updated: Issue): Promise<Issue> => {
+    pendingIssueUpdatesRef.current.add(updated.id);
     try {
-      setIssues((prev) =>
-        prev.map((i) => (i.id === issueId ? { ...i, status: "resolved" } : i))
-      );
-      await fetch("/api/issues", {
+      const response = await AuthService.authenticatedFetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "resolve", issueId }),
-      }).catch(() => {});
-      notify(`Issue ${issueId} resolved & moved to Issues Explorer sink`, "success");
-    } catch (err) {
-      notify("Failed to resolve issue", "error");
+        body: JSON.stringify({ action: "update", issueId: updated.id, updates: updated }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.error || "Ticket update failed");
+      }
+      const saved = { ...updated, ...result.data } as Issue;
+      setIssues((prev) => prev.map((issue) => (issue.id === saved.id ? saved : issue)));
+      setSelectedIssue((current) => current?.id === saved.id ? saved : current);
+      return saved;
+    } finally {
+      pendingIssueUpdatesRef.current.delete(updated.id);
     }
   };
 
-  const handleUpdateIssue = (updated: Issue) => {
-    setIssues((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+  const completeAuthentication = (session: AuthSession, message: string) => {
+    loadedTenantSlugRef.current = null;
+    setOperatorSession(session);
+    setCurrentTenantSlug(session.tenantSlug);
+    setViewMode("cockpit");
+    void fetchData(session.tenantSlug);
+    notify(message, "success");
   };
 
   const handleCreateIssue = (newIssue: Issue) => {
@@ -1880,10 +1884,7 @@ export default function SupportV8Dashboard() {
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
           onSuccess={(session, email) => {
-            setOperatorSession(session);
-            setCurrentTenantSlug(session.tenantSlug);
-            setViewMode("cockpit");
-            notify(`Demo session unlocked for ${email || "Guest"}: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`, "success");
+            completeAuthentication(session, `Demo session unlocked for ${email || "Guest"}: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`);
           }}
           onOpenSignIn={() => {
             setIsDemoModalOpen(false);
@@ -1904,10 +1905,7 @@ export default function SupportV8Dashboard() {
             setSignInPrefillEmail("");
           }}
           onSuccess={(session) => {
-            setOperatorSession(session);
-            setCurrentTenantSlug(session.tenantSlug);
-            setViewMode("cockpit");
-            notify(`Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`, "success");
+            completeAuthentication(session, `Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`);
           }}
           onOpenSignup={() => {
             setIsSignInModalOpen(false);
@@ -1951,10 +1949,7 @@ export default function SupportV8Dashboard() {
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
           onSuccess={(session, email) => {
-            setOperatorSession(session);
-            setCurrentTenantSlug(session.tenantSlug);
-            setViewMode("cockpit");
-            notify(`Demo session unlocked for ${email || "Guest"}: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`, "success");
+            completeAuthentication(session, `Demo session unlocked for ${email || "Guest"}: Logged in as ${session.name} for ${session.tenantSlug}.support.servicev8.com`);
           }}
           onOpenSignIn={() => {
             setIsDemoModalOpen(false);
@@ -1970,10 +1965,7 @@ export default function SupportV8Dashboard() {
             setSignInPrefillEmail("");
           }}
           onSuccess={(session) => {
-            setOperatorSession(session);
-            setCurrentTenantSlug(session.tenantSlug);
-            setViewMode("cockpit");
-            notify(`Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`, "success");
+            completeAuthentication(session, `Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`);
           }}
           onOpenSignup={() => {
             setIsSignInModalOpen(false);
@@ -2046,10 +2038,7 @@ export default function SupportV8Dashboard() {
             setSignInPrefillEmail("");
           }}
           onSuccess={(session) => {
-            setOperatorSession(session);
-            setCurrentTenantSlug(session.tenantSlug);
-            setViewMode("cockpit");
-            notify(`Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`, "success");
+            completeAuthentication(session, `Authenticated as operator (${session.email}) for ${session.tenantSlug}.support.servicev8.com`);
           }}
           onOpenSignup={() => {
             setIsSignInModalOpen(false);

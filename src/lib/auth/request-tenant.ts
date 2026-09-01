@@ -36,6 +36,7 @@ export interface RequestTenantContext {
 
 const RESTRICTED_DEMO_MUTATION_PATHS = new Set([
   "/api/chat",
+  "/api/chat/draft",
   "/api/chat/message",
   "/api/chat/session",
 ]);

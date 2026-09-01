@@ -86,7 +86,7 @@ export class DemoRateLimiter {
   constructor(private readonly backend: DemoRateLimitBackend | null = buildBackend()) {}
 
   async enforce(input: {
-    action: "access" | "ask";
+    action: "access" | "ask" | "draft";
     tenantId: string;
     clientIdentity: string;
     perMinute: number;

@@ -10,6 +10,7 @@ const DEMO_MUTATION_PATHS = new Set([
   "/api/auth/demo",
   "/api/auth/logout",
   "/api/chat",
+  "/api/chat/draft",
   "/api/chat/message",
   "/api/chat/session",
   "/api/leads/demo-access",

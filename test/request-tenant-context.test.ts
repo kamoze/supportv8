@@ -79,9 +79,19 @@ describe("trusted request tenant normalization", () => {
         },
       }),
     );
+    const draftAllowed = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/chat/draft", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          cookie: `sv8_access_token=${token}`,
+        },
+      }),
+    );
 
     expect(blocked.status).toBe(403);
     expect(allowed.status).toBe(200);
+    expect(draftAllowed.status).toBe(200);
   });
 
   it("applies the demo mutation firewall to bearer tokens as well as cookies", () => {

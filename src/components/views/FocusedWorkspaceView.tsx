@@ -286,6 +286,7 @@ export function FocusedWorkspaceView({
   // Live Chat Operator Takeover State
   const [operatorReplyText, setOperatorReplyText] = useState("");
   const [isSendingOperatorReply, setIsSendingOperatorReply] = useState(false);
+  const [liveDraftSource, setLiveDraftSource] = useState<"llm" | "fallback" | null>(null);
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
   const [matchingChatSession, setMatchingChatSession] = useState<CustomerChatSession | null>(null);
@@ -424,6 +425,46 @@ export function FocusedWorkspaceView({
     }
   };
 
+  const handleGenerateLiveChatDraft = async () => {
+    if (!matchingChatSession || isGeneratingAi) return;
+    setIsGeneratingAi(true);
+    setLiveDraftSource(null);
+    try {
+      const response = await fetch("/api/chat/draft", {
+        method: "POST",
+        signal: AbortSignal.timeout(20_000),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: matchingChatSession.id,
+          channel: commChannel,
+          tone: aiTone,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || typeof result?.data?.draft !== "string") {
+        throw new Error(result?.error || "Unable to prepare a reply draft");
+      }
+      setOperatorReplyText(result.data.draft);
+      const source = result.data.source === "llm" ? "llm" : "fallback";
+      setLiveDraftSource(source);
+      if (source === "llm") {
+        onNotify("AI draft ready. Review it before sending.", "success");
+      } else {
+        const reason = result.data.reason === "allowance_exhausted"
+          ? "The AI allowance is exhausted"
+          : result.data.reason === "usage_limited"
+            ? "AI drafting is temporarily limited"
+            : "The AI service is unavailable";
+        onNotify(`${reason}, so a standard draft was prepared.`, "info");
+      }
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to prepare a reply draft", "error");
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
   // Initialize edit fields when selected issue changes
   useEffect(() => {
     if (selectedIssue) {
@@ -434,6 +475,7 @@ export function FocusedWorkspaceView({
       setEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || operatorName);
       setEditTags(selectedIssue.tags?.join(", ") || "");
       setForceStandardComposer(false);
+      setLiveDraftSource(null);
       setIsReassignDropdownOpen(false);
       const preferredChannel: CommunicationChannel = selectedIssue.entityType === "contractor"
         ? "contractor_sms"
@@ -2064,22 +2106,30 @@ export function FocusedWorkspaceView({
                   <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operator Quick Actions:</span>
                   <button
                     type="button"
-                    onClick={() => {
-                      const lastMsg = [...matchingChatSession.messages].reverse().find(m => m.sender === "customer")?.content || selectedIssue.summary;
-                      const draft = `Hello ${selectedIssue.customerName}! I am reviewing your request regarding "${lastMsg.slice(0, 42)}...". I have verified your account telemetry and am taking action directly from the Work Desk.`;
-                      setOperatorReplyText(draft);
-                    }}
-                    className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer"
+                    onClick={handleGenerateLiveChatDraft}
+                    disabled={isGeneratingAi}
+                    className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Sparkles className="w-3 h-3 text-[#2ED8B6]" />
-                    <span>Draft reply</span>
+                    {isGeneratingAi ? (
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3 text-[#2ED8B6]" />
+                    )}
+                    <span>{isGeneratingAi ? "Drafting…" : "Draft reply"}</span>
                   </button>
                 </div>
+                {liveDraftSource && (
+                  <p className="text-[10px] text-[#8E9AA8]" role="status" aria-live="polite">
+                    {liveDraftSource === "llm"
+                      ? "AI draft · allowance metered"
+                      : "Standard draft · no AI credits used"}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-1">
                   {[
-                    "Hello! I am taking over this live chat to assist you directly.",
-                    "I have verified your account and approved your instant credit voucher.",
-                    "Your electronic lockbox security PIN LOCK-8841 is validated for site access.",
+                    "Hello! I’m taking over this live chat and reviewing your request now.",
+                    "Thank you for the details. I’ll confirm the next step here shortly.",
+                    "I’m checking this with the appropriate team and will keep you updated here.",
                   ].map((phrase, i) => (
                     <button
                       key={i}

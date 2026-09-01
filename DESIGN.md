@@ -1,43 +1,140 @@
 ---
-version: alpha
-name: ElevenLabs-design-analysis
-description: A voice-AI brand whose marketing surfaces read like a quietly editorial print magazine. The base canvas is off-white (`#f5f5f5`) holding warm near-black ink (`#292524`); the brand voltage is photographic, not chromatic — soft pastel atmospheric gradient orbs (mint → peach → lavender → sky) drift through the page as the only "color" moments. Display runs Waldenburg Light at weight 300 — the editorial signature. Inter carries body, navigation, captions. CTAs are subtle: a near-black ink pill is the primary, a transparent outline is the secondary. The brand trusts atmospheric photography and modest type weights to do all of the brand work; there is no neon accent, no saturated CTA color, no developer-tools dark canvas.
+version: 1.0
+name: supportv8-design-system
+description: High-precision enterprise AI customer support intelligence & governed automation interface. Dark canvas with crisp high-contrast emerald and cyan status accents, dense tabular scanning, and dedicated operator/analyst workflows.
 
 colors:
-  primary: "#292524"
-  primary-active: "#0c0a09"
-  ink: "#0c0a09"
-  body: "#4e4e4e"
-  body-strong: "#292524"
-  muted: "#777169"
-  muted-soft: "#a8a29e"
-  hairline: "#e7e5e4"
-  hairline-soft: "#f0efed"
-  hairline-strong: "#d6d3d1"
-  canvas: "#f5f5f5"
-  canvas-soft: "#fafafa"
-  canvas-deep: "#0c0a09"
-  surface-card: "#ffffff"
-  surface-strong: "#f0efed"
-  surface-dark: "#0c0a09"
-  surface-dark-elevated: "#1c1917"
-  on-primary: "#ffffff"
-  on-dark: "#ffffff"
-  on-dark-soft: "#a8a29e"
-  gradient-mint: "#a7e5d3"
-  gradient-peach: "#f4c5a8"
-  gradient-lavender: "#c8b8e0"
-  gradient-sky: "#a8c8e8"
-  gradient-rose: "#e8b8c4"
-  semantic-error: "#dc2626"
-  semantic-success: "#16a34a"
+  canvas: "#0B1017"
+  canvas-subtle: "#0E1520"
+  canvas-darkest: "#04201C"
+  surface: "#121A24"
+  surface-elevated: "#182230"
+  surface-hover: "#1E2B3A"
+  border: "#1E2B3A"
+  border-subtle: "#16202C"
+  border-focus: "#2ED8B6"
+  brand-primary: "#2ED8B6"
+  brand-cyan: "#00F2FE"
+  brand-accent: "#059669"
+  brand-teal-bright: "#57E5C8"
+  text-primary: "#EAF1F8"
+  text-secondary: "#8E9AA8"
+  text-muted: "#6B7C8D"
+  text-dim: "#5A6878"
+  text-faint: "#3A4654"
+  text-pure: "#FFFFFF"
+  status-success: "#2ED8B6"
+  status-green: "#4CC38A"
+  status-warning: "#F5A623"
+  status-danger: "#FF4D4D"
+  status-red: "#E5484D"
+  status-info: "#4D9FFF"
+  status-sky: "#38BDF8"
+  status-purple: "#A855F7"
+  status-violet: "#A78BFA"
+  status-indigo: "#9085E9"
 
 typography:
-  display-mega:
-    fontFamily: "'Waldenburg', 'Times New Roman', serif"
+  display-xl:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
     fontSize: 64px
-    fontWeight: 300
+    fontWeight: 800
     lineHeight: 1.05
+  display-lg:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 48px
+    fontWeight: 800
+    lineHeight: 1.1
+  display-md:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 36px
+    fontWeight: 700
+    lineHeight: 1.15
+  display-sm:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 24px
+    fontWeight: 700
+    lineHeight: 1.2
+  title-xl:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 22px
+    fontWeight: 700
+    lineHeight: 1.25
+  title-lg:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 20px
+    fontWeight: 600
+    lineHeight: 1.3
+  title-md:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 18px
+    fontWeight: 600
+    lineHeight: 1.35
+  title-sm:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 17px
+    fontWeight: 600
+    lineHeight: 1.35
+  body-lg:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.5
+  body-md:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 1.5
+  body-sm:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 13px
+    fontWeight: 400
+    lineHeight: 1.45
+  caption:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 12px
+    fontWeight: 500
+    lineHeight: 1.4
+  caption-sm:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 11px
+    fontWeight: 500
+    lineHeight: 1.35
+  caption-micro:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 10px
+    fontWeight: 600
+    lineHeight: 1.3
+  caption-nano:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 9.5px
+    fontWeight: 600
+    lineHeight: 1.2
+  caption-pico:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 8.5px
+    fontWeight: 600
+    lineHeight: 1.2
+  caption-femto:
+    fontFamily: "'Albert Sans', system-ui, sans-serif"
+    fontSize: 8px
+    fontWeight: 600
+    lineHeight: 1.1
+  code-md:
+    fontFamily: "'JetBrains Mono', ui-monospace, monospace"
+    fontSize: 13px
+    fontWeight: 500
+    lineHeight: 1.4
+  code-sm:
+    fontFamily: "'JetBrains Mono', ui-monospace, monospace"
+    fontSize: 11px
+    fontWeight: 500
+    lineHeight: 1.35
+  code-xs:
+    fontFamily: "'JetBrains Mono', ui-monospace, monospace"
+    fontSize: 10px
+    fontWeight: 500
+    lineHeight: 1.3
     letterSpacing: -1.92px
   display-xl:
     fontFamily: "'Waldenburg', serif"

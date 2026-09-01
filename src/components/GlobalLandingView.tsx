@@ -265,7 +265,7 @@ export function GlobalLandingView({
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-[#EAF1F8]">
             Universal AI Support &amp; <br />
-            <span className="bg-gradient-to-r from-[#00F2FE] via-[#2ED8B6] to-[#059669] bg-clip-text text-transparent">
+            <span className="text-[#2ED8B6]">
               Autonomous Operations Engine
             </span>
           </h1>

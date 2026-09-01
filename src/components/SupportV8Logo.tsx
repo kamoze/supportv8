@@ -137,7 +137,7 @@ export function SupportV8Logo({
 
       {showText && (
         <div className="flex flex-col">
-          <div className="text-[17px] font-extrabold tracking-[-0.035em] flex items-center leading-none font-sans select-none">
+          <div className="text-lg font-extrabold tracking-[-0.035em] flex items-center leading-none font-sans select-none">
             <span className="text-white font-extrabold">support</span>
             <span className="text-[#2ED8B6] font-mono font-extrabold tracking-[-0.02em] ml-0.5">V8</span>
           </div>

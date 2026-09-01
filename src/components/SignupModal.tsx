@@ -22,6 +22,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
+import { tenantSlugFromHostname } from "@/lib/auth/request-tenant";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -51,6 +52,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [companyName, setCompanyName] = useState("");
   const [slug, setSlug] = useState("");
+  const [lockedDomainSlug, setLockedDomainSlug] = useState<string | null>(null);
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,6 +92,9 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
   useEffect(() => {
     if (isOpen) {
+      const hostedSlug = tenantSlugFromHostname(window.location.hostname);
+      setLockedDomainSlug(hostedSlug);
+      if (hostedSlug) setSlug(hostedSlug);
       refreshCaptcha();
       setErrorMsg("");
       setOtpError("");
@@ -115,7 +120,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       .replace(/[^a-z0-9]/g, "-")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
-    setSlug(autoSlug);
+    if (!lockedDomainSlug) setSlug(autoSlug);
     if (errorMsg) setErrorMsg("");
   };
 
@@ -317,6 +322,15 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         ]);
         return;
       }
+      const redirectUrl = typeof data.redirectUrl === "string" ? data.redirectUrl : null;
+
+      setTimeout(() => {
+        const fallback = new URL(window.location.href);
+        fallback.hostname = `${slug}.support.servicev8.com`;
+        fallback.pathname = "/";
+        fallback.search = `?signin=1&email=${encodeURIComponent(adminEmail.trim())}`;
+        window.location.assign(redirectUrl || fallback.toString());
+      }, 1400);
     } catch (err: any) {
       setIsProvisioning(false);
       setProvisionLogs((prev) => [
@@ -438,12 +452,19 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     }}
                     placeholder="your-company"
                     required
-                    className="flex-1 bg-[#141C26] border border-r-0 border-[var(--line)] rounded-l-2xl px-4 py-3 text-sm font-mono text-[#2ED8B6] focus:outline-none focus:border-[#2ED8B6]"
+                    readOnly={Boolean(lockedDomainSlug)}
+                    aria-readonly={Boolean(lockedDomainSlug)}
+                    className={`flex-1 bg-[#141C26] border border-r-0 border-[var(--line)] rounded-l-2xl px-4 py-3 text-sm font-mono text-[#2ED8B6] focus:outline-none focus:border-[#2ED8B6] ${lockedDomainSlug ? "cursor-not-allowed opacity-80" : ""}`}
                   />
                   <span className="bg-[#18222E] border border-l-0 border-[var(--line)] rounded-r-2xl px-4 py-3 text-xs font-mono text-[#6B7C8D] select-none">
                     .support.servicev8.com
                   </span>
                 </div>
+                {lockedDomainSlug && (
+                  <p className="text-[11px] font-mono text-[#2ED8B6]">
+                    Domain detected from this workspace URL and locked for tenant safety.
+                  </p>
+                )}
               </div>
 
               {/* Primary Focus */}

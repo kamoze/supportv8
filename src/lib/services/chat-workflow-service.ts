@@ -514,9 +514,12 @@ export class ChatWorkflowService {
     const sessionId = `chat_sess_${seqChat}`;
 
     // 1. Check for online human staff in the assigned group
-    const onlineHumanStaff = activeStaffPresence.find(
-      (staff) => staff.isOnline && staff.groupIds.includes(workflow.defaultAssignedGroupId)
+    const isDemoTenant = ["acme", "meridian", "default", "tenant_default"].includes(
+      (params.tenantDomain || "").toLowerCase()
     );
+    const onlineHumanStaff = isDemoTenant ? activeStaffPresence.find(
+      (staff) => staff.isOnline && staff.groupIds.includes(workflow.defaultAssignedGroupId)
+    ) : undefined;
 
     // Resolve Tenant Subdomain Brand & Routing
     const rawSubdomain = (params.tenantDomain || "acme").toLowerCase().replace(".support.servicev8.com", "").replace(".support.servicev8.internal", "").replace(".support.", "");
@@ -556,9 +559,9 @@ export class ChatWorkflowService {
     } else {
       // Dynamic AI Employee Resolution: Only use configured AI employees that are actively hired in the workforce
       const configuredEmployeeId = workflow.defaultAiEmployeeId;
-      const hiredEmployee = INITIAL_WORKFORCE.find((emp) => 
+      const hiredEmployee = isDemoTenant ? INITIAL_WORKFORCE.find((emp) =>
         (emp.id === configuredEmployeeId || (configuredEmployeeId === "beaver-curator" && emp.id === "emp_kb_refresh") || (configuredEmployeeId === "beaver-alex" && emp.id === "emp_support_lead")) && emp.hired
-      ) || INITIAL_WORKFORCE.find((emp) => emp.hired && emp.canReceiveDirectWork);
+      ) || INITIAL_WORKFORCE.find((emp) => emp.hired && emp.canReceiveDirectWork) : undefined;
 
       if (hiredEmployee) {
         assignedType = "ai";

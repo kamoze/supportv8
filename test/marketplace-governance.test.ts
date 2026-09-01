@@ -2,6 +2,28 @@ import { describe, it, expect } from "vitest";
 import { marketplaceService } from "../src/lib/services/marketplace-service";
 
 describe("Marketplace & Governance Suite", () => {
+  it("starts a customer tenant with no plan, credits, subscriptions, hires, or members", () => {
+    const tenant = `clean-market-${Date.now()}`;
+    expect(marketplaceService.getCredits(tenant)).toBe(0);
+    expect(marketplaceService.getPlans(tenant).some((plan) => plan.isCurrent)).toBe(false);
+    expect(marketplaceService.getConnectors(tenant).some((connector) => connector.isSubscribed)).toBe(false);
+    expect(marketplaceService.getWorkforceCatalog(tenant).some((employee) => employee.isHired)).toBe(false);
+    expect(marketplaceService.getMembers(tenant)).toEqual([]);
+  });
+
+  it("keeps marketplace mutations isolated to one tenant", () => {
+    const alpha = `market-alpha-${Date.now()}`;
+    const beta = `market-beta-${Date.now()}`;
+    marketplaceService.addCredits(500, "test", alpha);
+    marketplaceService.hireWorkforceAgent("emp_support_lead", alpha);
+    marketplaceService.selectPlan("plan_growth", alpha);
+
+    expect(marketplaceService.getCredits(alpha)).toBe(500);
+    expect(marketplaceService.getCredits(beta)).toBe(0);
+    expect(marketplaceService.getWorkforceCatalog(beta).some((employee) => employee.isHired)).toBe(false);
+    expect(marketplaceService.getPlans(beta).some((plan) => plan.isCurrent)).toBe(false);
+  });
+
   it("should list all available connectors and support 1-click subscription", () => {
     const connectors = marketplaceService.getConnectors();
     expect(connectors.length).toBeGreaterThanOrEqual(8);

@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
       adminEmail,
       verificationReceipt,
       password,
-      primaryStream = "customers",
     } = body;
 
     if (!name || !domain || !adminEmail || !password) {
@@ -133,7 +132,6 @@ export async function POST(req: NextRequest) {
             firstName,
             lastName,
             tenantId,
-            organizationName: name,
             roles: ["support_cx_lead"],
           });
           identityCreated = true;
@@ -180,48 +178,15 @@ export async function POST(req: NextRequest) {
         mode: operatingMode,
       });
 
-      db.tenant = {
-        tenantId,
-        name: name.trim(),
-        mode: operatingMode,
-        featureFlags: {
-          observeMode: true,
-          copilotMode: true,
-          autonomousMode: false, // Activated upon commercial entitlement from servicev8-registry
-          problemCorrelation: true,
-          businessImpact: true,
-          knowledgeIntelligence: true,
-          proactiveComms: false,
-          staleWorkSweep: true,
-        },
-      };
-
-      const ssoToken = `sso_tk_${tenantId}_${Date.now().toString(36)}`;
-      const studioMarketplaceUrl = `http://studiov8.servicev8.internal:3000/marketplace?tenantId=${encodeURIComponent(tenantId)}&ssoToken=${encodeURIComponent(ssoToken)}`;
-
-      const recommendedEmployees =
-        primaryStream === "contractors"
-          ? [
-              { id: "beaver_manager_alex", name: "Alex", role: "Contractor & CX Lead", status: "recommended_marketplace" },
-            ]
-          : primaryStream === "enquiries"
-          ? [
-              { id: "beaver_curator_barnaby", name: "Barnaby", role: "Knowledge Intelligence", status: "recommended_marketplace" },
-              { id: "beaver_analyst_arthur", name: "Arthur", role: "Technical Triage Lead", status: "recommended_marketplace" },
-            ]
-          : [
-              { id: "beaver_sophia_voice", name: "Sophia", role: "Customer Success Lead", status: "recommended_marketplace" },
-            ];
+      const tenant = db.getTenantData(cleanDomain).tenant;
 
       return NextResponse.json({
         success: true,
         message: `Tenant '${name}' successfully onboarded with UI workspace & basic automation`,
-        tenant: db.tenant,
+        tenant,
         adminEmail,
-        ssoToken,
-        studioMarketplaceUrl,
         operatingMode: "copilot",
-        recommendedEmployees,
+        redirectUrl: `https://${cleanDomain}.support.servicev8.com/?signin=1&email=${encodeURIComponent(cleanAdminEmail)}`,
         provisionedCapabilities: [
           "ticket.read",
           "ticket.write",
@@ -246,6 +211,12 @@ export async function POST(req: NextRequest) {
       err instanceof SignupProvisioningError
         ? err.status
         : 400;
+    if (err instanceof SignupProvisioningError) {
+      console.error("[supportV8] signup provisioning failed", {
+        status: err.status,
+        message: err.message,
+      });
+    }
     const message =
       err instanceof OtpStoreUnavailableError ||
       err instanceof TenantRegistryUnavailableError ||

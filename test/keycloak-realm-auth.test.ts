@@ -158,7 +158,7 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       await expect(createKeycloakUser(
         "admin@example.com",
         "StrongPassword#2026",
-        { tenantId: "tenant_alpha", roles: ["support_cx_lead"] },
+        { tenantId: "tenant_alpha", firstName: "Admin", lastName: "User", roles: ["support_cx_lead"] },
         {
           adminBaseUrl: "https://id.example",
           realm: "supportv8",
@@ -166,6 +166,10 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
           adminClientSecret: "secret",
         }
       )).resolves.toEqual({ id: "user-123" });
+
+      const createPayload = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(createPayload.attributes).toEqual({ tenant_id: ["tenant_alpha"] });
+      expect(createPayload.attributes).not.toHaveProperty("organization_name");
 
       expect(fetchMock.mock.calls[2][0]).toContain("/roles/support_cx_lead");
       expect(fetchMock.mock.calls[3][0]).toContain("/users/user-123/role-mappings/realm");

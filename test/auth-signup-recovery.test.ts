@@ -61,6 +61,9 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     expect(signupData.success).toBe(true);
     expect(signupData.tenant.mode).toBe("copilot");
     expect(signupData.operatingMode).toBe("copilot");
+    expect(signupData.redirectUrl).toContain(`${uniqueSlug}.support.servicev8.com/?signin=1`);
+    expect(signupData).not.toHaveProperty("recommendedEmployees");
+    expect(signupData).not.toHaveProperty("ssoToken");
 
     // Verify user is in credential store with role mapped on backend
     const userInStore = credentialStore.getUserByEmail(adminEmail);

@@ -1,75 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketplaceService } from "@/lib/services/marketplace-service";
+import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+
+function marketplaceError(error: unknown) {
+  if (error instanceof RequestAuthError) {
+    return NextResponse.json({ success: false, error: error.message }, { status: error.status });
+  }
+  return NextResponse.json(
+    { success: false, error: error instanceof Error ? error.message : "Marketplace request failed" },
+    { status: 400 }
+  );
+}
 
 export async function GET(req: NextRequest) {
-  const searchParams = new URL(req.url).searchParams;
-  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || req.headers.get("x-tenant-id") || "acme";
-  const clean = tenant.toLowerCase().trim();
-
-  if (clean !== "acme" && clean !== "meridian" && clean !== "default") {
-    const connectors = marketplaceService.getConnectors().map((c) => ({
-      ...c,
-      isSubscribed: false,
-      status: "available" as const,
-    }));
-    const workforce = marketplaceService.getWorkforceCatalog().map((w) => ({
-      ...w,
-      isHired: false,
-      hiredCount: 0,
-    }));
-    const plans = marketplaceService.getPlans();
-    const settings = {
-      ...marketplaceService.getSettings(),
-      tenantId: `tenant_${clean}`,
-    };
-
+  try {
+    const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
     return NextResponse.json({
       success: true,
       data: {
-        credits: 1000,
-        connectors,
-        workforce,
-        plans,
-        members: [],
-        settings,
-        reports: [],
-        auditLogs: [],
+        credits: marketplaceService.getCredits(tenant.tenantSlug),
+        connectors: marketplaceService.getConnectors(tenant.tenantSlug),
+        workforce: marketplaceService.getWorkforceCatalog(tenant.tenantSlug),
+        plans: marketplaceService.getPlans(tenant.tenantSlug),
+        members: marketplaceService.getMembers(tenant.tenantSlug),
+        settings: marketplaceService.getSettings(tenant.tenantSlug),
+        reports: marketplaceService.getReports(tenant.tenantSlug),
+        auditLogs: marketplaceService.getAuditLogs(tenant.tenantSlug),
       },
     });
+  } catch (error) {
+    return marketplaceError(error);
   }
-
-  const credits = marketplaceService.getCredits();
-  const connectors = marketplaceService.getConnectors();
-  const workforce = marketplaceService.getWorkforceCatalog();
-  const plans = marketplaceService.getPlans();
-  const members = marketplaceService.getMembers();
-  const settings = marketplaceService.getSettings();
-  const reports = marketplaceService.getReports();
-  const auditLogs = marketplaceService.getAuditLogs();
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      credits,
-      connectors,
-      workforce,
-      plans,
-      members,
-      settings,
-      reports,
-      auditLogs,
-    },
-  });
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
     const body = await req.json();
     const { action } = body;
 
     if (action === "deduct_credits") {
       const { amount, reason } = body;
-      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction");
+      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction", tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: `Deducted ${result.deducted} credits. Balance: ${result.remaining}`,
@@ -79,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "add_credits" || action === "purchase_credits") {
       const { amount, reason } = body;
-      const result = marketplaceService.addCredits(amount || 0, reason || "Credit purchase");
+      const result = marketplaceService.addCredits(amount || 0, reason || "Credit purchase", tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: `Added ${result.added} credits. Balance: ${result.remaining}`,
@@ -89,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "toggle_connector") {
       const { connectorId, isSubscribed } = body;
-      const updated = marketplaceService.toggleConnector(connectorId, isSubscribed);
+      const updated = marketplaceService.toggleConnector(connectorId, isSubscribed, tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: `Connector ${updated.name} ${isSubscribed ? "subscribed & activated" : "disabled"}`,
@@ -99,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "hire_agent") {
       const { agentId } = body;
-      const updated = marketplaceService.hireWorkforceAgent(agentId);
+      const updated = marketplaceService.hireWorkforceAgent(agentId, tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: `AI Agent ${updated.name} hired and added to workforce!`,
@@ -109,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "select_plan") {
       const { planId } = body;
-      const plan = marketplaceService.selectPlan(planId);
+      const plan = marketplaceService.selectPlan(planId, tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: `Tenant subscription upgraded to ${plan.name} Tier!`,
@@ -119,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "invite_member") {
       const { name, email, role } = body;
-      const member = marketplaceService.inviteMember(name, email, role);
+      const member = marketplaceService.inviteMember(name, email, role, tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: `Invitation dispatched to ${email}`,
@@ -129,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "update_settings") {
       const { settings } = body;
-      const updated = marketplaceService.updateSettings(settings);
+      const updated = marketplaceService.updateSettings(settings, tenant.tenantSlug);
       return NextResponse.json({
         success: true,
         message: "Tenant settings updated successfully",
@@ -139,9 +111,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: "Invalid marketplace action" }, { status: 400 });
   } catch (err: unknown) {
-    return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Marketplace action failed" },
-      { status: 400 }
-    );
+    return marketplaceError(err);
   }
 }

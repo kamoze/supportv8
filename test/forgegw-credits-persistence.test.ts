@@ -83,7 +83,8 @@ describe("ForgeGW Spendable Credits & Lifecycle Persistence", () => {
     marketplaceService.setCredits(5000);
 
     // GET /api/credits
-    const getRes = await getCredits();
+    const getReq = new NextRequest("http://localhost:3000/api/credits");
+    const getRes = await getCredits(getReq);
     const getJson = await getRes.json();
     expect(getJson.success).toBe(true);
     expect(getJson.data.credits).toBe(5000);

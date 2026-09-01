@@ -49,10 +49,15 @@ function tokenHasDemoOperatorRole(token: string | undefined): boolean {
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") || "";
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : undefined;
+  const presentedAccessToken = bearer || request.cookies.get("sv8_access_token")?.value;
 
   if (
     !SAFE_HTTP_METHODS.has(request.method) &&
-    tokenHasDemoOperatorRole(request.cookies.get("sv8_access_token")?.value) &&
+    tokenHasDemoOperatorRole(presentedAccessToken) &&
     !DEMO_MUTATION_PATHS.has(url.pathname)
   ) {
     return NextResponse.json(

@@ -69,10 +69,54 @@ export function getKeycloakConfig(): KeycloakAuthConfig {
 export type VerifiedSupportToken = JWTPayload & {
   tenant_id?: string;
   preferred_username?: string;
+  name?: string;
+  given_name?: string;
+  nickname?: string;
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
   azp?: string;
 };
+
+function cleanDisplayLabel(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const clean = value.trim().replace(/\s+/g, " ").slice(0, 80);
+  return clean && !clean.includes("@") ? clean : null;
+}
+
+function titleCaseFirst(value: string): string {
+  if (!value) return value;
+  return value[0].toLocaleUpperCase() + value.slice(1);
+}
+
+/**
+ * Resolve the customer-visible operator label from signed identity claims.
+ * Nickname wins, then the operator's first name. Email addresses are never
+ * emitted into chat transcripts.
+ */
+export function supportOperatorDisplayName(
+  claims: Pick<VerifiedSupportToken, "nickname" | "given_name" | "name" | "preferred_username">,
+  tenantSlug = "",
+): string {
+  const nickname = cleanDisplayLabel(claims.nickname);
+  if (nickname) return nickname;
+
+  const givenName = cleanDisplayLabel(claims.given_name);
+  if (givenName) return givenName.split(" ")[0];
+
+  const fullName = cleanDisplayLabel(claims.name);
+  if (fullName) return fullName.split(" ")[0];
+
+  const username = typeof claims.preferred_username === "string"
+    ? claims.preferred_username.trim().toLowerCase()
+    : "";
+  if (username.startsWith("service-account-supportv8-demo-")) {
+    const tenantName = titleCaseFirst(tenantSlug.trim().toLowerCase() || "SupportV8");
+    return `${tenantName} Demo Operator`;
+  }
+  const localPart = username.split("@")[0] || "";
+  const firstSegment = localPart.split(/[._-]+/).find(Boolean) || "";
+  return firstSegment ? titleCaseFirst(firstSegment) : "Support Operator";
+}
 
 /** Verify signature, issuer, expiry, and the client that received the token. */
 export async function verifySupportAccessToken(token: string): Promise<VerifiedSupportToken> {

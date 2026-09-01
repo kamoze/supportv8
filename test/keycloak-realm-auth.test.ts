@@ -4,6 +4,7 @@ import { UserCredentialStore } from "../src/lib/auth/credential-store";
 import {
   createKeycloakUser,
   mapRealmRolesToSupportRole,
+  supportOperatorDisplayName,
   supportRolesFromClaims,
 } from "../src/lib/auth/keycloak";
 
@@ -143,6 +144,26 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
           },
         })
       ).toEqual(["support_cx_lead", "support_operator"]);
+    });
+
+    it("uses an operator nickname or first name and never exposes an email address", () => {
+      expect(supportOperatorDisplayName({
+        nickname: "Dee",
+        given_name: "David",
+        name: "David Kim",
+        preferred_username: "david.kim@acme.com",
+      }, "acme")).toBe("Dee");
+      expect(supportOperatorDisplayName({
+        given_name: "David",
+        name: "David Kim",
+        preferred_username: "david.kim@acme.com",
+      }, "acme")).toBe("David");
+      expect(supportOperatorDisplayName({
+        preferred_username: "david.kim@acme.com",
+      }, "acme")).toBe("David");
+      expect(supportOperatorDisplayName({
+        preferred_username: "service-account-supportv8-demo-acme",
+      }, "acme")).toBe("Acme Demo Operator");
     });
 
     it("assigns the requested namespaced realm role to a newly created user", async () => {

@@ -109,6 +109,7 @@ describe("operator chat route authorization", () => {
       authenticated: true,
       userId: "operator_1",
       username: "operator@acme.com",
+      displayName: "David",
       roles: ["support_operator"],
     });
     vi.mocked(chatRepository.sendMessage).mockResolvedValue({
@@ -124,7 +125,11 @@ describe("operator chat route authorization", () => {
 
     expect(response.status).toBe(200);
     expect(chatRepository.sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: "tenant_acme", senderId: "operator_1" })
+      expect.objectContaining({
+        tenantId: "tenant_acme",
+        senderId: "operator_1",
+        senderName: "David",
+      })
     );
   });
 

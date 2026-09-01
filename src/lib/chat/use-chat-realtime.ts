@@ -7,6 +7,13 @@ export type ChatConnectionState = "connecting" | "live" | "reconnecting" | "offl
 
 const CHAT_SESSION_STORAGE_PREFIX = "supportv8:chat:session:v1";
 
+export function isNearLiveChatEdge(
+  viewport: Pick<HTMLElement, "scrollTop" | "clientHeight" | "scrollHeight">,
+  thresholdPx = 72,
+): boolean {
+  return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= thresholdPx;
+}
+
 function normalizedTenantKey(value: string | undefined): string {
   const normalized = (value || "default")
     .trim()

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       tenantSlug: tenant.tenantSlug,
       sessionId,
       sender,
-      senderName: sender === "agent" ? tenant.username || "Support Operator" : undefined,
+      senderName: sender === "agent" ? tenant.displayName || "Support Operator" : undefined,
       senderId: sender === "agent" ? tenant.userId : undefined,
       content,
       clientMessageId: typeof clientMessageId === "string" ? clientMessageId : undefined,

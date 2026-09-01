@@ -8,6 +8,8 @@ vi.mock("../src/lib/auth/keycloak", async (importOriginal) => {
 
 import { verifySupportAccessToken } from "../src/lib/auth/keycloak";
 import { resolveRequestTenant } from "../src/lib/auth/request-tenant";
+import { POST as mutateCredits } from "../src/app/api/credits/route";
+import { marketplaceService } from "../src/lib/services/marketplace-service";
 
 const demoClaims = {
   sub: "demo-acme-service-account",
@@ -47,5 +49,25 @@ describe("demo token tenant boundary", () => {
         cookie: "sv8_access_token=signed-demo-token",
       } },
     ), { requireAuthentication: true })).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("rejects a signed demo bearer token before a persistent mutation", async () => {
+    vi.mocked(verifySupportAccessToken).mockResolvedValue(demoClaims);
+    marketplaceService.setCredits(150, "acme");
+    const response = await mutateCredits(new NextRequest(
+      "https://acme.support.servicev8.com/api/credits",
+      {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          authorization: "Bearer signed-demo-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ action: "add", amount: 10_000 }),
+      },
+    ));
+
+    expect(response.status).toBe(403);
+    expect(marketplaceService.getCredits("acme")).toBe(150);
   });
 });

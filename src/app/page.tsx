@@ -2365,6 +2365,21 @@ export default function SupportV8Dashboard() {
                       </div>
                     </div>
 
+                    <a
+                      href="https://keycloak.servicev8.com/realms/supportv8/account/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between gap-3 rounded-xl p-2.5 text-[#B4C2D0] transition-colors hover:bg-[#141C26] hover:text-[#EAF1F8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold">Edit operator name</span>
+                        <span className="block truncate text-[10px] text-[#6B7C8D]">
+                          Set a nickname or first name · applies next sign-in
+                        </span>
+                      </span>
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#2ED8B6]" />
+                    </a>
+
                     {/* Persona Switcher List: ONLY rendered for official demo sandboxes (acme / meridian) */}
                     {(currentTenantSlug === "acme" || currentTenantSlug === "meridian") && (
                       <div className="space-y-1">

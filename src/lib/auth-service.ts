@@ -19,10 +19,16 @@ export const AuthService = {
   /**
    * Issue a zero-trust cryptographic session for an operator or contractor
    */
-  createSession(tenantSlug: string, email: string, role: AuthSession["role"] = "operator"): AuthSession {
+  createSession(
+    tenantSlug: string,
+    email: string,
+    role: AuthSession["role"] = "operator",
+    displayName?: string,
+  ): AuthSession {
     const cleanSlug = tenantSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || "acme";
     const cleanEmail = email.trim().toLowerCase() || `operator@${cleanSlug}.com`;
-    const name = cleanEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    const name = displayName?.trim().replace(/\s+/g, " ").slice(0, 80) ||
+      cleanEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
     const entropy = Math.random().toString(36).substring(2, 10);
     const token = `sv8_tk_${cleanSlug}_${Date.now()}_${entropy}`;

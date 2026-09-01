@@ -11,9 +11,10 @@ describe("SupportV8 AuthService & Zero-Trust Session Management", () => {
   });
 
   it("should create a valid operator session with cryptographic token and expiry", () => {
-    const session = AuthService.createSession("acme", "operator@acme.com", "operator");
+    const session = AuthService.createSession("acme", "operator@acme.com", "operator", "Dee");
     expect(session.tenantSlug).toBe("acme");
     expect(session.email).toBe("operator@acme.com");
+    expect(session.name).toBe("Dee");
     expect(session.token).toMatch(/^sv8_tk_acme_\d+_[a-z0-9]+$/);
     expect(session.expiresAt).toBeGreaterThan(Date.now());
   });

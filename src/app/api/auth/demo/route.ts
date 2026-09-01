@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
     }
 
     const email = `demo@${tenantSlug}.support.servicev8.com`;
-    const session = AuthService.createSession(tenantSlug, email, role);
+    const demoOperatorName = tenantSlug === "acme" ? "Acme Demo Operator" : "Meridian Demo Operator";
+    const session = AuthService.createSession(tenantSlug, email, role, demoOperatorName);
     session.expiresAt = Date.now() + tokenResult.expiresIn * 1000;
 
     const response = NextResponse.json({
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       session,
       user: {
         email,
-        name: tenantSlug === "acme" ? "Acme Demo Operator" : "Meridian Demo Operator",
+        name: demoOperatorName,
         tenantSlug,
         role,
         demo: true,

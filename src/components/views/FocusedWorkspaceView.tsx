@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   Zap,
@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Flame,
   ArrowRight,
+  ArrowDown,
   Mail,
   Phone,
   FileText,
@@ -64,6 +65,7 @@ import type {
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 import {
   createOptimisticChatMessage,
+  isNearLiveChatEdge,
   mergeChatSession,
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
@@ -287,6 +289,10 @@ export function FocusedWorkspaceView({
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
   const [matchingChatSession, setMatchingChatSession] = useState<CustomerChatSession | null>(null);
+  const [hasUnreadLiveMessage, setHasUnreadLiveMessage] = useState(false);
+  const liveChatViewportRef = useRef<HTMLDivElement>(null);
+  const shouldFollowLiveChatRef = useRef(true);
+  const lastLiveChatSessionIdRef = useRef<string | undefined>(undefined);
   const chatConnectionState = useChatRealtimeSession(matchingChatSession?.id, (session) => {
     setMatchingChatSession((current) => mergeChatSession(current, session));
   });
@@ -309,6 +315,39 @@ export function FocusedWorkspaceView({
   const chatSessionId = isChatTicket
     ? selectedIssue?.sourceUrl?.match(/\/chat\/([^/?#]+)/)?.[1]
     : undefined;
+  const latestLiveChatMessageId = matchingChatSession?.messages.at(-1)?.id;
+
+  const scrollLiveChatToLatest = (behavior: ScrollBehavior = "smooth") => {
+    const viewport = liveChatViewportRef.current;
+    if (!viewport) return;
+    shouldFollowLiveChatRef.current = true;
+    setHasUnreadLiveMessage(false);
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+  };
+
+  useEffect(() => {
+    const sessionId = matchingChatSession?.id;
+    const viewport = liveChatViewportRef.current;
+    if (!sessionId || !viewport) {
+      lastLiveChatSessionIdRef.current = sessionId;
+      shouldFollowLiveChatRef.current = true;
+      setHasUnreadLiveMessage(false);
+      return;
+    }
+
+    const sessionChanged = lastLiveChatSessionIdRef.current !== sessionId;
+    lastLiveChatSessionIdRef.current = sessionId;
+    if (sessionChanged) shouldFollowLiveChatRef.current = true;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (sessionChanged || shouldFollowLiveChatRef.current) {
+        scrollLiveChatToLatest(sessionChanged ? "auto" : "smooth");
+      } else {
+        setHasUnreadLiveMessage(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [matchingChatSession?.id, latestLiveChatMessageId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -348,6 +387,7 @@ export function FocusedWorkspaceView({
       senderName: operatorName,
       content: content.trim(),
     });
+    shouldFollowLiveChatRef.current = true;
     setMatchingChatSession((current) =>
       current ? { ...current, messages: [...current.messages, optimisticMessage] } : current,
     );
@@ -1951,7 +1991,17 @@ export function FocusedWorkspaceView({
               </div>
 
               {/* Live Chat Message Stream Box */}
-              <div className="flex-1 bg-[#0B1017] border border-[var(--line)] rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2.5 font-sans text-xs">
+              <div
+                ref={liveChatViewportRef}
+                onScroll={(event) => {
+                  const isFollowing = isNearLiveChatEdge(event.currentTarget);
+                  shouldFollowLiveChatRef.current = isFollowing;
+                  if (isFollowing && hasUnreadLiveMessage) setHasUnreadLiveMessage(false);
+                }}
+                className="relative flex-1 bg-[#0B1017] border border-[var(--line)] rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2.5 font-sans text-xs"
+                aria-live="polite"
+                aria-label="Live chat messages"
+              >
                 {matchingChatSession.messages.map((msg, idx) => {
                   const isCustomer = msg.sender === "customer";
                   const isSystem = msg.sender === "system";
@@ -1987,6 +2037,18 @@ export function FocusedWorkspaceView({
                     </div>
                   );
                 })}
+                {hasUnreadLiveMessage && (
+                  <div className="sticky bottom-0 z-10 flex justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => scrollLiveChatToLatest()}
+                      className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#2ED8B6]/40 bg-[#142622] px-3 text-[10px] font-semibold text-[#57E5C8] shadow-md shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6]"
+                    >
+                      <span>New message</span>
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <CommunicationChannelSelector

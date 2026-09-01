@@ -84,6 +84,20 @@ describe("trusted request tenant normalization", () => {
     expect(allowed.status).toBe(200);
   });
 
+  it("applies the demo mutation firewall to bearer tokens as well as cookies", () => {
+    const response = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/credits", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          authorization: `Bearer ${tokenWithRoles(["support_demo_operator"])}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
   it("does not use an unverified token to grant write access", () => {
     const response = middleware(
       new NextRequest("https://acme.support.servicev8.com/api/policies", {

@@ -17,6 +17,7 @@ import type {
 import {
   chatSessionStorageKey,
   clearStoredChatSessionId,
+  isNearLiveChatEdge,
   mergeChatSession,
   readStoredChatSessionId,
   recoverStoredChatSession,
@@ -62,6 +63,11 @@ class FakeStore implements ChatOutboxStore {
 }
 
 describe("scalable chat realtime delivery", () => {
+  it("follows new messages only while the operator is at the live edge", () => {
+    expect(isNearLiveChatEdge({ scrollTop: 700, clientHeight: 300, scrollHeight: 1_040 })).toBe(true);
+    expect(isNearLiveChatEdge({ scrollTop: 200, clientHeight: 300, scrollHeight: 1_040 })).toBe(false);
+  });
+
   it("persists only a tenant-scoped opaque session id for reload recovery", () => {
     const values = new Map<string, string>();
     const storage = {

@@ -43,6 +43,7 @@ export class RedisChatRealtime {
   private publisher?: Redis;
   private subscriber?: Redis;
   private readonly listeners = new Map<string, Set<Listener>>();
+  private readonly subscriptions = new Map<string, Promise<void>>();
 
   constructor(private readonly redisUrl: string | undefined = process.env.CHAT_REDIS_URL) {}
 
@@ -126,21 +127,38 @@ export class RedisChatRealtime {
 
   async subscribe(tenantId: string, sessionId: string, listener: Listener): Promise<() => Promise<void>> {
     const channel = chatRealtimeChannel(tenantId, sessionId);
-    const existing = this.listeners.get(channel);
-    if (existing) {
-      existing.add(listener);
-    } else {
-      this.listeners.set(channel, new Set([listener]));
-      const subscriber = await this.subscriptionClient();
-      await subscriber.subscribe(channel);
+    let channelListeners = this.listeners.get(channel);
+    if (!channelListeners) {
+      channelListeners = new Set();
+      this.listeners.set(channel, channelListeners);
+    }
+    channelListeners.add(listener);
+
+    let subscription = this.subscriptions.get(channel);
+    if (!subscription) {
+      subscription = (async () => {
+        const subscriber = await this.subscriptionClient();
+        await subscriber.subscribe(channel);
+      })();
+      this.subscriptions.set(channel, subscription);
+    }
+
+    try {
+      await subscription;
+    } catch (error) {
+      channelListeners.delete(listener);
+      if (channelListeners.size === 0) this.listeners.delete(channel);
+      if (this.subscriptions.get(channel) === subscription) this.subscriptions.delete(channel);
+      throw error;
     }
 
     return async () => {
-      const channelListeners = this.listeners.get(channel);
-      if (!channelListeners) return;
-      channelListeners.delete(listener);
-      if (channelListeners.size > 0) return;
+      const currentListeners = this.listeners.get(channel);
+      if (!currentListeners) return;
+      currentListeners.delete(listener);
+      if (currentListeners.size > 0) return;
       this.listeners.delete(channel);
+      this.subscriptions.delete(channel);
       if (this.subscriber?.status === "ready") await this.subscriber.unsubscribe(channel);
     };
   }
@@ -153,6 +171,7 @@ export class RedisChatRealtime {
     this.publisher = undefined;
     this.subscriber = undefined;
     this.listeners.clear();
+    this.subscriptions.clear();
   }
 }
 

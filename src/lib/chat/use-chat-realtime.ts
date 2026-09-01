@@ -63,17 +63,21 @@ export function useChatRealtimeSession(
       if (stopped || refreshInFlight) return;
       refreshInFlight = true;
       try {
-        const params = new URLSearchParams({ sessionId, limit: "100" });
-        if (incremental && cursor) params.set("after", cursor);
-        const response = await fetch(`/api/chat/session?${params.toString()}`, {
-          credentials: "same-origin",
-          cache: "no-store",
-          signal: AbortSignal.timeout(10_000),
-        });
-        const result = await response.json();
-        if (!response.ok || !result?.session) throw new Error(result?.error || "Unable to refresh chat");
-        cursor = result.nextCursor || result.session.nextCursor || cursor;
-        callbackRef.current(result.session as CustomerChatSession);
+        let hasMore = false;
+        do {
+          const params = new URLSearchParams({ sessionId, limit: "100" });
+          if (incremental && cursor) params.set("after", cursor);
+          const response = await fetch(`/api/chat/session?${params.toString()}`, {
+            credentials: "same-origin",
+            cache: "no-store",
+            signal: AbortSignal.timeout(10_000),
+          });
+          const result = await response.json();
+          if (!response.ok || !result?.session) throw new Error(result?.error || "Unable to refresh chat");
+          cursor = result.nextCursor || result.session.nextCursor || cursor;
+          callbackRef.current(result.session as CustomerChatSession);
+          hasMore = Boolean(result.hasMoreMessages);
+        } while (!stopped && incremental && hasMore);
       } catch {
         if (!stopped) setState(navigator.onLine ? "reconnecting" : "offline");
       } finally {

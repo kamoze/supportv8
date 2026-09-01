@@ -112,6 +112,7 @@ export interface ChatSessionPage {
   session: CustomerChatSession;
   nextCursor?: string;
   hasEarlierMessages: boolean;
+  hasMoreMessages: boolean;
 }
 
 export interface ChatSessionListPage {
@@ -377,6 +378,7 @@ async function loadSession(
     session,
     nextCursor: session.nextCursor,
     hasEarlierMessages: session.hasEarlierMessages,
+    hasMoreMessages: Boolean(after && hasOverflow),
   };
 }
 

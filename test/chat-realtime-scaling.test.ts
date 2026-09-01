@@ -6,6 +6,7 @@ import {
 import {
   chatRealtimeChannel,
   chatRealtimeStream,
+  RedisChatRealtime,
   type ChatRealtimeEvent,
 } from "@/lib/chat/realtime";
 import { processChatOutboxBatch } from "@/lib/chat/relay";
@@ -71,6 +72,39 @@ describe("scalable chat realtime delivery", () => {
       messageId: "msg_abc12345",
     });
     expect(() => decodeChatMessageCursor("not-a-cursor")).toThrow("Invalid chat message cursor");
+  });
+
+  it("shares one Redis subscription across simultaneous listeners", async () => {
+    const realtime = new RedisChatRealtime("redis://test");
+    const subscribed: string[] = [];
+    const unsubscribed: string[] = [];
+    const fakeSubscriber = {
+      status: "ready",
+      async subscribe(channel: string) {
+        subscribed.push(channel);
+      },
+      async unsubscribe(channel: string) {
+        unsubscribed.push(channel);
+      },
+    };
+    Object.defineProperty(realtime, "subscriptionClient", {
+      value: async () => fakeSubscriber,
+    });
+    Object.defineProperty(realtime, "subscriber", {
+      value: fakeSubscriber,
+      writable: true,
+    });
+
+    const [stopFirst, stopSecond] = await Promise.all([
+      realtime.subscribe("tenant_acme", "chat_shared", () => undefined),
+      realtime.subscribe("tenant_acme", "chat_shared", () => undefined),
+    ]);
+
+    expect(subscribed).toEqual(["supportv8:chat:live:v1:tenant_acme:chat_shared"]);
+    await stopFirst();
+    expect(unsubscribed).toEqual([]);
+    await stopSecond();
+    expect(unsubscribed).toEqual(["supportv8:chat:live:v1:tenant_acme:chat_shared"]);
   });
 
   it("reconciles optimistic messages without duplicates when the server acknowledges them", () => {

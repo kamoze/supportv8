@@ -105,7 +105,7 @@ export class ChannelAdapters {
     return {
       channel: "email",
       tenantId: "tenant_default",
-      sessionId: `email_${email.replace(/[^a-z0-9]/gi, "_")}`,
+      sessionId: `email_${email.replace(/[^a-z0-9]/gi, "_").slice(0, 58)}`,
       senderId: email,
       senderName: name,
       senderEmail: email,

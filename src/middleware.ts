@@ -7,10 +7,7 @@ export function middleware(request: NextRequest) {
 
   // Extract tenant from subdomain: <tenant>.support.servicev8.com or <tenant>.support.servicev8.internal
   let tenantDomain = "tenant_default";
-  const customHeader = request.headers.get("x-tenant-id");
-  if (customHeader) {
-    tenantDomain = customHeader;
-  } else if (hostname.includes(".support.servicev8.com") || hostname.includes(".support.servicev8.internal") || hostname.includes(".support.")) {
+  if (hostname.includes(".support.servicev8.com") || hostname.includes(".support.servicev8.internal") || hostname.includes(".support.")) {
     const parts = hostname.split(".support.");
     const sub = parts[0]?.toLowerCase().trim();
     if (sub && sub !== "support" && sub !== "www" && sub !== "localhost") {
@@ -18,7 +15,14 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next();
+  // Overwrite, rather than trust, any inbound tenant header. Route handlers use
+  // this request header as the public-host tenant boundary.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-servicev8-tenant-domain", tenantDomain);
+  requestHeaders.delete("x-tenant-id");
+  requestHeaders.delete("x-tenant-slug");
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-servicev8-tenant-domain", tenantDomain);
   response.headers.set("x-servicev8-vertical", "supportv8");
 

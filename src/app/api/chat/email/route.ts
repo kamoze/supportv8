@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ChannelAdapters } from "@/lib/chatbot/experience/channel-adapters";
 import { AgentRuntimeCore } from "@/lib/chatbot/agent-runtime/agent-runtime-core";
+import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 
 // Inbound email processing webhook (e.g. from SendGrid, Postmark, AWS SES)
 export async function POST(request: Request) {
@@ -19,6 +20,8 @@ export async function POST(request: Request) {
       textBody,
       messageId,
     });
+    const tenant = await resolveRequestTenant(request);
+    payload.tenantId = tenant.tenantId;
 
     const result = await AgentRuntimeCore.processMessage(payload);
     const outboundFormatted = ChannelAdapters.formatOutbound("email", result.responseContent, result.citations);
@@ -31,7 +34,11 @@ export async function POST(request: Request) {
       body: outboundFormatted,
       isEscalated: result.isEscalated,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Email processing error" }, { status: 500 });
+  } catch (err: unknown) {
+    const status = err instanceof RequestAuthError ? err.status : 500;
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Email processing error" },
+      { status }
+    );
   }
 }

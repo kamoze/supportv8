@@ -86,6 +86,7 @@ export const AuthService = {
     try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       localStorage.removeItem("sv8_auth_user");
+      void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => undefined);
     } catch (_) {}
   },
 

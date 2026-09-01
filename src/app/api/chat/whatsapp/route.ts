@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ChannelAdapters } from "@/lib/chatbot/experience/channel-adapters";
 import { AgentRuntimeCore } from "@/lib/chatbot/agent-runtime/agent-runtime-core";
+import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 
 // Webhook verification endpoint (GET) for Meta WhatsApp Business
 export async function GET(request: Request) {
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: "ignored_non_message_event" });
     }
 
+    const tenant = await resolveRequestTenant(request);
+    payload.tenantId = tenant.tenantId;
+
     const result = await AgentRuntimeCore.processMessage(payload);
     const outboundFormatted = ChannelAdapters.formatOutbound("whatsapp", result.responseContent);
 
@@ -38,7 +42,11 @@ export async function POST(request: Request) {
       replyContent: outboundFormatted,
       isEscalated: result.isEscalated,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "WhatsApp processing error" }, { status: 500 });
+  } catch (err: unknown) {
+    const status = err instanceof RequestAuthError ? err.status : 500;
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "WhatsApp processing error" },
+      { status }
+    );
   }
 }

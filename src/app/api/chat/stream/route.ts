@@ -2,10 +2,25 @@ import { NextRequest } from "next/server";
 import { EdgeGateway } from "@/lib/chatbot/api-edge/edge-gateway";
 import { ChannelAdapters } from "@/lib/chatbot/experience/channel-adapters";
 import { AgentRuntimeCore } from "@/lib/chatbot/agent-runtime/agent-runtime-core";
+import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 
 export async function POST(req: NextRequest) {
   const url = new URL(req.url);
-  const authContext = EdgeGateway.authenticateRequest(req.headers, url);
+  let tenant;
+  try {
+    tenant = await resolveRequestTenant(req);
+  } catch (error) {
+    const status = error instanceof RequestAuthError ? error.status : 401;
+    const message = error instanceof Error ? error.message : "Invalid tenant context";
+    return new Response(EdgeGateway.formatSse("error", { error: message }), {
+      status,
+      headers: { "Content-Type": "text/event-stream" },
+    });
+  }
+
+  const rateLimitHeaders = new Headers(req.headers);
+  rateLimitHeaders.set("x-tenant-id", tenant.tenantId);
+  const authContext = EdgeGateway.authenticateRequest(rateLimitHeaders, url);
 
   if (authContext.rateLimitRemaining <= 0) {
     return new Response(
@@ -19,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const payload = ChannelAdapters.normalizeWebChat({
-    tenantId: authContext.tenantId,
+    tenantId: tenant.tenantId,
     sessionId: body.sessionId || `sess_${Date.now()}`,
     stream: body.stream || "customers",
     customerName: body.customerName || "Customer",
@@ -53,7 +68,7 @@ export async function POST(req: NextRequest) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
-      "x-tenant-id": authContext.tenantId,
+      "x-tenant-id": tenant.tenantId,
     },
   });
 }

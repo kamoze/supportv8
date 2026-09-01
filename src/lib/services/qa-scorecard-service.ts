@@ -95,11 +95,11 @@ export class QaScorecardService {
     const clean = (tenantSlug || "acme").toLowerCase().trim();
     if (clean !== "acme" && clean !== "meridian") {
       return {
-        overallQaAverage: 100,
-        aiEmployeeAverage: 100,
-        humanAgentAverage: 100,
+        overallQaAverage: 0,
+        aiEmployeeAverage: 0,
+        humanAgentAverage: 0,
         hallucinationRate: 0,
-        fcrAverage: 100,
+        fcrAverage: 0,
         scorecards: [],
       };
     }

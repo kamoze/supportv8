@@ -755,7 +755,7 @@ export class MarketplaceService {
     const existing = this.tenantStates.get(clean);
     if (existing) return existing;
 
-    const isDemoTenant = clean === "acme" || clean === "meridian" || clean === "default";
+    const isDemoTenant = clean === "acme" || clean === "meridian";
     const state = {
       connectors: this.clone(INITIAL_CONNECTORS).map((connector) =>
         isDemoTenant

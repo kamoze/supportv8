@@ -94,7 +94,7 @@ export class CustomerHealthService {
     const clean = (tenantSlug || "acme").toLowerCase().trim();
     if (clean !== "acme" && clean !== "meridian") {
       return {
-        avgHealthScore: 100,
+        avgHealthScore: 0,
         totalArrAtRisk: 0,
         criticalCount: 0,
         concerningCount: 0,

@@ -52,7 +52,7 @@ export class SlaEngineService {
 
     if (activeIssues.length === 0) {
       return {
-        attainmentRate: 100,
+        attainmentRate: 0,
         totalTracked: 0,
         healthyCount: 0,
         atRiskCount: 0,

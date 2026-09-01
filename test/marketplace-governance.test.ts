@@ -11,6 +11,14 @@ describe("Marketplace & Governance Suite", () => {
     expect(marketplaceService.getMembers(tenant)).toEqual([]);
   });
 
+  it("never treats the unresolved default tenant as a seeded demo workspace", () => {
+    expect(marketplaceService.getCredits("default")).toBe(0);
+    expect(marketplaceService.getPlans("default").some((plan) => plan.isCurrent)).toBe(false);
+    expect(marketplaceService.getConnectors("default").some((connector) => connector.isSubscribed)).toBe(false);
+    expect(marketplaceService.getWorkforceCatalog("default").some((employee) => employee.isHired)).toBe(false);
+    expect(marketplaceService.getMembers("default")).toEqual([]);
+  });
+
   it("keeps marketplace mutations isolated to one tenant", () => {
     const alpha = `market-alpha-${Date.now()}`;
     const beta = `market-beta-${Date.now()}`;

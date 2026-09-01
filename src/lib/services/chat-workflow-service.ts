@@ -378,7 +378,7 @@ let activeWorkflows: Record<ChatStreamType, ChatWorkflowConfig> = { ...DEFAULT_C
 let chatSessions: CustomerChatSession[] = [
   {
     id: "chat_sess_demo_1",
-    tenantDomain: "tenant_default",
+    tenantDomain: "acme",
     stream: "customers",
     customerName: "Marcus Vance",
     customerEmail: "marcus@meridiancorp.com",
@@ -433,7 +433,7 @@ let chatSessions: CustomerChatSession[] = [
   },
   {
     id: "chat_sess_demo_2",
-    tenantDomain: "tenant_default",
+    tenantDomain: "acme",
     stream: "contractors",
     customerName: "Apex Mechanical LLC",
     customerEmail: "dispatch@apexmechanical.com",
@@ -514,7 +514,7 @@ export class ChatWorkflowService {
     const sessionId = `chat_sess_${seqChat}`;
 
     // 1. Check for online human staff in the assigned group
-    const isDemoTenant = ["acme", "meridian", "default", "tenant_default"].includes(
+    const isDemoTenant = ["acme", "meridian"].includes(
       (params.tenantDomain || "").toLowerCase()
     );
     const onlineHumanStaff = isDemoTenant ? activeStaffPresence.find(
@@ -553,7 +553,7 @@ export class ChatWorkflowService {
       // Direct human operator routing
       assignedType = "human";
       assignedId = onlineHumanStaff ? onlineHumanStaff.email : "human_support_queue";
-      assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Human Support Desk (Live Operator)";
+      assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Available online operator";
       assignedAvatar = onlineHumanStaff ? onlineHumanStaff.avatar : "/avatars/beaver-manager.jpg";
       if (onlineHumanStaff) onlineHumanStaff.activeChatCount += 1;
     } else {
@@ -572,7 +572,7 @@ export class ChatWorkflowService {
         // Fallback: If no hired employee exists in the active workforce for this channel, route directly to Human Staff Queue
         assignedType = "human";
         assignedId = onlineHumanStaff ? onlineHumanStaff.email : "human_support_queue";
-        assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Human Support Desk (Live Operator)";
+        assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Available online operator";
         assignedAvatar = onlineHumanStaff ? onlineHumanStaff.avatar : "/avatars/beaver-manager.jpg";
         if (onlineHumanStaff) onlineHumanStaff.activeChatCount += 1;
       }
@@ -700,7 +700,7 @@ export class ChatWorkflowService {
   /**
    * Get all active sessions for a tenant
    */
-  static listSessions(tenantDomain = "tenant_default"): CustomerChatSession[] {
+  static listSessions(tenantDomain = "acme"): CustomerChatSession[] {
     const rawSubdomain = (tenantDomain || "acme")
       .toLowerCase()
       .replace(/^tenant_/, "")
@@ -716,9 +716,6 @@ export class ChatWorkflowService {
         .replace(".support.servicev8.internal", "")
         .replace(".support.", "");
 
-      if (rawSubdomain === "acme" || rawSubdomain === "default") {
-        return sessDomain === "acme" || sessDomain === "default";
-      }
       return sessDomain === rawSubdomain;
     });
   }

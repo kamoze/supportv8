@@ -151,9 +151,11 @@ export class PolicyEngine {
 
   public getPolicy(tenantSlug?: string): SupportPolicy {
     let tenantMode = db.policy.operatingMode;
+    let isDemoTenant = true;
     if (tenantSlug) {
       const clean = tenantSlug.toLowerCase().trim();
-      if (clean !== "acme" && clean !== "default") {
+      isDemoTenant = clean === "acme" || clean === "meridian";
+      if (!isDemoTenant) {
         const tenantData = db.getTenantData(clean);
         if (tenantData.tenant?.mode) {
           tenantMode = tenantData.tenant.mode;
@@ -163,7 +165,7 @@ export class PolicyEngine {
     return {
       ...db.policy,
       operatingMode: tenantMode,
-      rules: this.initialRules,
+      rules: isDemoTenant ? this.initialRules : [],
     };
   }
 

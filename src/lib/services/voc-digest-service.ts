@@ -107,18 +107,12 @@ export class VocDigestService {
     const clean = (tenantSlug || "acme").toLowerCase().trim();
     if (clean !== "acme" && clean !== "meridian") {
       return {
-        overallCsat: 100,
-        customerEffortScore: 5.0,
-        netPromoterScore: 75,
-        topDiscontentDriver: "None reported",
-        topDelightDriver: "Pristine Workspace",
-        csatDistribution: [
-          { score: 5, percentage: 100, count: 0 },
-          { score: 4, percentage: 0, count: 0 },
-          { score: 3, percentage: 0, count: 0 },
-          { score: 2, percentage: 0, count: 0 },
-          { score: 1, percentage: 0, count: 0 },
-        ],
+        overallCsat: 0,
+        customerEffortScore: 0,
+        netPromoterScore: 0,
+        topDiscontentDriver: "",
+        topDelightDriver: "",
+        csatDistribution: [],
         topDelightArticles: [],
         clusters: [],
       };
@@ -161,7 +155,7 @@ export class VocDigestService {
       keyMetrics: {
         varrRate: metrics.varrRate,
         totalTicketsResolved: metrics.issueVolume,
-        hoursSaved: 142,
+        hoursSaved: isClean ? 0 : 142,
         openCriticalProblems: activeProblems.length,
         atRiskSlaTickets: sla.atRiskCount,
         vipWaitingCount: health.activeVipChurnAlerts.length,

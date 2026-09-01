@@ -141,7 +141,7 @@ export class QueueLoadBalancerService {
         overallCapacityPercentage: 0,
         totalActiveConversations: activeCount,
         channels: cleanChannels,
-        rules: this.rules,
+        rules: [],
       };
     }
 

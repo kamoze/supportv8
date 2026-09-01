@@ -144,7 +144,7 @@ export class VocDigestService {
     const estimatedSavings = isClean ? 0 : 38400;
 
     const summaryText = isClean
-      ? `supportV8 workspace **${tenantData.tenant.name}** is active and operational. **0 active systemic problems** detected and **0 tickets** at risk. Real-time omnichannel ingress lines ready for inbound customer interactions.`
+      ? `No customer conversations have been recorded for **${tenantData.tenant.name}** yet. This briefing will populate after the first interaction.`
       : `supportV8 autonomous operations maintained a **${metrics.varrRate}% VARR** over the past 24 hours, saving an estimated **142 engineering hours** ($${estimatedSavings.toLocaleString()}). **${activeProblems.length} active systemic problems** are undergoing mitigation with $${metrics.businessExposure.toLocaleString()} in revenue exposure. **${sla.atRiskCount} tickets** are currently flagged by the SLA Breach Predictor.`;
 
     return {
@@ -173,17 +173,21 @@ export class VocDigestService {
           arr: a.arrExposure,
           reason: a.primaryFrustrationDriver || "Elevated support volume",
         })),
-      topOvernightPainPoints: [
-        { rank: 1, topic: "Payment Gateway 504 Timeouts During Checkout", count: 86, sentiment: "Urgent Frustration" },
-        { rank: 2, topic: "Okta SAML Clock Skew Rejection", count: 42, sentiment: "Urgent Lockout" },
-        { rank: 3, topic: "EMEA MFA 2FA SMS Delay", count: 28, sentiment: "Moderate Delay" },
-      ],
-      staleTicketsSwept: 43,
-      recommendedFocusAreas: [
-        "Monitor Stripe 3DS checkout latency and ensure proactive advisory remains live",
-        "Engage with Acme Cloud Infrastructure (Health: 58%) via VIP CSM Outreach",
-        "Review Chip's confidence calibration in Auto-Triage to prevent refund drift",
-      ],
+      topOvernightPainPoints: isClean
+        ? []
+        : [
+            { rank: 1, topic: "Payment Gateway 504 Timeouts During Checkout", count: 86, sentiment: "Urgent Frustration" },
+            { rank: 2, topic: "Okta SAML Clock Skew Rejection", count: 42, sentiment: "Urgent Lockout" },
+            { rank: 3, topic: "EMEA MFA 2FA SMS Delay", count: 28, sentiment: "Moderate Delay" },
+          ],
+      staleTicketsSwept: isClean ? 0 : 43,
+      recommendedFocusAreas: isClean
+        ? []
+        : [
+            "Monitor Stripe 3DS checkout latency and ensure proactive advisory remains live",
+            "Engage with Acme Cloud Infrastructure (Health: 58%) via VIP CSM Outreach",
+            "Review Chip's confidence calibration in Auto-Triage to prevent refund drift",
+          ],
     };
   }
 }

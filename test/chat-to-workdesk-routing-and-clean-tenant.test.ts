@@ -76,6 +76,22 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(voc.csatDistribution).toEqual([]);
     expect(voc.clusters.length).toBe(0);
 
+    const digest = vocDigest.generateShiftDigest(testTenant);
+    expect(digest.keyMetrics).toEqual({
+      varrRate: 0,
+      totalTicketsResolved: 0,
+      hoursSaved: 0,
+      openCriticalProblems: 0,
+      atRiskSlaTickets: 0,
+      vipWaitingCount: 0,
+    });
+    expect(digest.ongoingProblems).toEqual([]);
+    expect(digest.vipAtRiskAccounts).toEqual([]);
+    expect(digest.topOvernightPainPoints).toEqual([]);
+    expect(digest.staleTicketsSwept).toBe(0);
+    expect(digest.recommendedFocusAreas).toEqual([]);
+    expect(digest.executiveSummary).not.toContain("Payment Gateway");
+
     const stale = staleWorkSweeper.getCandidates(testTenant);
     expect(stale.length).toBe(0);
 

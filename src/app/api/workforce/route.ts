@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { workforceManager } from "@/lib/workforce";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-security";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,6 +29,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    if (isRestrictedDemoOperator(tenant)) {
+      return NextResponse.json(
+        { success: false, error: "Demo operators cannot change the shared AI workforce." },
+        { status: 403 }
+      );
+    }
     const { action, memberId, task, employeeId, issueDescription } = await req.json();
 
     if (action === "hire") {

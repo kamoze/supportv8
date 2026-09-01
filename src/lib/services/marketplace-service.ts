@@ -770,19 +770,20 @@ export class MarketplaceService {
             }
       ),
       workforce: this.clone(INITIAL_WORKFORCE_CATALOG).map((employee) =>
-        isDemoTenant ? employee : { ...employee, isHired: false }
-      ),
-      plans: this.clone(INITIAL_PLANS).map((plan) =>
         isDemoTenant
-          ? plan
-          : {
-              ...plan,
-              isCurrent: false,
-              badge: plan.badge === "CURRENT PLAN" ? undefined : plan.badge,
-              actionLabel: plan.id === "plan_starter" ? "CHOOSE PLAN" : plan.actionLabel,
-              actionNote: plan.id === "plan_starter" ? undefined : plan.actionNote,
-            }
+          ? { ...employee, isHired: employee.id === "emp_support_lead" }
+          : { ...employee, isHired: false }
       ),
+      // A seeded demo employee is an explicitly capped sandbox entitlement,
+      // not a paid subscription. Demo and newly-created workspaces therefore
+      // start without a current plan.
+      plans: this.clone(INITIAL_PLANS).map((plan) => ({
+        ...plan,
+        isCurrent: false,
+        badge: plan.badge === "CURRENT PLAN" ? undefined : plan.badge,
+        actionLabel: plan.id === "plan_starter" ? "CHOOSE PLAN" : plan.actionLabel,
+        actionNote: plan.id === "plan_starter" ? undefined : plan.actionNote,
+      })),
       members: isDemoTenant ? this.clone(INITIAL_MEMBERS) : [],
       settings: {
         ...this.clone(INITIAL_SETTINGS),
@@ -792,7 +793,7 @@ export class MarketplaceService {
       },
       reports: isDemoTenant ? this.clone(INITIAL_REPORTS) : [],
       auditLogs: isDemoTenant ? this.clone(INITIAL_AUDIT_LOGS) : [],
-      credits: isDemoTenant ? 4850 : 0,
+      credits: isDemoTenant ? 150 : 0,
     };
     this.tenantStates.set(clean, state);
     return state;

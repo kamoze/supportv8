@@ -3,6 +3,7 @@ import { credentialStore } from "@/lib/auth/credential-store";
 import { AuthService } from "@/lib/auth-service";
 import {
   mapRealmRolesToSupportRole,
+  supportOperatorDisplayName,
   supportRolesFromClaims,
   verifyKeycloakPassword,
 } from "@/lib/auth/keycloak";
@@ -75,18 +76,18 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
+      const operatorDisplayName = supportOperatorDisplayName(
+        keycloak.decodedClaims || {},
+        resolvedTenantSlug,
+      );
       const localMetadata = credentialStore.getUserByEmail(cleanEmail, resolvedTenantSlug);
       user =
         localMetadata?.tenantSlug === resolvedTenantSlug
-          ? { ...localMetadata, role }
+          ? { ...localMetadata, name: operatorDisplayName, role }
           : {
               id: String(keycloak.decodedClaims?.sub || cleanEmail),
               email: cleanEmail,
-              name: String(
-                keycloak.decodedClaims?.name ||
-                  keycloak.decodedClaims?.preferred_username ||
-                  cleanEmail
-              ),
+              name: operatorDisplayName,
               tenantSlug: resolvedTenantSlug,
               role,
             };
@@ -106,7 +107,8 @@ export async function POST(req: NextRequest) {
     const session = AuthService.createSession(
       user.tenantSlug,
       user.email,
-      user.role
+      user.role,
+      user.name,
     );
 
     const response = NextResponse.json({

@@ -29,6 +29,16 @@ export type VerifyPasswordResult = {
   reason: string;
 };
 
+export type DemoAccessTokenResult = {
+  ok: true;
+  accessToken: string;
+  expiresIn: number;
+  decodedClaims: VerifiedSupportToken;
+} | {
+  ok: false;
+  reason: string;
+};
+
 const KEYCLOAK_FETCH_TIMEOUT_MS = 1_500;
 const jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -59,10 +69,54 @@ export function getKeycloakConfig(): KeycloakAuthConfig {
 export type VerifiedSupportToken = JWTPayload & {
   tenant_id?: string;
   preferred_username?: string;
+  name?: string;
+  given_name?: string;
+  nickname?: string;
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
   azp?: string;
 };
+
+function cleanDisplayLabel(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const clean = value.trim().replace(/\s+/g, " ").slice(0, 80);
+  return clean && !clean.includes("@") ? clean : null;
+}
+
+function titleCaseFirst(value: string): string {
+  if (!value) return value;
+  return value[0].toLocaleUpperCase() + value.slice(1);
+}
+
+/**
+ * Resolve the customer-visible operator label from signed identity claims.
+ * Nickname wins, then the operator's first name. Email addresses are never
+ * emitted into chat transcripts.
+ */
+export function supportOperatorDisplayName(
+  claims: Pick<VerifiedSupportToken, "nickname" | "given_name" | "name" | "preferred_username">,
+  tenantSlug = "",
+): string {
+  const nickname = cleanDisplayLabel(claims.nickname);
+  if (nickname) return nickname;
+
+  const givenName = cleanDisplayLabel(claims.given_name);
+  if (givenName) return givenName.split(" ")[0];
+
+  const fullName = cleanDisplayLabel(claims.name);
+  if (fullName) return fullName.split(" ")[0];
+
+  const username = typeof claims.preferred_username === "string"
+    ? claims.preferred_username.trim().toLowerCase()
+    : "";
+  if (username.startsWith("service-account-supportv8-demo-")) {
+    const tenantName = titleCaseFirst(tenantSlug.trim().toLowerCase() || "SupportV8");
+    return `${tenantName} Demo Operator`;
+  }
+  const localPart = username.split("@")[0] || "";
+  const firstSegment = localPart.split(/[._-]+/).find(Boolean) || "";
+  return firstSegment ? titleCaseFirst(firstSegment) : "Support Operator";
+}
 
 /** Verify signature, issuer, expiry, and the client that received the token. */
 export async function verifySupportAccessToken(token: string): Promise<VerifiedSupportToken> {
@@ -83,12 +137,72 @@ export async function verifySupportAccessToken(token: string): Promise<VerifiedS
   });
 
   const expectedClient = cfg.clientId || "supportv8-app";
+  const allowedClients = new Set([
+    expectedClient,
+    "supportv8-demo-acme",
+    "supportv8-demo-meridian",
+  ]);
   const audiences = Array.isArray(payload.aud) ? payload.aud : payload.aud ? [payload.aud] : [];
-  if (payload.azp !== expectedClient && !audiences.includes(expectedClient)) {
+  const authorizedParty = typeof payload.azp === "string" ? payload.azp : "";
+  if (!allowedClients.has(authorizedParty) && !audiences.some((audience) => allowedClients.has(audience))) {
     throw new Error("Access token was not issued to SupportV8");
   }
 
   return payload as VerifiedSupportToken;
+}
+
+/**
+ * Issue a short-lived service-account token for one of the two public demo
+ * workspaces. The client secret never reaches the browser, and the returned
+ * token is still signed and verified by the SupportV8 Keycloak realm.
+ */
+export async function issueKeycloakDemoAccessToken(
+  tenantSlug: "acme" | "meridian",
+  configOverride?: Partial<KeycloakAuthConfig>
+): Promise<DemoAccessTokenResult> {
+  const cfg = { ...getKeycloakConfig(), ...configOverride };
+  const baseUrl = cfg.adminBaseUrl?.replace(/\/$/, "");
+  const clientSecret = process.env.SUPPORTV8_DEMO_CLIENT_SECRET?.trim();
+  if (!baseUrl || !clientSecret) {
+    return { ok: false, reason: "demo_identity_not_configured" };
+  }
+
+  const clientId = `supportv8-demo-${tenantSlug}`;
+  try {
+    const response = await fetch(`${baseUrl}/realms/${cfg.realm}/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || typeof data.access_token !== "string") {
+      return { ok: false, reason: `demo_identity_error_${response.status}` };
+    }
+
+    const decodedClaims = await verifySupportAccessToken(data.access_token);
+    const expectedTenant = `tenant_${tenantSlug}`;
+    if (
+      decodedClaims.tenant_id !== expectedTenant ||
+      !supportRolesFromClaims(decodedClaims, clientId).includes("support_demo_operator")
+    ) {
+      return { ok: false, reason: "demo_identity_claim_mismatch" };
+    }
+
+    return {
+      ok: true,
+      accessToken: data.access_token,
+      expiresIn: Math.min(30 * 60, Math.max(60, Number(data.expires_in) || 5 * 60)),
+      decodedClaims,
+    };
+  } catch {
+    return { ok: false, reason: "demo_identity_unreachable" };
+  }
 }
 
 /**
@@ -392,6 +506,7 @@ export function mapRealmRolesToSupportRole(
   if (realmRoles.includes("support_contractor_lead")) return "contractor_lead";
   if (realmRoles.includes("support_technician")) return "technician";
   if (realmRoles.includes("support_operator")) return "operator";
+  if (realmRoles.includes("support_demo_operator")) return "operator";
   if (realmRoles.includes("support_observer")) return "observer";
   return null;
 }

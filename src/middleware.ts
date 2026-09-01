@@ -5,9 +5,67 @@ import {
   isTrustedServiceV8Hostname,
 } from "@/lib/tenant-host";
 
+const SAFE_HTTP_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const DEMO_MUTATION_PATHS = new Set([
+  "/api/auth/demo",
+  "/api/auth/logout",
+  "/api/chat",
+  "/api/chat/draft",
+  "/api/chat/message",
+  "/api/chat/session",
+  "/api/leads/demo-access",
+]);
+
+/**
+ * This is a deny-only edge check. Route handlers still verify the JWT
+ * signature and tenant claims before granting access. A forged token can only
+ * avoid this early denial; it cannot gain access to a protected route.
+ */
+function tokenHasDemoOperatorRole(token: string | undefined): boolean {
+  if (!token) return false;
+
+  try {
+    const payloadSegment = token.split(".")[1];
+    if (!payloadSegment) return false;
+    const base64 = payloadSegment.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(padded)) as {
+      realm_access?: { roles?: unknown };
+      resource_access?: Record<string, { roles?: unknown }>;
+    };
+    const realmRoles = claims.realm_access?.roles;
+    if (Array.isArray(realmRoles) && realmRoles.includes("support_demo_operator")) {
+      return true;
+    }
+
+    return Object.values(claims.resource_access || {}).some(
+      (access) =>
+        Array.isArray(access?.roles) && access.roles.includes("support_demo_operator"),
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") || "";
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : undefined;
+  const presentedAccessToken = bearer || request.cookies.get("sv8_access_token")?.value;
+
+  if (
+    !SAFE_HTTP_METHODS.has(request.method) &&
+    tokenHasDemoOperatorRole(presentedAccessToken) &&
+    !DEMO_MUTATION_PATHS.has(url.pathname)
+  ) {
+    return NextResponse.json(
+      { error: "Demo operators cannot change shared workspace data" },
+      { status: 403 },
+    );
+  }
 
   // Public chat intake is only accepted on an exact ServiceV8 tenant or root
   // hostname. This prevents a forged Host such as tenant.support.attacker.tld

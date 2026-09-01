@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { AuthService } from "../src/lib/auth-service";
 
 describe("SupportV8 AuthService & Zero-Trust Session Management", () => {
@@ -6,24 +6,33 @@ describe("SupportV8 AuthService & Zero-Trust Session Management", () => {
     AuthService.clearSession();
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("should create a valid operator session with cryptographic token and expiry", () => {
-    const session = AuthService.createSession("acme", "operator@acme.com", "operator");
+    const session = AuthService.createSession("acme", "operator@acme.com", "operator", "Dee");
     expect(session.tenantSlug).toBe("acme");
     expect(session.email).toBe("operator@acme.com");
+    expect(session.name).toBe("Dee");
     expect(session.token).toMatch(/^sv8_tk_acme_\d+_[a-z0-9]+$/);
     expect(session.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  it("should authenticate demo sandbox operators for acme and meridian", () => {
-    const acmeSess = AuthService.authenticateDemo("acme");
-    expect(acmeSess.tenantSlug).toBe("acme");
-    expect(acmeSess.email).toBe("admin@acme.com");
-    expect(acmeSess.role).toBe("cx_lead");
+  it("only accepts a server-authenticated demo session", async () => {
+    const session = AuthService.createSession("acme", "demo@acme.support.servicev8.com", "operator");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, session }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    ));
 
-    const meridianSess = AuthService.authenticateDemo("meridian");
-    expect(meridianSess.tenantSlug).toBe("meridian");
-    expect(meridianSess.email).toBe("dispatch@meridian.com");
-    expect(meridianSess.role).toBe("contractor_lead");
+    const result = await AuthService.authenticateDemo("acme");
+    expect(result.success).toBe(true);
+    expect(result.session?.tenantSlug).toBe("acme");
+    expect(result.session?.email).toBe("demo@acme.support.servicev8.com");
+    expect(result.session?.role).toBe("operator");
   });
 
   it("should clear session securely on logout", () => {

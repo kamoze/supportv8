@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   Zap,
@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Flame,
   ArrowRight,
+  ArrowDown,
   Mail,
   Phone,
   FileText,
@@ -64,6 +65,7 @@ import type {
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 import {
   createOptimisticChatMessage,
+  isNearLiveChatEdge,
   mergeChatSession,
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
@@ -284,9 +286,14 @@ export function FocusedWorkspaceView({
   // Live Chat Operator Takeover State
   const [operatorReplyText, setOperatorReplyText] = useState("");
   const [isSendingOperatorReply, setIsSendingOperatorReply] = useState(false);
+  const [liveDraftSource, setLiveDraftSource] = useState<"llm" | "fallback" | null>(null);
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
   const [matchingChatSession, setMatchingChatSession] = useState<CustomerChatSession | null>(null);
+  const [hasUnreadLiveMessage, setHasUnreadLiveMessage] = useState(false);
+  const liveChatViewportRef = useRef<HTMLDivElement>(null);
+  const shouldFollowLiveChatRef = useRef(true);
+  const lastLiveChatSessionIdRef = useRef<string | undefined>(undefined);
   const chatConnectionState = useChatRealtimeSession(matchingChatSession?.id, (session) => {
     setMatchingChatSession((current) => mergeChatSession(current, session));
   });
@@ -309,6 +316,39 @@ export function FocusedWorkspaceView({
   const chatSessionId = isChatTicket
     ? selectedIssue?.sourceUrl?.match(/\/chat\/([^/?#]+)/)?.[1]
     : undefined;
+  const latestLiveChatMessageId = matchingChatSession?.messages.at(-1)?.id;
+
+  const scrollLiveChatToLatest = (behavior: ScrollBehavior = "smooth") => {
+    const viewport = liveChatViewportRef.current;
+    if (!viewport) return;
+    shouldFollowLiveChatRef.current = true;
+    setHasUnreadLiveMessage(false);
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+  };
+
+  useEffect(() => {
+    const sessionId = matchingChatSession?.id;
+    const viewport = liveChatViewportRef.current;
+    if (!sessionId || !viewport) {
+      lastLiveChatSessionIdRef.current = sessionId;
+      shouldFollowLiveChatRef.current = true;
+      setHasUnreadLiveMessage(false);
+      return;
+    }
+
+    const sessionChanged = lastLiveChatSessionIdRef.current !== sessionId;
+    lastLiveChatSessionIdRef.current = sessionId;
+    if (sessionChanged) shouldFollowLiveChatRef.current = true;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (sessionChanged || shouldFollowLiveChatRef.current) {
+        scrollLiveChatToLatest(sessionChanged ? "auto" : "smooth");
+      } else {
+        setHasUnreadLiveMessage(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [matchingChatSession?.id, latestLiveChatMessageId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -348,6 +388,7 @@ export function FocusedWorkspaceView({
       senderName: operatorName,
       content: content.trim(),
     });
+    shouldFollowLiveChatRef.current = true;
     setMatchingChatSession((current) =>
       current ? { ...current, messages: [...current.messages, optimisticMessage] } : current,
     );
@@ -384,6 +425,46 @@ export function FocusedWorkspaceView({
     }
   };
 
+  const handleGenerateLiveChatDraft = async () => {
+    if (!matchingChatSession || isGeneratingAi) return;
+    setIsGeneratingAi(true);
+    setLiveDraftSource(null);
+    try {
+      const response = await fetch("/api/chat/draft", {
+        method: "POST",
+        signal: AbortSignal.timeout(20_000),
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: matchingChatSession.id,
+          channel: commChannel,
+          tone: aiTone,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || typeof result?.data?.draft !== "string") {
+        throw new Error(result?.error || "Unable to prepare a reply draft");
+      }
+      setOperatorReplyText(result.data.draft);
+      const source = result.data.source === "llm" ? "llm" : "fallback";
+      setLiveDraftSource(source);
+      if (source === "llm") {
+        onNotify("AI draft ready. Review it before sending.", "success");
+      } else {
+        const reason = result.data.reason === "allowance_exhausted"
+          ? "The AI allowance is exhausted"
+          : result.data.reason === "usage_limited"
+            ? "AI drafting is temporarily limited"
+            : "The AI service is unavailable";
+        onNotify(`${reason}, so a standard draft was prepared.`, "info");
+      }
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to prepare a reply draft", "error");
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
   // Initialize edit fields when selected issue changes
   useEffect(() => {
     if (selectedIssue) {
@@ -394,6 +475,7 @@ export function FocusedWorkspaceView({
       setEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || operatorName);
       setEditTags(selectedIssue.tags?.join(", ") || "");
       setForceStandardComposer(false);
+      setLiveDraftSource(null);
       setIsReassignDropdownOpen(false);
       const preferredChannel: CommunicationChannel = selectedIssue.entityType === "contractor"
         ? "contractor_sms"
@@ -1951,7 +2033,17 @@ export function FocusedWorkspaceView({
               </div>
 
               {/* Live Chat Message Stream Box */}
-              <div className="flex-1 bg-[#0B1017] border border-[var(--line)] rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2.5 font-sans text-xs">
+              <div
+                ref={liveChatViewportRef}
+                onScroll={(event) => {
+                  const isFollowing = isNearLiveChatEdge(event.currentTarget);
+                  shouldFollowLiveChatRef.current = isFollowing;
+                  if (isFollowing && hasUnreadLiveMessage) setHasUnreadLiveMessage(false);
+                }}
+                className="relative flex-1 bg-[#0B1017] border border-[var(--line)] rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2.5 font-sans text-xs"
+                aria-live="polite"
+                aria-label="Live chat messages"
+              >
                 {matchingChatSession.messages.map((msg, idx) => {
                   const isCustomer = msg.sender === "customer";
                   const isSystem = msg.sender === "system";
@@ -1987,6 +2079,18 @@ export function FocusedWorkspaceView({
                     </div>
                   );
                 })}
+                {hasUnreadLiveMessage && (
+                  <div className="sticky bottom-0 z-10 flex justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => scrollLiveChatToLatest()}
+                      className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#2ED8B6]/40 bg-[#142622] px-3 text-[10px] font-semibold text-[#57E5C8] shadow-md shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6]"
+                    >
+                      <span>New message</span>
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <CommunicationChannelSelector
@@ -2002,22 +2106,30 @@ export function FocusedWorkspaceView({
                   <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operator Quick Actions:</span>
                   <button
                     type="button"
-                    onClick={() => {
-                      const lastMsg = [...matchingChatSession.messages].reverse().find(m => m.sender === "customer")?.content || selectedIssue.summary;
-                      const draft = `Hello ${selectedIssue.customerName}! I am reviewing your request regarding "${lastMsg.slice(0, 42)}...". I have verified your account telemetry and am taking action directly from the Work Desk.`;
-                      setOperatorReplyText(draft);
-                    }}
-                    className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer"
+                    onClick={handleGenerateLiveChatDraft}
+                    disabled={isGeneratingAi}
+                    className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Sparkles className="w-3 h-3 text-[#2ED8B6]" />
-                    <span>Draft reply</span>
+                    {isGeneratingAi ? (
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3 text-[#2ED8B6]" />
+                    )}
+                    <span>{isGeneratingAi ? "Drafting…" : "Draft reply"}</span>
                   </button>
                 </div>
+                {liveDraftSource && (
+                  <p className="text-[10px] text-[#8E9AA8]" role="status" aria-live="polite">
+                    {liveDraftSource === "llm"
+                      ? "AI draft · allowance metered"
+                      : "Standard draft · no AI credits used"}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-1">
                   {[
-                    "Hello! I am taking over this live chat to assist you directly.",
-                    "I have verified your account and approved your instant credit voucher.",
-                    "Your electronic lockbox security PIN LOCK-8841 is validated for site access.",
+                    "Hello! I’m taking over this live chat and reviewing your request now.",
+                    "Thank you for the details. I’ll confirm the next step here shortly.",
+                    "I’m checking this with the appropriate team and will keep you updated here.",
                   ].map((phrase, i) => (
                     <button
                       key={i}

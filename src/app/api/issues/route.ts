@@ -5,6 +5,7 @@ import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenan
 import {
   ChatIngressError,
   requireChatOperatorRole,
+  requirePersistentMutationRole,
 } from "@/lib/chatbot/security/ingress-security";
 import type { SentimentClass, SourceType } from "@/lib/types";
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, issueId, id, updates, ...rest } = body;
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
-    requireChatOperatorRole(tenant);
+    requirePersistentMutationRole(tenant);
 
     if (action === "update" || action === "resolve" || action === "change_status") {
       const targetId = issueId || id;
@@ -101,7 +102,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, issueId, ...updates } = body;
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
-    requireChatOperatorRole(tenant);
+    requirePersistentMutationRole(tenant);
     const targetId = id || issueId;
     if (!targetId) {
       return NextResponse.json({ success: false, error: "Missing issue ID" }, { status: 400 });

@@ -12,6 +12,11 @@ import {
 import { middleware } from "@/middleware";
 import { NextRequest } from "next/server";
 
+function tokenWithRoles(roles: string[]): string {
+  const payload = Buffer.from(JSON.stringify({ realm_access: { roles } })).toString("base64url");
+  return `header.${payload}.signature`;
+}
+
 describe("trusted request tenant normalization", () => {
   it("maps hosted tenant domains to canonical database IDs", () => {
     expect(tenantSlugFromHostname("acme-movers.support.servicev8.com")).toBe("acme-movers");
@@ -52,6 +57,71 @@ describe("trusted request tenant normalization", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-servicev8-tenant-domain")).toBe("acme");
+  });
+
+  it("allows only the intentional demo chat mutations", () => {
+    const token = tokenWithRoles(["support_demo_operator"]);
+    const blocked = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/policies", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          cookie: `sv8_access_token=${token}`,
+        },
+      }),
+    );
+    const allowed = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/chat/message", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          cookie: `sv8_access_token=${token}`,
+        },
+      }),
+    );
+    const draftAllowed = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/chat/draft", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          cookie: `sv8_access_token=${token}`,
+        },
+      }),
+    );
+
+    expect(blocked.status).toBe(403);
+    expect(allowed.status).toBe(200);
+    expect(draftAllowed.status).toBe(200);
+  });
+
+  it("applies the demo mutation firewall to bearer tokens as well as cookies", () => {
+    const response = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/credits", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          authorization: `Bearer ${tokenWithRoles(["support_demo_operator"])}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("does not use an unverified token to grant write access", () => {
+    const response = middleware(
+      new NextRequest("https://acme.support.servicev8.com/api/policies", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          cookie: `sv8_access_token=${tokenWithRoles(["support_operator"])}`,
+        },
+      }),
+    );
+
+    // The signed-token check remains the responsibility of the route. The
+    // middleware only adds an early denial for restricted demo tokens.
+    expect(response.status).toBe(200);
   });
 
   it("keeps the hosted tenant authoritative across URL and saved-session state", () => {

@@ -21,12 +21,13 @@ import {
   Briefcase,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
+import { AuthService, type AuthSession } from "@/lib/auth-service";
 
 export interface DemoAccessModalProps {
   isOpen: boolean;
   initialTenantSlug?: string;
   onClose: () => void;
-  onSuccess: (tenantSlug: string, email: string) => void;
+  onSuccess: (session: AuthSession, leadEmail: string) => void;
   onOpenSignIn: () => void;
 }
 
@@ -148,7 +149,7 @@ export function DemoAccessModal({
     setSelectedCapabilities([]);
   };
 
-  const executeHandoff = (tenantSlug: string, email: string) => {
+  const executeHandoff = (session: AuthSession, email: string) => {
     if (typeof window !== "undefined") {
       try {
         sessionStorage.setItem("sv8_demo_unlocked", "true");
@@ -158,16 +159,26 @@ export function DemoAccessModal({
         }
       } catch (_) {}
     }
-    onSuccess(tenantSlug, email);
+    onSuccess(session, email);
     onClose();
+  };
+
+  const authenticateDemo = async (tenantSlug: string, email: string) => {
+    const demoSlug = tenantSlug === "meridian" ? "meridian" : "acme";
+    const auth = await AuthService.authenticateDemo(demoSlug);
+    if (!auth.success || !auth.session) {
+      throw new Error(auth.error || "Demo authentication failed.");
+    }
+    executeHandoff(auth.session, email);
   };
 
   // Quick Launch (Instant access bypassing form)
   const handleQuickLaunch = async () => {
     setIsLoading(true);
     try {
-      // Fire-and-forget guest telemetry
-      fetch("/api/leads/demo-access", {
+      // Lead capture is non-authoritative; Keycloak authentication below is
+      // the only operation that unlocks a workspace.
+      await fetch("/api/leads/demo-access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,11 +192,13 @@ export function DemoAccessModal({
           optInEmail: false,
           source: "quick_launch_bypass",
         }),
-      }).catch(() => {});
-    } catch (_) {}
-
-    setIsLoading(false);
-    executeHandoff(selectedTenant, "guest-demo@servicev8.com");
+      }).catch(() => undefined);
+      await authenticateDemo(selectedTenant, "guest-demo@servicev8.com");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Demo authentication failed.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Form Submit (Captures user info & Q&A)
@@ -228,11 +241,11 @@ export function DemoAccessModal({
         return;
       }
 
+      await authenticateDemo(selectedTenant, emailTrim || "guest-demo@servicev8.com");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "Demo authentication failed.");
+    } finally {
       setIsLoading(false);
-      executeHandoff(selectedTenant, emailTrim || "guest-demo@servicev8.com");
-    } catch (_) {
-      setIsLoading(false);
-      executeHandoff(selectedTenant, emailTrim || "guest-demo@servicev8.com");
     }
   };
 

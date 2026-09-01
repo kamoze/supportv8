@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import {
+  supportOperatorDisplayName,
   supportRolesFromClaims,
   verifySupportAccessToken,
   type VerifiedSupportToken,
@@ -29,7 +30,23 @@ export interface RequestTenantContext {
   authenticated: boolean;
   userId?: string;
   username?: string;
+  displayName?: string;
   roles: string[];
+}
+
+const RESTRICTED_DEMO_MUTATION_PATHS = new Set([
+  "/api/chat",
+  "/api/chat/draft",
+  "/api/chat/message",
+  "/api/chat/session",
+]);
+
+function enforceRestrictedDemoMutation(request: NextRequest | Request, roles: string[]): void {
+  if (!roles.includes("support_demo_operator")) return;
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) return;
+  const pathname = new URL(request.url).pathname;
+  if (RESTRICTED_DEMO_MUTATION_PATHS.has(pathname)) return;
+  throw new RequestAuthError("Demo operators cannot change shared workspace data", 403);
 }
 
 export function normalizeTenantSlug(value: string): string {
@@ -117,13 +134,16 @@ export async function resolveRequestTenant(
       throw new RequestAuthError("Authenticated tenant does not match the hosted workspace", 403);
     }
 
+    const roles = supportRolesFromClaims(claims);
+    enforceRestrictedDemoMutation(request, roles);
     return {
       tenantId,
       tenantSlug,
       authenticated: true,
       userId: typeof claims.sub === "string" ? claims.sub : undefined,
       username: typeof claims.preferred_username === "string" ? claims.preferred_username : undefined,
-      roles: supportRolesFromClaims(claims),
+      displayName: supportOperatorDisplayName(claims, tenantSlug),
+      roles,
     };
   }
 

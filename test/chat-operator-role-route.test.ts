@@ -21,6 +21,11 @@ import { chatRepository } from "../src/lib/db/chat-repository";
 import { POST } from "../src/app/api/chat/message/route";
 import { GET as getSessions, POST as startSession } from "../src/app/api/chat/session/route";
 import { GET as getIssues } from "../src/app/api/issues/route";
+import { POST as mutateIssue, PATCH as patchIssue } from "../src/app/api/issues/route";
+import { POST as mutateMarketplace } from "../src/app/api/marketplace/route";
+import { POST as mutateWorkforce } from "../src/app/api/workforce/route";
+import { issueService } from "../src/lib/services/issue-service";
+import { marketplaceService } from "../src/lib/services/marketplace-service";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -104,6 +109,7 @@ describe("operator chat route authorization", () => {
       authenticated: true,
       userId: "operator_1",
       username: "operator@acme.com",
+      displayName: "David",
       roles: ["support_operator"],
     });
     vi.mocked(chatRepository.sendMessage).mockResolvedValue({
@@ -119,7 +125,11 @@ describe("operator chat route authorization", () => {
 
     expect(response.status).toBe(200);
     expect(chatRepository.sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: "tenant_acme", senderId: "operator_1" })
+      expect.objectContaining({
+        tenantId: "tenant_acme",
+        senderId: "operator_1",
+        senderName: "David",
+      })
     );
   });
 
@@ -158,5 +168,42 @@ describe("operator chat route authorization", () => {
     );
 
     expect(response.status).toBe(403);
+  });
+
+  it.each([
+    ["issue creation", mutateIssue, { summary: "must not persist" }],
+    ["issue update", patchIssue, { id: "iss_acme_001", status: "resolved" }],
+    ["marketplace change", mutateMarketplace, { action: "add_credits", amount: 999 }],
+    ["workforce change", mutateWorkforce, { action: "hire", employeeId: "emp_incident_analyst" }],
+  ])("rejects demo operator %s before shared state changes", async (_label, handler, body) => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(resolveRequestTenant).mockResolvedValue({
+      tenantId: "tenant_acme",
+      tenantSlug: "acme",
+      authenticated: true,
+      userId: "demo_acme",
+      username: "service-account-supportv8-demo-acme",
+      roles: ["support_demo_operator"],
+    });
+    const createIssue = vi.spyOn(issueService, "createFromInteraction");
+    const updateIssue = vi.spyOn(issueService, "updateIssue");
+    const addCredits = vi.spyOn(marketplaceService, "addCredits");
+    const hire = vi.spyOn(marketplaceService, "hireWorkforceAgent");
+
+    const response = await handler(new NextRequest("https://acme.support.servicev8.com/api/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+
+    expect(response.status).toBe(403);
+    expect(createIssue).not.toHaveBeenCalled();
+    expect(updateIssue).not.toHaveBeenCalled();
+    expect(addCredits).not.toHaveBeenCalled();
+    expect(hire).not.toHaveBeenCalled();
+    createIssue.mockRestore();
+    updateIssue.mockRestore();
+    addCredits.mockRestore();
+    hire.mockRestore();
   });
 });

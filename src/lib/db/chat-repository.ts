@@ -966,15 +966,15 @@ export class ChatRepository {
               : "active";
         await db.query(
           `UPDATE supportv8.chat_sessions
-              SET status = $2,
+              SET status = $2::text,
                   intake_data = jsonb_set(
                     intake_data,
                     '{__supportv8,uiStatus}',
                     to_jsonb($3::text),
                     true
                   ),
-                  resolved_at = CASE WHEN $2 IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END,
-                  closed_at = CASE WHEN $2 = 'closed' THEN COALESCE(closed_at, now()) ELSE NULL END
+                  resolved_at = CASE WHEN $2::text IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END,
+                  closed_at = CASE WHEN $2::text = 'closed' THEN COALESCE(closed_at, now()) ELSE NULL END
             WHERE issue_id = $1`,
           [issueId, dbStatus, uiStatus]
         );
@@ -985,8 +985,8 @@ export class ChatRepository {
             : "active";
         await db.query(
           `UPDATE supportv8.workdesk_items
-              SET status = $2, version = version + 1,
-                  resolved_at = CASE WHEN $2 IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END,
+              SET status = $2::text, version = version + 1,
+                  resolved_at = CASE WHEN $2::text IN ('resolved', 'closed') THEN COALESCE(resolved_at, now()) ELSE NULL END,
                   updated_at = now()
             WHERE issue_id = $1`,
           [issueId, workdeskStatus]

@@ -83,7 +83,12 @@ describe("durable chat ticket lifecycle", () => {
       timeline: [{ action: "Status transitioned to RESOLVED" }],
       messages: [{ content: "This is resolved." }],
     });
-    expect(queries.some((query) => query.sql.includes("UPDATE supportv8.chat_sessions"))).toBe(true);
-    expect(queries.some((query) => query.sql.includes("UPDATE supportv8.workdesk_items"))).toBe(true);
+    const chatSessionUpdate = queries.find((query) => query.sql.includes("UPDATE supportv8.chat_sessions"));
+    const workdeskUpdate = queries.find((query) => query.sql.includes("UPDATE supportv8.workdesk_items"));
+    expect(chatSessionUpdate?.sql).toContain("SET status = $2::text");
+    expect(chatSessionUpdate?.sql).toContain("WHEN $2::text IN ('resolved', 'closed')");
+    expect(chatSessionUpdate?.sql).toContain("WHEN $2::text = 'closed'");
+    expect(workdeskUpdate?.sql).toContain("SET status = $2::text");
+    expect(workdeskUpdate?.sql).toContain("WHEN $2::text IN ('resolved', 'closed')");
   });
 });

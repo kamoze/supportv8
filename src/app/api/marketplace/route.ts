@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-security";
 
 function marketplaceError(error: unknown) {
   if (error instanceof RequestAuthError) {
@@ -36,6 +37,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    if (isRestrictedDemoOperator(tenant)) {
+      return NextResponse.json(
+        { success: false, error: "Demo operators cannot change plans, credits, workforce, or workspace settings." },
+        { status: 403 }
+      );
+    }
     const body = await req.json();
     const { action } = body;
 

@@ -1879,9 +1879,7 @@ export default function SupportV8Dashboard() {
           isOpen={isDemoModalOpen}
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
-          onSuccess={(slug, email) => {
-            const demoSlug = slug === "meridian" ? "meridian" : "acme";
-            const session = AuthService.authenticateDemo(demoSlug);
+          onSuccess={(session, email) => {
             setOperatorSession(session);
             setCurrentTenantSlug(session.tenantSlug);
             setViewMode("cockpit");
@@ -1952,9 +1950,7 @@ export default function SupportV8Dashboard() {
           isOpen={isDemoModalOpen}
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
-          onSuccess={(slug, email) => {
-            const demoSlug = slug === "meridian" ? "meridian" : "acme";
-            const session = AuthService.authenticateDemo(demoSlug);
+          onSuccess={(session, email) => {
             setOperatorSession(session);
             setCurrentTenantSlug(session.tenantSlug);
             setViewMode("cockpit");

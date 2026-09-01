@@ -107,13 +107,29 @@ export const AuthService = {
     }
   },
 
-  /**
-   * Authenticate demo credentials with zero-trust envelope verification
-   */
-  authenticateDemo(tenantSlug: "acme" | "meridian"): AuthSession {
-    if (tenantSlug === "meridian") {
-      return this.createSession("meridian", "dispatch@meridian.com", "contractor_lead");
+  /** Authenticate a restricted demo operator through the server-side Keycloak client. */
+  async authenticateDemo(
+    tenantSlug: "acme" | "meridian"
+  ): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
+    try {
+      const response = await fetch("/api/auth/demo", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantSlug }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success || !payload.session) {
+        return { success: false, error: payload.error || "Demo authentication failed." };
+      }
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload.session));
+        } catch (_) {}
+      }
+      return { success: true, session: payload.session };
+    } catch {
+      return { success: false, error: "Demo authentication service unavailable." };
     }
-    return this.createSession("acme", "admin@acme.com", "cx_lead");
   },
 };

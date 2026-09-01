@@ -128,6 +128,7 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       expect(mapRealmRolesToSupportRole(["support_contractor_lead"])).toBe("contractor_lead");
       expect(mapRealmRolesToSupportRole(["support_technician"])).toBe("technician");
       expect(mapRealmRolesToSupportRole(["support_observer"])).toBe("observer");
+      expect(mapRealmRolesToSupportRole(["support_demo_operator"])).toBe("operator");
       expect(mapRealmRolesToSupportRole([])).toBeNull();
       expect(mapRealmRolesToSupportRole(["admin", "operator", "viewer"])).toBeNull();
     });

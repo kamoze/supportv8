@@ -7,6 +7,7 @@ const CHAT_OPERATOR_ROLES = new Set([
   "support_superadmin",
   "support_cx_lead",
   "support_operator",
+  "support_demo_operator",
 ]);
 
 export class ChatIngressError extends Error {
@@ -86,6 +87,17 @@ export function requireChatOperatorRole(tenant: RequestTenantContext): void {
 
   if (!tenant.authenticated || !tenant.roles.some((role) => CHAT_OPERATOR_ROLES.has(role))) {
     throw new ChatIngressError("Operator role is required", 403);
+  }
+}
+
+export function isRestrictedDemoOperator(tenant: RequestTenantContext): boolean {
+  return tenant.authenticated && tenant.roles.includes("support_demo_operator");
+}
+
+export function requirePersistentMutationRole(tenant: RequestTenantContext): void {
+  requireChatOperatorRole(tenant);
+  if (isRestrictedDemoOperator(tenant)) {
+    throw new ChatIngressError("Demo operators cannot change shared workspace data", 403);
   }
 }
 

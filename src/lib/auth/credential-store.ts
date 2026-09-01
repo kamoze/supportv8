@@ -1,7 +1,12 @@
 import fs from "fs";
 import path from "path";
 import { hashPassword, verifyPasswordHash } from "./password";
-import { verifyKeycloakPassword, mapRealmRolesToSupportRole, getKeycloakConfig } from "./keycloak";
+import {
+  verifyKeycloakPassword,
+  mapRealmRolesToSupportRole,
+  getKeycloakConfig,
+  supportRolesFromClaims,
+} from "./keycloak";
 
 export interface UserCredentialRecord {
   id: string;
@@ -347,8 +352,12 @@ export class UserCredentialStore {
     if (kcConfig.adminBaseUrl) {
       const kcResult = await verifyKeycloakPassword(cleanEmail, password);
       if (kcResult.ok) {
-        const roles = kcResult.decodedClaims?.realm_access?.roles || [];
-        const mappedRole = mapRealmRolesToSupportRole(roles);
+        const mappedRole = mapRealmRolesToSupportRole(
+          supportRolesFromClaims(kcResult.decodedClaims || {})
+        );
+        if (!mappedRole) {
+          return { success: false, error: "A SupportV8 role is required for this workspace." };
+        }
         const tenantFromClaim = kcResult.decodedClaims?.attributes?.tenant_id?.[0] || kcResult.decodedClaims?.tenant_id;
         const resolvedSlug = (tenantFromClaim || tenantSlug || cleanEmail.split("@")[1].split(".")[0] || "acme").toLowerCase().trim();
 

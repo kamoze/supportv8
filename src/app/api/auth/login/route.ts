@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { credentialStore } from "@/lib/auth/credential-store";
 import { AuthService } from "@/lib/auth-service";
-import { verifyKeycloakPassword } from "@/lib/auth/keycloak";
-import { tenantIdFromSlug } from "@/lib/auth/request-tenant";
+import {
+  mapRealmRolesToSupportRole,
+  supportRolesFromClaims,
+  verifyKeycloakPassword,
+} from "@/lib/auth/keycloak";
+import { tenantIdFromSlug, tenantSlugFromId } from "@/lib/auth/request-tenant";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,24 +20,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const authResult = await credentialStore.authenticate(email, password, tenantSlug);
-
-    if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { success: false, error: authResult.error || "Invalid credentials." },
-        { status: 401 }
-      );
-    }
-
-    const user = authResult.user;
+    const cleanEmail = email.trim().toLowerCase();
+    let user;
     let keycloakAccessToken: string | undefined;
     let tokenExpiresAt: number | undefined;
 
-    // Production operator sessions are always backed by a signed Keycloak
-    // access token. A matching local password record is not an authorization
-    // boundary and cannot select a database tenant.
+    // Production identity and tenant membership come directly from Keycloak.
+    // The process-local credential store is only a test/development adapter.
     if (process.env.NODE_ENV === "production") {
-      const keycloak = await verifyKeycloakPassword(email, password);
+      const keycloak = await verifyKeycloakPassword(cleanEmail, password);
       if (!keycloak.ok || !keycloak.accessToken) {
         return NextResponse.json(
           { success: false, error: "Identity provider authentication failed." },
@@ -44,14 +39,68 @@ export async function POST(req: NextRequest) {
       const claimTenant =
         keycloak.decodedClaims?.tenant_id ||
         keycloak.decodedClaims?.attributes?.tenant_id?.[0];
-      if (claimTenant !== tenantIdFromSlug(user.tenantSlug)) {
+      if (typeof claimTenant !== "string") {
+        return NextResponse.json(
+          { success: false, error: "Identity provider tenant claim is missing or invalid." },
+          { status: 403 }
+        );
+      }
+
+      let resolvedTenantSlug: string;
+      try {
+        resolvedTenantSlug = tenantSlugFromId(claimTenant);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "Identity provider tenant claim is missing or invalid." },
+          { status: 403 }
+        );
+      }
+      if (
+        tenantSlug &&
+        tenantSlug.trim().toLowerCase() !== "global" &&
+        claimTenant !== tenantIdFromSlug(tenantSlug)
+      ) {
         return NextResponse.json(
           { success: false, error: "Authenticated tenant claim does not match this workspace." },
           { status: 403 }
         );
       }
+
+      const role = mapRealmRolesToSupportRole(
+        supportRolesFromClaims(keycloak.decodedClaims || {})
+      );
+      if (!role) {
+        return NextResponse.json(
+          { success: false, error: "A SupportV8 role is required for this workspace." },
+          { status: 403 }
+        );
+      }
+      const localMetadata = credentialStore.getUserByEmail(cleanEmail, resolvedTenantSlug);
+      user =
+        localMetadata?.tenantSlug === resolvedTenantSlug
+          ? { ...localMetadata, role }
+          : {
+              id: String(keycloak.decodedClaims?.sub || cleanEmail),
+              email: cleanEmail,
+              name: String(
+                keycloak.decodedClaims?.name ||
+                  keycloak.decodedClaims?.preferred_username ||
+                  cleanEmail
+              ),
+              tenantSlug: resolvedTenantSlug,
+              role,
+            };
       keycloakAccessToken = keycloak.accessToken;
       tokenExpiresAt = Number(keycloak.decodedClaims?.exp || 0) * 1000 || undefined;
+    } else {
+      const authResult = await credentialStore.authenticate(cleanEmail, password, tenantSlug);
+      if (!authResult.success || !authResult.user) {
+        return NextResponse.json(
+          { success: false, error: authResult.error || "Invalid credentials." },
+          { status: 401 }
+        );
+      }
+      user = authResult.user;
     }
 
     const session = AuthService.createSession(
@@ -84,7 +133,7 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err: unknown) {
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Authentication error" },
+      { success: false, error: "Authentication service is temporarily unavailable." },
       { status: 500 }
     );
   }

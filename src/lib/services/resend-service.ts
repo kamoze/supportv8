@@ -160,7 +160,7 @@ CRM PARSER TAGS:
     const apiKey = process.env.RESEND_API_KEY || process.env.resend_api_key;
     const fromAddress = process.env.RESEND_FROM_EMAIL || "SupportV8 <notifications@servicev8.com>";
     const toAddress = payload.email.trim().toLowerCase();
-    const subject = `[supportv8] Your Verification Code: ${payload.code}`;
+    const subject = "[supportv8] Your verification code";
     const company = payload.companyName || "your workspace";
     const domain = payload.tenantSlug ? `${payload.tenantSlug}.support.servicev8.com` : "support.servicev8.com";
 
@@ -197,14 +197,23 @@ https://servicev8.com`;
       </div>
     `;
 
-    console.log(`[supportV8 Auth] Dispatching OTP code ${payload.code} to ${toAddress}`);
+    console.info("[supportV8 Auth] Dispatching OTP email");
 
-    if (!apiKey || process.env.NODE_ENV === "test") {
+    if (process.env.NODE_ENV === "test") {
       return {
         success: true,
         resendEmailId: `resend_mock_otp_${Date.now()}`,
         subject,
         to: toAddress,
+      };
+    }
+
+    if (!apiKey) {
+      return {
+        success: false,
+        subject,
+        to: toAddress,
+        error: "OTP email service is not configured",
       };
     }
 

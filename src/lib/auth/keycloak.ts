@@ -11,6 +11,15 @@ export class KeycloakUserExists extends Error {
   }
 }
 
+export class KeycloakIdentityMayExistError extends Error {
+  readonly identityMayExist = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "KeycloakIdentityMayExistError";
+  }
+}
+
 export type VerifyPasswordResult = {
   ok: true;
   accessToken?: string;
@@ -51,6 +60,7 @@ export type VerifiedSupportToken = JWTPayload & {
   tenant_id?: string;
   preferred_username?: string;
   realm_access?: { roles?: string[] };
+  resource_access?: Record<string, { roles?: string[] }>;
   azp?: string;
 };
 
@@ -200,44 +210,26 @@ export async function createKeycloakUser(
     ],
   };
 
-  const res = await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(userPayload),
-    cache: "no-store",
-    signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(userPayload),
+      cache: "no-store",
+      signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    // The request may have committed before the response was lost.
+    throw new KeycloakIdentityMayExistError("Keycloak user creation outcome is unknown");
+  }
 
   let id = cleanEmail;
 
   if (res.status === 409) {
-    // User already exists in Keycloak IdP: Look up existing user ID and synchronize password
-    try {
-      const lookupRes = await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users?email=${encodeURIComponent(cleanEmail)}&exact=true`, {
-        headers: { authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      if (lookupRes.ok) {
-        const users = (await lookupRes.json()) as { id: string }[];
-        if (users[0]?.id) {
-          id = users[0].id;
-          // Set password on existing user
-          await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users/${id}/reset-password`, {
-            method: "PUT",
-            headers: {
-              "content-type": "application/json",
-              authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ type: "password", value: password, temporary: false }),
-            cache: "no-store",
-          });
-          return { id };
-        }
-      }
-    } catch (_) {}
     throw new KeycloakUserExists(cleanEmail);
   }
 
@@ -252,22 +244,143 @@ export async function createKeycloakUser(
     id = location.split("/").pop() || cleanEmail;
   }
 
-  // Explicitly execute reset-password to guarantee active credentials in Keycloak
-  if (id && id !== cleanEmail) {
+  if (id === cleanEmail) {
+    throw new KeycloakIdentityMayExistError(
+      "Keycloak created a user without returning its identifier"
+    );
+  }
+
+  const requestedRoles = [...new Set(options.roles || [])];
+  try {
+    if (requestedRoles.length === 0) {
+      throw new Error("At least one SupportV8 role is required");
+    }
+    for (const roleName of requestedRoles) {
+      if (!/^support_[a-z0-9_]+$/.test(roleName)) {
+        throw new Error(`Invalid SupportV8 role requested: ${roleName}`);
+      }
+      const roleResponse = await fetch(
+        `${baseUrl}/admin/realms/${cfg.realm}/roles/${encodeURIComponent(roleName)}`,
+        {
+          headers: { authorization: `Bearer ${token}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+        }
+      );
+      if (!roleResponse.ok) {
+        throw new Error(`Keycloak role lookup failed for ${roleName} (${roleResponse.status})`);
+      }
+      const role = await roleResponse.json();
+      const mappingResponse = await fetch(
+        `${baseUrl}/admin/realms/${cfg.realm}/users/${encodeURIComponent(id)}/role-mappings/realm`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify([role]),
+          cache: "no-store",
+          signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+        }
+      );
+      if (!mappingResponse.ok && mappingResponse.status !== 204) {
+        throw new Error(`Keycloak role assignment failed for ${roleName} (${mappingResponse.status})`);
+      }
+    }
+  } catch (error) {
+    // Avoid leaving a roleless identity with an authoritative tenant claim.
+    let identityRemoved = false;
     try {
-      await fetch(`${baseUrl}/admin/realms/${cfg.realm}/users/${id}/reset-password`, {
-        method: "PUT",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ type: "password", value: password, temporary: false }),
-        cache: "no-store",
-      });
-    } catch (_) {}
+      const deleteResponse = await fetch(
+        `${baseUrl}/admin/realms/${cfg.realm}/users/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${token}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+        }
+      );
+      identityRemoved = deleteResponse.ok || deleteResponse.status === 404;
+    } catch {
+      identityRemoved = false;
+    }
+    if (!identityRemoved) {
+      throw new KeycloakIdentityMayExistError(
+        "Keycloak user cleanup could not be confirmed"
+      );
+    }
+    throw error;
   }
 
   return { id };
+}
+
+export interface KeycloakAdminUser {
+  id: string;
+  username?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  attributes?: Record<string, string[]>;
+}
+
+/** Look up one exact user through the trusted Keycloak Admin API. */
+export async function findKeycloakUserByEmail(
+  email: string,
+  configOverride?: Partial<KeycloakAuthConfig>
+): Promise<KeycloakAdminUser | undefined> {
+  const cfg = { ...getKeycloakConfig(), ...configOverride };
+  const baseUrl = cfg.adminBaseUrl?.replace(/\/$/, "");
+  if (!baseUrl) throw new Error("Keycloak adminBaseUrl not configured");
+
+  const token = await getAdminToken(cfg);
+  const cleanEmail = email.trim().toLowerCase();
+  const response = await fetch(
+    `${baseUrl}/admin/realms/${cfg.realm}/users?email=${encodeURIComponent(cleanEmail)}&exact=true`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Keycloak user lookup failed (${response.status})`);
+  }
+
+  const users = (await response.json()) as KeycloakAdminUser[];
+  return users.find((user) => (user.email || user.username || "").trim().toLowerCase() === cleanEmail);
+}
+
+/** Reset a verified account's password in the production identity authority. */
+export async function resetKeycloakPassword(
+  email: string,
+  newPassword: string,
+  configOverride?: Partial<KeycloakAuthConfig>
+): Promise<void> {
+  const cfg = { ...getKeycloakConfig(), ...configOverride };
+  const baseUrl = cfg.adminBaseUrl?.replace(/\/$/, "");
+  if (!baseUrl) throw new Error("Keycloak adminBaseUrl not configured");
+
+  const user = await findKeycloakUserByEmail(email, cfg);
+  if (!user?.id) throw new Error("Keycloak user was not found");
+  const token = await getAdminToken(cfg);
+  const response = await fetch(
+    `${baseUrl}/admin/realms/${cfg.realm}/users/${encodeURIComponent(user.id)}/reset-password`,
+    {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ type: "password", value: newPassword, temporary: false }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Keycloak password reset failed (${response.status})`);
+  }
 }
 
 /**
@@ -275,12 +388,22 @@ export async function createKeycloakUser(
  */
 export function mapRealmRolesToSupportRole(
   realmRoles: string[] = []
-): "superadmin" | "cx_lead" | "operator" | "contractor_lead" | "technician" | "observer" {
-  if (realmRoles.includes("support_superadmin") || realmRoles.includes("admin")) return "superadmin";
-  if (realmRoles.includes("support_cx_lead") || realmRoles.includes("cx_lead")) return "cx_lead";
+): "superadmin" | "cx_lead" | "operator" | "contractor_lead" | "technician" | "observer" | null {
+  if (realmRoles.includes("support_superadmin")) return "superadmin";
+  if (realmRoles.includes("support_cx_lead")) return "cx_lead";
   if (realmRoles.includes("support_contractor_lead")) return "contractor_lead";
   if (realmRoles.includes("support_technician")) return "technician";
-  if (realmRoles.includes("support_operator") || realmRoles.includes("operator")) return "operator";
-  if (realmRoles.includes("support_observer") || realmRoles.includes("viewer")) return "observer";
-  return "operator";
+  if (realmRoles.includes("support_operator")) return "operator";
+  if (realmRoles.includes("support_observer")) return "observer";
+  return null;
+}
+
+export function supportRolesFromClaims(
+  claims: Pick<VerifiedSupportToken, "realm_access" | "resource_access">,
+  clientId = getKeycloakConfig().clientId || "supportv8-app"
+): string[] {
+  return [
+    ...(claims.resource_access?.[clientId]?.roles || []),
+    ...(claims.realm_access?.roles || []),
+  ].filter((role, index, roles) => role.startsWith("support_") && roles.indexOf(role) === index);
 }

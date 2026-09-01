@@ -4,6 +4,11 @@ jobs:
   build:
     docker:
       - image: cimg/node:22.13
+        environment:
+          REDIS_URL: redis://:ci-supportv8-auth@127.0.0.1:6379
+          SUPPORTV8_RUN_REDIS_INTEGRATION: "true"
+      - image: redis:7.4-alpine
+        command: ["redis-server", "--requirepass", "ci-supportv8-auth"]
     steps:
       - checkout
       - run:

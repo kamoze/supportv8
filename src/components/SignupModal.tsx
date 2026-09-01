@@ -22,7 +22,6 @@ import {
   Smartphone,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
-import { AuthService } from "@/lib/auth-service";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -62,6 +61,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
   // Email OTP verification state
   const [otpCode, setOtpCode] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
+  const [verificationReceipt, setVerificationReceipt] = useState("");
   const [otpError, setOtpError] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
@@ -93,6 +93,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       refreshCaptcha();
       setErrorMsg("");
       setOtpError("");
+      setVerificationReceipt("");
       setStep(1);
     }
   }, [isOpen]);
@@ -196,16 +197,13 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         setGeneratedOtp(data.debugCode);
       }
 
+      setVerificationReceipt("");
       setIsSendingOtp(false);
       setResendCooldown(30);
       setStep(3);
     } catch (_) {
-      // Fallback
-      const code = AuthService.issueOtp(adminEmail);
-      setGeneratedOtp(code);
       setIsSendingOtp(false);
-      setResendCooldown(30);
-      setStep(3);
+      setErrorMsg("Verification service is unavailable. Please try again.");
     }
   };
 
@@ -226,17 +224,21 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       });
 
       const data = await res.json();
+      if (!res.ok || !data.success) {
+        setIsSendingOtp(false);
+        setOtpError(data?.error || "Failed to resend verification code. Please try again.");
+        return;
+      }
       if (data?.debugCode) {
         setGeneratedOtp(data.debugCode);
       }
 
+      setVerificationReceipt("");
       setIsSendingOtp(false);
       setResendCooldown(30);
     } catch (_) {
-      const code = AuthService.issueOtp(adminEmail);
-      setGeneratedOtp(code);
       setIsSendingOtp(false);
-      setResendCooldown(30);
+      setOtpError("Verification service is unavailable. Please try again.");
     }
   };
 
@@ -259,6 +261,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         body: JSON.stringify({
           email: adminEmail.trim(),
           code: cleanCode,
+          tenantSlug: slug.trim(),
         }),
       });
 
@@ -269,23 +272,23 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         return;
       }
 
-      setIsVerifyingOtp(false);
-      setStep(4);
-      startProvisioning();
-    } catch (_) {
-      const isValid = AuthService.verifyOtp(adminEmail, cleanCode);
-      if (!isValid) {
+      if (!data.verificationReceipt) {
         setIsVerifyingOtp(false);
-        setOtpError("Invalid verification code. Please check your email or request a new code.");
+        setOtpError("Verification could not be completed. Please request a new code.");
         return;
       }
+
+      setVerificationReceipt(data.verificationReceipt);
       setIsVerifyingOtp(false);
       setStep(4);
-      startProvisioning();
+      startProvisioning(data.verificationReceipt);
+    } catch (_) {
+      setIsVerifyingOtp(false);
+      setOtpError("Verification service is unavailable. Please try again.");
     }
   };
 
-  const startProvisioning = async () => {
+  const startProvisioning = async (receipt = verificationReceipt) => {
     setIsProvisioning(true);
     setProvisionProgress(15);
     setProvisionLogs(["[1/4] Initializing secure tenant workspace and administrator credentials..."]);
@@ -299,6 +302,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
           domain: slug.trim(),
           adminName: adminName.trim(),
           adminEmail: adminEmail.trim(),
+          verificationReceipt: receipt,
           password: password.trim(),
           initialMode: "copilot",
           primaryStream,

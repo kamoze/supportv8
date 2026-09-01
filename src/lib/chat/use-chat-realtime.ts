@@ -5,6 +5,77 @@ import type { CustomerChatMessage, CustomerChatSession } from "@/lib/types";
 
 export type ChatConnectionState = "connecting" | "live" | "reconnecting" | "offline";
 
+const CHAT_SESSION_STORAGE_PREFIX = "supportv8:chat:session:v1";
+
+function normalizedTenantKey(value: string | undefined): string {
+  const normalized = (value || "default")
+    .trim()
+    .toLowerCase()
+    .replace(/^tenant_/, "")
+    .replace(/\.support\.servicev8\.(?:com|internal)$/, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "default";
+}
+
+export function chatSessionStorageKey(tenant: string | undefined): string {
+  return `${CHAT_SESSION_STORAGE_PREFIX}:${normalizedTenantKey(tenant)}`;
+}
+
+export function readStoredChatSessionId(storage: Pick<Storage, "getItem">, tenant: string | undefined): string | null {
+  const value = storage.getItem(chatSessionStorageKey(tenant));
+  return value && /^[a-zA-Z0-9_-]{1,64}$/.test(value) ? value : null;
+}
+
+export function storeChatSessionId(
+  storage: Pick<Storage, "setItem">,
+  tenant: string | undefined,
+  sessionId: string,
+): void {
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(sessionId)) return;
+  storage.setItem(chatSessionStorageKey(tenant), sessionId);
+}
+
+export function clearStoredChatSessionId(storage: Pick<Storage, "removeItem">, tenant: string | undefined): void {
+  storage.removeItem(chatSessionStorageKey(tenant));
+}
+
+export type StoredChatRecovery =
+  | { state: "empty" | "discarded" | "retry" }
+  | { state: "restored"; session: CustomerChatSession };
+
+export async function recoverStoredChatSession(
+  storage: Pick<Storage, "getItem" | "removeItem">,
+  tenant: string | undefined,
+  loadSession: (sessionId: string) => Promise<{
+    status: number;
+    session?: CustomerChatSession;
+  }>,
+): Promise<StoredChatRecovery> {
+  const sessionId = readStoredChatSessionId(storage, tenant);
+  if (!sessionId) return { state: "empty" };
+
+  let response: Awaited<ReturnType<typeof loadSession>>;
+  try {
+    response = await loadSession(sessionId);
+  } catch {
+    return { state: "retry" };
+  }
+
+  if (response.status === 403 || response.status === 404) {
+    clearStoredChatSessionId(storage, tenant);
+    return { state: "discarded" };
+  }
+  if (!response.session || response.status < 200 || response.status >= 300) {
+    return { state: "retry" };
+  }
+  if (chatSessionStorageKey(response.session.tenantDomain) !== chatSessionStorageKey(tenant)) {
+    clearStoredChatSessionId(storage, tenant);
+    return { state: "discarded" };
+  }
+  return { state: "restored", session: response.session };
+}
+
 export function mergeChatSession(
   current: CustomerChatSession | null,
   incoming: CustomerChatSession,

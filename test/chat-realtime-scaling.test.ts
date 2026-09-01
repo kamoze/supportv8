@@ -14,7 +14,14 @@ import type {
   ChatOutboxStore,
   ClaimedChatOutboxEvent,
 } from "@/lib/chat/outbox-store";
-import { mergeChatSession } from "@/lib/chat/use-chat-realtime";
+import {
+  chatSessionStorageKey,
+  clearStoredChatSessionId,
+  mergeChatSession,
+  readStoredChatSessionId,
+  recoverStoredChatSession,
+  storeChatSessionId,
+} from "@/lib/chat/use-chat-realtime";
 import type { CustomerChatSession } from "@/lib/types";
 
 function session(messages: CustomerChatSession["messages"]): CustomerChatSession {
@@ -55,6 +62,52 @@ class FakeStore implements ChatOutboxStore {
 }
 
 describe("scalable chat realtime delivery", () => {
+  it("persists only a tenant-scoped opaque session id for reload recovery", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) || null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    };
+
+    storeChatSessionId(storage, "acme.support.servicev8.com", "chat_acme_123");
+
+    expect(chatSessionStorageKey("tenant_acme")).toBe(chatSessionStorageKey("acme.support.servicev8.com"));
+    expect(readStoredChatSessionId(storage, "acme")).toBe("chat_acme_123");
+    expect(readStoredChatSessionId(storage, "meridian")).toBeNull();
+    expect([...values.values()]).toEqual(["chat_acme_123"]);
+
+    clearStoredChatSessionId(storage, "acme");
+    expect(readStoredChatSessionId(storage, "acme")).toBeNull();
+  });
+
+  it("restores only the matching tenant and clears poisoned cross-tenant recovery ids", async () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) || null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    };
+    const acmeSession = session([]);
+
+    storeChatSessionId(storage, "acme", acmeSession.id);
+    await expect(
+      recoverStoredChatSession(storage, "acme", async () => ({ status: 200, session: acmeSession })),
+    ).resolves.toEqual({ state: "restored", session: acmeSession });
+
+    storeChatSessionId(storage, "meridian", acmeSession.id);
+    await expect(
+      recoverStoredChatSession(storage, "meridian", async () => ({ status: 404 })),
+    ).resolves.toEqual({ state: "discarded" });
+    expect(readStoredChatSessionId(storage, "meridian")).toBeNull();
+
+    storeChatSessionId(storage, "meridian", acmeSession.id);
+    await expect(
+      recoverStoredChatSession(storage, "meridian", async () => ({ status: 200, session: acmeSession })),
+    ).resolves.toEqual({ state: "discarded" });
+    expect(readStoredChatSessionId(storage, "meridian")).toBeNull();
+  });
+
   it("uses tenant- and session-specific Redis channels", () => {
     expect(chatRealtimeChannel("tenant_acme", "chat_123")).toBe(
       "supportv8:chat:live:v1:tenant_acme:chat_123",

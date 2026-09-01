@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatRepository } from "@/lib/db/chat-repository";
-import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
+import {
+  normalizeTenantSlug,
+  RequestAuthError,
+  resolveRequestTenant,
+} from "@/lib/auth/request-tenant";
 import {
   ChatIngressError,
   requireChatOperatorRole,
@@ -78,7 +82,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { stream, customerName, customerEmail, intakeData } = body;
+    const { stream, customerName, customerEmail, intakeData, tenantSlug: requestedTenantSlug } = body;
 
     if (
       !CHAT_STREAMS.has(stream) ||
@@ -97,6 +101,12 @@ export async function POST(request: NextRequest) {
     }
 
     const tenant = await resolveRequestTenant(request);
+    if (
+      typeof requestedTenantSlug === "string" &&
+      normalizeTenantSlug(requestedTenantSlug) !== tenant.tenantSlug
+    ) {
+      throw new RequestAuthError("Requested chat tenant does not match the hosted workspace", 403);
+    }
     const session = await chatRepository.startSession({
       tenantId: tenant.tenantId,
       tenantSlug: tenant.tenantSlug,

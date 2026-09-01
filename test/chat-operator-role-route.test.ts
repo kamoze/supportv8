@@ -8,8 +8,10 @@ vi.mock("../src/lib/auth/request-tenant", async (importOriginal) => {
 
 vi.mock("../src/lib/db/chat-repository", () => ({
   chatRepository: {
+    startSession: vi.fn(),
     sendMessage: vi.fn(),
     getSession: vi.fn(),
+    getSessionPage: vi.fn(),
     listSessions: vi.fn(),
   },
 }));
@@ -17,7 +19,7 @@ vi.mock("../src/lib/db/chat-repository", () => ({
 import { resolveRequestTenant } from "../src/lib/auth/request-tenant";
 import { chatRepository } from "../src/lib/db/chat-repository";
 import { POST } from "../src/app/api/chat/message/route";
-import { GET as getSessions } from "../src/app/api/chat/session/route";
+import { GET as getSessions, POST as startSession } from "../src/app/api/chat/session/route";
 import { GET as getIssues } from "../src/app/api/issues/route";
 
 afterEach(() => {
@@ -26,6 +28,52 @@ afterEach(() => {
 });
 
 describe("operator chat route authorization", () => {
+  it("rejects a customer chat whose requested tenant differs from the hosted workspace", async () => {
+    vi.mocked(resolveRequestTenant).mockResolvedValue({
+      tenantId: "tenant_default",
+      tenantSlug: "default",
+      authenticated: false,
+      roles: [],
+    });
+
+    const response = await startSession(
+      new NextRequest("https://support.servicev8.com/api/chat/session", {
+        method: "POST",
+        body: JSON.stringify({
+          tenantSlug: "acme",
+          stream: "customers",
+          customerName: "Tenant Boundary Probe",
+          customerEmail: "probe@example.invalid",
+          intakeData: {},
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(chatRepository.startSession).not.toHaveBeenCalled();
+  });
+
+  it("looks up a restored customer session only inside the hosted tenant", async () => {
+    vi.mocked(resolveRequestTenant).mockResolvedValue({
+      tenantId: "tenant_meridian",
+      tenantSlug: "meridian",
+      authenticated: false,
+      roles: [],
+    });
+    vi.mocked(chatRepository.getSessionPage).mockResolvedValue(null);
+
+    const response = await getSessions(
+      new NextRequest("https://meridian.support.servicev8.com/api/chat/session?sessionId=chat_acme_1"),
+    );
+
+    expect(response.status).toBe(404);
+    expect(chatRepository.getSessionPage).toHaveBeenCalledWith(
+      "tenant_meridian",
+      "chat_acme_1",
+      expect.objectContaining({ limit: 100 }),
+    );
+  });
+
   it("rejects an authenticated observer before writing a message", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.mocked(resolveRequestTenant).mockResolvedValue({

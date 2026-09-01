@@ -1088,6 +1088,18 @@ export function FocusedWorkspaceView({
         </div>
       </div>
 
+      {!selectedIssue ? (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md text-center space-y-3 rounded-2xl border border-[var(--line)] bg-[#121A24] p-8">
+            <MessageSquare className="w-8 h-8 text-[#2ED8B6] mx-auto" />
+            <h3 className="text-base font-bold">No active conversations yet</h3>
+            <p className="text-xs leading-relaxed text-[#8E9AA8]">
+              New customer and contractor requests will appear here as soon as they reach this tenant.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Mobile Screen Segmented Tab Switcher (< lg) */}
       <div className="lg:hidden px-3 py-2 bg-[#121A24] border-b border-[var(--line)] flex items-center gap-1.5 shrink-0 font-mono text-xs">
         <button
@@ -2268,6 +2280,8 @@ export function FocusedWorkspaceView({
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* ========================================================================= */}

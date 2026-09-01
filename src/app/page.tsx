@@ -137,6 +137,10 @@ import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
+import {
+  browserTenantSlugFromHostname,
+  resolveBrowserWorkspace,
+} from "@/lib/tenant-host";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 import { db } from "@/lib/db/mock-data";
 
@@ -178,6 +182,8 @@ export default function SupportV8Dashboard() {
   const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
   const [currentTenantSlug, setCurrentTenantSlug] = useState<string>(() => {
     if (typeof window !== "undefined") {
+      const hostedTenant = browserTenantSlugFromHostname(window.location.hostname);
+      if (hostedTenant) return hostedTenant;
       const active = AuthService.getActiveSession();
       if (active?.tenantSlug) return active.tenantSlug;
       const params = new URLSearchParams(window.location.search);
@@ -811,23 +817,17 @@ export default function SupportV8Dashboard() {
       const landingParam = params.get("landing");
       const signInParam = params.get("signin");
       const emailParam = params.get("email");
-      const host = window.location.hostname;
       const active = AuthService.getActiveSession();
-
-      if (tenantParam) {
-        initialTenant = tenantParam;
-      } else if (active?.tenantSlug) {
-        initialTenant = active.tenantSlug;
-      } else if (
-        host.includes(".support.") &&
-        !host.startsWith("www.") &&
-        !host.startsWith("support.")
-      ) {
-        const slug = host.split(".")[0];
-        if (slug && slug !== "support" && slug !== "localhost") {
-          initialTenant = slug;
-        }
-      }
+      const workspace = resolveBrowserWorkspace({
+        hostname: window.location.hostname,
+        tenantParam,
+        activeTenant: active?.tenantSlug,
+        forceCockpit: adminParam === "true" || params.has("tab"),
+        viewParam,
+        landingParam,
+        fallbackTenant: initialTenant,
+      });
+      initialTenant = workspace.tenantSlug;
 
       if (initialTenant !== currentTenantSlug) {
         setCurrentTenantSlug(initialTenant);
@@ -838,21 +838,11 @@ export default function SupportV8Dashboard() {
         setIsSignInModalOpen(true);
       }
 
-      if (viewParam === "cockpit" || adminParam === "true" || params.has("tab")) {
-        setViewMode("cockpit");
+      setViewMode(workspace.viewMode);
+      if (workspace.viewMode === "cockpit") {
         if (!active) {
           setIsSignInModalOpen(true);
         }
-      } else if (landingParam === "global" || viewParam === "global") {
-        setViewMode("global_landing");
-      } else if (tenantParam || viewParam === "tenant") {
-        setViewMode("tenant_landing");
-      } else if (active) {
-        setViewMode("cockpit");
-      } else if (initialTenant && initialTenant !== "acme") {
-        setViewMode("tenant_landing");
-      } else {
-        setViewMode("global_landing");
       }
     }
 
@@ -1809,6 +1799,11 @@ export default function SupportV8Dashboard() {
         />
         <SignInModal
           isOpen={isSignInModalOpen}
+          lockedTenantSlug={
+            typeof window !== "undefined"
+              ? browserTenantSlugFromHostname(window.location.hostname) || undefined
+              : undefined
+          }
           initialTenantSlug={currentTenantSlug}
           initialEmail={signInPrefillEmail}
           onClose={() => {
@@ -1948,7 +1943,11 @@ export default function SupportV8Dashboard() {
 
         <SignInModal
           isOpen={isSignInModalOpen}
-          lockedTenantSlug={currentTenantSlug !== "acme" ? currentTenantSlug : undefined}
+          lockedTenantSlug={
+            typeof window !== "undefined"
+              ? browserTenantSlugFromHostname(window.location.hostname) || undefined
+              : undefined
+          }
           initialTenantSlug={currentTenantSlug}
           initialEmail={signInPrefillEmail}
           onClose={() => {
@@ -7835,6 +7834,7 @@ export default function SupportV8Dashboard() {
 
       {/* Floating Support Chat Widget */}
       <SupportChatWidget
+        key={currentTenantSlug}
         tenantSlug={currentTenantSlug}
         tenantName={db.getTenantData(currentTenantSlug).tenant?.name || currentTenantSlug}
       />

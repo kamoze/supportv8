@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start --port 3005",
     "worker": "tsx src/lib/temporal/worker.ts",
+    "chat-relay": "tsx src/lib/chat/relay-worker.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

@@ -62,6 +62,11 @@ import type {
   CustomerChatSession,
 } from "@/lib/types";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
+import {
+  createOptimisticChatMessage,
+  mergeChatSession,
+  useChatRealtimeSession,
+} from "@/lib/chat/use-chat-realtime";
 
 type CommunicationChannel = "chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass";
 
@@ -282,6 +287,9 @@ export function FocusedWorkspaceView({
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
   const [matchingChatSession, setMatchingChatSession] = useState<CustomerChatSession | null>(null);
+  const chatConnectionState = useChatRealtimeSession(matchingChatSession?.id, (session) => {
+    setMatchingChatSession((current) => mergeChatSession(current, session));
+  });
 
   // Re-Assignment & Context Attachments State
   const [isReassignDropdownOpen, setIsReassignDropdownOpen] = useState(false);
@@ -319,7 +327,7 @@ export function FocusedWorkspaceView({
         return result.session as CustomerChatSession;
       })
       .then((session) => {
-        if (!cancelled) setMatchingChatSession(session);
+        if (!cancelled) setMatchingChatSession((current) => mergeChatSession(current, session));
       })
       .catch(() => {
         if (!cancelled) setMatchingChatSession(null);
@@ -333,25 +341,42 @@ export function FocusedWorkspaceView({
   const sendDurableOperatorReply = async (content: string): Promise<boolean> => {
     if (!matchingChatSession || !content.trim()) return false;
     setIsSendingOperatorReply(true);
+    const clientMessageId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
+    const optimisticMessage = createOptimisticChatMessage({
+      id: clientMessageId,
+      sender: "agent",
+      senderName: operatorName,
+      content: content.trim(),
+    });
+    setMatchingChatSession((current) =>
+      current ? { ...current, messages: [...current.messages, optimisticMessage] } : current,
+    );
     try {
       const response = await fetch("/api/chat/message", {
         method: "POST",
+        signal: AbortSignal.timeout(15_000),
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: matchingChatSession.id,
           sender: "agent",
           content: content.trim(),
+          clientMessageId,
         }),
       });
       const result = await response.json();
       if (!response.ok || !result?.session) {
         throw new Error(result?.error || "Unable to save operator reply");
       }
-      setMatchingChatSession(result.session);
+      setMatchingChatSession((current) => mergeChatSession(current, result.session));
       setLiveChatSessionKey((key) => key + 1);
       return true;
     } catch (error) {
+      setMatchingChatSession((current) =>
+        current
+          ? { ...current, messages: current.messages.filter((message) => message.id !== clientMessageId) }
+          : current,
+      );
       onNotify(error instanceof Error ? error.message : "Unable to save operator reply", "error");
       return false;
     } finally {
@@ -1890,6 +1915,17 @@ export function FocusedWorkspaceView({
                         ? "Human operator queue"
                         : "Hired AI employee active"}
                     </p>
+                    <p
+                      className={`text-[10px] ${chatConnectionState === "live" ? "text-[#4CC38A]" : "text-[#F5A623]"}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {chatConnectionState === "live"
+                        ? "Live updates connected"
+                        : chatConnectionState === "offline"
+                          ? "Offline — replies will retry"
+                          : "Reconnecting live updates"}
+                    </p>
                   </div>
                 </div>
 
@@ -1931,6 +1967,9 @@ export function FocusedWorkspaceView({
                           }`}
                         >
                           <p>{msg.content}</p>
+                          {msg.deliveryState === "sending" && (
+                            <span className="mt-1 block text-[9px] text-[#8E9AA8]" role="status">Sending…</span>
+                          )}
                         </div>
                       )}
                     </div>

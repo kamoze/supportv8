@@ -33,6 +33,11 @@ import {
   DEFAULT_CHAT_WORKFLOWS,
   ChatWorkflowService,
 } from "@/lib/services/chat-workflow-service";
+import {
+  createOptimisticChatMessage,
+  mergeChatSession,
+  useChatRealtimeSession,
+} from "@/lib/chat/use-chat-realtime";
 
 interface SupportChatWidgetProps {
   tenantSlug?: string;
@@ -57,6 +62,10 @@ export function SupportChatWidget({
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+
+  const chatConnectionState = useChatRealtimeSession(activeSession?.id, (session) => {
+    setActiveSession((current) => mergeChatSession(current, session));
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -110,6 +119,7 @@ export function SupportChatWidget({
     try {
       const response = await fetch("/api/chat/session", {
         method: "POST",
+        signal: AbortSignal.timeout(15_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           stream: selectedStream,
@@ -145,16 +155,28 @@ export function SupportChatWidget({
     setInputMessage("");
     setIsTyping(true);
     setChatError(null);
+    const clientMessageId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
+    const optimisticMessage = createOptimisticChatMessage({
+      id: clientMessageId,
+      sender: "customer",
+      senderName: activeSession.customerName,
+      content: textToSend,
+    });
+    setActiveSession((current) =>
+      current ? { ...current, messages: [...current.messages, optimisticMessage] } : current,
+    );
 
     try {
       const response = await fetch("/api/chat/message", {
         method: "POST",
+        signal: AbortSignal.timeout(15_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: activeSession.id,
           content: textToSend,
           sender: "customer",
           senderName: activeSession.customerName,
+          clientMessageId,
         }),
       });
       const res = await response.json();
@@ -162,11 +184,16 @@ export function SupportChatWidget({
         throw new Error(res?.error || "Unable to save your message");
       }
 
-      setActiveSession({ ...res.session });
+      setActiveSession((current) => mergeChatSession(current, res.session as CustomerChatSession));
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: res.session }));
       }
     } catch (error) {
+      setActiveSession((current) =>
+        current
+          ? { ...current, messages: current.messages.filter((message) => message.id !== clientMessageId) }
+          : current,
+      );
       setInputMessage(textToSend);
       setChatError(error instanceof Error ? error.message : "Unable to save your message. Please try again.");
     } finally {
@@ -505,6 +532,18 @@ export function SupportChatWidget({
                   <span className="text-[#6B7C8D]">
                     {activeSession.assignedType === "human" ? "Human Staff" : "AI Specialist"}
                   </span>
+                  <span className="text-[#6B7C8D]">•</span>
+                  <span
+                    role="status"
+                    aria-live="polite"
+                    className={chatConnectionState === "live" ? "text-[#4CC38A]" : "text-[#F5A623]"}
+                  >
+                    {chatConnectionState === "live"
+                      ? "Live"
+                      : chatConnectionState === "offline"
+                        ? "Offline — retrying"
+                        : "Reconnecting"}
+                  </span>
                 </div>
                 <button
                   onClick={handleRequestHuman}
@@ -560,6 +599,9 @@ export function SupportChatWidget({
                         >
                           {msg.content}
                         </div>
+                        {isUser && msg.deliveryState === "sending" && (
+                          <span className="text-[9px] text-[#8E9AA8]" role="status">Sending…</span>
+                        )}
 
                         {/* Citations */}
                         {msg.citations && msg.citations.length > 0 && (
@@ -601,7 +643,7 @@ export function SupportChatWidget({
                     <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse" />
                     <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse delay-75" />
                     <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse delay-150" />
-                    <span>Agent is reviewing knowledge telemetry...</span>
+                    <span>Sending message securely…</span>
                   </div>
                 )}
                 <div ref={messagesEndRef} />

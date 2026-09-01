@@ -484,11 +484,13 @@ export interface ChatWorkflowConfig {
 
 export interface CustomerChatMessage {
   id: string;
+  cursor?: string;
   sender: "customer" | "agent" | "ai_employee" | "system";
   senderName: string;
   senderAvatar?: string;
   content: string;
   timestamp: string;
+  deliveryState?: "sending" | "delivered" | "failed";
   citations?: Array<{
     id: string;
     title: string;
@@ -519,6 +521,8 @@ export interface CustomerChatSession {
   createdAt: string;
   updatedAt: string;
   messages: CustomerChatMessage[];
+  nextCursor?: string;
+  hasEarlierMessages?: boolean;
 }
 
 export interface MemberGroup {
@@ -544,4 +548,3 @@ export interface AiChatGuardrailConfig {
   requireHumanForContractorPayout: boolean;
   enableRAGGrounding: boolean;
 }
-

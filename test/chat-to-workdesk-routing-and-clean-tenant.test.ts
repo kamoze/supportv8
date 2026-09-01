@@ -80,6 +80,9 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
 
     expect(session).toBeDefined();
     expect(session.tenantDomain).toBe(testTenant);
+    expect(session.assignedType).toBe("human");
+    expect(session.assignedName).toContain("Human Support Desk");
+    expect(session.messages.some((message) => message.sender === "ai_employee")).toBe(false);
     expect(session.messages.length).toBeGreaterThanOrEqual(2);
 
     // Verify issue now exists in the tenant's Work Desk issues list

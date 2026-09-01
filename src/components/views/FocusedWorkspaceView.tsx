@@ -63,15 +63,59 @@ import type {
 } from "@/lib/types";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 
-const TEAM_MEMBERS = [
-  { id: "david_kim", name: "David Kim", role: "Frontline Operator", avatar: "👤" },
-  { id: "sarah_chen", name: "Sarah Chen", role: "CX Lead", avatar: "👑" },
-  { id: "alex_ai", name: "Alex (AI Lead)", role: "AI Support Intelligence", avatar: "🤖" },
-  { id: "eleanor_ai", name: "Eleanor (AI Lead)", role: "AI Governance & Policy", avatar: "🛡️" },
-  { id: "jordan_ai", name: "Jordan (AI Lead)", role: "AI Knowledge Base Specialist", avatar: "📚" },
-  { id: "marcus_ai", name: "Marcus (AI Lead)", role: "AI Integrations Engineer", avatar: "⚡" },
-  { id: "meridian_dispatch", name: "Meridian Field Dispatch", role: "Contractor Lead", avatar: "🛠️" },
-];
+type CommunicationChannel = "chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass";
+
+function CommunicationChannelSelector({
+  value,
+  onChange,
+  isContractor,
+  inboundLabel,
+}: {
+  value: CommunicationChannel;
+  onChange: (channel: CommunicationChannel) => void;
+  isContractor: boolean;
+  inboundLabel: string;
+}) {
+  const channels: Array<{ id: CommunicationChannel; label: string; icon: React.ElementType }> = [
+    { id: isContractor ? "contractor_sms" : "chat", label: isContractor ? "SMS" : "Chat", icon: isContractor ? Smartphone : MessageSquare },
+    { id: isContractor ? "work_order_push" : "email", label: isContractor ? "Push" : "Email", icon: isContractor ? FileCheck : Mail },
+    { id: isContractor ? "site_pass" : "whatsapp", label: isContractor ? "PIN" : "WhatsApp", icon: isContractor ? Key : Phone },
+    { id: "voice", label: "Voice", icon: Phone },
+    { id: "internal_note", label: "Note", icon: FileText },
+  ];
+
+  return (
+    <div className="space-y-2 rounded-xl border border-[var(--line)] bg-[#141C26] p-2.5">
+      <div className="flex items-center justify-between gap-3 text-[10px] text-[#8E9AA8]">
+        <span className="font-semibold text-[#B4C2D0]">Reply channel</span>
+        <span className="truncate">Inbound preference: {inboundLabel}</span>
+      </div>
+      <div className="grid grid-cols-5 gap-1" role="radiogroup" aria-label="Customer communication channel">
+        {channels.map((channel) => {
+          const Icon = channel.icon;
+          const selected = value === channel.id;
+          return (
+            <button
+              key={channel.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(channel.id)}
+              className={`min-h-10 rounded-lg px-1.5 text-[10px] font-medium transition-colors flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6] ${
+                selected
+                  ? "bg-[#2ED8B6] text-[#04201C] font-bold"
+                  : "bg-[#0E1520] text-[#8E9AA8] hover:text-[#EAF1F8]"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="truncate">{channel.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const STATUS_OPTIONS: Array<{
   id: string;
@@ -91,6 +135,7 @@ interface FocusedWorkspaceViewProps {
   problems?: any[];
   insights?: any[];
   userRole?: string;
+  operatorName?: string;
   onResolve: (issueId: string) => Promise<void> | void;
   onProcessRefund?: (issueId: string, amount: string) => Promise<void> | void;
   onEscalate: (issue: Issue) => void;
@@ -111,6 +156,7 @@ export function FocusedWorkspaceView({
   problems = [],
   insights = [],
   userRole = "operator",
+  operatorName = "Authenticated operator",
   onResolve,
   onProcessRefund,
   onEscalate,
@@ -199,7 +245,7 @@ export function FocusedWorkspaceView({
   };
 
   // Communication & AI Mode State
-  const [commChannel, setCommChannel] = useState<"chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass">("chat");
+  const [commChannel, setCommChannel] = useState<CommunicationChannel>("chat");
   const [workWithAi, setWorkWithAi] = useState<boolean>(true);
   const [aiTone, setAiTone] = useState<"empathetic" | "technical" | "concise" | "executive" | "sow_instructions" | "safety_protocol" | "urgent_expedite">("empathetic");
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
@@ -320,10 +366,20 @@ export function FocusedWorkspaceView({
       setEditPriority(selectedIssue.priority || "normal");
       setEditStatus(selectedIssue.status);
       setEditSentiment(selectedIssue.sentiment || "neutral");
-      setEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || "David Kim (Operator)");
+      setEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || operatorName);
       setEditTags(selectedIssue.tags?.join(", ") || "");
       setForceStandardComposer(false);
       setIsReassignDropdownOpen(false);
+      const preferredChannel: CommunicationChannel = selectedIssue.entityType === "contractor"
+        ? "contractor_sms"
+        : selectedIssue.source === "email"
+          ? "email"
+          : selectedIssue.source === "whatsapp"
+            ? "whatsapp"
+            : selectedIssue.source === "voice" || selectedIssue.source === "twilio_voice"
+              ? "voice"
+              : "chat";
+      setCommChannel(preferredChannel);
       if (selectedIssue.contractor) {
         setTechStatus("assigned");
       }
@@ -403,7 +459,7 @@ export function FocusedWorkspaceView({
 
     // Voice Follow-up
     if (channel === "voice") {
-      return `Hello ${firstName}, this is Sophia from Customer Support following up on ticket ${issue.externalId} regarding "${cleanSummary}" to confirm that your issue has been resolved.`;
+      return `Hello ${firstName}, this is your Customer Support team following up on ticket ${issue.externalId} regarding "${cleanSummary}" to confirm that your issue has been resolved.`;
     }
 
     return `Hello ${customer}, your ticket regarding "${cleanSummary}" on ${issue.product} has been verified and resolved.`;
@@ -453,7 +509,7 @@ export function FocusedWorkspaceView({
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
       timestamp: now,
-      actor: userRole === "operator" ? "David Kim (Operator)" : "Ini Godwin (Lead)",
+      actor: operatorName,
       actorType: "human_operator",
       action: `Status transitioned to ${newStatus.toUpperCase()}`,
       details: newStatus === "escalated" ? "Escalated to Tier 2 engineering with high priority" : undefined,
@@ -688,8 +744,8 @@ export function FocusedWorkspaceView({
       const event: TicketTimelineEvent = {
         id: "tl_" + Date.now(),
         timestamp: now,
-        actor: "Alex (AI Support Lead)",
-        actorType: "ai_employee",
+        actor: "SupportV8 automation",
+        actorType: "system",
         action: isContractor ? "Autonomous contractor work order completed & telemetry verified" : "Autonomous resolution executed & confirmation dispatched",
       };
       const updated: Issue = {
@@ -704,7 +760,7 @@ export function FocusedWorkspaceView({
         onDeductCredits(35, "Autonomous AI Agent Resolution (ForgeGW Multi-Action)");
       }
       if (onTriggerTemporalActivity) {
-        onTriggerTemporalActivity(selectedIssue.id, "autonomous_ticket_resolution", { resolvedBy: "Alex (AI Lead)" });
+        onTriggerTemporalActivity(selectedIssue.id, "autonomous_ticket_resolution", { resolvedBy: "supportv8_automation" });
       }
       onNotify(
         isContractor
@@ -727,24 +783,27 @@ export function FocusedWorkspaceView({
     }
   };
 
-  const handleSendReply = () => {
-    if (!selectedIssue || !replyText.trim()) return;
+  const recordReplyForSelectedChannel = async (content: string): Promise<boolean> => {
+    if (!selectedIssue || !content.trim()) return false;
+    if (matchingChatSession && commChannel === "chat") {
+      return sendDurableOperatorReply(content);
+    }
     const now = new Date().toLocaleTimeString();
     const newMsg: TicketMessageItem = {
       id: "msg_" + Date.now(),
       timestamp: now,
       sender: "operator",
-      senderName: userRole === "operator" ? "David Kim (Operator)" : "Ini Godwin (Lead)",
-      content: replyText.trim(),
+      senderName: operatorName,
+      content: content.trim(),
       channel: commChannel,
     };
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
       timestamp: now,
-      actor: userRole === "operator" ? "David Kim (Operator)" : "Ini Godwin (Lead)",
+      actor: operatorName,
       actorType: "human_operator",
       action: `Dispatched reply via ${commChannel.toUpperCase()}`,
-      details: replyText.slice(0, 80) + (replyText.length > 80 ? "..." : ""),
+      details: content.slice(0, 80) + (content.length > 80 ? "..." : ""),
     };
     const updated: Issue = {
       ...selectedIssue,
@@ -766,7 +825,13 @@ export function FocusedWorkspaceView({
       }`,
       "success"
     );
-    setReplyText("");
+    return true;
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return;
+    const sent = await recordReplyForSelectedChannel(replyText);
+    if (sent) setReplyText("");
   };
 
   const handleSendSitePass = () => {
@@ -1413,7 +1478,7 @@ export function FocusedWorkspaceView({
                       <span>Assigned Operator / Lead</span>
                     </span>
                     <span className="text-[10px] font-mono text-[#2ED8B6]">
-                      {selectedIssue.assignedTo || selectedIssue.assignedAgent || "David Kim (Operator)"}
+                      {selectedIssue.assignedTo || selectedIssue.assignedAgent || operatorName}
                     </span>
                   </div>
 
@@ -1432,7 +1497,7 @@ export function FocusedWorkspaceView({
 
                     {isReassignDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-[#0E1520] border border-[var(--line-2)] rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100 max-h-56 overflow-y-auto">
-                        {TEAM_MEMBERS.map((member) => (
+                        {[{ id: "current_operator", name: operatorName, role: userRole === "cx_lead" ? "CX Lead" : "Operator" }].map((member) => (
                           <button
                             key={member.id}
                             type="button"
@@ -1440,7 +1505,9 @@ export function FocusedWorkspaceView({
                             className="w-full p-2 rounded-xl hover:bg-[#18222E] text-left text-xs font-mono text-[#EAF1F8] flex items-center justify-between cursor-pointer transition-colors"
                           >
                             <div className="flex items-center gap-2">
-                              <span>{member.avatar}</span>
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#18222E] text-[#2ED8B6]">
+                                <User className="h-3.5 w-3.5" />
+                              </span>
                               <div>
                                 <div className="font-bold text-[#EAF1F8]">{member.name}</div>
                                 <div className="text-[10px] text-[#6B7C8D]">{member.role}</div>
@@ -1818,8 +1885,10 @@ export function FocusedWorkspaceView({
                       <span>Live Chat Session</span>
                       <span className="text-[10px] font-mono text-[#6B7C8D]">({selectedIssue.externalId})</span>
                     </h3>
-                    <p className="text-[10px] font-mono text-[#2ED8B6]">
-                      {matchingChatSession.status === "escalated" ? "🚨 Escalated to Human Lead" : "🤖 Co-pilot Active"}
+                    <p className="text-[10px] text-[#2ED8B6]">
+                      {matchingChatSession.assignedType === "human"
+                        ? "Human operator queue"
+                        : "Hired AI employee active"}
                     </p>
                   </div>
                 </div>
@@ -1869,7 +1938,14 @@ export function FocusedWorkspaceView({
                 })}
               </div>
 
-              {/* Quick Canned Takeover Chips & AI Draft */}
+              <CommunicationChannelSelector
+                value={commChannel}
+                onChange={setCommChannel}
+                isContractor={isContractor}
+                inboundLabel={selectedIssue.source === "twilio_voice" ? "Voice" : selectedIssue.source.replace(/_/g, " ")}
+              />
+
+              {/* Quick Canned Takeover Chips & Draft */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operator Quick Actions:</span>
@@ -1883,7 +1959,7 @@ export function FocusedWorkspaceView({
                     className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <Sparkles className="w-3 h-3 text-[#2ED8B6]" />
-                    <span>AI Co-Pilot Auto-Draft</span>
+                    <span>Draft reply</span>
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -1911,7 +1987,7 @@ export function FocusedWorkspaceView({
                   onChange={(e) => setOperatorReplyText(e.target.value)}
                   rows={3}
                   className="w-full bg-[#161F2C] text-[#EAF1F8] p-3 rounded-2xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6] min-h-[75px]"
-                  placeholder="Type message to send directly into customer's live chat widget..."
+                  placeholder={`Write a ${commChannel.replace(/_/g, " ")} reply to ${selectedIssue.customerName}...`}
                 />
               </div>
 
@@ -1921,24 +1997,24 @@ export function FocusedWorkspaceView({
                   type="button"
                   onClick={async () => {
                     if (!operatorReplyText.trim()) return;
-                    const sent = await sendDurableOperatorReply(operatorReplyText);
+                    const sent = await recordReplyForSelectedChannel(operatorReplyText);
                     if (sent) {
                       setOperatorReplyText("");
-                      onNotify("Live message saved to the customer transcript.", "success");
+                      onNotify(`Reply dispatched via ${commChannel.replace(/_/g, " ")}.`, "success");
                     }
                   }}
                   disabled={!operatorReplyText.trim() || isSendingOperatorReply}
                   className="btn btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{isSendingOperatorReply ? "Sending..." : "⚡ Send as Operator"}</span>
+                  <span>{isSendingOperatorReply ? "Sending..." : `Send via ${commChannel === "internal_note" ? "note" : commChannel.replace(/_/g, " ")}`}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={async () => {
                     if (operatorReplyText.trim()) {
-                      const sent = await sendDurableOperatorReply(operatorReplyText);
+                      const sent = await recordReplyForSelectedChannel(operatorReplyText);
                       if (!sent) return;
                     }
                     await handleExecuteAutonomousResolution();
@@ -1971,34 +2047,12 @@ export function FocusedWorkspaceView({
                   )}
                 </div>
 
-                {/* Channels Segment */}
-                <div className="grid grid-cols-5 gap-1 bg-[#161F2C] p-1 rounded-xl border border-[var(--line)] text-xs">
-                  {[
-                    { id: isContractor ? "contractor_sms" : "chat", label: isContractor ? "SMS" : "Chat", icon: isContractor ? Smartphone : MessageSquare },
-                    { id: isContractor ? "work_order_push" : "email", label: isContractor ? "Push" : "Email", icon: isContractor ? FileCheck : Mail },
-                    { id: isContractor ? "site_pass" : "whatsapp", label: isContractor ? "PIN" : "WhatsApp", icon: isContractor ? Key : Phone },
-                    { id: "voice", label: "Voice", icon: Zap },
-                    { id: "internal_note", label: "Note", icon: FileText },
-                  ].map((ch) => {
-                    const Icon = ch.icon;
-                    const isActive = commChannel === ch.id;
-                    return (
-                      <button
-                        key={ch.id}
-                        type="button"
-                        onClick={() => setCommChannel(ch.id as any)}
-                        className={`py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                          isActive
-                            ? "bg-[#2ED8B6] text-[#04201C] font-bold shadow-sm"
-                            : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                        }`}
-                      >
-                        <Icon className="w-3 h-3" />
-                        <span>{ch.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <CommunicationChannelSelector
+                  value={commChannel}
+                  onChange={setCommChannel}
+                  isContractor={isContractor}
+                  inboundLabel={selectedIssue.source === "twilio_voice" ? "Voice" : selectedIssue.source.replace(/_/g, " ")}
+                />
               </div>
 
               {/* AI Response Tone / Mode */}

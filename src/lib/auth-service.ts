@@ -88,6 +88,7 @@ export const AuthService = {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, tenantSlug }),
       }).then((r) => r.json());

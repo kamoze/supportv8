@@ -178,7 +178,6 @@ export async function createKeycloakUser(
     firstName?: string;
     lastName?: string;
     tenantId?: string;
-    organizationName?: string;
     roles?: string[];
   } = {},
   configOverride?: Partial<KeycloakAuthConfig>
@@ -199,7 +198,6 @@ export async function createKeycloakUser(
     emailVerified: true,
     attributes: {
       tenant_id: options.tenantId ? [options.tenantId] : undefined,
-      organization_name: options.organizationName ? [options.organizationName] : undefined,
     },
     credentials: [
       {

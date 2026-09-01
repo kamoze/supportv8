@@ -126,6 +126,20 @@ const ASSIGNMENTS: Record<ChatStreamType, Assignment> = {
   },
 };
 
+function assignmentForTenant(tenantSlug: string, stream: ChatStreamType): Assignment {
+  const clean = tenantSlug.trim().toLowerCase();
+  if (clean === "acme" || clean === "meridian" || clean === "default") {
+    return ASSIGNMENTS[stream];
+  }
+  return {
+    type: "human",
+    id: "human_support_queue",
+    name: "Support team",
+    avatar: "",
+    groupId: `group_${stream}`,
+  };
+}
+
 function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
@@ -313,7 +327,7 @@ export class ChatRepository {
   constructor(private readonly client: PostgresClient = pgClient) {}
 
   async startSession(input: StartChatInput): Promise<CustomerChatSession> {
-    const assignment = ASSIGNMENTS[input.stream];
+    const assignment = assignmentForTenant(input.tenantSlug, input.stream);
     const priority = priorityFromIntake(input.intakeData);
     const suffix = randomUUID().replace(/-/g, "");
     const requestedSessionId = input.sessionId?.trim();
@@ -336,7 +350,9 @@ export class ChatRepository {
     };
     const storedIntake = { ...input.intakeData, __supportv8: metadata };
     const initialContent = input.intakeData.details || `Hello, I need assistance with ${workflowTitle}.`;
-    const greeting = `Hello ${input.customerName}! I’m ${assignment.name} from ${tenantName} Support. Your ${workflowTitle} request (${externalId}) is now recorded in the operator work desk.`;
+    const greeting = assignment.type === "ai"
+      ? `Hello ${input.customerName}! I’m ${assignment.name} from ${tenantName} Support. Your ${workflowTitle} request (${externalId}) is now recorded in the operator work desk.`
+      : `Hello ${input.customerName}! Your ${workflowTitle} request (${externalId}) is recorded in the operator work desk. A member of the ${tenantName} support team will reply here.`;
 
     return this.client.withTenantSession(input.tenantId, async (db) => {
       await db.query(
@@ -372,7 +388,9 @@ export class ChatRepository {
           priority === "urgent" ? "high" : "low",
           priority === "urgent" ? 0.4 : 0.1,
           ["chat_intake", input.stream, input.tenantSlug],
-          `AI employee ${assignment.name} active on ${externalId}.`,
+          assignment.type === "ai"
+            ? `AI employee ${assignment.name} active on ${externalId}.`
+            : `Waiting for an authenticated operator on ${externalId}.`,
         ]
       );
 
@@ -408,23 +426,23 @@ export class ChatRepository {
         id: greetingMessageId,
         tenantId: input.tenantId,
         sessionId,
-        senderType: "ai",
+        senderType: assignment.type === "ai" ? "ai" : "system",
         senderId: assignment.id,
         senderName: assignment.name,
         content: greeting,
         metadata: {
-          senderAvatar: assignment.avatar,
-          citations: [
+          senderAvatar: assignment.avatar || undefined,
+          citations: assignment.type === "ai" ? [
             {
               id: "cit_welcome",
               title: `${tenantName} Support response protocol`,
               snippet: "This conversation is stored in the tenant-isolated SupportV8 work desk.",
             },
-          ],
-          suggestedActions: [
+          ] : undefined,
+          suggestedActions: assignment.type === "ai" ? [
             { label: "Confirm Resolution", actionId: "act_resolve" },
             { label: "Request Human Supervisor", actionId: "act_human" },
-          ],
+          ] : undefined,
         },
       });
 

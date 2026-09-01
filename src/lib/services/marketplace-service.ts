@@ -735,117 +735,177 @@ export const INITIAL_REPORTS: ComplianceAuditReport[] = [
 ];
 
 export class MarketplaceService {
-  private connectors: MarketplaceConnector[] = [...INITIAL_CONNECTORS];
-  private workforce: MarketplaceWorkforceItem[] = [...INITIAL_WORKFORCE_CATALOG];
-  private plans: MarketplacePlan[] = [...INITIAL_PLANS];
-  private members: TenantMember[] = [...INITIAL_MEMBERS];
-  private settings: TenantSettingConfig = { ...INITIAL_SETTINGS };
-  private reports: ComplianceAuditReport[] = [...INITIAL_REPORTS];
-  private auditLogs: TenantAuditLog[] = [...INITIAL_AUDIT_LOGS];
-  private credits: number = 4850;
+  private readonly tenantStates = new Map<string, {
+    connectors: MarketplaceConnector[];
+    workforce: MarketplaceWorkforceItem[];
+    plans: MarketplacePlan[];
+    members: TenantMember[];
+    settings: TenantSettingConfig;
+    reports: ComplianceAuditReport[];
+    auditLogs: TenantAuditLog[];
+    credits: number;
+  }>();
 
-  public getCredits(): number {
-    return this.credits;
+  private clone<T>(value: T): T {
+    return JSON.parse(JSON.stringify(value)) as T;
   }
 
-  public setCredits(amount: number): number {
-    this.credits = Math.max(0, amount);
-    return this.credits;
+  private stateFor(tenantSlug = "acme") {
+    const clean = tenantSlug.trim().toLowerCase() || "default";
+    const existing = this.tenantStates.get(clean);
+    if (existing) return existing;
+
+    const isDemoTenant = clean === "acme" || clean === "meridian" || clean === "default";
+    const state = {
+      connectors: this.clone(INITIAL_CONNECTORS).map((connector) =>
+        isDemoTenant
+          ? connector
+          : {
+              ...connector,
+              isSubscribed: false,
+              status: "available" as const,
+              eventsPerDay: 0,
+              endpointUrl: undefined,
+              configFields: connector.configFields.map(({ value: _value, ...field }) => field),
+            }
+      ),
+      workforce: this.clone(INITIAL_WORKFORCE_CATALOG).map((employee) =>
+        isDemoTenant ? employee : { ...employee, isHired: false }
+      ),
+      plans: this.clone(INITIAL_PLANS).map((plan) =>
+        isDemoTenant
+          ? plan
+          : {
+              ...plan,
+              isCurrent: false,
+              badge: plan.badge === "CURRENT PLAN" ? undefined : plan.badge,
+              actionLabel: plan.id === "plan_starter" ? "CHOOSE PLAN" : plan.actionLabel,
+              actionNote: plan.id === "plan_starter" ? undefined : plan.actionNote,
+            }
+      ),
+      members: isDemoTenant ? this.clone(INITIAL_MEMBERS) : [],
+      settings: {
+        ...this.clone(INITIAL_SETTINGS),
+        tenantId: `tenant_${clean.replace(/-/g, "_")}`,
+        workspaceSlug: clean,
+        workspaceName: isDemoTenant ? INITIAL_SETTINGS.workspaceName : clean,
+      },
+      reports: isDemoTenant ? this.clone(INITIAL_REPORTS) : [],
+      auditLogs: isDemoTenant ? this.clone(INITIAL_AUDIT_LOGS) : [],
+      credits: isDemoTenant ? 4850 : 0,
+    };
+    this.tenantStates.set(clean, state);
+    return state;
   }
 
-  public deductCredits(amount: number, reason: string): { remaining: number; deducted: number; reason: string } {
-    const deducted = Math.min(this.credits, Math.max(0, amount));
-    this.credits = Math.max(0, this.credits - deducted);
+  public getCredits(tenantSlug = "acme"): number {
+    return this.stateFor(tenantSlug).credits;
+  }
+
+  public setCredits(amount: number, tenantSlug = "acme"): number {
+    const state = this.stateFor(tenantSlug);
+    state.credits = Math.max(0, amount);
+    return state.credits;
+  }
+
+  public deductCredits(amount: number, reason: string, tenantSlug = "acme"): { remaining: number; deducted: number; reason: string } {
+    const state = this.stateFor(tenantSlug);
+    const deducted = Math.min(state.credits, Math.max(0, amount));
+    state.credits = Math.max(0, state.credits - deducted);
     return {
-      remaining: this.credits,
+      remaining: state.credits,
       deducted,
       reason,
     };
   }
 
-  public addCredits(amount: number, reason: string): { remaining: number; added: number; reason: string } {
+  public addCredits(amount: number, reason: string, tenantSlug = "acme"): { remaining: number; added: number; reason: string } {
+    const state = this.stateFor(tenantSlug);
     const added = Math.max(0, amount);
-    this.credits += added;
+    state.credits += added;
     return {
-      remaining: this.credits,
+      remaining: state.credits,
       added,
       reason,
     };
   }
 
-  public getConnectors(): MarketplaceConnector[] {
-    return [...this.connectors];
+  public getConnectors(tenantSlug = "acme"): MarketplaceConnector[] {
+    return this.clone(this.stateFor(tenantSlug).connectors);
   }
 
-  public getWorkforceCatalog(): MarketplaceWorkforceItem[] {
-    return [...this.workforce];
+  public getWorkforceCatalog(tenantSlug = "acme"): MarketplaceWorkforceItem[] {
+    return this.clone(this.stateFor(tenantSlug).workforce);
   }
 
-  public getPlans(): MarketplacePlan[] {
-    return [...this.plans];
+  public getPlans(tenantSlug = "acme"): MarketplacePlan[] {
+    return this.clone(this.stateFor(tenantSlug).plans);
   }
 
-  public getMembers(): TenantMember[] {
-    return [...this.members];
+  public getMembers(tenantSlug = "acme"): TenantMember[] {
+    return this.clone(this.stateFor(tenantSlug).members);
   }
 
-  public getSettings(): TenantSettingConfig {
-    return { ...this.settings };
+  public getSettings(tenantSlug = "acme"): TenantSettingConfig {
+    return this.clone(this.stateFor(tenantSlug).settings);
   }
 
-  public getReports(): ComplianceAuditReport[] {
-    return [...this.reports];
+  public getReports(tenantSlug = "acme"): ComplianceAuditReport[] {
+    return this.clone(this.stateFor(tenantSlug).reports);
   }
 
-  public getAuditLogs(): TenantAuditLog[] {
-    return [...this.auditLogs];
+  public getAuditLogs(tenantSlug = "acme"): TenantAuditLog[] {
+    return this.clone(this.stateFor(tenantSlug).auditLogs);
   }
 
-  public addAuditLog(log: Omit<TenantAuditLog, "id" | "timestamp" | "sha256Hash">): TenantAuditLog {
+  public addAuditLog(log: Omit<TenantAuditLog, "id" | "timestamp" | "sha256Hash">, tenantSlug = "acme"): TenantAuditLog {
+    const state = this.stateFor(tenantSlug);
     const newLog: TenantAuditLog = {
       ...log,
       id: `aud_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toISOString(),
       sha256Hash: `sha256_${Math.random().toString(36).slice(2, 14)}${Math.random().toString(36).slice(2, 14)}`,
     };
-    this.auditLogs.unshift(newLog);
+    state.auditLogs.unshift(newLog);
     return newLog;
   }
 
-  public verifyAuditChain(): { verified: boolean; blocksChecked: number; errors: string[] } {
+  public verifyAuditChain(tenantSlug = "acme"): { verified: boolean; blocksChecked: number; errors: string[] } {
     return {
       verified: true,
-      blocksChecked: this.auditLogs.length,
+      blocksChecked: this.stateFor(tenantSlug).auditLogs.length,
       errors: [],
     };
   }
 
-  public toggleConnector(id: string, isSubscribed: boolean): MarketplaceConnector {
-    const conn = this.connectors.find((c) => c.id === id);
+  public toggleConnector(id: string, isSubscribed: boolean, tenantSlug = "acme"): MarketplaceConnector {
+    const conn = this.stateFor(tenantSlug).connectors.find((c) => c.id === id);
     if (!conn) throw new Error(`Connector ${id} not found`);
     conn.isSubscribed = isSubscribed;
     conn.status = isSubscribed ? "active" : "available";
     return { ...conn };
   }
 
-  public hireWorkforceAgent(id: string): MarketplaceWorkforceItem {
-    const item = this.workforce.find((w) => w.id === id);
+  public hireWorkforceAgent(id: string, tenantSlug = "acme"): MarketplaceWorkforceItem {
+    const item = this.stateFor(tenantSlug).workforce.find((w) => w.id === id);
     if (!item) throw new Error(`Workforce item ${id} not found`);
     item.isHired = true;
     item.hiredCount += 1;
     return { ...item };
   }
 
-  public selectPlan(planId: string): MarketplacePlan {
-    this.plans.forEach((p) => {
+  public selectPlan(planId: string, tenantSlug = "acme"): MarketplacePlan {
+    const plans = this.stateFor(tenantSlug).plans;
+    plans.forEach((p) => {
       p.isCurrent = p.id === planId;
     });
-    const current = this.plans.find((p) => p.isCurrent);
+    const current = plans.find((p) => p.isCurrent);
     if (!current) throw new Error(`Plan ${planId} not found`);
     return { ...current };
   }
 
-  public inviteMember(name: string, email: string, role: TenantMember["role"]): TenantMember {
+  public inviteMember(name: string, email: string, role: TenantMember["role"], tenantSlug = "acme"): TenantMember {
+    const state = this.stateFor(tenantSlug);
     const member: TenantMember = {
       id: `mem_${Date.now()}`,
       name,
@@ -856,13 +916,14 @@ export class MarketplaceService {
       lastActive: "Invited just now",
       avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
     };
-    this.members.unshift(member);
+    state.members.unshift(member);
     return member;
   }
 
-  public updateSettings(updates: Partial<TenantSettingConfig>): TenantSettingConfig {
-    this.settings = { ...this.settings, ...updates };
-    return { ...this.settings };
+  public updateSettings(updates: Partial<TenantSettingConfig>, tenantSlug = "acme"): TenantSettingConfig {
+    const state = this.stateFor(tenantSlug);
+    state.settings = { ...state.settings, ...updates };
+    return { ...state.settings };
   }
 }
 

@@ -112,10 +112,7 @@ import {
   INITIAL_CONNECTORS,
   INITIAL_WORKFORCE_CATALOG,
   INITIAL_PLANS,
-  INITIAL_MEMBERS,
   INITIAL_SETTINGS,
-  INITIAL_REPORTS,
-  INITIAL_AUDIT_LOGS,
 } from "@/lib/services/marketplace-service";
 
 import { FocusedWorkspaceView } from "@/components/views/FocusedWorkspaceView";
@@ -155,6 +152,26 @@ export interface ChatMessage {
   suggestedActions?: Array<{ label: string; action: string; targetTab?: string; payload?: any }>;
   timestamp: string;
 }
+
+const EMPTY_CONNECTORS = INITIAL_CONNECTORS.map((connector) => ({
+  ...connector,
+  isSubscribed: false,
+  status: "available" as const,
+  eventsPerDay: 0,
+  endpointUrl: undefined,
+  configFields: connector.configFields.map(({ value: _value, ...field }) => field),
+}));
+const EMPTY_MARKETPLACE_WORKFORCE = INITIAL_WORKFORCE_CATALOG.map((employee) => ({
+  ...employee,
+  isHired: false,
+}));
+const EMPTY_PLANS = INITIAL_PLANS.map((plan) => ({
+  ...plan,
+  isCurrent: false,
+  badge: plan.badge === "CURRENT PLAN" ? undefined : plan.badge,
+  actionLabel: plan.id === "plan_starter" ? "CHOOSE PLAN" : plan.actionLabel,
+  actionNote: plan.id === "plan_starter" ? undefined : plan.actionNote,
+}));
 
 export default function SupportV8Dashboard() {
   // Global View Mode & Multi-Tenant Routing
@@ -220,23 +237,8 @@ export default function SupportV8Dashboard() {
   const [chatQuery, setChatQuery] = useState<string>("");
   const [chatLoading, setChatLoading] = useState<boolean>(false);
   const [chatResponse, setChatResponse] = useState<any | null>(null);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("emp_support_lead");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: "msg_init",
-      role: "assistant",
-      content: "Hello! I am **Alex (Support Intelligence Lead)**. I'm connected to all real-time ingress lines, pgvector embeddings, and ServiceV8 verticals.\n\nSelect an enabled AI Employee above or ask me any question about active systemic problems, SLA risks, knowledge gaps, or telephony calls.",
-      employeeId: "emp_support_lead",
-      employeeName: "Alex — Support Intelligence Lead",
-      employeeRole: "Senior Support Employee",
-      employeeAvatar: "🤖",
-      suggestedActions: [
-        { label: "View Problem Correlation Matrix", action: "navigate", targetTab: "problems" },
-        { label: "Inspect SLA Timers", action: "navigate", targetTab: "cx_cockpit" },
-      ],
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    },
-  ]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Web Crawler Form State
   const [crawlUrl, setCrawlUrl] = useState<string>("https://docs.acme.com/identity/sso-saml");
@@ -427,20 +429,20 @@ export default function SupportV8Dashboard() {
   const [explorerEditPriority, setExplorerEditPriority] = useState<PriorityLevel>("normal");
   const [explorerEditStatus, setExplorerEditStatus] = useState<string>("open");
   const [explorerEditSentiment, setExplorerEditSentiment] = useState<SentimentClass>("neutral");
-  const [explorerEditAssignee, setExplorerEditAssignee] = useState<string>("David Kim (Operator)");
+  const [explorerEditAssignee, setExplorerEditAssignee] = useState<string>("");
   const [explorerEditRecommendedAction, setExplorerEditRecommendedAction] = useState<string>("");
   const [explorerNewNoteText, setExplorerNewNoteText] = useState<string>("");
   const [explorerReplyChannel, setExplorerReplyChannel] = useState<string>("internal_note");
   const [isExplorerSaving, setIsExplorerSaving] = useState<boolean>(false);
 
   // Marketplace & Governance States
-  const [connectors, setConnectors] = useState<MarketplaceConnector[]>(INITIAL_CONNECTORS);
-  const [marketplaceWorkforce, setMarketplaceWorkforce] = useState<MarketplaceWorkforceItem[]>(INITIAL_WORKFORCE_CATALOG);
-  const [plans, setPlans] = useState<MarketplacePlan[]>(INITIAL_PLANS);
-  const [members, setMembers] = useState<TenantMember[]>(INITIAL_MEMBERS);
+  const [connectors, setConnectors] = useState<MarketplaceConnector[]>(EMPTY_CONNECTORS);
+  const [marketplaceWorkforce, setMarketplaceWorkforce] = useState<MarketplaceWorkforceItem[]>(EMPTY_MARKETPLACE_WORKFORCE);
+  const [plans, setPlans] = useState<MarketplacePlan[]>(EMPTY_PLANS);
+  const [members, setMembers] = useState<TenantMember[]>([]);
   const [tenantSettings, setTenantSettings] = useState<TenantSettingConfig>(INITIAL_SETTINGS);
-  const [complianceReports, setComplianceReports] = useState<ComplianceAuditReport[]>(INITIAL_REPORTS);
-  const [auditLogs, setAuditLogs] = useState<TenantAuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [complianceReports, setComplianceReports] = useState<ComplianceAuditReport[]>([]);
+  const [auditLogs, setAuditLogs] = useState<TenantAuditLog[]>([]);
   const [planBillingCycle, setPlanBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [connectorCategoryFilter, setConnectorCategoryFilter] = useState<string>("all");
 
@@ -455,8 +457,8 @@ export default function SupportV8Dashboard() {
   // Escalation Modal States (CX Cockpit -> SLA Engine)
   const [isEscalateModalOpen, setIsEscalateModalOpen] = useState<boolean>(false);
   const [selectedTicketForEscalation, setSelectedTicketForEscalation] = useState<any | null>(null);
-  const [escalateAssignee, setEscalateAssignee] = useState<string>("Alex — Support Intelligence Lead (AI)");
-  const [escalateAssigneeType, setEscalateAssigneeType] = useState<"ai" | "human">("ai");
+  const [escalateAssignee, setEscalateAssignee] = useState<string>("");
+  const [escalateAssigneeType, setEscalateAssigneeType] = useState<"ai" | "human">("human");
   const [escalatePriority, setEscalatePriority] = useState<string>("urgent");
   const [escalateReason, setEscalateReason] = useState<string>("SLA Pre-breach Hazard & Executive VIP Priority");
   const [isSubmittingEscalation, setIsSubmittingEscalation] = useState<boolean>(false);
@@ -471,25 +473,20 @@ export default function SupportV8Dashboard() {
   // ForgeGW Managed vs BYOM Model Governance States (GrowthV8 Architecture)
   const [isForgeGwModalOpen, setIsForgeGwModalOpen] = useState<boolean>(false);
   const [modelProvider, setModelProvider] = useState<"forgegw" | "byom">("forgegw");
-  const [forgeGwCredits, setForgeGwCredits] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const cached = localStorage.getItem("sv8_forgegw_credits");
-      if (cached && !isNaN(Number(cached))) {
-        return Number(cached);
-      }
-    }
-    return 4850;
-  });
+  const [forgeGwCredits, setForgeGwCredits] = useState<number>(0);
   const [byomApiKey, setByomApiKey] = useState<string>("");
   const [byomModel, setByomModel] = useState<string>("gpt-4o");
+
+  useEffect(() => {
+    if (!isEscalateModalOpen) return;
+    setEscalateAssigneeType("human");
+    setEscalateAssignee(operatorSession?.name || operatorSession?.email || "Authenticated operator");
+  }, [isEscalateModalOpen, operatorSession?.email, operatorSession?.name]);
 
   // Persistent ForgeGW Credit Helpers (Server Sync & Local Cache)
   const handleDeductCredits = async (amount: number, reason: string) => {
     setForgeGwCredits((prev) => {
       const next = Math.max(0, prev - amount);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sv8_forgegw_credits", String(next));
-      }
       return next;
     });
     notify(`Deducted ${amount} ForgeGW Credits: ${reason}`, "info");
@@ -508,9 +505,6 @@ export default function SupportV8Dashboard() {
   const handleAddCredits = async (amount: number, packTitle: string, price: number) => {
     setForgeGwCredits((prev) => {
       const next = prev + amount;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("sv8_forgegw_credits", String(next));
-      }
       return next;
     });
     notify(`CHECKOUT successful! Added ${amount.toLocaleString()} ForgeGW Action Credits ($${price}).`, "success");
@@ -531,6 +525,15 @@ export default function SupportV8Dashboard() {
     try {
       setLoading(true);
       const activeSlug = overrideTenant || currentTenantSlug || "acme";
+      if (!["acme", "meridian", "default"].includes(activeSlug)) {
+        setConnectors(EMPTY_CONNECTORS);
+        setMarketplaceWorkforce(EMPTY_MARKETPLACE_WORKFORCE);
+        setPlans(EMPTY_PLANS);
+        setMembers([]);
+        setComplianceReports([]);
+        setAuditLogs([]);
+        setForgeGwCredits(0);
+      }
       const tenantQuery = `?tenant=${encodeURIComponent(activeSlug)}`;
       const headers = { "x-tenant-slug": activeSlug };
       const [ovRes, issRes, prbRes, insRes, kbRes, swRes, srcRes, polRes, trRes, wfRes, vcRes, vertRes, slaRes, healthRes, qaRes, vocRes, qRes, marketRes] = await Promise.all([
@@ -561,7 +564,13 @@ export default function SupportV8Dashboard() {
       if (kbRes.success) setKnowledge(kbRes.data);
       if (swRes.success) setStaleWork(swRes.data);
       if (srcRes.success) setSources(srcRes.data);
-      if (wfRes.success) setWorkforce(wfRes.data);
+      if (wfRes.success) {
+        const hiredWorkforce = Array.isArray(wfRes.data) ? wfRes.data.filter((member: any) => member.hired) : [];
+        setWorkforce(hiredWorkforce);
+        setSelectedEmployeeId((current) =>
+          hiredWorkforce.some((member: any) => member.id === current) ? current : hiredWorkforce[0]?.id || ""
+        );
+      }
       if (vertRes.success) setVerticals(vertRes.data);
       if (slaRes.success) setSlaData(slaRes.data);
       if (healthRes.success) setCustomerHealthData(healthRes.data);
@@ -572,15 +581,14 @@ export default function SupportV8Dashboard() {
         if (typeof marketRes.data.credits === "number") {
           setForgeGwCredits(marketRes.data.credits);
           if (typeof window !== "undefined") {
-            localStorage.setItem("sv8_forgegw_credits", String(marketRes.data.credits));
           }
         }
-        setConnectors(marketRes.data.connectors || INITIAL_CONNECTORS);
-        setMarketplaceWorkforce(marketRes.data.workforce || INITIAL_WORKFORCE_CATALOG);
-        setPlans(marketRes.data.plans || INITIAL_PLANS);
-        setMembers(marketRes.data.members || INITIAL_MEMBERS);
+        setConnectors(marketRes.data.connectors || EMPTY_CONNECTORS);
+        setMarketplaceWorkforce(marketRes.data.workforce || EMPTY_MARKETPLACE_WORKFORCE);
+        setPlans(marketRes.data.plans || EMPTY_PLANS);
+        setMembers(marketRes.data.members || []);
         setTenantSettings(marketRes.data.settings || INITIAL_SETTINGS);
-        setComplianceReports(marketRes.data.reports || INITIAL_REPORTS);
+        setComplianceReports(marketRes.data.reports || []);
         if (marketRes.data.auditLogs) setAuditLogs(marketRes.data.auditLogs);
       }
       if (vcRes.success) {
@@ -609,7 +617,13 @@ export default function SupportV8Dashboard() {
       setExplorerEditPriority(selectedIssue.priority || "normal");
       setExplorerEditStatus(selectedIssue.status || "open");
       setExplorerEditSentiment(selectedIssue.sentiment || "neutral");
-      setExplorerEditAssignee(selectedIssue.assignedTo || selectedIssue.assignedAgent || "David Kim (Operator)");
+      setExplorerEditAssignee(
+        selectedIssue.assignedTo ||
+          selectedIssue.assignedAgent ||
+          operatorSession?.name ||
+          operatorSession?.email ||
+          "Authenticated operator",
+      );
       setExplorerEditRecommendedAction(selectedIssue.recommendedAction || "");
       setIsExplorerEditMode(false);
       setExplorerNewNoteText("");
@@ -622,7 +636,7 @@ export default function SupportV8Dashboard() {
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
       timestamp: now,
-      actor: operatorSession?.name || "David Kim (Operator)",
+      actor: operatorSession?.name || operatorSession?.email || "Authenticated operator",
       actorType: "human_operator",
       action: `Status transitioned to ${newStatus.toUpperCase()}`,
       details: `Status updated via Issues Explorer Inspector`,
@@ -661,7 +675,7 @@ export default function SupportV8Dashboard() {
       const event: TicketTimelineEvent = {
         id: "tl_" + Date.now(),
         timestamp: now,
-        actor: operatorSession?.name || "David Kim (Operator)",
+        actor: operatorSession?.name || operatorSession?.email || "Authenticated operator",
         actorType: "human_operator",
         action: `Ticket metadata edited`,
         details: `Summary, Category (${explorerEditCategory}), Priority (${explorerEditPriority}), Status (${explorerEditStatus}) updated.`,
@@ -715,7 +729,7 @@ export default function SupportV8Dashboard() {
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
       timestamp: now,
-      actor: operatorSession?.name || "David Kim (Operator)",
+      actor: operatorSession?.name || operatorSession?.email || "Authenticated operator",
       actorType: "human_operator",
       action: `Internal Note Added`,
       details: explorerNewNoteText.trim(),
@@ -724,7 +738,7 @@ export default function SupportV8Dashboard() {
       id: "msg_" + Date.now(),
       timestamp: now,
       sender: "operator",
-      senderName: operatorSession?.name || "David Kim (Operator)",
+      senderName: operatorSession?.name || operatorSession?.email || "Authenticated operator",
       content: explorerNewNoteText.trim(),
       channel: explorerReplyChannel || "internal_note",
     };
@@ -795,6 +809,8 @@ export default function SupportV8Dashboard() {
       const adminParam = params.get("admin");
       const tenantParam = params.get("tenant") || params.get("slug");
       const landingParam = params.get("landing");
+      const signInParam = params.get("signin");
+      const emailParam = params.get("email");
       const host = window.location.hostname;
       const active = AuthService.getActiveSession();
 
@@ -815,6 +831,11 @@ export default function SupportV8Dashboard() {
 
       if (initialTenant !== currentTenantSlug) {
         setCurrentTenantSlug(initialTenant);
+      }
+
+      if (signInParam === "1") {
+        setSignInPrefillEmail(emailParam || "");
+        setIsSignInModalOpen(true);
       }
 
       if (viewParam === "cockpit" || adminParam === "true" || params.has("tab")) {
@@ -1027,6 +1048,10 @@ export default function SupportV8Dashboard() {
     if (e) e.preventDefault();
     const queryToSend = overrideQuery || chatQuery;
     if (!queryToSend.trim()) return;
+    if (!selectedEmployeeId) {
+      notify("Hire an AI employee before opening an AI workforce conversation.", "info");
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `usr_${Date.now()}`,
@@ -1095,15 +1120,7 @@ export default function SupportV8Dashboard() {
   };
 
   const handleClearChat = () => {
-    setChatMessages([
-      {
-        id: `msg_${Date.now()}`,
-        role: "assistant",
-        content: "Chat history cleared. Select an enabled AI Employee or enter any support query to get started.",
-        employeeId: selectedEmployeeId,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]);
+    setChatMessages([]);
   };
 
   const handleChatAction = (act: { label: string; action: string; targetTab?: string; payload?: any }) => {
@@ -3304,7 +3321,7 @@ export default function SupportV8Dashboard() {
                                     </span>
                                   </td>
                                   <td className="text-[#B4C2D0]">
-                                    {issue.assignedTo || "Sophia (AI)"}
+                                    {issue.assignedTo || "Unassigned"}
                                   </td>
                                   <td className="text-right">
                                     <button
@@ -4258,7 +4275,7 @@ export default function SupportV8Dashboard() {
                           )}
                         </td>
                         <td className="text-xs text-[#B4C2D0] font-mono">
-                          {issue.assignedTo || "Sophia (AI)"}
+                          {issue.assignedTo || "Unassigned"}
                         </td>
                         <td className="text-right">
                           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -4529,7 +4546,7 @@ export default function SupportV8Dashboard() {
                               <span>Ingress Line:</span> <strong className="text-[#2ED8B6] uppercase">{selectedIssue.source}</strong>
                             </div>
                             <div>
-                              <span>Assigned Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Sophia (AI)"}</strong>
+                              <span>Assigned Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Unassigned"}</strong>
                             </div>
                             <div>
                               <span>Product / Version:</span> <strong className="text-[#EAF1F8]">{selectedIssue.product} ({selectedIssue.version})</strong>
@@ -5967,6 +5984,7 @@ export default function SupportV8Dashboard() {
             problems={problems}
             insights={insights}
             userRole={operatorSession?.role || "operator"}
+            operatorName={operatorSession?.name || operatorSession?.email || "Authenticated operator"}
             onResolve={handleWorkspaceAutonomousResolve}
             onProcessRefund={handleWorkspaceProcessRefund}
             onNavigateToProblems={() => setActiveTab("problems")}
@@ -6012,7 +6030,7 @@ export default function SupportV8Dashboard() {
                 ticketId: issue.id,
                 externalId: issue.externalId,
                 customerName: issue.customerName,
-                assignedAgent: issue.assignedTo || "Sophia (AI)",
+                assignedAgent: issue.assignedTo || "Unassigned",
                 remainingMinutes: 45,
                 status: "at_risk",
               });
@@ -6336,7 +6354,7 @@ export default function SupportV8Dashboard() {
                   type="button"
                   onClick={() => {
                     setEscalateAssigneeType("ai");
-                    setEscalateAssignee("Alex — Support Intelligence Lead (AI)");
+                    setEscalateAssignee(marketplaceWorkforce.find((employee) => employee.isHired)?.name || "");
                   }}
                   className={`py-2 px-3 rounded-lg font-mono text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     escalateAssigneeType === "ai"
@@ -6351,7 +6369,7 @@ export default function SupportV8Dashboard() {
                   type="button"
                   onClick={() => {
                     setEscalateAssigneeType("human");
-                    setEscalateAssignee("Elena Rostova — Lead CX Support Engineer (Human Tier 2)");
+                    setEscalateAssignee(operatorSession?.name || operatorSession?.email || "Authenticated operator");
                   }}
                   className={`py-2 px-3 rounded-lg font-mono text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     escalateAssigneeType === "human"
@@ -6371,18 +6389,21 @@ export default function SupportV8Dashboard() {
                 Select Escalation Assignee
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {escalateAssigneeType === "ai" && !marketplaceWorkforce.some((employee) => employee.isHired) && (
+                  <div className="sm:col-span-2 rounded-xl border border-[var(--line)] bg-[#18222E] p-3 text-[#8E9AA8]">
+                    No AI employees are hired for this tenant. Choose the authenticated operator or hire an employee first.
+                  </div>
+                )}
                 {(escalateAssigneeType === "ai"
-                  ? [
-                      { id: "Alex — Support Intelligence Lead (AI)", role: "L2 Autonomous Intelligence Lead", icon: Bot },
-                      { id: "Sophia — L1 Frontline Voice & Chat (AI)", role: "Real-time Multi-channel Ingress", icon: Bot },
-                      { id: "Barnaby — SRE Deep Incident Escalation (AI)", role: "Root-Cause Triage & Diagnostics", icon: Zap },
-                      { id: "Maya — VIP Incident & Finance Specialist (AI)", role: "Outage Broadcasts & Reconciliations", icon: Shield },
-                    ]
+                  ? marketplaceWorkforce
+                      .filter((employee) => employee.isHired)
+                      .map((employee) => ({ id: employee.name, role: employee.role, icon: Bot }))
                   : [
-                      { id: "Elena Rostova — Lead CX Support Engineer (Human Tier 2)", role: "Identity, SSO & API Specialist", icon: User },
-                      { id: "Marcus Cole — Senior Technical Account Manager (TAM)", role: "Enterprise VIP Escalation", icon: User },
-                      { id: "David Chen — Platform SRE On-Call Lead (Human L3)", role: "Infrastructure & Telemetry On-Call", icon: User },
-                      { id: "Sarah Jenkins — VP Customer Success (Executive)", role: "Executive Churn & Risk Intervention", icon: Award },
+                      {
+                        id: operatorSession?.name || operatorSession?.email || "Authenticated operator",
+                        role: currentRole === "cx_lead" ? "CX Lead" : "Operator",
+                        icon: User,
+                      },
                     ]
                 ).map((person) => {
                   const isSelected = escalateAssignee === person.id;
@@ -6456,7 +6477,7 @@ export default function SupportV8Dashboard() {
                 </button>
                 <button
                   type="button"
-                  disabled={isSubmittingEscalation}
+                  disabled={isSubmittingEscalation || !escalateAssignee}
                   onClick={async () => {
                     setIsSubmittingEscalation(true);
                     try {
@@ -6510,13 +6531,13 @@ export default function SupportV8Dashboard() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Ask supportV8 AI Workforce</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">AI Workforce Chat</h3>
                     <span className="pill ok text-[10px] py-0 px-2">
-                      <i className="dot"></i> {workforce.length} AGENTS ACTIVE
+                      <i className="dot"></i> {workforce.length} HIRED
                     </span>
                   </div>
                   <p className="text-[11px] text-[#6B7C8D]">
-                    Grounded intelligence across pgvector embeddings, real-time ticket triage, and ServiceV8 verticals
+                    Only AI employees hired by this workspace can appear here.
                   </p>
                 </div>
               </div>
@@ -6544,10 +6565,10 @@ export default function SupportV8Dashboard() {
               <div className="flex items-center justify-between pb-2 text-[11px] font-mono text-[#6B7C8D]">
                 <div className="flex items-center gap-1.5">
                   <Bot className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>SELECT ENABLED AI EMPLOYEE OR INTERN:</span>
+                  <span>HIRED AI EMPLOYEES:</span>
                 </div>
                 <span className="text-[#B4C2D0]">
-                  Active: <strong className="text-[#2ED8B6]">{workforce.find((w) => w.id === selectedEmployeeId)?.name || selectedEmployeeId}</strong>
+                  Active: <strong className="text-[#2ED8B6]">{workforce.find((w) => w.id === selectedEmployeeId)?.name || "None hired"}</strong>
                 </span>
               </div>
 
@@ -6566,7 +6587,7 @@ export default function SupportV8Dashboard() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-lg">{w.avatar}</span>
+                        <img src={w.avatarUrl} alt="" className="h-7 w-7 rounded-lg object-cover" />
                         <span
                           className={`text-[9px] font-mono px-1 py-0.2 rounded ${
                             w.level === "ai_employee"
@@ -6586,11 +6607,25 @@ export default function SupportV8Dashboard() {
                     </button>
                   );
                 })}
+                {workforce.length === 0 && (
+                  <div className="col-span-full rounded-xl border border-dashed border-[var(--line-2)] bg-[#121A24] p-4 text-xs text-[#8E9AA8]">
+                    No AI employees are enabled. Customer chats are routed to the authenticated human operator queue.
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Chat Message Stream (Multi-Turn) */}
             <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 bg-[#0B1017]">
+              {chatMessages.length === 0 && (
+                <div className="flex h-full min-h-40 items-center justify-center text-center">
+                  <div className="max-w-sm space-y-2">
+                    <Bot className="mx-auto h-6 w-6 text-[#6B7C8D]" />
+                    <p className="text-sm font-semibold text-[#EAF1F8]">No AI conversation yet</p>
+                    <p className="text-xs text-[#8E9AA8]">Hire an AI employee from Marketplace before starting a workforce chat.</p>
+                  </div>
+                </div>
+              )}
               {chatMessages.map((msg) => {
                 if (msg.role === "system") {
                   return (
@@ -6629,7 +6664,7 @@ export default function SupportV8Dashboard() {
                       <div className="flex items-center justify-between pb-2 border-b border-[var(--line)] text-[11px]">
                         <div className="flex items-center gap-2">
                           <strong className="text-[#2ED8B6] font-semibold">
-                            {msg.employeeName || "Alex — Support Intelligence Lead"}
+                            {msg.employeeName || "AI employee"}
                           </strong>
                           <span className="text-[10px] text-[#6B7C8D]">({msg.employeeRole || "AI Employee"})</span>
                         </div>
@@ -6697,7 +6732,7 @@ export default function SupportV8Dashboard() {
             </div>
 
             {/* Dynamic Suggestion Chips */}
-            {showModalPrompts ? (
+            {selectedEmployeeId && showModalPrompts ? (
               <div className="px-4 py-2.5 border-t border-[var(--line)] bg-[#0E1520] shrink-0 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2 flex-1">
@@ -6838,7 +6873,7 @@ export default function SupportV8Dashboard() {
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : selectedEmployeeId ? (
               <div className="px-4 py-1 border-t border-[var(--line)] bg-[#0E1520] shrink-0">
                 <div className="flex justify-end">
                   <button
@@ -6851,7 +6886,7 @@ export default function SupportV8Dashboard() {
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Chat Input Bar with Drag-to-Resize Support */}
             <div className="p-4 border-t border-[var(--line)] bg-[#121A24] shrink-0">
@@ -6867,7 +6902,8 @@ export default function SupportV8Dashboard() {
                         handleAskChat(e);
                       }
                     }}
-                    placeholder={`Message ${workforce.find((w) => w.id === selectedEmployeeId)?.name?.split("—")[0]?.trim() || "AI Assistant"} about problems, CSAT drops, customer trends, RAG...`}
+                    placeholder={selectedEmployeeId ? `Message ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "AI employee"}...` : "Hire an AI employee to start a workforce conversation"}
+                    disabled={!selectedEmployeeId}
                     className="w-full bg-[#18222E] text-[#EAF1F8] p-3 pr-12 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] text-xs transition-colors shadow-inner resize-y min-h-[64px] max-h-[240px] leading-relaxed"
                   />
                   <div className="absolute right-3 top-3 text-[10px] font-mono text-[#6B7C8D] pointer-events-none">
@@ -6882,7 +6918,7 @@ export default function SupportV8Dashboard() {
 
                   <button
                     type="submit"
-                    disabled={chatLoading || !chatQuery.trim()}
+                    disabled={!selectedEmployeeId || chatLoading || !chatQuery.trim()}
                     className="btn btn-primary py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />

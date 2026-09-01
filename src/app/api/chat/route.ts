@@ -4,18 +4,60 @@ import { kv8RetrievalEngine } from "@/lib/rag/retrieval";
 import { workforceManager } from "@/lib/workforce";
 import { voiceService } from "@/lib/voice/voice-service";
 import { slaEngine } from "@/lib/services/sla-engine-service";
+import { marketplaceService } from "@/lib/services/marketplace-service";
+import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 
 export async function POST(req: NextRequest) {
   try {
-    const { query, employeeId = "emp_support_lead" } = await req.json();
+    const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    const { query, employeeId } = await req.json();
+    const hiredIds = new Set(
+      marketplaceService
+        .getWorkforceCatalog(tenant.tenantSlug)
+        .filter((employee) => employee.isHired)
+        .map((employee) => employee.id)
+    );
+    if (!employeeId || !hiredIds.has(employeeId)) {
+      return NextResponse.json(
+        { success: false, error: "No hired AI employee is available for this workspace." },
+        { status: 409 }
+      );
+    }
     const q = (query || "").toLowerCase();
 
-    const employee = workforceManager.getById(employeeId) || workforceManager.getAll()[0];
+    const employee = workforceManager.getById(employeeId);
+    if (!employee) {
+      return NextResponse.json(
+        { success: false, error: "The selected AI employee is not available." },
+        { status: 404 }
+      );
+    }
     let answer = "";
     const citations: Array<{ type: "problem" | "issue" | "insight" | "metric" | "document"; id: string; title: string }> = [];
     const suggestedActions: Array<{ label: string; action: string; targetTab?: string; payload?: any }> = [];
 
-    // 1. Perform KnowledgeV8 status-weighted RAG retrieval
+    const isDemoTenant = ["acme", "meridian", "default"].includes(tenant.tenantSlug);
+    if (!isDemoTenant) {
+      const tenantData = db.getTenantData(tenant.tenantSlug);
+      answer = `**${employee.name}:**\n\nThis workspace currently has ${tenantData.issues.length} tenant-scoped issue${tenantData.issues.length === 1 ? "" : "s"} and ${tenantData.problems.length} active problem${tenantData.problems.length === 1 ? "" : "s"}. I will only use data from ${tenant.tenantSlug}.`;
+      citations.push({ type: "metric", id: `tenant_${tenant.tenantSlug}`, title: "Tenant-scoped SupportV8 workspace" });
+      return NextResponse.json({
+        success: true,
+        data: {
+          query,
+          employeeId: employee.id,
+          employeeName: employee.name,
+          employeeRole: employee.role,
+          employeeAvatar: employee.avatar,
+          answer,
+          citations,
+          suggestedActions,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    // Demo tenants retain the seeded knowledge showcase.
     const searchResults = await kv8RetrievalEngine.query(query, { topK: 3, minScore: 0.60 });
     const topDocMatch = searchResults[0];
 
@@ -123,10 +165,12 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
+    if (err instanceof RequestAuthError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: err.status });
+    }
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Chat query failed" },
       { status: 400 }
     );
   }
 }
-

@@ -40,10 +40,11 @@ export function AskWorkspaceView({
   const [showPrompts, setShowPrompts] = useState<boolean>(true);
 
   const activeEmployee = workforce.find((w) => w.id === selectedEmployeeId) || workforce[0];
+  const hasHiredEmployee = Boolean(activeEmployee);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputQuery.trim() || loading) return;
+    if (!inputQuery.trim() || loading || !hasHiredEmployee) return;
     onSendMessage(inputQuery.trim());
     setInputQuery("");
   };
@@ -78,7 +79,9 @@ export function AskWorkspaceView({
     ],
   };
 
-  const suggestions = PROMPT_SUGGESTIONS[selectedEmployeeId] || PROMPT_SUGGESTIONS.emp_support_lead;
+  const suggestions = hasHiredEmployee
+    ? PROMPT_SUGGESTIONS[selectedEmployeeId] || []
+    : [];
 
   return (
     <div className="p-3 sm:p-5 md:p-6 h-full min-h-0 w-full flex flex-col overflow-hidden bg-[#0B1017]">
@@ -92,9 +95,9 @@ export function AskWorkspaceView({
               <i className="fi fi-rr-comment-alt-dots text-base"></i>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#EAF1F8]">Ask supportV8 AI Workforce</h2>
+              <h2 className="text-sm font-bold text-[#EAF1F8]">AI Workforce Chat</h2>
               <p className="text-[11px] text-[#6B7C8D]">
-                Select an enabled AI Employee to ground responses with specialized RAG memory &amp; autonomy permissions.
+                Conversations are limited to AI employees hired by this workspace.
               </p>
             </div>
           </div>
@@ -136,6 +139,11 @@ export function AskWorkspaceView({
               </button>
             );
           })}
+          {!hasHiredEmployee && (
+            <div className="w-full rounded-xl border border-dashed border-[var(--line-2)] bg-[#0E1520] px-4 py-3 text-xs text-[#8E9AA8]">
+              No AI employees are hired for this workspace. Customer conversations remain in the human operator queue until an employee is hired from Marketplace.
+            </div>
+          )}
         </div>
       </div>
 
@@ -177,7 +185,7 @@ export function AskWorkspaceView({
               <div className={`space-y-1.5 max-w-[80%] ${isUser ? "items-end" : "items-start"}`}>
                 <div className="flex items-center gap-2 text-[10px] font-mono text-[#6B7C8D]">
                   <span className="font-bold text-[#B4C2D0]">
-                    {isUser ? "You (CX Lead)" : emp?.name || "Alex — Support Lead"}
+                    {isUser ? "You (CX Lead)" : emp?.name || "AI employee"}
                   </span>
                   <span>{msg.timestamp}</span>
                 </div>
@@ -227,7 +235,7 @@ export function AskWorkspaceView({
           );
         })}
 
-        {loading && (
+        {loading && hasHiredEmployee && (
           <div className="flex items-center gap-3">
             <img
               src={activeEmployee?.avatarUrl || "/avatars/beaver-manager.jpg"}
@@ -243,7 +251,7 @@ export function AskWorkspaceView({
       </div>
 
       {/* Suggested Prompt Chips */}
-      {showPrompts ? (
+      {hasHiredEmployee && showPrompts ? (
         <div className="bg-[#121A24] border-t border-[#2ED8B6]/20 px-4 sm:px-6 py-2.5 shrink-0 transition-all">
           <div className="max-w-4xl mx-auto flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 flex-1">
@@ -272,7 +280,7 @@ export function AskWorkspaceView({
             </button>
           </div>
         </div>
-      ) : (
+      ) : hasHiredEmployee ? (
         <div className="bg-[#121A24] border-t border-[#2ED8B6]/10 px-4 sm:px-6 py-1 shrink-0">
           <div className="max-w-4xl mx-auto flex justify-end">
             <button
@@ -285,7 +293,7 @@ export function AskWorkspaceView({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Query Input Bar with Drag-to-Resize Support */}
       <form onSubmit={handleSend} className="p-3 sm:p-4 bg-[#0E1520] border-t border-[#2ED8B6]/30 shrink-0">
@@ -301,7 +309,8 @@ export function AskWorkspaceView({
                   handleSend(e);
                 }
               }}
-              placeholder={`Ask ${activeEmployee?.name || "supportV8"} anything... (e.g. "Draft RCA for Stripe webhook timeout", "Summarize refund trends", "Query pgvector for SAML configs")`}
+              placeholder={hasHiredEmployee ? `Ask ${activeEmployee.name} about this workspace...` : "Hire an AI employee to start a workforce conversation"}
+              disabled={!hasHiredEmployee}
               className="w-full bg-[#18222E] text-[#EAF1F8] p-3.5 pr-14 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] focus:ring-1 focus:ring-[#2ED8B6]/40 font-medium transition-all shadow-inner resize-y min-h-[80px] max-h-[360px] leading-relaxed"
             />
             <div className="absolute right-3.5 top-3.5 text-[#6B7C8D] text-[10px] font-mono pointer-events-none">
@@ -322,7 +331,7 @@ export function AskWorkspaceView({
 
             <button
               type="submit"
-              disabled={!inputQuery.trim() || loading}
+              disabled={!hasHiredEmployee || !inputQuery.trim() || loading}
               className="btn btn-primary py-2.5 px-5 text-xs font-bold flex items-center gap-2 disabled:opacity-40 cursor-pointer shadow-md shrink-0"
             >
               <Send className="w-3.5 h-3.5" />

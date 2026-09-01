@@ -14,8 +14,25 @@ export interface AuthSession {
 }
 
 const SESSION_STORAGE_KEY = "sv8_operator_session";
+let refreshInFlight: Promise<AuthSession | null> | null = null;
+let lastRefreshSucceededAt = 0;
 
 export const AuthService = {
+  storeSession(session: AuthSession): void {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    } catch (_) {}
+  },
+
+  discardSession(): void {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem("sv8_auth_user");
+    } catch (_) {}
+  },
+
   /**
    * Issue a zero-trust cryptographic session for an operator or contractor
    */
@@ -45,7 +62,7 @@ export const AuthService = {
 
     if (typeof window !== "undefined") {
       try {
-        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+        this.storeSession(session);
       } catch (_) {}
     }
 
@@ -77,8 +94,7 @@ export const AuthService = {
   clearSession(): void {
     if (typeof window === "undefined") return;
     try {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      localStorage.removeItem("sv8_auth_user");
+      this.discardSession();
       void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => undefined);
     } catch (_) {}
   },
@@ -102,7 +118,7 @@ export const AuthService = {
       if (res.success && res.session) {
         if (typeof window !== "undefined") {
           try {
-            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(res.session));
+            this.storeSession(res.session);
           } catch (_) {}
         }
         return { success: true, session: res.session };
@@ -130,12 +146,52 @@ export const AuthService = {
       }
       if (typeof window !== "undefined") {
         try {
-          sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload.session));
+          this.storeSession(payload.session);
         } catch (_) {}
       }
       return { success: true, session: payload.session };
     } catch {
       return { success: false, error: "Demo authentication service unavailable." };
     }
+  },
+
+  async refreshSession(): Promise<AuthSession | null> {
+    if (refreshInFlight) return refreshInFlight;
+    refreshInFlight = (async () => {
+      try {
+        const response = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "same-origin",
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.success || !payload.session) return null;
+        this.storeSession(payload.session);
+        lastRefreshSucceededAt = Date.now();
+        return payload.session as AuthSession;
+      } catch {
+        return null;
+      }
+    })();
+    try {
+      return await refreshInFlight;
+    } finally {
+      refreshInFlight = null;
+    }
+  },
+
+  async authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+    const requestInit = { ...init, credentials: "same-origin" as const };
+    let response = await fetch(input, requestInit);
+    if (response.status !== 401) return response;
+
+    const refreshed = Date.now() - lastRefreshSucceededAt < 5_000
+      ? this.getActiveSession()
+      : await this.refreshSession();
+    if (!refreshed) {
+      this.discardSession();
+      return response;
+    }
+    response = await fetch(input, requestInit);
+    return response;
   },
 };

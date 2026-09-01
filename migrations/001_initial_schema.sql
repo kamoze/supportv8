@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS issues (
     source_status VARCHAR(32) NOT NULL DEFAULT 'open',
     tags TEXT[] NOT NULL DEFAULT '{}',
     recommended_action TEXT,
+    timeline JSONB NOT NULL DEFAULT '[]'::jsonb,
+    messages JSONB NOT NULL DEFAULT '[]'::jsonb,
+    assigned_to VARCHAR(255),
+    assigned_agent VARCHAR(255),
     embedding vector(1536), -- pgvector embedding for semantic RAG retrieval
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

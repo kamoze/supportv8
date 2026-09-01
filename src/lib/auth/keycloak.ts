@@ -23,6 +23,9 @@ export class KeycloakIdentityMayExistError extends Error {
 export type VerifyPasswordResult = {
   ok: true;
   accessToken?: string;
+  refreshToken?: string;
+  expiresIn?: number;
+  refreshExpiresIn?: number;
   decodedClaims?: Record<string, any>;
 } | {
   ok: false;
@@ -244,12 +247,60 @@ export async function verifyKeycloakPassword(
           }
         } catch (_) {}
       }
-      return { ok: true, accessToken: data.access_token, decodedClaims };
+      return {
+        ok: true,
+        accessToken: data.access_token,
+        refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : undefined,
+        expiresIn: Math.max(60, Number(data.expires_in) || 5 * 60),
+        refreshExpiresIn: Math.max(60, Number(data.refresh_expires_in) || 8 * 60 * 60),
+        decodedClaims,
+      };
     }
     if (res.status === 401) return { ok: false, reason: "invalid_credentials" };
     return { ok: false, reason: `keycloak_error_${res.status}` };
   } catch (err) {
     return { ok: false, reason: `keycloak_unreachable: ${(err as Error).message}` };
+  }
+}
+
+/** Rotate a browser login without asking the operator for their password again. */
+export async function refreshKeycloakAccessToken(
+  refreshToken: string,
+  configOverride?: Partial<KeycloakAuthConfig>,
+): Promise<VerifyPasswordResult> {
+  const cfg = { ...getKeycloakConfig(), ...configOverride };
+  const baseUrl = cfg.adminBaseUrl?.replace(/\/$/, "");
+  if (!baseUrl || !refreshToken) {
+    return { ok: false, reason: "keycloak_not_configured" };
+  }
+
+  try {
+    const res = await fetch(`${baseUrl}/realms/${cfg.realm}/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: cfg.clientId || "supportv8-app",
+        refresh_token: refreshToken,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(KEYCLOAK_FETCH_TIMEOUT_MS),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || typeof data.access_token !== "string") {
+      return { ok: false, reason: res.status === 401 ? "invalid_refresh_token" : `keycloak_error_${res.status}` };
+    }
+    const decodedClaims = await verifySupportAccessToken(data.access_token);
+    return {
+      ok: true,
+      accessToken: data.access_token,
+      refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : refreshToken,
+      expiresIn: Math.max(60, Number(data.expires_in) || 5 * 60),
+      refreshExpiresIn: Math.max(60, Number(data.refresh_expires_in) || 8 * 60 * 60),
+      decodedClaims,
+    };
+  } catch (error) {
+    return { ok: false, reason: `keycloak_unreachable: ${(error as Error).message}` };
   }
 }
 

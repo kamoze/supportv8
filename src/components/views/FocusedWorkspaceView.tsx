@@ -69,6 +69,7 @@ import {
   mergeChatSession,
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
+import { AuthService } from "@/lib/auth-service";
 
 type CommunicationChannel = "chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass";
 
@@ -148,7 +149,7 @@ interface FocusedWorkspaceViewProps {
   onEscalate: (issue: Issue) => void;
   onNavigateToProblems: () => void;
   onExecuteInsight: (insightId: string) => void;
-  onUpdateIssue?: (issue: Issue) => void;
+  onUpdateIssue?: (issue: Issue) => Promise<Issue>;
   onCreateIssue?: (issue: Issue) => void;
   onImportIssues?: (issues: Issue[]) => void;
   onSaveToKnowledgeBase?: (ticket: Issue) => Promise<void> | void;
@@ -357,7 +358,7 @@ export function FocusedWorkspaceView({
       return;
     }
 
-    fetch(`/api/chat/session?sessionId=${encodeURIComponent(chatSessionId)}`, {
+    AuthService.authenticatedFetch(`/api/chat/session?sessionId=${encodeURIComponent(chatSessionId)}`, {
       credentials: "same-origin",
       cache: "no-store",
     })
@@ -393,7 +394,7 @@ export function FocusedWorkspaceView({
       current ? { ...current, messages: [...current.messages, optimisticMessage] } : current,
     );
     try {
-      const response = await fetch("/api/chat/message", {
+      const response = await AuthService.authenticatedFetch("/api/chat/message", {
         method: "POST",
         signal: AbortSignal.timeout(15_000),
         credentials: "same-origin",
@@ -430,7 +431,7 @@ export function FocusedWorkspaceView({
     setIsGeneratingAi(true);
     setLiveDraftSource(null);
     try {
-      const response = await fetch("/api/chat/draft", {
+      const response = await AuthService.authenticatedFetch("/api/chat/draft", {
         method: "POST",
         signal: AbortSignal.timeout(20_000),
         credentials: "same-origin",
@@ -610,7 +611,7 @@ export function FocusedWorkspaceView({
   };
 
   // Action: Status Change
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = async (newStatus: string) => {
     if (!selectedIssue) return;
     const now = new Date().toLocaleTimeString();
     const event: TicketTimelineEvent = {
@@ -628,28 +629,29 @@ export function FocusedWorkspaceView({
       priority: newStatus === "escalated" ? "urgent" : selectedIssue.priority,
       timeline: [event, ...currentTimeline],
     };
-    if (onUpdateIssue) {
-      onUpdateIssue(updated);
-    }
-    setEditStatus(newStatus as any);
+    setIsProcessing(true);
+    try {
+      if (!onUpdateIssue) throw new Error("Ticket updates are unavailable");
+      await onUpdateIssue(updated);
+      setEditStatus(newStatus as Issue["status"]);
 
-    if (newStatus === "resolved" || newStatus === "closed") {
-      onNotify(`Ticket ${selectedIssue.externalId} marked ${newStatus.toUpperCase()} & left active queue`, "success");
-      // Auto-advance to the next active open ticket in queue
-      const remainingActive = issues.filter(
-        (i) => i.id !== selectedIssue.id && i.status !== "resolved" && i.status !== "closed"
-      );
-      if (remainingActive.length > 0) {
-        setTimeout(() => {
-          setSelectedIssueId(remainingActive[0].id);
-        }, 300);
+      if (newStatus === "resolved" || newStatus === "closed") {
+        onNotify(`Ticket ${selectedIssue.externalId} marked ${newStatus.toUpperCase()} & left active queue`, "success");
+        const remainingActive = issues.filter(
+          (issue) => issue.id !== selectedIssue.id && issue.status !== "resolved" && issue.status !== "closed"
+        );
+        if (remainingActive.length > 0) {
+          setTimeout(() => setSelectedIssueId(remainingActive[0].id), 300);
+        }
+      } else {
+        onNotify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
       }
-    } else {
-      onNotify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
-    }
 
-    if (onTriggerTemporalActivity) {
-      onTriggerTemporalActivity(selectedIssue.id, "ticket_status_change", { status: newStatus });
+      onTriggerTemporalActivity?.(selectedIssue.id, "ticket_status_change", { status: newStatus });
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to update ticket status", "error");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -846,7 +848,6 @@ export function FocusedWorkspaceView({
     if (!selectedIssue) return;
     setIsProcessing(true);
     try {
-      await onResolve(selectedIssue.id);
       const now = new Date().toLocaleTimeString();
       const event: TicketTimelineEvent = {
         id: "tl_" + Date.now(),
@@ -860,9 +861,8 @@ export function FocusedWorkspaceView({
         status: "resolved",
         timeline: [event, ...(selectedIssue.timeline || [])],
       };
-      if (onUpdateIssue) {
-        onUpdateIssue(updated);
-      }
+      if (onUpdateIssue) await onUpdateIssue(updated);
+      else await onResolve(selectedIssue.id);
       if (onDeductCredits) {
         onDeductCredits(35, "Autonomous AI Agent Resolution (ForgeGW Multi-Action)");
       }
@@ -885,6 +885,8 @@ export function FocusedWorkspaceView({
           setSelectedIssueId(remainingActive[0].id);
         }, 300);
       }
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to resolve and close ticket", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -893,7 +895,27 @@ export function FocusedWorkspaceView({
   const recordReplyForSelectedChannel = async (content: string): Promise<boolean> => {
     if (!selectedIssue || !content.trim()) return false;
     if (matchingChatSession && commChannel === "chat") {
-      return sendDurableOperatorReply(content);
+      const sent = await sendDurableOperatorReply(content);
+      if (!sent) return false;
+      const event: TicketTimelineEvent = {
+        id: `tl_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString(),
+        actor: operatorName,
+        actorType: "human_operator",
+        action: "Dispatched reply via CHAT",
+        details: content.slice(0, 80) + (content.length > 80 ? "..." : ""),
+      };
+      try {
+        if (!onUpdateIssue) throw new Error("Ticket journey updates are unavailable");
+        await onUpdateIssue({
+          ...selectedIssue,
+          timeline: [event, ...(selectedIssue.timeline || [])],
+        });
+        return true;
+      } catch (error) {
+        onNotify(error instanceof Error ? error.message : "Reply sent, but the ticket journey could not be updated", "error");
+        return true;
+      }
     }
     const now = new Date().toLocaleTimeString();
     const newMsg: TicketMessageItem = {
@@ -917,8 +939,12 @@ export function FocusedWorkspaceView({
       messages: [...(selectedIssue.messages || []), newMsg],
       timeline: [event, ...(selectedIssue.timeline || [])],
     };
-    if (onUpdateIssue) {
-      onUpdateIssue(updated);
+    try {
+      if (!onUpdateIssue) throw new Error("Ticket updates are unavailable");
+      await onUpdateIssue(updated);
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to record reply", "error");
+      return false;
     }
     if (onDeductCredits) {
       onDeductCredits(10, `Dispatched reply via ${commChannel.toUpperCase()}`);
@@ -935,10 +961,11 @@ export function FocusedWorkspaceView({
     return true;
   };
 
-  const handleSendReply = async () => {
-    if (!replyText.trim()) return;
+  const handleSendReply = async (): Promise<boolean> => {
+    if (!replyText.trim()) return false;
     const sent = await recordReplyForSelectedChannel(replyText);
     if (sent) setReplyText("");
+    return sent;
   };
 
   const handleSendSitePass = () => {
@@ -976,9 +1003,18 @@ export function FocusedWorkspaceView({
   };
 
   // Save Edit Ticket Modal
-  const handleSaveEditTicket = (e: React.FormEvent) => {
+  const handleSaveEditTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedIssue) return;
+
+    const event: TicketTimelineEvent = {
+      id: `tl_${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString(),
+      actor: operatorName,
+      actorType: "human_operator",
+      action: "Ticket details updated",
+      details: `Priority ${editPriority.toUpperCase()} · Status ${(editStatus || "open").toUpperCase()}`,
+    };
 
     const updated: Issue = {
       ...selectedIssue,
@@ -987,13 +1023,22 @@ export function FocusedWorkspaceView({
       status: editStatus,
       sentiment: editSentiment,
       tags: editTags ? editTags.split(",").map((t) => t.trim()) : selectedIssue.tags,
+      assignedTo: editAssignee,
+      assignedAgent: editAssignee,
+      timeline: [event, ...(selectedIssue.timeline || [])],
     };
 
-    if (onUpdateIssue) {
-      onUpdateIssue(updated);
+    setIsProcessing(true);
+    try {
+      if (!onUpdateIssue) throw new Error("Ticket updates are unavailable");
+      await onUpdateIssue(updated);
+      setIsEditModalOpen(false);
+      onNotify(`Saved changes for ticket ${selectedIssue.externalId}`, "success");
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Unable to save ticket", "error");
+    } finally {
+      setIsProcessing(false);
     }
-    setIsEditModalOpen(false);
-    onNotify(`Saved changes for ticket ${selectedIssue.externalId}`, "success");
   };
 
   // Create Manual Ticket
@@ -1574,11 +1619,12 @@ export function FocusedWorkspaceView({
                           key={st.id}
                           type="button"
                           onClick={() => handleStatusChange(st.id)}
+                          disabled={isProcessing || isActive}
                           className={`py-1.5 px-1 rounded-xl text-[10px] font-mono font-bold text-center border transition-all cursor-pointer ${
                             isActive
                               ? `${st.color} shadow-sm ring-1 ring-white/20`
                               : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/30"
-                          }`}
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
                         >
                           {st.label}
                         </button>
@@ -2283,7 +2329,8 @@ export function FocusedWorkspaceView({
                   <button
                     type="button"
                     onClick={async () => {
-                      handleSendReply();
+                      const sent = await handleSendReply();
+                      if (!sent) return;
                       await handleExecuteAutonomousResolution();
                     }}
                     disabled={isProcessing || !replyText.trim()}
@@ -2509,9 +2556,10 @@ export function FocusedWorkspaceView({
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary px-5 py-2 text-xs font-bold cursor-pointer"
+                  disabled={isProcessing}
+                  className="btn btn-primary px-5 py-2 text-xs font-bold cursor-pointer disabled:cursor-wait disabled:opacity-60"
                 >
-                  Save Changes
+                  {isProcessing ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>

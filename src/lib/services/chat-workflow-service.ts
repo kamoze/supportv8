@@ -324,7 +324,7 @@ export const DEFAULT_AI_GUARDRAILS: AiChatGuardrailConfig = {
 };
 
 // =============================================================================
-// In-Memory Chat Session & Presence State (Persistent across requests)
+// Legacy in-memory chat configuration; never an authority for live staff presence.
 // =============================================================================
 
 export interface OnlineStaffMember {
@@ -335,41 +335,6 @@ export interface OnlineStaffMember {
   isOnline: boolean;
   activeChatCount: number;
 }
-
-let activeStaffPresence: OnlineStaffMember[] = [
-  {
-    email: "inigodwin@redoo.solutions",
-    name: "Ini Godwin",
-    avatar: "/avatars/beaver-manager.jpg",
-    groupIds: ["group_admin", "group_support", "group_contractors"],
-    isOnline: true,
-    activeChatCount: 1,
-  },
-  {
-    email: "alex.cx@servicev8.com",
-    name: "Alex Rivera",
-    avatar: "/avatars/beaver-analyst.jpg",
-    groupIds: ["group_support"],
-    isOnline: true,
-    activeChatCount: 2,
-  },
-  {
-    email: "elena.contractors@servicev8.com",
-    name: "Elena Rostova",
-    avatar: "/avatars/beaver-curator.jpg",
-    groupIds: ["group_contractors"],
-    isOnline: false,
-    activeChatCount: 0,
-  },
-  {
-    email: "sarah.sales@servicev8.com",
-    name: "Sarah Jenkins",
-    avatar: "/avatars/beaver-receptionist.jpg",
-    groupIds: ["group_enquiries"],
-    isOnline: true,
-    activeChatCount: 0,
-  },
-];
 
 let activeGroups: MemberGroup[] = [...DEFAULT_MEMBER_GROUPS];
 let activeGuardrails: AiChatGuardrailConfig = { ...DEFAULT_AI_GUARDRAILS };
@@ -513,14 +478,10 @@ export class ChatWorkflowService {
     const seqChat = Math.floor(1000 + Math.random() * 9000);
     const sessionId = `chat_sess_${seqChat}`;
 
-    // 1. Check for online human staff in the assigned group
+    // Demo AI fixtures are separate from real, authenticated staff presence.
     const isDemoTenant = ["acme", "meridian"].includes(
       (params.tenantDomain || "").toLowerCase()
     );
-    const onlineHumanStaff = isDemoTenant ? activeStaffPresence.find(
-      (staff) => staff.isOnline && staff.groupIds.includes(workflow.defaultAssignedGroupId)
-    ) : undefined;
-
     // Resolve Tenant Subdomain Brand & Routing
     const rawSubdomain = (params.tenantDomain || "acme").toLowerCase().replace(".support.servicev8.com", "").replace(".support.servicev8.internal", "").replace(".support.", "");
     const tenantData = db.getTenantData(rawSubdomain);
@@ -552,10 +513,9 @@ export class ChatWorkflowService {
     if (isDirectHumanRouting || !isAiEnabledForStream) {
       // Direct human operator routing
       assignedType = "human";
-      assignedId = onlineHumanStaff ? onlineHumanStaff.email : "human_support_queue";
-      assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Available online operator";
-      assignedAvatar = onlineHumanStaff ? onlineHumanStaff.avatar : "/avatars/beaver-manager.jpg";
-      if (onlineHumanStaff) onlineHumanStaff.activeChatCount += 1;
+      assignedId = "human_support_queue";
+      assignedName = "Available online operator";
+      assignedAvatar = "/avatars/beaver-manager.jpg";
     } else {
       // Dynamic AI Employee Resolution: Only use configured AI employees that are actively hired in the workforce
       const configuredEmployeeId = workflow.defaultAiEmployeeId;
@@ -571,10 +531,9 @@ export class ChatWorkflowService {
       } else {
         // Fallback: If no hired employee exists in the active workforce for this channel, route directly to Human Staff Queue
         assignedType = "human";
-        assignedId = onlineHumanStaff ? onlineHumanStaff.email : "human_support_queue";
-        assignedName = onlineHumanStaff ? onlineHumanStaff.name : "Available online operator";
-        assignedAvatar = onlineHumanStaff ? onlineHumanStaff.avatar : "/avatars/beaver-manager.jpg";
-        if (onlineHumanStaff) onlineHumanStaff.activeChatCount += 1;
+        assignedId = "human_support_queue";
+        assignedName = "Available online operator";
+        assignedAvatar = "/avatars/beaver-manager.jpg";
       }
     }
 
@@ -945,25 +904,13 @@ export class ChatWorkflowService {
   // ===========================================================================
 
   static listStaffPresence(): OnlineStaffMember[] {
-    return activeStaffPresence;
+    // Retained as a fail-closed compatibility read. Use /api/presence for real
+    // tenant-scoped leases; never reconstruct presence from demo fixtures.
+    return [];
   }
 
-  static toggleStaffOnline(email: string, isOnline: boolean): OnlineStaffMember {
-    const staff = activeStaffPresence.find((s) => s.email.toLowerCase() === email.toLowerCase());
-    if (staff) {
-      staff.isOnline = isOnline;
-      return staff;
-    }
-    const newStaff: OnlineStaffMember = {
-      email,
-      name: email.split("@")[0],
-      avatar: "/avatars/beaver-manager.jpg",
-      groupIds: ["group_support"],
-      isOnline,
-      activeChatCount: 0,
-    };
-    activeStaffPresence.push(newStaff);
-    return newStaff;
+  static toggleStaffOnline(_email: string, _isOnline: boolean): never {
+    throw new Error("Use the authenticated presence endpoint; local online toggles are not supported.");
   }
 
   // ===========================================================================

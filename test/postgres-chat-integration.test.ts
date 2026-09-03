@@ -47,4 +47,26 @@ describe.runIf(enabled)("PostgreSQL durable chat-to-workdesk integration", () =>
     const crossTenant = await repository.getSession("tenant_integration_other", session.id);
     expect(crossTenant).toBeNull();
   });
+
+  it("persists a manual ticket across connections with a truthful journey and no invented customer message", async () => {
+    const session = await repository.startSession({ tenantId, tenantSlug, stream: "customers",
+      customerName: "Manual Test Customer", customerEmail: "manual@example.test", channel: "email",
+      intakeData: { details: "Operator recorded a delivery problem", origin: "operator_workdesk" },
+      manual: { operatorName: "Jordan", priority: "low" },
+    });
+    expect(session.messages).toHaveLength(1);
+    expect(session.messages[0]).toMatchObject({ sender: "agent", senderName: "Jordan" });
+    const otherConnection = new PostgresClient();
+    try {
+      const repo = new ChatRepository(otherConnection);
+      const [issue] = await repo.listChatIssues(tenantId, session.id);
+      expect(issue).toMatchObject({ customerName: "Manual Test Customer", priority: "low",
+        timeline: [{ actor: "Jordan", action: "Ticket created on behalf of customer" }] });
+      expect(await repo.listChatIssues("tenant_integration_other", session.id)).toEqual([]);
+      expect(await repo.updateChatIssue("tenant_integration_other", issue.id, { status: "resolved" })).toBeNull();
+      expect(await repo.updateChatIssue(tenantId, issue.id, { status: "resolved" })).toMatchObject({ status: "resolved" });
+      expect(await repo.getSession(tenantId, session.id)).toMatchObject({ status: "resolved" });
+      expect(await repo.updateChatIssue(tenantId, issue.id, { status: "closed" })).toMatchObject({ status: "closed" });
+    } finally { await otherConnection.close(); }
+  });
 });

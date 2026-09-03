@@ -123,6 +123,7 @@ import { MarketplaceWorkforceView } from "@/components/views/MarketplaceWorkforc
 import { MarketplacePlansView } from "@/components/views/MarketplacePlansView";
 import { GovernanceSettingsView } from "@/components/views/GovernanceSettingsView";
 import { GovernanceMembersView } from "@/components/views/GovernanceMembersView";
+import { OperatorProfileEditor } from "@/components/OperatorProfileEditor";
 import { GovernanceReportsView } from "@/components/views/GovernanceReportsView";
 import { GovernanceAuditLogsView } from "@/components/views/GovernanceAuditLogsView";
 import { AutonomousStudioView } from "@/components/views/AutonomousStudioView";
@@ -235,6 +236,7 @@ export default function SupportV8Dashboard() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
   const [targetDemoSlug, setTargetDemoSlug] = useState<string>("acme");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
   const loadedTenantSlugRef = useRef<string | null>(null);
   const tenantFetchGenerationRef = useRef(0);
   const pendingIssueUpdatesRef = useRef(new Set<string>());
@@ -930,6 +932,23 @@ export default function SupportV8Dashboard() {
       window.removeEventListener("sv8_ticket_created", handleTicketCreated);
     };
   }, []);
+
+  // Presence is an expiring server-side lease, never a seeded roster or browser toggle.
+  useEffect(() => {
+    if (viewMode !== "cockpit" || !operatorSession || operatorSession.role === "observer") return;
+    let inFlight = false;
+    const heartbeat = async () => {
+      if (inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
+      try { await AuthService.authenticatedFetch("/api/presence", { method: "POST" }); }
+      catch { /* No fabricated presence on network failure; the lease expires. */ }
+      finally { inFlight = false; }
+    };
+    void heartbeat();
+    const interval = setInterval(() => { void heartbeat(); }, 30_000);
+    document.addEventListener("visibilitychange", heartbeat);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", heartbeat); };
+  }, [viewMode, operatorSession?.token, currentTenantSlug, operatorSession?.role]);
 
   // Real-time polling for new tickets in Cockpit view
   useEffect(() => {
@@ -2354,20 +2373,21 @@ export default function SupportV8Dashboard() {
                       </div>
                     </div>
 
-                    <a
-                      href="https://keycloak.servicev8.com/realms/supportv8/account/"
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileEditorOpen(true)}
                       className="flex items-center justify-between gap-3 rounded-xl p-2.5 text-[#B4C2D0] transition-colors hover:bg-[#141C26] hover:text-[#EAF1F8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6]"
                     >
                       <span className="min-w-0">
                         <span className="block font-semibold">Edit operator name</span>
                         <span className="block truncate text-[10px] text-[#6B7C8D]">
-                          Set a nickname or first name · applies next sign-in
+                          Set your first name or nickname
                         </span>
                       </span>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#2ED8B6]" />
-                    </a>
+                    </button>
+                    {isProfileEditorOpen && operatorSession && <OperatorProfileEditor
+                      session={operatorSession} onSaved={setOperatorSession} onClose={() => setIsProfileEditorOpen(false)} />}
 
                     {/* Persona Switcher List: ONLY rendered for official demo sandboxes (acme / meridian) */}
                     {(currentTenantSlug === "acme" || currentTenantSlug === "meridian") && (
@@ -2680,7 +2700,7 @@ export default function SupportV8Dashboard() {
                     <span className="text-[#2ED8B6] font-bold">0.8ms Avg Latency</span>
                   </div>
                   <div className="flex justify-between pt-1">
-                    <span className="text-[#6B7C8D]">Keycloak SSO Gate</span>
+                    <span className="text-[#6B7C8D]">Workspace authentication</span>
                     <span className="text-[#2ED8B6] font-bold">Multi-tenant Active</span>
                   </div>
                 </div>
@@ -6196,6 +6216,7 @@ export default function SupportV8Dashboard() {
         {/* ========================================================================= */}
         {activeTab === "gov_members" && (
           <GovernanceMembersView
+            key={currentTenantSlug}
             members={members}
             onOpenInviteModal={() => setIsInviteModalOpen(true)}
             onUpdateMember={(updated) => {

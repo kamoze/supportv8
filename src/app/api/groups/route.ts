@@ -1,55 +1,23 @@
 import { NextResponse } from "next/server";
-import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
+import { resolveRequestTenant } from "@/lib/auth/request-tenant";
+import { requireAccountManager } from "@/lib/auth/account-members";
+import { accountError } from "@/lib/auth/account-error";
+import { staffPresence } from "@/lib/chat/staff-presence";
 
-export async function GET() {
-  const groups = ChatWorkflowService.listGroups();
-  const staff = ChatWorkflowService.listStaffPresence();
-  return NextResponse.json({ groups, staff });
+// Legacy browser-only groups never governed permissions. Do not expose their
+// seeded membership or accept local group changes as authoritative RBAC.
+export async function GET(request: Request) {
+  try {
+    const ctx = await resolveRequestTenant(request, { requireAuthentication: true });
+    requireAccountManager(ctx);
+    return NextResponse.json({ success: true, groups: [], staff: await staffPresence.list(ctx.tenantId) });
+  } catch (error) { return accountError(error); }
 }
-
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { name, streamType, description, color, permissions, memberEmails } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: "Group name is required" }, { status: 400 });
-    }
-
-    const group = ChatWorkflowService.createGroup({
-      name,
-      streamType: streamType || "customers",
-      description: description || "",
-      color: color || "#2ED8B6",
-      permissions: permissions || ["tickets.view", "tickets.reply"],
-      memberEmails: memberEmails || [],
-      isSystem: false,
-    });
-
-    return NextResponse.json({ success: true, group });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to create group" }, { status: 500 });
-  }
+    const ctx = await resolveRequestTenant(request, { requireAuthentication: true });
+    requireAccountManager(ctx);
+    return NextResponse.json({ success: false, error: "Use Members to manage account roles. Custom routing groups are not configured." }, { status: 409 });
+  } catch (error) { return accountError(error); }
 }
-
-export async function PUT(request: Request) {
-  try {
-    const body = await request.json();
-    const { groupId, updates, toggleStaff } = body;
-
-    if (toggleStaff) {
-      const { email, isOnline } = toggleStaff;
-      const updated = ChatWorkflowService.toggleStaffOnline(email, isOnline);
-      return NextResponse.json({ success: true, staff: updated });
-    }
-
-    if (!groupId) {
-      return NextResponse.json({ error: "groupId is required" }, { status: 400 });
-    }
-
-    const group = ChatWorkflowService.updateGroup(groupId, updates || {});
-    return NextResponse.json({ success: true, group });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to update group" }, { status: 500 });
-  }
-}
+export const PUT = POST;

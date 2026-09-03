@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-security";
+import { accountMembers, AccountError } from "@/lib/auth/account-members";
+import { requireSameOrigin } from "@/lib/auth/account-error";
 
 function marketplaceError(error: unknown) {
-  if (error instanceof RequestAuthError) {
+  if (error instanceof RequestAuthError || error instanceof AccountError) {
     return NextResponse.json({ success: false, error: error.message }, { status: error.status });
   }
   return NextResponse.json(
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
         connectors: marketplaceService.getConnectors(tenant.tenantSlug),
         workforce: marketplaceService.getWorkforceCatalog(tenant.tenantSlug),
         plans: marketplaceService.getPlans(tenant.tenantSlug),
-        members: marketplaceService.getMembers(tenant.tenantSlug),
+        members: [], // The authenticated account roster is served by /api/members.
         settings: marketplaceService.getSettings(tenant.tenantSlug),
         reports: marketplaceService.getReports(tenant.tenantSlug),
         auditLogs: marketplaceService.getAuditLogs(tenant.tenantSlug),
@@ -97,12 +99,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "invite_member") {
+      requireSameOrigin(req);
       const { name, email, role } = body;
-      const member = marketplaceService.inviteMember(name, email, role, tenant.tenantSlug);
+      const result = await accountMembers.invite(tenant, { name, email, role });
       return NextResponse.json({
         success: true,
-        message: `Invitation dispatched to ${email}`,
-        data: member,
+        message: result.invitationSent ? `Invitation dispatched to ${email}` : "Account created, but invitation email failed. Resend it from Members.",
+        invitationSent: result.invitationSent,
+        data: result.member,
       });
     }
 

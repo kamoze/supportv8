@@ -103,7 +103,7 @@ export function KnowledgeGraphCanvas({
 
     const clusters: Record<string, { title: string; color: string; members: SatelliteNode[] }> = {
       auth_sso: {
-        title: "Authentication & Keycloak SAML",
+        title: "Authentication & enterprise SSO",
         color: "#4D9FFF",
         members: [],
       },

@@ -19,19 +19,17 @@ describe("Team Member Account & Profile Editing", () => {
     expect(updatedGroups.memberEmails).toContain(testEmail);
   });
 
-  it("should toggle live agent routing presence", () => {
+  it("rejects unsigned browser-only presence toggles", () => {
     const testEmail = "elena.contractors@servicev8.com";
-    const toggledOff = ChatWorkflowService.toggleStaffOnline(testEmail, false);
-    expect(toggledOff.isOnline).toBe(false);
-
-    const toggledOn = ChatWorkflowService.toggleStaffOnline(testEmail, true);
-    expect(toggledOn.isOnline).toBe(true);
+    expect(() => ChatWorkflowService.toggleStaffOnline(testEmail, false)).toThrow("authenticated presence");
+    expect(() => ChatWorkflowService.toggleStaffOnline(testEmail, true)).toThrow("authenticated presence");
+    expect(ChatWorkflowService.listStaffPresence()).toEqual([]);
   });
 
-  it("should maintain member presence state in activeStaffPresence", () => {
+  it("does not expose the former three-online seeded roster", () => {
     const staff = ChatWorkflowService.listStaffPresence();
-    const adminStaff = staff.find((s) => s.email === "inigodwin@redoo.solutions");
-    expect(adminStaff).toBeDefined();
-    expect(adminStaff?.name).toContain("Ini Godwin");
+    expect(staff).toEqual([]);
+    expect(staff.filter(person => person.isOnline)).toHaveLength(0);
+    expect(ChatWorkflowService.listStaffPresence()).not.toBe(staff);
   });
 });

@@ -22,7 +22,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
-import { tenantSlugFromHostname } from "@/lib/auth/request-tenant";
+import { browserTenantSlugFromHostname as tenantSlugFromHostname, supportWorkspaceUrl } from "@/lib/tenant-host";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -182,7 +182,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
     try {
       const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
+        method: "POST", redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: adminEmail.trim(),
@@ -219,7 +219,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
     try {
       const res = await fetch("/api/auth/otp/send", {
-        method: "POST",
+        method: "POST", redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: adminEmail.trim(),
@@ -261,7 +261,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
     try {
       const res = await fetch("/api/auth/otp/verify", {
-        method: "POST",
+        method: "POST", redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: adminEmail.trim(),
@@ -300,7 +300,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
     try {
       const res = await fetch("/api/tenant/signup", {
-        method: "POST",
+        method: "POST", redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: companyName.trim(),
@@ -322,14 +322,12 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         ]);
         return;
       }
-      const redirectUrl = typeof data.redirectUrl === "string" ? data.redirectUrl : null;
+      const destination = supportWorkspaceUrl(slug.trim());
+      destination.searchParams.set("signin", "1");
+      destination.searchParams.set("email", adminEmail.trim());
 
       setTimeout(() => {
-        const fallback = new URL(window.location.href);
-        fallback.hostname = `${slug}.support.servicev8.com`;
-        fallback.pathname = "/";
-        fallback.search = `?signin=1&email=${encodeURIComponent(adminEmail.trim())}`;
-        window.location.assign(redirectUrl || fallback.toString());
+        window.location.assign(destination.toString());
       }, 1400);
     } catch (err: any) {
       setIsProvisioning(false);

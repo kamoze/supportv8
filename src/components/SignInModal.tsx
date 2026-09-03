@@ -158,7 +158,7 @@ export function SignInModal({
 
     try {
       const res = await fetch("/api/auth/password/recover", {
-        method: "POST",
+        method: "POST", redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "send_otp",
@@ -215,7 +215,7 @@ export function SignInModal({
 
     try {
       const res = await fetch("/api/auth/password/recover", {
-        method: "POST",
+        method: "POST", redirect: "error",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "reset_password",

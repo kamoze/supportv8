@@ -120,6 +120,25 @@ export function SupportChatWidget({
     };
   }, [defaultStream, tenantSessionKey]);
 
+  useEffect(() => {
+    const openFromPortal = (event: Event) => {
+      const detail = (event as CustomEvent<{ topic?: string; stream?: ChatStreamType }>).detail || {};
+      const stream = detail.stream && workflows[detail.stream] ? detail.stream : defaultStream;
+      setIsOpen(true);
+      setIsPromptMinimized(true);
+      if (!activeSession) {
+        setSelectedStream(stream);
+        setActiveStep("intake_form");
+        setFormData((current) => ({ ...current, details: detail.topic || current.details || "" }));
+      } else if (detail.topic) {
+        setInputMessage(detail.topic);
+        setActiveStep("chat");
+      }
+    };
+    window.addEventListener("supportv8:open-chat", openFromPortal);
+    return () => window.removeEventListener("supportv8:open-chat", openFromPortal);
+  }, [activeSession, defaultStream, workflows]);
+
   // Auto-scroll on new messages
   useEffect(() => {
     if (activeStep === "chat") {

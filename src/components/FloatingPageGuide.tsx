@@ -144,6 +144,16 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     ],
     tip: "Curating a document immediately updates the pgvector index so Ask and AI Employees cite the latest steps.",
   },
+  portal_composer: {
+    label: "Support Portal Composer",
+    what: "Publish a tenant-branded support landing page with server-owned knowledge queries and chat handoff links.",
+    actions: [
+      "Edit the portal introduction and choose which public sections are visible.",
+      "Add help actions with private RAG prompts and public-knowledge category filters.",
+      "Save a draft, review the live preview, then publish an immutable revision.",
+    ],
+    tip: "RAG prompts and category filters remain on the server. Customers receive only the public help link and cited results.",
+  },
   stale_work: {
     label: "Work Sweep",
     what: "Autonomous sweep queue managed by Rusty: surfaces abandoned tickets, stalled customer replies, and unassigned escalations.",

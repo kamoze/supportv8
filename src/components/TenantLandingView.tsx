@@ -1,29 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Search,
-  BookOpen,
-  HardHat,
-  Users,
-  Shield,
-  ChevronRight,
-  Clock,
-  ArrowUpRight,
-  Sparkles,
-  MessageSquare,
-  AlertCircle,
-  UserCheck,
-  Truck,
-  Lock,
-  X,
-  Copy,
-  CheckCheck,
-} from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
-import type { ChatStreamType } from "@/lib/types";
-import { db } from "@/lib/db/mock-data";
+import {
+  actionHref,
+  emptyPortalConfig,
+  type PortalAction,
+  type PortalActionIcon,
+  type PortalConfig,
+} from "@/lib/portal/config";
 
 interface TenantLandingViewProps {
   tenantSlug?: string;
@@ -33,570 +19,311 @@ interface TenantLandingViewProps {
   onSwitchTenant?: (slug: string) => void;
 }
 
+interface Citation {
+  id: string;
+  title: string;
+  snippet: string;
+  similarity: number;
+}
+
+const ACTION_ICONS: Record<PortalActionIcon, string> = {
+  tools: "fi fi-rr-tools",
+  book: "fi fi-rr-book-open-cover",
+  billing: "fi fi-rr-receipt",
+  shield: "fi fi-rr-shield-check",
+  message: "fi fi-rr-comment-alt-dots",
+  status: "fi fi-rr-pulse",
+};
+
+function displayName(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((word) => `${word[0]?.toUpperCase() || ""}${word.slice(1)}`)
+    .join(" ") || "Your organization";
+}
+
+function openChat(topic?: string) {
+  window.dispatchEvent(new CustomEvent("supportv8:open-chat", { detail: { topic, stream: "customers" } }));
+}
+
 export function TenantLandingView({
   tenantSlug = "acme",
   onOpenSignIn,
   onOpenGlobalLanding,
-  onOpenSignup,
 }: TenantLandingViewProps) {
   const cleanSlug = tenantSlug.toLowerCase().trim();
+  const formattedName = displayName(cleanSlug);
   const isMeridian = cleanSlug === "meridian";
-  const isAcmeDemo = cleanSlug === "acme";
-  const isDemo = isAcmeDemo || isMeridian;
-  const tenantData = db.getTenantData(cleanSlug);
-  const isClean = tenantData.isClean;
-
+  const isDemo = cleanSlug === "acme" || isMeridian;
+  const [config, setConfig] = useState<PortalConfig>(() => emptyPortalConfig(formattedName));
+  const [portalLoaded, setPortalLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [citations, setCitations] = useState<Citation[]>([]);
+  const [resultTitle, setResultTitle] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [searching, setSearching] = useState(false);
   const [trackerTab, setTrackerTab] = useState<"ticket" | "dispatch">(isMeridian ? "dispatch" : "ticket");
   const [trackerSearchId, setTrackerSearchId] = useState("");
-  const [trackedItem, setTrackedItem] = useState<any | null>(null);
+  const [trackedItem, setTrackedItem] = useState<null | {
+    id: string;
+    title: string;
+    status: string;
+    updatedAt: string;
+    assignedTo: string;
+    publicNotes: string;
+  }>(null);
   const [trackerError, setTrackerError] = useState("");
 
-  // Article Form View Reader Drawer State
-  const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setPortalLoaded(false);
+    fetch("/api/portal", { credentials: "same-origin", cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok || !body.success || !body.config) throw new Error();
+        return body.config as PortalConfig;
+      })
+      .then((next) => {
+        if (!cancelled) setConfig(next);
+      })
+      .catch(() => {
+        if (!cancelled) setConfig(emptyPortalConfig(formattedName));
+      })
+      .finally(() => {
+        if (!cancelled) setPortalLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cleanSlug, formattedName]);
 
-  // Dynamic formatted tenant name
-  const formattedName =
-    tenantData.tenant?.name ||
-    (isMeridian
-      ? "Meridian Logistics"
-      : cleanSlug === "acme"
-      ? "Acme Corp"
-      : cleanSlug
-          .split("-")
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(" "));
+  const enabledActions = useMemo(() => config.actions.filter((action) => action.enabled), [config.actions]);
 
-  // Curated Knowledge Base Articles (Empty for clean tenants like acme-movers until published)
-  const kbArticles = isClean
-    ? []
-    : [
-        {
-          id: "kb_1",
-          title: `${formattedName} Telephony Bridge & SIP Voice Provisioning Guide`,
-          category: "Telephony",
-          stream: "customers" as ChatStreamType,
-          snippet: "Comprehensive architecture manual for integrating Twilio voice trunks, WebRTC live audio streaming, and sub-300ms transcription.",
-          content: `### Telephony Architecture Overview\n${formattedName} leverages low-latency SIP trunks integrated with Twilio Voice Gateways to enable AI telephony assistants with sub-300ms turn-taking.\n\n### Key Components\n1. **SIP Trunking**: Inbound calls are routed over encrypted TLS SIP trunks to the Telephony Gateway.\n2. **Audio Streaming**: Bi-directional audio chunks are streamed via WebSocket to the speech-to-text pipeline.\n3. **Intent Extraction**: Voice sessions extract customer order references and caller sentiment in real-time.\n\n### Failover & Escalation\nWhen sentiment deteriorates below 0.40 or caller requests a human supervisor, the session executes an unconditional warm transfer to the on-call human operator queue.`,
-          views: 1240,
-          updated: "2 hours ago",
-        },
-        {
-          id: "kb_2",
-          title: "OrderV8 Autonomous Refund Tokens & Credit Dispatch Guidelines",
-          category: "Billing",
-          stream: "customers" as ChatStreamType,
-          snippet: "Subscriptions under Enterprise and Pro tiers qualify for automated instant credit vouchers up to $500.",
-          content: `### Autonomous Credit Issuance Policy\nCustomer service operators and autonomous support workflows can issue immediate credit vouchers to resolve checkout failures and billing discrepancies.\n\n### Eligibility Criteria\n- **Enterprise Tier**: Pre-approved for instant refunds up to $500.00 without secondary managerial sign-off.\n- **Pro Tier**: Pre-approved for instant credit up to $150.00.\n- **Standard Tier**: Inquiries exceeding $50.00 are routed to the CX Lead.\n\n### Audit & Verification\nAll credit vouchers generate a cryptographic SHA-256 ledger token synced directly to the OrderV8 billing engine.`,
-          views: 819,
-          updated: "1 day ago",
-        },
-        {
-          id: "kb_3",
-          title: "Zero-Trust Action Verification & Security Matrix",
-          category: "Security",
-          stream: "enquiries" as ChatStreamType,
-          snippet: "Overview of mutual TLS (mTLS), strict idempotency tokens, and SHA-256 hash chaining on all action endpoints.",
-          content: `### Security Architecture\nAll operational actions (e.g. issuing credits, rotating credentials, modifying work orders) are executed through the Zero-Trust Action Gateway.\n\n### Key Protections\n1. **mTLS Encryption**: Every inter-service request is authenticated with mutual TLS.\n2. **Idempotency Tokens**: Prevents accidental double-executions of refunds or provisioning workflows.\n3. **Audit Logging**: Immutable event ledger records operator ID, timestamp, and payload hash.`,
-          views: 512,
-          updated: "3 days ago",
-        },
-        {
-          id: "kb_4",
-          title: "Subcontractor W9 & Certificate of Insurance (COI) Uploads",
-          category: "Compliance",
-          stream: "contractors" as ChatStreamType,
-          snippet: "Step-by-step instructions for uploading updated liability insurance and tax forms to the secure S3 vault.",
-          content: `### Compliance Document Uploads\nAll active field contractors and subcontractors must maintain an active Certificate of Insurance (COI) with a minimum of $2,000,000 general liability coverage.\n\n### Upload Steps\n1. Log in to the Contractor Work Desk.\n2. Navigate to **Compliance & Permits**.\n3. Attach the PDF copy of your COI and W-9 form.\n4. Automated OCR checks policy expiration dates and updates work order dispatch eligibility within 15 minutes.`,
-          views: 290,
-          updated: "5 days ago",
-        },
-      ];
-
-  // Filtered Knowledge Articles
-  const filteredKbArticles = kbArticles.filter((art) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      art.title.toLowerCase().includes(q) ||
-      art.snippet.toLowerCase().includes(q) ||
-      art.category.toLowerCase().includes(q) ||
-      art.content.toLowerCase().includes(q)
-    );
-  });
-
-  // Track ticket handler (privacy-preserving)
-  const handleTrackSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setTrackerError("");
-    setTrackedItem(null);
-
-    const query = trackerSearchId.trim().toUpperCase();
-    if (!query) {
-      setTrackerError("Please enter a Ticket ID (e.g. TCK-8821) or Work Order ID (e.g. WO-7741).");
+  const runSearch = async (query: string) => {
+    const normalized = query.trim();
+    if (normalized.length < 2) {
+      setSearchError("Describe what you need help with.");
       return;
     }
+    setSearching(true);
+    setSearchError("");
+    setCitations([]);
+    setResultTitle("Searching published guidance…");
+    try {
+      const response = await fetch("/api/portal/search", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: normalized }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.success) throw new Error(body.error || "Search is unavailable.");
+      setCitations(Array.isArray(body.citations) ? body.citations : []);
+      setResultTitle(body.message || "Verified guidance");
+    } catch (cause) {
+      setResultTitle("");
+      setSearchError(cause instanceof Error ? cause.message : "Search is unavailable. Start a chat for help.");
+    } finally {
+      setSearching(false);
+    }
+  };
 
-    if (query === "TCK-8821" || query === "TCK-01" || query.includes("8821")) {
+  const runAction = async (action: PortalAction) => {
+    setSearching(true);
+    setSearchError("");
+    setCitations([]);
+    setResultTitle(`Opening ${action.label}…`);
+    try {
+      const response = await fetch(`/api/portal/actions/${encodeURIComponent(action.slug)}`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.success) throw new Error(body.error || "This help topic is unavailable.");
+      if (body.mode === "chat") {
+        setResultTitle("");
+        openChat(`Help with ${body.label || action.label}.`);
+        return;
+      }
+      setCitations(Array.isArray(body.citations) ? body.citations : []);
+      setResultTitle(body.message || action.label);
+    } catch (cause) {
+      setResultTitle("");
+      setSearchError(cause instanceof Error ? cause.message : "This help topic is unavailable. Start a chat for help.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!portalLoaded || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("help");
+    const action = enabledActions.find((candidate) => candidate.slug === slug);
+    if (action) void runAction(action);
+    // Deep links are resolved once after the published configuration loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portalLoaded]);
+
+  const handleTrackSearch = (event: FormEvent) => {
+    event.preventDefault();
+    setTrackerError("");
+    setTrackedItem(null);
+    const query = trackerSearchId.trim().toUpperCase();
+    if (!query) {
+      setTrackerError("Enter a ticket or work-order reference.");
+      return;
+    }
+    if (isDemo && (query === "TCK-8821" || query.includes("8821"))) {
       setTrackedItem({
         id: "TCK-8821",
-        type: "ticket",
-        title: "OrderV8 Token Sync & Autonomous Refund Confirmation",
-        status: "In Progress",
-        statusColor: "emerald",
-        updatedAt: "12 mins ago",
-        assignedTo: "Customer Success Lead (Tier 1)",
-        publicNotes: "Your issue has been validated against telemetry and a resolution token is being dispatched.",
+        title: "OrderV8 token sync and refund confirmation",
+        status: "In progress",
+        updatedAt: "12 minutes ago",
+        assignedTo: "Customer Success",
+        publicNotes: "Your issue has been validated and the support team is reviewing the resolution.",
       });
-    } else if (query === "WO-7741" || query === "WO-01" || query.includes("7741")) {
+    } else if (isDemo && (query === "WO-7741" || query.includes("7741"))) {
       setTrackedItem({
         id: "WO-7741",
-        type: "dispatch",
-        title: "Field Technician Site Dispatch — Building B Telecom Closet",
-        status: "En Route",
-        statusColor: "amber",
-        updatedAt: "5 mins ago",
-        assignedTo: "Dave Miller (Apex Telecom HVAC)",
-        publicNotes: "Technician is en route. ETA is approximately 15 minutes. Site credentials validated.",
+        title: "Field technician site dispatch",
+        status: "En route",
+        updatedAt: "5 minutes ago",
+        assignedTo: "Field Dispatch",
+        publicNotes: "The technician is en route. Site access has been verified.",
       });
     } else {
-      setTrackerError(`No active public request found for "${trackerSearchId}". Please verify your ticket reference.`);
+      setTrackerError(`No public request matched “${trackerSearchId.trim()}”. Check the reference or start a chat.`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[#2ED8B6] flex flex-col">
-      {/* ========================================================================= */}
-      {/* TENANT HEADER NAVIGATION */}
-      {/* ========================================================================= */}
-      <header className="bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-6 lg:px-8 py-3.5 flex items-center justify-between shrink-0 sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <SupportV8Logo size={30} showText={false} />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm tracking-tight text-[#EAF1F8]">
-                {formattedName}
-              </span>
-              <span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">
-                {cleanSlug}.support.servicev8.com
-              </span>
+    <div className="min-h-screen bg-[#090E15] text-[#EAF1F8] selection:bg-[#2ED8B6]/30 selection:text-white">
+      <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[#0B1017]/95 px-5 py-3.5 backdrop-blur-md sm:px-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <SupportV8Logo size={30} showText={false} />
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold">{config.supportName}</h1>
+              <p className="truncate text-xs text-[#6B7C8D]">{cleanSlug}.support.servicev8.com</p>
             </div>
-            <p className="text-[10px] font-mono text-[#6B7C8D]">
-              {isMeridian ? "Contractor Dispatch & Field Resolution Hub" : "Customer Care & Self-Service Portal"}
-            </p>
           </div>
-        </div>
-
-        {/* Global Hub Link & Portal Sign In */}
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onOpenGlobalLanding}
-            className="hidden sm:flex text-xs font-mono text-[#8E9AA8] hover:text-[#EAF1F8] px-3 py-1.5 rounded-xl hover:bg-[#141C26] transition-colors cursor-pointer"
-          >
-            <span>Platform Hub</span>
-          </button>
-
-          <button
-            onClick={onOpenSignIn}
-            className="btn btn-primary px-3.5 py-1.5 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onOpenGlobalLanding} className="btn btn-secondary hidden sm:inline-flex">Platform hub</button>
+            <button type="button" onClick={onOpenSignIn} className="btn btn-primary">
+              <i className="fi fi-rr-user mr-2" aria-hidden="true" /> Sign in
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ========================================================================= */}
-      {/* MAIN PUBLIC HELP & DISPATCH HUB */}
-      {/* ========================================================================= */}
-      <main className="max-w-6xl mx-auto px-6 py-10 space-y-10 flex-1 w-full">
-        {/* Search Header */}
-        <div className="text-center space-y-4 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#141C26] border border-[#2ED8B6]/30 text-xs font-mono text-[#2ED8B6]">
-            <Sparkles className="w-3.5 h-3.5 text-[#2ED8B6]" />
-            <span>{formattedName} Support Network</span>
-          </div>
+      <main className="mx-auto max-w-6xl px-5 pb-20 pt-12 sm:px-8 sm:pt-16">
+        <section className="grid items-start gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] lg:gap-16">
+          <div>
+            <h2 className="max-w-2xl text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-5xl">{config.headline}</h2>
+            <p className="mt-5 max-w-[65ch] text-base leading-7 text-[#B4C2D0]">{config.introduction}</p>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#EAF1F8]">
-            How can {formattedName} assist you today?
-          </h1>
-          <p className="text-xs sm:text-sm text-[#8E9AA8] max-w-lg mx-auto">
-            Search verified knowledge documents, verify on-site contractor PINs, or track your live ticket.
-          </p>
-
-          {/* Knowledge Search Input */}
-          <div className="relative max-w-xl mx-auto pt-2">
-            <Search className="w-4 h-4 text-[#6B7C8D] absolute left-4 top-5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search knowledge base, refund guidelines, PINs, work orders..."
-              className="w-full bg-[#121A24] border border-[var(--line-2)] rounded-2xl pl-11 pr-4 py-3.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] shadow-xl"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-5 text-xs text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-              >
-                Clear
-              </button>
+            {config.sections.search && (
+              <form className="mt-8" onSubmit={(event) => { event.preventDefault(); void runSearch(searchQuery); }}>
+                <label htmlFor="portal-search" className="sr-only">Search published support guidance</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <i className="fi fi-rr-search absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7C8D]" aria-hidden="true" />
+                    <input id="portal-search" maxLength={500} value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={config.searchPlaceholder} className="min-h-12 w-full rounded-2xl border border-[#344354] bg-[#121A24] py-3 pl-11 pr-4 text-base text-white outline-none placeholder:text-[#6B7C8D] focus:border-[#2ED8B6] focus:ring-2 focus:ring-[#2ED8B6]/15" />
+                  </div>
+                  <button type="submit" disabled={searching || searchQuery.trim().length < 2} className="btn btn-primary min-h-12 px-6">{searching ? "Searching…" : "Search help"}</button>
+                </div>
+              </form>
             )}
           </div>
-        </div>
 
-        {/* Feature Streams Showcase Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="card p-6 bg-[#0E1520] border-[var(--line)] rounded-3xl space-y-3 shadow-xl hover:border-[#2ED8B6]/40 transition-all">
-            <div className="w-10 h-10 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
-              <Users className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#EAF1F8]">Customer Care &amp; Inquiries</h3>
-            <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Real-time resolutions for billing questions, product assistance, replacement requests, and SLA inquiries.
-            </p>
-          </div>
-
-          <div className="card p-6 bg-[#0E1520] border-[var(--line)] rounded-3xl space-y-3 shadow-xl hover:border-[#F5A623]/40 transition-all">
-            <div className="w-10 h-10 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
-              <HardHat className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#EAF1F8]">Field Dispatch &amp; Work Orders</h3>
-            <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Subcontractor coordination, electronic lockbox access PINs, GPS-verified technician arrival, and change orders.
-            </p>
-          </div>
-
-          <div className="card p-6 bg-[#0E1520] border-[var(--line)] rounded-3xl space-y-3 shadow-xl hover:border-[#4D9FFF]/40 transition-all">
-            <div className="w-10 h-10 rounded-2xl bg-[#4D9FFF]/15 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-bold text-[#EAF1F8]">Verified Knowledge Base</h3>
-            <p className="text-xs text-[#8E9AA8] leading-relaxed">
-              Full-text document browser with interactive Form View reader, policy citations, and instant search.
-            </p>
-          </div>
-        </div>
-
-        {/* Privacy-Preserving Universal Case & Dispatch Tracker */}
-        <div className="card p-6 bg-[#0E1520] border-[var(--line)] rounded-3xl space-y-5 shadow-2xl">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]">
-                <Clock className="w-4 h-4" />
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Universal Case &amp; Dispatch Tracker</h3>
-                <p className="text-[10px] font-mono text-[#6B7C8D]">
-                  Secure, privacy-gated tracking for customer cases &amp; field work orders
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 bg-[#141C26] p-1 rounded-xl border border-[var(--line)] font-mono text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setTrackerTab("ticket");
-                  setTrackedItem(null);
-                  setTrackerError("");
-                }}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                  trackerTab === "ticket"
-                    ? "bg-[#2ED8B6] text-[#04201C] font-bold"
-                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                }`}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Customer Ticket</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setTrackerTab("dispatch");
-                  setTrackedItem(null);
-                  setTrackerError("");
-                }}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                  trackerTab === "dispatch"
-                    ? "bg-[#2ED8B6] text-[#04201C] font-bold"
-                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                }`}
-              >
-                <Truck className="w-3.5 h-3.5" />
-                <span>Field Dispatch</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Tracker Input Gate (Protects Customer Data from Public Crawlers) */}
-          <form onSubmit={handleTrackSearch} className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative flex-1 w-full">
-              <Shield className="w-4 h-4 text-[#2ED8B6] absolute left-3.5 top-3" />
-              <input
-                type="text"
-                value={trackerSearchId}
-                onChange={(e) => {
-                  setTrackerSearchId(e.target.value);
-                  if (trackerError) setTrackerError("");
-                }}
-                placeholder={
-                  trackerTab === "ticket"
-                    ? "Enter Ticket ID (e.g. TCK-8821)..."
-                    : "Enter Work Order ID (e.g. WO-7741)..."
-                }
-                className="w-full bg-[#121A24] border border-[var(--line)] rounded-2xl pl-10 pr-4 py-2.5 text-xs font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full sm:w-auto btn btn-primary px-6 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
-            >
-              <span>Track Request</span>
-              <Search className="w-3.5 h-3.5" />
-            </button>
-          </form>
-
-          {trackerError && (
-            <div className="p-3 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-[#E5484D] shrink-0" />
-              <span>{trackerError}</span>
-            </div>
-          )}
-
-          {/* Privacy Placeholder when no ID entered */}
-          {!trackedItem && !trackerError && (
-            <div className="p-6 rounded-2xl bg-[#121A24]/60 border border-[var(--line)] text-center space-y-2 font-mono text-xs text-[#6B7C8D]">
-              <Lock className="w-6 h-6 text-[#2ED8B6] mx-auto opacity-70" />
-              <p className="text-[#B4C2D0]">Customer details &amp; technician lockbox codes are securely protected.</p>
-              <p className="text-[11px]">
-                {isDemo
-                  ? "Try searching TCK-8821 or WO-7741 to view verified progress."
-                  : "Enter your verified reference ID above to inspect real-time progress."}
-              </p>
-            </div>
-          )}
-
-          {/* Tracked Item Details (Revealed Only After Verification) */}
-          {trackedItem && (
-            <div className="p-5 rounded-2xl bg-[#121A24] border border-[#2ED8B6]/40 space-y-3 font-mono text-xs animate-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[#EAF1F8] text-sm">{trackedItem.id}</span>
-                  <span className="pill ok uppercase text-[9px]"><i className="dot" /> {trackedItem.status}</span>
-                </div>
-                <span className="text-[11px] text-[#6B7C8D]">Updated {trackedItem.updatedAt}</span>
-              </div>
-
-              <div className="space-y-1 font-sans">
-                <h4 className="text-sm font-bold text-[#EAF1F8]">{trackedItem.title}</h4>
-                <p className="text-xs text-[#8E9AA8]">{trackedItem.publicNotes}</p>
-              </div>
-
-              <div className="text-[11px] text-[#2ED8B6] font-mono pt-1 flex items-center justify-between">
-                <span>Assigned: {trackedItem.assignedTo}</span>
-                <button
-                  onClick={onOpenSignIn}
-                  className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer font-bold"
-                >
-                  <span>Sign In for Staff Operations &rarr;</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Verified Knowledge Base Articles Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-[#EAF1F8] flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-[#2ED8B6]" />
-              <span>Verified Knowledge Base Documents</span>
-            </h3>
-            <span className="text-xs font-mono text-[#6B7C8D]">
-              Showing {filteredKbArticles.length} of {kbArticles.length} verified docs
-            </span>
-          </div>
-
-          {filteredKbArticles.length === 0 ? (
-            <div className="p-8 rounded-2xl bg-[#0E1520] border border-[var(--line)] text-center space-y-3 font-mono text-xs shadow-lg">
-              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 flex items-center justify-center text-[#2ED8B6] mx-auto">
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-sm font-bold text-[#EAF1F8]">
-                  {isClean ? "No Knowledge Base Documents Published Yet" : "No matching knowledge articles"}
-                </h4>
-                <p className="text-xs text-[#8E9AA8] max-w-md mx-auto">
-                  {isClean
-                    ? "This tenant workspace is newly provisioned. Organization administrators can sign in to the Knowledge Suite to upload, crawl, and publish customer-facing articles."
-                    : `No knowledge base articles matched "${searchQuery}".`}
-                </p>
-              </div>
-              {isClean && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={onOpenSignIn}
-                    className="btn btn-primary px-4 py-2 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
+          {config.sections.actions && (
+            <div>
+              <h3 className="text-sm font-semibold text-[#EAF1F8]">{config.actionsHeading}</h3>
+              <div className="mt-3 divide-y divide-[var(--line)] border-y border-[var(--line)]">
+                {enabledActions.length === 0 ? (
+                  <div className="py-6">
+                    <p className="text-sm text-[#8E9AA8]">No self-service topics have been published yet.</p>
+                    <button type="button" className="mt-3 text-sm font-medium text-[#57E5C8] underline underline-offset-4" onClick={() => openChat()}>Start a conversation</button>
+                  </div>
+                ) : enabledActions.map((action) => (
+                  <a
+                    key={action.id}
+                    href={actionHref(action)}
+                    onClick={(event) => { event.preventDefault(); window.history.replaceState({}, "", `?help=${encodeURIComponent(action.slug)}`); void runAction(action); }}
+                    className="group flex min-h-16 items-center gap-3 py-3.5 outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6]"
                   >
-                    <UserCheck className="w-3.5 h-3.5" />
-                    <span>Sign In to Knowledge Suite</span>
-                  </button>
-                </div>
-              )}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2ED8B6]/10 text-[#2ED8B6] transition group-hover:bg-[#2ED8B6]/18"><i className={ACTION_ICONS[action.icon]} aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white group-hover:text-[#57E5C8]">{action.label}</span><span className="mt-0.5 block text-xs leading-5 text-[#8E9AA8]">{action.description}</span></span>
+                    <i className="fi fi-rr-arrow-small-right text-[#6B7C8D] transition group-hover:translate-x-1 group-hover:text-[#57E5C8]" aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredKbArticles.map((art) => (
-                <div
-                  key={art.id}
-                  onClick={() => setSelectedArticle(art)}
-                  className="card p-5 bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6] rounded-2xl transition-all space-y-2 cursor-pointer group shadow-lg hover:shadow-[#2ED8B6]/10"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="pill text-[10px] font-mono bg-[#18222E] text-[#2ED8B6]">
-                      {art.category}
-                    </span>
-                    <span className="text-[10px] font-mono text-[#6B7C8D] group-hover:text-[#2ED8B6] flex items-center gap-1 transition-colors">
-                      <span>Read in Form View</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
+          )}
+        </section>
 
-                  <h4 className="text-xs font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
-                    {art.title}
-                  </h4>
-                  <p className="text-[11px] text-[#8E9AA8] line-clamp-2">{art.snippet}</p>
+        {(resultTitle || searchError) && (
+          <section className="mt-10 rounded-2xl border border-[var(--line)] bg-[#0E1520] p-5 sm:p-6" aria-live="polite">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold">{searchError ? "We couldn’t complete that search" : resultTitle}</h3>
+                {searchError && <p role="alert" className="mt-2 text-sm text-[#FF9A9E]">{searchError}</p>}
+              </div>
+              <button type="button" className="btn btn-secondary" onClick={() => openChat(searchQuery || undefined)}>Ask the support team</button>
+            </div>
+            {citations.length > 0 && (
+              <ol className="mt-5 divide-y divide-[var(--line)] border-t border-[var(--line)]">
+                {citations.map((citation) => (
+                  <li key={citation.id} className="py-4">
+                    <div className="flex items-start gap-3">
+                      <i className="fi fi-rr-book-open-cover mt-1 text-[#2ED8B6]" aria-hidden="true" />
+                      <div><h4 className="text-sm font-semibold text-white">{citation.title}</h4><p className="mt-1 text-sm leading-6 text-[#B4C2D0]">{citation.snippet}</p><span className="mt-2 block text-xs text-[#6B7C8D]">Published customer knowledge · {Math.round(citation.similarity * 100)}% match</span></div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        )}
 
-                  <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] pt-2 border-t border-[var(--line)]">
-                    <span>{art.views} reads</span>
-                    <span>Updated {art.updated}</span>
-                  </div>
-                </div>
+        {config.sections.channels && (
+          <section className="mt-16">
+            <h3 className="text-lg font-semibold">Choose how to get help</h3>
+            <div className="mt-5 grid gap-px overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line)] md:grid-cols-3">
+              {[
+                ["fi fi-rr-comment-alt-dots", "Live conversation", "Start with the online support queue and keep the transcript attached to your case."],
+                ["fi fi-rr-book-open-cover", "Verified knowledge", "Search only the guidance this organization has approved for customers."],
+                ["fi fi-rr-life-ring", "Human handoff", "Move from self-service into Work Desk without repeating the problem."],
+              ].map(([icon, title, copy]) => (
+                <div key={title} className="bg-[#0E1520] p-6"><i className={`${icon} text-xl text-[#2ED8B6]`} aria-hidden="true" /><h4 className="mt-4 text-sm font-semibold">{title}</h4><p className="mt-2 text-sm leading-6 text-[#8E9AA8]">{copy}</p></div>
               ))}
             </div>
-          )}
-        </div>
+          </section>
+        )}
+
+        {config.sections.tracker && (
+          <section className="mt-16 rounded-3xl border border-[var(--line)] bg-[#0E1520] p-5 sm:p-7">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div><h3 className="text-lg font-semibold">Track a support request</h3><p className="mt-1 text-sm text-[#8E9AA8]">Only public progress is shown. Customer and site details remain protected.</p></div>
+              <div className="flex rounded-xl border border-[var(--line)] bg-[#121A24] p-1" aria-label="Request type">
+                <button type="button" aria-pressed={trackerTab === "ticket"} onClick={() => { setTrackerTab("ticket"); setTrackedItem(null); setTrackerError(""); }} className={`rounded-lg px-3 py-1.5 text-sm ${trackerTab === "ticket" ? "bg-[#2ED8B6] text-[#04201C]" : "text-[#B4C2D0]"}`}>Ticket</button>
+                <button type="button" aria-pressed={trackerTab === "dispatch"} onClick={() => { setTrackerTab("dispatch"); setTrackedItem(null); setTrackerError(""); }} className={`rounded-lg px-3 py-1.5 text-sm ${trackerTab === "dispatch" ? "bg-[#2ED8B6] text-[#04201C]" : "text-[#B4C2D0]"}`}>Dispatch</button>
+              </div>
+            </div>
+            <form onSubmit={handleTrackSearch} className="mt-5 flex flex-col gap-2 sm:flex-row">
+              <label htmlFor="tracker-reference" className="sr-only">Request reference</label>
+              <input id="tracker-reference" value={trackerSearchId} onChange={(event) => setTrackerSearchId(event.target.value)} placeholder={trackerTab === "ticket" ? "Enter ticket reference" : "Enter work-order reference"} className="min-h-11 flex-1 rounded-xl border border-[var(--line)] bg-[#121A24] px-4 text-base outline-none focus:border-[#2ED8B6]" />
+              <button type="submit" className="btn btn-secondary min-h-11 px-5">Track request</button>
+            </form>
+            {trackerError && <p role="alert" className="mt-4 text-sm text-[#FF9A9E]">{trackerError}</p>}
+            {trackedItem && <div className="mt-5 border-t border-[var(--line)] pt-5"><div className="flex flex-wrap items-center justify-between gap-3"><h4 className="font-semibold">{trackedItem.id} · {trackedItem.title}</h4><span className="rounded-full bg-[#2ED8B6]/10 px-3 py-1 text-xs text-[#57E5C8]">{trackedItem.status}</span></div><p className="mt-2 text-sm text-[#B4C2D0]">{trackedItem.publicNotes}</p><p className="mt-3 text-xs text-[#6B7C8D]">Assigned: {trackedItem.assignedTo} · Updated {trackedItem.updatedAt}</p></div>}
+          </section>
+        )}
       </main>
 
-      {/* ========================================================================= */}
-      {/* FULL-SCREEN / DRAWER FORM VIEW KNOWLEDGE ARTICLE READER */}
-      {/* ========================================================================= */}
-      {selectedArticle && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]">
-                  <BookOpen className="w-5 h-5" />
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="pill text-[9px] font-mono bg-[#18222E] text-[#2ED8B6]">
-                      {selectedArticle.category}
-                    </span>
-                    <span className="text-xs font-mono text-[#6B7C8D]">
-                      ID: {selectedArticle.id}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-bold text-[#EAF1F8] mt-0.5">
-                    {selectedArticle.title}
-                  </h3>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(window.location.href);
-                    setCopiedLink(true);
-                    setTimeout(() => setCopiedLink(false), 2000);
-                  }}
-                  className="p-2 rounded-xl bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-                  title="Copy Document Link"
-                >
-                  {copiedLink ? <CheckCheck className="w-4 h-4 text-[#2ED8B6]" /> : <Copy className="w-4 h-4" />}
-                </button>
-
-                <button
-                  onClick={() => setSelectedArticle(null)}
-                  className="p-2 rounded-xl bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Document Form View Content */}
-            <div className="p-8 overflow-y-auto space-y-6 text-xs text-[#B4C2D0] leading-relaxed font-sans">
-              <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-1.5 font-mono">
-                <div className="text-[11px] text-[#2ED8B6] font-bold">Document Abstract:</div>
-                <p className="text-xs text-[#EAF1F8]">{selectedArticle.snippet}</p>
-              </div>
-
-              {/* Form View Body */}
-              <div className="space-y-4 prose prose-invert max-w-none text-xs">
-                {selectedArticle.content.split("\n\n").map((block: string, i: number) => {
-                  if (block.startsWith("### ")) {
-                    return (
-                      <h4 key={i} className="text-sm font-bold text-[#2ED8B6] pt-2 border-b border-[var(--line)] pb-1">
-                        {block.replace("### ", "")}
-                      </h4>
-                    );
-                  }
-                  if (block.startsWith("- ")) {
-                    return (
-                      <ul key={i} className="list-disc pl-5 space-y-1 text-[#B4C2D0]">
-                        {block.split("\n").map((line, j) => (
-                          <li key={j}>{line.replace("- ", "")}</li>
-                        ))}
-                      </ul>
-                    );
-                  }
-                  if (/^\d+\./.test(block)) {
-                    return (
-                      <ol key={i} className="list-decimal pl-5 space-y-1 text-[#B4C2D0]">
-                        {block.split("\n").map((line, j) => (
-                          <li key={j}>{line.replace(/^\d+\.\s*/, "")}</li>
-                        ))}
-                      </ol>
-                    );
-                  }
-                  return <p key={i}>{block}</p>;
-                })}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-8 py-4 bg-[#121A24] border-t border-[var(--line)] flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-              <div className="flex items-center gap-4">
-                <span>Verified Status: <strong className="text-[#2ED8B6]">Active Verified</strong></span>
-                <span>Views: {selectedArticle.views}</span>
-                <span>Last Updated: {selectedArticle.updated}</span>
-              </div>
-
-              <button
-                onClick={() => setSelectedArticle(null)}
-                className="btn btn-secondary px-5 py-2 text-xs font-mono cursor-pointer"
-              >
-                Close Document
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Embedded Tenant-Scoped Support Chat Widget */}
-      <SupportChatWidget
-        key={tenantSlug}
-        defaultStream={isMeridian ? "contractors" : "customers"}
-        tenantDomain={tenantSlug}
-      />
+      <SupportChatWidget key={tenantSlug} tenantName={config.supportName.replace(/\s+Support$/i, "")} defaultStream={isMeridian ? "contractors" : "customers"} tenantDomain={tenantSlug} />
     </div>
   );
 }

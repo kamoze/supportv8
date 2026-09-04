@@ -128,6 +128,7 @@ import { GovernanceReportsView } from "@/components/views/GovernanceReportsView"
 import { GovernanceAuditLogsView } from "@/components/views/GovernanceAuditLogsView";
 import { AutonomousStudioView } from "@/components/views/AutonomousStudioView";
 import { KnowledgeSuiteView } from "@/components/views/KnowledgeSuiteView";
+import { PortalComposerView } from "@/components/views/PortalComposerView";
 import { PoliciesAndRulesView } from "@/components/views/PoliciesAndRulesView";
 import { FloatingPageGuide } from "@/components/FloatingPageGuide";
 import { GlobalLandingView } from "@/components/GlobalLandingView";
@@ -1785,6 +1786,13 @@ export default function SupportV8Dashboard() {
           icon: Brain,
           flaticon: "fi fi-rr-brain",
           roles: ["operator", "cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "portal_composer",
+          label: "Support Portal",
+          icon: LayoutDashboard,
+          flaticon: "fi fi-rr-browser",
+          roles: ["cx_lead", "superadmin"],
         },
         {
           id: "stale_work",
@@ -5977,6 +5985,13 @@ export default function SupportV8Dashboard() {
             onPublishProposal={handlePublishKnowledge}
             onSyncKv8={fetchData}
             onNotify={notify}
+          />
+        )}
+
+        {activeTab === "portal_composer" && (
+          <PortalComposerView
+            tenantSlug={currentTenantSlug}
+            onNotify={(message, type) => notify(message, type || "success")}
           />
         )}
 

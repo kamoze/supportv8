@@ -48,6 +48,13 @@ interface SupportChatWidgetProps {
   tenantName?: string;
   tenantDomain?: string;
   defaultStream?: ChatStreamType;
+  brandColor?: string;
+}
+
+function readableInk(hex: string): string {
+  const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : "2ED8B6";
+  const [red, green, blue] = [0, 2, 4].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
+  return (red * 299 + green * 587 + blue * 114) / 1000 > 150 ? "#04110E" : "#FFFFFF";
 }
 
 export function SupportChatWidget({
@@ -55,7 +62,17 @@ export function SupportChatWidget({
   tenantName = "Acme Corp",
   tenantDomain,
   defaultStream = "customers",
+  brandColor = "#2ED8B6",
 }: SupportChatWidgetProps) {
+  const safeBrandColor = /^#[0-9a-f]{6}$/i.test(brandColor) ? brandColor : "#2ED8B6";
+  const brandStyle = {
+    "--chat-brand": safeBrandColor,
+    "--chat-brand-soft": `${safeBrandColor}26`,
+    "--chat-brand-hover": `${safeBrandColor}40`,
+    "--chat-brand-border": `${safeBrandColor}66`,
+    "--chat-brand-shadow": `${safeBrandColor}59`,
+    "--chat-on-brand": readableInk(safeBrandColor),
+  } as React.CSSProperties;
   const [isOpen, setIsOpen] = useState(false);
   const [isPromptMinimized, setIsPromptMinimized] = useState(false);
   const [activeStep, setActiveStep] = useState<"select_stream" | "intake_form" | "chat">("select_stream");
@@ -303,13 +320,13 @@ export function SupportChatWidget({
   };
 
   return (
-    <>
+    <div style={brandStyle}>
       {/* Floating Action Trigger Button (Bottom-Right) */}
       {!isOpen && (
         <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-300">
           {!isPromptMinimized && (
             <div className="hidden sm:flex items-center gap-2 bg-[#0E1520] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-2 rounded-2xl shadow-xl shadow-black/50 text-xs font-mono">
-              <span className="w-2 h-2 rounded-full bg-[#2ED8B6] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[var(--chat-brand)] animate-pulse" />
               <span>Need help? Chat with {tenantName}</span>
               <button
                 onClick={() => setIsPromptMinimized(true)}
@@ -325,7 +342,7 @@ export function SupportChatWidget({
           <button
             onClick={() => setIsOpen(true)}
             aria-label="Open support chat"
-            className="w-14 h-14 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-[#00F2FE] via-[#2ED8B6] to-[#059669] text-[#090E15] flex items-center justify-center shadow-2xl shadow-[#2ED8B6]/35 hover:scale-105 active:scale-95 transition-all cursor-pointer group shrink-0"
+            className="w-14 h-14 sm:w-12 sm:h-12 rounded-2xl bg-[var(--chat-brand)] text-[var(--chat-on-brand)] flex items-center justify-center shadow-[0_18px_42px_var(--chat-brand-shadow)] hover:scale-105 active:scale-95 transition-all cursor-pointer group shrink-0"
           >
             <MessageSquare className="w-6 h-6 sm:w-5 sm:h-5 group-hover:rotate-6 transition-transform" />
           </button>
@@ -338,7 +355,7 @@ export function SupportChatWidget({
           {/* Widget Header */}
           <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between shrink-0 pt-[max(env(safe-area-inset-top),12px)] sm:pt-4">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] font-bold shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[var(--chat-brand-soft)] border border-[var(--chat-brand-border)] flex items-center justify-center text-[var(--chat-brand)] font-bold shrink-0">
                 {activeSession?.assignedAvatar ? (
                   <img
                     src={activeSession.assignedAvatar}
@@ -352,7 +369,7 @@ export function SupportChatWidget({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-xs sm:text-sm font-bold text-[#EAF1F8] truncate">{tenantName} Support</h3>
-                  <span className="w-2 h-2 rounded-full bg-[#2ED8B6] shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-[var(--chat-brand)] shrink-0" />
                 </div>
                 <p className="text-[10px] font-mono text-[#6B7C8D] truncate">
                   {activeStep === "chat"
@@ -366,7 +383,7 @@ export function SupportChatWidget({
               {/* Direct Native Telephony Link */}
               <a
                 href="tel:+18005558880"
-                className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 flex items-center gap-1 text-[11px] font-mono font-bold hover:bg-[#2ED8B6]/25 transition-colors cursor-pointer"
+                className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-[var(--chat-brand-soft)] text-[var(--chat-brand)] border border-[var(--chat-brand-border)] flex items-center gap-1 text-[11px] font-mono font-bold hover:bg-[var(--chat-brand-hover)] transition-colors cursor-pointer"
                 title="Direct Telephony Call"
               >
                 <PhoneCall className="w-3.5 h-3.5" />
@@ -397,7 +414,7 @@ export function SupportChatWidget({
           {activeStep === "select_stream" && (
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               <div className="space-y-1">
-                <span className="pill text-[10px] font-mono uppercase bg-[#18222E] text-[#2ED8B6] px-2.5 py-0.5">
+                <span className="pill text-[10px] font-mono uppercase bg-[#18222E] text-[var(--chat-brand)] px-2.5 py-0.5">
                   Select Support Channel
                 </span>
                 <h4 className="text-base sm:text-sm font-bold text-[#EAF1F8]">How can we assist you?</h4>
@@ -437,14 +454,14 @@ export function SupportChatWidget({
                 {/* Customers & Clients Option */}
                 <button
                   onClick={() => handleSelectStream("customers")}
-                  className="w-full text-left p-4 sm:p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)] hover:border-[#2ED8B6]/60 hover:bg-[#16212E] active:scale-[0.99] transition-all cursor-pointer group flex items-start gap-3.5 shadow-md"
+                  className="w-full text-left p-4 sm:p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)] hover:border-[var(--chat-brand-border)] hover:bg-[#16212E] active:scale-[0.99] transition-all cursor-pointer group flex items-start gap-3.5 shadow-md"
                 >
-                  <div className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/40 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[var(--chat-brand-soft)] text-[var(--chat-brand)] border border-[var(--chat-brand-border)] flex items-center justify-center shrink-0">
                     <Users className="w-5 h-5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm sm:text-xs font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
+                      <span className="text-sm sm:text-xs font-bold text-[#EAF1F8] group-hover:text-[var(--chat-brand)] transition-colors">
                         Customers &amp; Clients
                       </span>
                       <ChevronRight className="w-4 h-4 text-[#6B7C8D] group-hover:translate-x-0.5 transition-transform" />
@@ -453,7 +470,7 @@ export function SupportChatWidget({
                       Subscriber care, OrderV8 credit vouchers, replacement requests, and live billing triage.
                     </p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[9px] font-mono text-[#2ED8B6] bg-[#2ED8B6]/15 px-2 py-0.5 rounded font-bold">
+                      <span className="text-[9px] font-mono text-[var(--chat-brand)] bg-[var(--chat-brand-soft)] px-2 py-0.5 rounded font-bold">
                         SLA: &lt; 1.2s Response
                       </span>
                     </div>
@@ -485,7 +502,7 @@ export function SupportChatWidget({
               {/* Trust Badge Footer */}
               <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
                 <span className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                  <Shield className="w-3.5 h-3.5 text-[var(--chat-brand)]" />
                   Governed &amp; Encrypted
                 </span>
                 <span>supportV8 Engine</span>
@@ -500,7 +517,7 @@ export function SupportChatWidget({
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => setActiveStep("select_stream")}
-                    className="text-xs font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-mono text-[#6B7C8D] hover:text-[var(--chat-brand)] flex items-center gap-1 cursor-pointer"
                   >
                     ← Back to Channels
                   </button>
@@ -524,14 +541,14 @@ export function SupportChatWidget({
                     <div key={field.id} className="space-y-1">
                       <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
                         <span>{field.label}</span>
-                        {field.required && <span className="text-[#2ED8B6] text-[10px]">*required</span>}
+                        {field.required && <span className="text-[var(--chat-brand)] text-[10px]">*required</span>}
                       </label>
 
                       {field.type === "select" ? (
                         <select
                           value={formData[field.name] || ""}
                           onChange={(e) => handleInputChange(field.name, e.target.value)}
-                          className={`w-full bg-[#141C26] border rounded-xl px-3 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] ${
+                          className={`w-full bg-[#141C26] border rounded-xl px-3 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[var(--chat-brand)] ${
                             formErrors[field.name] ? "border-[#E5484D]" : "border-[var(--line)]"
                           }`}
                         >
@@ -548,7 +565,7 @@ export function SupportChatWidget({
                           value={formData[field.name] || ""}
                           onChange={(e) => handleInputChange(field.name, e.target.value)}
                           placeholder={field.placeholder}
-                          className={`w-full bg-[#141C26] border rounded-xl px-3 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] resize-none ${
+                          className={`w-full bg-[#141C26] border rounded-xl px-3 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[var(--chat-brand)] resize-none ${
                             formErrors[field.name] ? "border-[#E5484D]" : "border-[var(--line)]"
                           }`}
                         />
@@ -559,7 +576,7 @@ export function SupportChatWidget({
                           value={formData[field.name] || ""}
                           onChange={(e) => handleInputChange(field.name, e.target.value)}
                           placeholder={field.placeholder}
-                          className={`w-full bg-[#141C26] border rounded-xl px-3 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] ${
+                          className={`w-full bg-[#141C26] border rounded-xl px-3 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[var(--chat-brand)] ${
                             formErrors[field.name] ? "border-[#E5484D]" : "border-[var(--line)]"
                           }`}
                         />
@@ -582,7 +599,7 @@ export function SupportChatWidget({
                 <button
                   type="submit"
                   form="intake-form"
-                  className="btn btn-primary w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#2ED8B6]/25 cursor-pointer active:scale-[0.99]"
+                  className="btn w-full rounded-2xl bg-[var(--chat-brand)] py-3 text-sm font-bold text-[var(--chat-on-brand)] shadow-[0_10px_28px_var(--chat-brand-shadow)] flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
                 >
                   <span>Start Live Session</span>
                   <ChevronRight className="w-4 h-4" />
@@ -621,7 +638,7 @@ export function SupportChatWidget({
                 </div>
                 <button
                   onClick={handleRequestHuman}
-                  className="text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer text-xs font-semibold"
+                  className="text-[var(--chat-brand)] hover:underline flex items-center gap-1 cursor-pointer text-xs font-semibold"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
                   Request Human
@@ -649,7 +666,7 @@ export function SupportChatWidget({
                       className={`flex items-start gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}
                     >
                       {!isUser && (
-                        <div className="w-7 h-7 rounded-lg bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] text-xs font-bold shrink-0 overflow-hidden">
+                        <div className="w-7 h-7 rounded-lg bg-[var(--chat-brand-soft)] border border-[var(--chat-brand-border)] flex items-center justify-center text-[var(--chat-brand)] text-xs font-bold shrink-0 overflow-hidden">
                           {msg.senderAvatar ? (
                             <img src={msg.senderAvatar} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
@@ -667,7 +684,7 @@ export function SupportChatWidget({
                         <div
                           className={`p-3 rounded-2xl text-xs sm:text-[11px] leading-relaxed shadow-sm ${
                             isUser
-                              ? "bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 text-[#EAF1F8] rounded-tr-none"
+                              ? "bg-[var(--chat-brand-soft)] border border-[var(--chat-brand-border)] text-[#EAF1F8] rounded-tr-none"
                               : "bg-[#141C26] border border-[var(--line)] text-[#EAF1F8] rounded-tl-none whitespace-pre-line"
                           }`}
                         >
@@ -683,7 +700,7 @@ export function SupportChatWidget({
                             {msg.citations.map((c) => (
                               <div
                                 key={c.id}
-                                className="px-2 py-0.5 rounded-lg bg-[#101720] border border-[var(--line)] text-[9px] font-mono text-[#2ED8B6] flex items-center gap-1"
+                                className="px-2 py-0.5 rounded-lg bg-[#101720] border border-[var(--line)] text-[9px] font-mono text-[var(--chat-brand)] flex items-center gap-1"
                               >
                                 <Shield className="w-2.5 h-2.5" />
                                 <span>{c.title}</span>
@@ -699,7 +716,7 @@ export function SupportChatWidget({
                               <button
                                 key={i}
                                 onClick={() => handleActionClick(act.actionId, act.label)}
-                                className="px-2.5 py-1 rounded-xl bg-[#18222E] border border-[#2ED8B6]/40 hover:border-[#2ED8B6] text-[10px] font-mono text-[#2ED8B6] flex items-center gap-1 transition-colors cursor-pointer active:scale-95 shadow-sm"
+                                className="px-2.5 py-1 rounded-xl bg-[#18222E] border border-[var(--chat-brand-border)] hover:border-[var(--chat-brand)] text-[10px] font-mono text-[var(--chat-brand)] flex items-center gap-1 transition-colors cursor-pointer active:scale-95 shadow-sm"
                               >
                                 <span>{act.label}</span>
                                 <ChevronRight className="w-2.5 h-2.5" />
@@ -714,9 +731,9 @@ export function SupportChatWidget({
 
                 {isTyping && (
                   <div className="flex items-center gap-1.5 text-xs font-mono text-[#6B7C8D] p-2 bg-[#141C26] rounded-xl w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse delay-75" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse delay-150" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chat-brand)] animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chat-brand)] animate-pulse delay-75" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chat-brand)] animate-pulse delay-150" />
                     <span>Sending message securely…</span>
                   </div>
                 )}
@@ -739,12 +756,12 @@ export function SupportChatWidget({
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     placeholder="Type a message, ask about PINs, or status..."
-                    className="flex-1 bg-[#18222E] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    className="flex-1 bg-[#18222E] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[var(--chat-brand)]"
                   />
                   <button
                     type="submit"
                     disabled={!inputMessage.trim()}
-                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[#2ED8B6] text-[#090E15] flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shrink-0 active:scale-95 shadow-md shadow-[#2ED8B6]/20"
+                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[var(--chat-brand)] text-[var(--chat-on-brand)] flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shrink-0 active:scale-95 shadow-md"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -754,6 +771,6 @@ export function SupportChatWidget({
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

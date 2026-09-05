@@ -275,6 +275,7 @@ export default function SupportV8Dashboard() {
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [operatingMode, setOperatingMode] = useState<OperatingMode>("autonomous");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -2097,7 +2098,7 @@ export default function SupportV8Dashboard() {
       {/* Toast Notification */}
       {actionNotice && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg border shadow-xl flex items-center gap-3 ${
+          className={`fixed bottom-4 left-4 right-4 z-50 flex items-center gap-3 rounded-lg border px-4 py-3 shadow-xl sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-md sm:px-5 ${
             actionNotice.type === "success"
               ? "bg-[#121A24] border-[#2ED8B6]/50 text-[#2ED8B6]"
               : actionNotice.type === "error"
@@ -2118,17 +2119,33 @@ export default function SupportV8Dashboard() {
       {/* ========================================================================= */}
       {/* SIDEBAR NAVIGATION (COLLAPSIBLE MIN / MAX PANEL) */}
       {/* ========================================================================= */}
+      {isMobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-20 bg-black/60 md:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
       <aside
-        className={`relative flex flex-col shrink-0 bg-[#0C121A] border-r border-[var(--line)] transition-all duration-200 ease-in-out z-30 select-none h-screen ${
-          isSidebarCollapsed ? "w-[72px]" : "w-64"
-        }`}
+        className={`fixed inset-y-0 left-0 z-30 flex h-screen w-64 shrink-0 flex-col border-r border-[var(--line)] bg-[#0C121A] transition-all duration-200 ease-in-out md:relative md:translate-x-0 ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } ${isSidebarCollapsed ? "md:w-[72px]" : "md:w-64"}`}
       >
         {/* Sidebar Header with SupportV8 Logo & Min/Max Toggle */}
         <div className={`p-4 border-b border-[var(--line)] flex items-center ${isSidebarCollapsed ? "justify-center flex-col gap-2" : "justify-between"}`}>
           <SupportV8Logo size={32} showText={!isSidebarCollapsed} />
           <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#6B7C8D] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
+            title="Close navigation"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="btn btn-secondary p-1.5 cursor-pointer text-[#6B7C8D] hover:text-[#EAF1F8] hover:border-[#2ED8B6]"
+            className="btn btn-secondary hidden cursor-pointer p-1.5 text-[#6B7C8D] hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:inline-flex"
             title={isSidebarCollapsed ? "Maximize Sidebar (Expand)" : "Minimize Sidebar (Collapse)"}
           >
             {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
@@ -2152,7 +2169,10 @@ export default function SupportV8Dashboard() {
                 return !isSidebarCollapsed ? (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setIsMobileSidebarOpen(false);
+                    }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                       isActive
                         ? "bg-[#2ED8B6]/12 text-[#2ED8B6] border border-[#2ED8B6]/40 shadow-sm font-semibold"
@@ -2172,7 +2192,10 @@ export default function SupportV8Dashboard() {
                 ) : (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setIsMobileSidebarOpen(false);
+                    }}
                     title={item.label}
                     className={`relative w-10 h-10 mx-auto flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                       isActive
@@ -2258,6 +2281,14 @@ export default function SupportV8Dashboard() {
         <header className="sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 select-none">
           {/* Left: Breadcrumbs & Active Tenant Tag */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              aria-label="Open navigation"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#8E9AA8] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
             <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
               <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
                 <span className="text-white font-extrabold text-sm">support</span>
@@ -5990,6 +6021,7 @@ export default function SupportV8Dashboard() {
 
         {activeTab === "portal_composer" && (
           <PortalComposerView
+            key={currentTenantSlug}
             tenantSlug={currentTenantSlug}
             onNotify={(message, type) => notify(message, type || "success")}
           />

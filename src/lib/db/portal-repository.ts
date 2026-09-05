@@ -6,6 +6,7 @@ import {
   type PortalAction,
   type PortalConfig,
 } from "@/lib/portal/config";
+import { emptyPortalAnalytics, type PortalActionAnalytics, type PortalAnalytics } from "@/lib/portal/analytics";
 import { pgClient, type PostgresClient } from "./pg-client";
 
 interface PortalPageRow extends QueryResultRow {
@@ -25,6 +26,20 @@ interface EventInput {
   actionSlug: string;
   outcome: "success" | "no_results" | "unavailable" | "rate_limited";
   durationMs: number;
+}
+
+interface AnalyticsRow extends QueryResultRow {
+  total_requests: string | number;
+  successful_requests: string | number;
+  no_result_requests: string | number;
+  unavailable_requests: string | number;
+  rate_limited_requests: string | number;
+  average_duration_ms: string | number;
+}
+
+interface ActionAnalyticsRow extends AnalyticsRow {
+  action_slug: string;
+  last_used_at: Date | string | null;
 }
 
 export interface PortalDraft {
@@ -196,6 +211,65 @@ export class PortalRepository {
   ): Promise<PortalAction | null> {
     const published = await this.getPublished(tenantId, tenantSlug);
     return published.config.actions.find((action) => action.enabled && action.slug === actionSlug) || null;
+  }
+
+  async getAnalytics(tenantId: string, windowDays = 30): Promise<PortalAnalytics> {
+    const days = Math.max(1, Math.min(Math.round(windowDays), 90));
+    return this.client.withTenantSession(tenantId, async (db) => {
+      const [summaryRow] = await db.query<AnalyticsRow>(
+        `SELECT COUNT(*) AS total_requests,
+                COUNT(*) FILTER (WHERE outcome = 'success') AS successful_requests,
+                COUNT(*) FILTER (WHERE outcome = 'no_results') AS no_result_requests,
+                COUNT(*) FILTER (WHERE outcome = 'unavailable') AS unavailable_requests,
+                COUNT(*) FILTER (WHERE outcome = 'rate_limited') AS rate_limited_requests,
+                COALESCE(ROUND(AVG(duration_ms)), 0) AS average_duration_ms
+           FROM supportv8.portal_action_events
+          WHERE created_at >= now() - ($1::integer * interval '1 day')
+            AND page_slug = $2`,
+        [days, PORTAL_PAGE_SLUG],
+      );
+      const rows = await db.query<ActionAnalyticsRow>(
+        `SELECT action_slug,
+                COUNT(*) AS total_requests,
+                COUNT(*) FILTER (WHERE outcome = 'success') AS successful_requests,
+                COUNT(*) FILTER (WHERE outcome = 'no_results') AS no_result_requests,
+                COUNT(*) FILTER (WHERE outcome = 'unavailable') AS unavailable_requests,
+                COUNT(*) FILTER (WHERE outcome = 'rate_limited') AS rate_limited_requests,
+                COALESCE(ROUND(AVG(duration_ms)), 0) AS average_duration_ms,
+                MAX(created_at) AS last_used_at
+           FROM supportv8.portal_action_events
+          WHERE created_at >= now() - ($1::integer * interval '1 day')
+            AND page_slug = $2
+          GROUP BY action_slug
+          ORDER BY COUNT(*) DESC, action_slug
+          LIMIT 20`,
+        [days, PORTAL_PAGE_SLUG],
+      );
+      const base = emptyPortalAnalytics(days);
+      const metric = (value: string | number | undefined) => Math.max(0, Number(value) || 0);
+      const action = (row: ActionAnalyticsRow): PortalActionAnalytics => ({
+        actionSlug: row.action_slug,
+        totalRequests: metric(row.total_requests),
+        successfulRequests: metric(row.successful_requests),
+        noResultRequests: metric(row.no_result_requests),
+        unavailableRequests: metric(row.unavailable_requests),
+        rateLimitedRequests: metric(row.rate_limited_requests),
+        averageDurationMs: metric(row.average_duration_ms),
+        lastUsedAt: iso(row.last_used_at),
+      });
+      return {
+        ...base,
+        summary: summaryRow ? {
+          totalRequests: metric(summaryRow.total_requests),
+          successfulRequests: metric(summaryRow.successful_requests),
+          noResultRequests: metric(summaryRow.no_result_requests),
+          unavailableRequests: metric(summaryRow.unavailable_requests),
+          rateLimitedRequests: metric(summaryRow.rate_limited_requests),
+          averageDurationMs: metric(summaryRow.average_duration_ms),
+        } : base.summary,
+        actions: rows.map(action),
+      };
+    });
   }
 
   async recordActionEvent(input: EventInput): Promise<void> {

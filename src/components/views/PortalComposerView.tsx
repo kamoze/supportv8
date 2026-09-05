@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+/* eslint-disable @next/next/no-img-element -- tenant-owned HTTPS image hosts are validated at publish time and cannot be enumerated at build time. */
+
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthService } from "@/lib/auth-service";
 import {
   actionHref,
@@ -10,6 +12,8 @@ import {
   type PortalConfig,
   type PortalSectionKey,
 } from "@/lib/portal/config";
+import type { PortalAnalytics } from "@/lib/portal/analytics";
+import { createPortalLoadGuard } from "@/lib/portal/load-guard";
 
 interface PortalComposerViewProps {
   tenantSlug: string;
@@ -21,6 +25,7 @@ type DraftPayload = {
   draftRevision: number;
   publishedRevision: number | null;
   publishedAt: string | null;
+  analytics?: PortalAnalytics | null;
 };
 
 const inputClass =
@@ -62,6 +67,28 @@ function slugify(value: string): string {
     .slice(0, 64);
 }
 
+function validHex(value: string, fallback: string): string {
+  return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+}
+
+function readableInk(hex: string): string {
+  const value = validHex(hex, "#2ED8B6").slice(1);
+  const [red, green, blue] = [0, 2, 4].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
+  return (red * 299 + green * 587 + blue * 114) / 1000 > 150 ? "#04110E" : "#FFFFFF";
+}
+
+function brandStyle(config: PortalConfig): CSSProperties & Record<string, string> {
+  const primary = validHex(config.branding.primaryColor, "#2ED8B6");
+  const accent = validHex(config.branding.accentColor, "#57E5C8");
+  return {
+    "--portal-primary": primary,
+    "--portal-accent": accent,
+    "--portal-primary-soft": `${primary}1F`,
+    "--portal-primary-border": `${primary}59`,
+    "--portal-on-primary": readableInk(primary),
+  };
+}
+
 async function portalApi(init?: RequestInit): Promise<DraftPayload> {
   const response = await AuthService.authenticatedFetch("/api/portal/admin", init);
   const body = await response.json().catch(() => ({}));
@@ -70,6 +97,7 @@ async function portalApi(init?: RequestInit): Promise<DraftPayload> {
 }
 
 export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewProps) {
+  const loadGuard = useRef(createPortalLoadGuard());
   const [config, setConfig] = useState<PortalConfig>(() => emptyPortalConfig(tenantSlug));
   const [draftRevision, setDraftRevision] = useState(0);
   const [publishedRevision, setPublishedRevision] = useState<number | null>(null);
@@ -78,29 +106,45 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAsset, setUploadingAsset] = useState<"logo" | "hero" | null>(null);
+  const [analytics, setAnalytics] = useState<PortalAnalytics | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
+    const isCurrent = loadGuard.current.begin();
     setLoading(true);
     setError("");
+    setConfig(emptyPortalConfig(tenantSlug));
+    setDraftRevision(0);
+    setPublishedRevision(null);
+    setPublishedAt(null);
+    setSelectedActionId(null);
+    setDirty(false);
+    setSaving(false);
+    setUploadingAsset(null);
+    setAnalytics(null);
     try {
       const data = await portalApi();
+      if (!isCurrent()) return;
       setConfig(data.config);
       setDraftRevision(data.draftRevision);
       setPublishedRevision(data.publishedRevision);
       setPublishedAt(data.publishedAt);
+      setAnalytics(data.analytics ?? null);
       setSelectedActionId(data.config.actions[0]?.id || null);
       setDirty(false);
     } catch (cause) {
+      if (!isCurrent()) return;
       setConfig(emptyPortalConfig(tenantSlug));
       setError(cause instanceof Error ? cause.message : "The portal could not be loaded.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [tenantSlug]);
 
   useEffect(() => {
     void load();
+    return () => loadGuard.current.invalidate();
   }, [load]);
 
   const selectedAction = useMemo(
@@ -113,6 +157,41 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
     setDirty(true);
     setError("");
   };
+
+  const changeBranding = (updates: Partial<PortalConfig["branding"]>) => {
+    changeConfig((current) => ({
+      ...current,
+      branding: { ...current.branding, ...updates },
+    }));
+  };
+
+  const uploadBrandAsset = async (kind: "logo" | "hero", file: File) => {
+    setUploadingAsset(kind);
+    setError("");
+    try {
+      const form = new FormData();
+      form.set("kind", kind);
+      form.set("file", file);
+      const response = await AuthService.authenticatedFetch("/api/portal/admin/media", {
+        method: "POST",
+        body: form,
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.success || typeof body.url !== "string") {
+        throw new Error(body.error || "The image could not be uploaded.");
+      }
+      changeBranding(kind === "logo" ? { logoUrl: body.url } : { heroImageUrl: body.url });
+      onNotify?.(`${kind === "logo" ? "Logo" : "Hero image"} uploaded to the portal CDN. Save or publish to apply it.`, "success");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The image could not be uploaded.");
+    } finally {
+      setUploadingAsset(null);
+    }
+  };
+
+  const successfulRate = analytics?.summary.totalRequests
+    ? Math.round((analytics.summary.successfulRequests / analytics.summary.totalRequests) * 100)
+    : 0;
 
   const saveDraft = async (): Promise<DraftPayload> => {
     setSaving(true);
@@ -237,6 +316,72 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
         </div>
       </div>
 
+      <div className="border-b border-[var(--line)] bg-[#0B1017] px-5 py-5 sm:px-7">
+        <section className="mx-auto max-w-[1480px]" aria-labelledby="portal-analytics-heading">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="portal-analytics-heading" className="text-base font-semibold">Portal activity</h2>
+              <p className="mt-1 text-sm text-[#8E9AA8]">Customer searches and published help-topic outcomes from the last {analytics?.windowDays || 30} days.</p>
+            </div>
+            {analytics && analytics.summary.totalRequests > 0 && (
+              <span className="text-xs text-[#6B7C8D]">Updated when this page loads</span>
+            )}
+          </div>
+
+          {analytics === null ? (
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#F5A623]/30 bg-[#F5A623]/8 px-4 py-3 text-sm text-[#F8D8A1]">
+              <i className="fi fi-rr-triangle-warning shrink-0" aria-hidden="true" />
+              <span>Analytics are temporarily unavailable. Portal editing and publishing are unaffected.</span>
+            </div>
+          ) : analytics.summary.totalRequests === 0 ? (
+            <div className="mt-4 flex items-center gap-3 border-y border-[var(--line)] py-4 text-sm text-[#8E9AA8]">
+              <i className="fi fi-rr-chart-histogram text-lg text-[#2ED8B6]" aria-hidden="true" />
+              <span>No portal activity yet. Results will appear after customers search or open a published help topic.</span>
+            </div>
+          ) : (
+            <>
+              <dl className="mt-4 grid overflow-hidden rounded-2xl border border-[var(--line)] bg-[#0E1520] sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ["Customer requests", analytics.summary.totalRequests.toLocaleString()],
+                  ["Successful outcomes", `${successfulRate}%`],
+                  ["No-result searches", analytics.summary.noResultRequests.toLocaleString()],
+                  ["Average response", analytics.summary.averageDurationMs < 1000 ? `${analytics.summary.averageDurationMs} ms` : `${(analytics.summary.averageDurationMs / 1000).toFixed(1)} s`],
+                ].map(([label, value], index) => (
+                  <div key={label} className={`px-4 py-3.5 ${index > 0 ? "border-t border-[var(--line)] sm:border-t-0 sm:[&:nth-child(2)]:border-l xl:border-l" : ""} ${index > 1 ? "sm:border-t xl:border-t-0" : ""}`}>
+                    <dt className="text-xs text-[#8E9AA8]">{label}</dt>
+                    <dd className="mt-1 text-xl font-semibold tabular-nums text-[#EAF1F8]">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              {analytics.actions.length > 0 && (
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-[var(--line)]">
+                  <table className="w-full min-w-[620px] text-left text-sm">
+                    <thead className="bg-[#0E1520] text-xs text-[#8E9AA8]">
+                      <tr><th className="px-4 py-3 font-medium">Entry point</th><th className="px-4 py-3 font-medium">Requests</th><th className="px-4 py-3 font-medium">Successful</th><th className="px-4 py-3 font-medium">No result</th><th className="px-4 py-3 font-medium">Unavailable</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--line)] bg-[#0B1017]">
+                      {analytics.actions.slice(0, 8).map((action) => {
+                        const configured = config.actions.find((item) => item.slug === action.actionSlug);
+                        const label = action.actionSlug === "__search__" ? "Knowledge search" : configured?.label || action.actionSlug;
+                        return (
+                          <tr key={action.actionSlug}>
+                            <th scope="row" className="px-4 py-3 font-medium text-[#EAF1F8]">{label}</th>
+                            <td className="px-4 py-3 tabular-nums text-[#B4C2D0]">{action.totalRequests}</td>
+                            <td className="px-4 py-3 tabular-nums text-[#57E5C8]">{action.successfulRequests}</td>
+                            <td className="px-4 py-3 tabular-nums text-[#B4C2D0]">{action.noResultRequests}</td>
+                            <td className="px-4 py-3 tabular-nums text-[#FF9A9E]">{action.unavailableRequests + action.rateLimitedRequests}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      </div>
+
       <div className="mx-auto grid max-w-[1480px] gap-7 px-5 py-6 sm:px-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <div className="min-w-0 space-y-8">
           {error && (
@@ -245,6 +390,80 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
               <button type="button" className="shrink-0 underline underline-offset-4" onClick={() => void load()}>Reload</button>
             </div>
           )}
+
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-base font-semibold">Brand appearance</h2>
+              <p className="mt-1 text-sm text-[#8E9AA8]">Upload portal artwork to tenant-scoped object storage. CloudFront serves the immutable public files.</p>
+            </div>
+            <div className="grid gap-4 rounded-2xl border border-[var(--line)] bg-[#0E1520] p-4 sm:grid-cols-2 sm:p-5">
+              {([
+                { kind: "logo" as const, label: "Logo", url: config.branding.logoUrl, help: "PNG, JPEG, or WebP · up to 2 MB", previewClass: "h-14 w-24 object-contain" },
+                { kind: "hero" as const, label: "Hero banner", url: config.branding.heroImageUrl, help: "Wide PNG, JPEG, or WebP · up to 8 MB", previewClass: "h-24 w-full object-cover" },
+              ]).map((asset) => (
+                <div key={asset.kind} className="rounded-xl border border-[var(--line)] bg-[#0B1017] p-4 sm:col-span-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-[#EAF1F8]">{asset.label}</h3>
+                      <p className="mt-1 text-xs text-[#6B7C8D]">{asset.help}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {asset.url && <button type="button" className="text-xs text-[#FF9A9E] underline underline-offset-4" onClick={() => changeBranding(asset.kind === "logo" ? { logoUrl: null } : { heroImageUrl: null })}>Remove</button>}
+                      <label className={`btn btn-secondary cursor-pointer ${uploadingAsset ? "pointer-events-none opacity-50" : ""}`}>
+                        <i className="fi fi-rr-cloud-upload-alt mr-2" aria-hidden="true" />
+                        {uploadingAsset === asset.kind ? "Uploading…" : asset.url ? "Replace" : "Upload"}
+                        <input
+                          type="file"
+                          className="sr-only"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={uploadingAsset !== null}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            if (file) void uploadBrandAsset(asset.kind, file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  {asset.url ? (
+                    <div className="mt-4 overflow-hidden rounded-xl border border-[#344354] bg-[#121A24] p-2">
+                      <img src={asset.url} alt={`Current ${asset.label.toLowerCase()}`} referrerPolicy="no-referrer" className={asset.previewClass} />
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex h-16 items-center justify-center rounded-xl border border-dashed border-[#344354] text-xs text-[#6B7C8D]">
+                      No {asset.label.toLowerCase()} uploaded
+                    </div>
+                  )}
+                </div>
+              ))}
+              {([
+                ["Primary color", "primaryColor"],
+                ["Accent color", "accentColor"],
+              ] as const).map(([label, key]) => (
+                <label key={key} className="text-sm text-[#B4C2D0]">
+                  {label}
+                  <span className="mt-1.5 flex items-center gap-2">
+                    <input
+                      type="color"
+                      aria-label={`${label} picker`}
+                      className="h-11 w-12 cursor-pointer rounded-lg border border-[#344354] bg-[#121A24] p-1"
+                      value={validHex(config.branding[key], key === "primaryColor" ? "#2ED8B6" : "#57E5C8")}
+                      onChange={(event) => changeBranding({ [key]: event.target.value.toUpperCase() })}
+                    />
+                    <input
+                      maxLength={7}
+                      pattern="#[0-9a-fA-F]{6}"
+                      aria-label={`${label} hex value`}
+                      className={`${inputClass} mt-0 font-mono uppercase`}
+                      value={config.branding[key]}
+                      onChange={(event) => changeBranding({ [key]: event.target.value.toUpperCase() })}
+                    />
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="space-y-4">
             <div>
@@ -423,16 +642,26 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
             <h2 className="text-sm font-semibold">Draft preview</h2>
             <span className="text-xs text-[#6B7C8D]">{tenantSlug}.support.servicev8.com</span>
           </div>
-          <div className="overflow-hidden rounded-[24px] border border-[#344354] bg-[#090E15] shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
+          <div style={brandStyle(config)} className="overflow-hidden rounded-[24px] border border-[#344354] bg-[#090E15] shadow-[0_18px_50px_rgba(0,0,0,0.34)]">
             <div className="flex items-center justify-between border-b border-[var(--line)] bg-[#0E1520] px-5 py-4">
-              <span className="text-sm font-semibold">{config.supportName}</span>
-              <span className="rounded-full border border-[#2ED8B6]/35 bg-[#2ED8B6]/10 px-2.5 py-1 text-[10px] text-[#57E5C8]">Support online</span>
+              <span className="flex min-w-0 items-center gap-2.5 text-sm font-semibold">
+                {config.branding.logoUrl && <img src={config.branding.logoUrl} alt="" referrerPolicy="no-referrer" className="h-8 w-8 shrink-0 rounded-lg object-contain" />}
+                <span className="truncate">{config.supportName}</span>
+              </span>
+              <span className="rounded-full border border-[var(--portal-primary-border)] bg-[var(--portal-primary-soft)] px-2.5 py-1 text-[10px] text-[var(--portal-accent)]">Support online</span>
             </div>
-            <div className="px-5 py-8 sm:px-7">
+            <div className="relative overflow-hidden px-5 py-8 sm:px-7">
+              {config.branding.heroImageUrl && (
+                <>
+                  <img src={config.branding.heroImageUrl} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
+                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,14,21,0.98)_0%,rgba(9,14,21,0.88)_58%,rgba(9,14,21,0.62)_100%)]" />
+                </>
+              )}
+              <div className="relative z-10">
               <h3 className="max-w-md text-2xl font-semibold tracking-tight text-white">{config.headline || "Your support headline"}</h3>
               <p className="mt-3 max-w-[58ch] text-sm leading-6 text-[#B4C2D0]">{config.introduction || "Your portal introduction appears here."}</p>
               {config.sections.search && (
-                <div className="mt-6 flex items-center gap-3 rounded-2xl border border-[#344354] bg-[#121A24] px-4 py-3 text-sm text-[#6B7C8D]">
+                <div className="mt-6 flex items-center gap-3 rounded-2xl border border-[#344354] bg-[#121A24]/95 px-4 py-3 text-sm text-[#8E9AA8]">
                   <i className="fi fi-rr-search" aria-hidden="true" />
                   <span>{config.searchPlaceholder || "Search published guidance"}</span>
                 </div>
@@ -445,7 +674,7 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
                       <p className="py-5 text-sm text-[#6B7C8D]">No help actions will be published.</p>
                     ) : config.actions.filter((action) => action.enabled).map((action) => (
                       <div key={action.id} className="flex items-center gap-3 py-3.5">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2ED8B6]/10 text-[#2ED8B6]"><i className={iconClass(action.icon)} aria-hidden="true" /></span>
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--portal-primary-soft)] text-[var(--portal-primary)]"><i className={iconClass(action.icon)} aria-hidden="true" /></span>
                         <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{action.label}</span><span className="block truncate text-xs text-[#8E9AA8]">{action.description}</span></span>
                         <i className="fi fi-rr-arrow-small-right text-[#6B7C8D]" aria-hidden="true" />
                       </div>
@@ -453,6 +682,7 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
           <p className="mt-3 text-xs leading-5 text-[#6B7C8D]">Preview content is not public until you publish. Previous published revisions remain unchanged while you edit.</p>

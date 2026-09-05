@@ -3,7 +3,7 @@ import { accountError, requireSameOrigin } from "@/lib/auth/account-error";
 import { AccountError, requireAccountManager } from "@/lib/auth/account-members";
 import { resolveRequestTenant } from "@/lib/auth/request-tenant";
 import { portalRepository, PortalRevisionConflictError } from "@/lib/db/portal-repository";
-import { parsePortalConfig, PortalConfigError } from "@/lib/portal/config";
+import { parsePortalConfigForTenant, PortalConfigError } from "@/lib/portal/config";
 
 function portalAdminError(error: unknown) {
   if (error instanceof PortalConfigError) {
@@ -26,7 +26,9 @@ export async function GET(request: Request) {
   try {
     const tenant = await resolveRequestTenant(request, { requireAuthentication: true });
     requireAccountManager(tenant);
-    return NextResponse.json({ success: true, ...(await portalRepository.getDraft(tenant.tenantId, tenant.tenantSlug)) });
+    const draft = await portalRepository.getDraft(tenant.tenantId, tenant.tenantSlug);
+    const analytics = await portalRepository.getAnalytics(tenant.tenantId).catch(() => null);
+    return NextResponse.json({ success: true, ...draft, analytics });
   } catch (error) {
     return portalAdminError(error);
   }
@@ -43,7 +45,7 @@ export async function PUT(request: Request) {
       tenantSlug: tenant.tenantSlug,
       actorId: tenant.userId!,
       expectedRevision: revision(body.expectedRevision),
-      config: parsePortalConfig(body.config),
+      config: parsePortalConfigForTenant(body.config, tenant.tenantId),
     });
     return NextResponse.json({ success: true, ...saved });
   } catch (error) {

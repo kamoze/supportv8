@@ -1,8 +1,17 @@
+import { portalMediaTenantSegment, type PortalMediaKind } from "@/lib/portal/media";
+
 export const PORTAL_PAGE_SLUG = "home";
 
 export type PortalActionMode = "answer" | "chat";
 export type PortalActionIcon = "tools" | "book" | "billing" | "shield" | "message" | "status";
 export type PortalSectionKey = "actions" | "search" | "tracker" | "channels";
+
+export interface PortalBranding {
+  logoUrl: string | null;
+  heroImageUrl: string | null;
+  primaryColor: string;
+  accentColor: string;
+}
 
 export interface PortalAction {
   id: string;
@@ -18,6 +27,7 @@ export interface PortalAction {
 
 export interface PortalConfig {
   schemaVersion: 1;
+  branding: PortalBranding;
   supportName: string;
   headline: string;
   introduction: string;
@@ -41,6 +51,13 @@ const TEXT_LIMITS = {
 
 const ACTION_ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const ACTION_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+const DEFAULT_BRANDING: PortalBranding = {
+  logoUrl: null,
+  heroImageUrl: null,
+  primaryColor: "#2ED8B6",
+  accentColor: "#57E5C8",
+};
 const ACTION_ICONS = new Set<PortalActionIcon>([
   "tools",
   "book",
@@ -70,6 +87,7 @@ export function emptyPortalConfig(tenantName: string): PortalConfig {
   const name = tenantDisplayName(tenantName);
   return {
     schemaVersion: 1,
+    branding: { ...DEFAULT_BRANDING },
     supportName: `${name} Support`,
     headline: `How can ${name} help?`,
     introduction: "Search published guidance, choose a support topic, or start a conversation with the support team.",
@@ -82,6 +100,57 @@ export function emptyPortalConfig(tenantName: string): PortalConfig {
       channels: true,
     },
     actions: [],
+  };
+}
+
+function optionalHttpsImage(value: unknown, field: string): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" || value.length > 2_048) {
+    throw new PortalConfigError(`${field} must be an HTTPS image URL.`);
+  }
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" || url.username || url.password || !url.hostname) throw new Error();
+    return url.toString();
+  } catch {
+    throw new PortalConfigError(`${field} must be an HTTPS image URL without embedded credentials.`);
+  }
+}
+
+function colorValue(value: unknown, field: string, fallback: string): string {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value !== "string" || !HEX_COLOR.test(value.trim())) {
+    throw new PortalConfigError(`${field} must be a 6-digit hex color such as #2ED8B6.`);
+  }
+  const normalized = value.trim().toUpperCase();
+  if (contrastRatio(normalized, "#090E15") < 3) {
+    throw new PortalConfigError(`${field} must remain visible against the dark portal background.`);
+  }
+  return normalized;
+}
+
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const [red, green, blue] = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  );
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+
+function contrastRatio(first: string, second: string): number {
+  const high = Math.max(relativeLuminance(first), relativeLuminance(second));
+  const low = Math.min(relativeLuminance(first), relativeLuminance(second));
+  return (high + 0.05) / (low + 0.05);
+}
+
+function brandingValue(value: unknown): PortalBranding {
+  if (value === undefined || value === null) return { ...DEFAULT_BRANDING };
+  const branding = record(value, "Portal branding");
+  return {
+    logoUrl: optionalHttpsImage(branding.logoUrl, "Logo URL"),
+    heroImageUrl: optionalHttpsImage(branding.heroImageUrl, "Hero image URL"),
+    primaryColor: colorValue(branding.primaryColor, "Primary color", DEFAULT_BRANDING.primaryColor),
+    accentColor: colorValue(branding.accentColor, "Accent color", DEFAULT_BRANDING.accentColor),
   };
 }
 
@@ -153,6 +222,7 @@ export function parsePortalConfig(value: unknown): PortalConfig {
 
   return {
     schemaVersion: 1,
+    branding: brandingValue(config.branding),
     supportName: textValue(config.supportName, "Support name", TEXT_LIMITS.supportName),
     headline: textValue(config.headline, "Headline", TEXT_LIMITS.headline),
     introduction: textValue(config.introduction, "Introduction", TEXT_LIMITS.introduction),
@@ -166,6 +236,50 @@ export function parsePortalConfig(value: unknown): PortalConfig {
     },
     actions,
   };
+}
+
+function assertTenantMediaUrl(
+  value: string | null,
+  field: string,
+  kind: PortalMediaKind,
+  tenantId: string,
+  cdnBaseUrl: string,
+): void {
+  if (!value) return;
+  let assetUrl: URL;
+  let cdnBase: URL;
+  try {
+    assetUrl = new URL(value);
+    cdnBase = new URL(cdnBaseUrl.endsWith("/") ? cdnBaseUrl : `${cdnBaseUrl}/`);
+  } catch {
+    throw new PortalConfigError(`${field} must use the SupportV8 media CDN.`);
+  }
+  if (
+    cdnBase.protocol !== "https:" ||
+    cdnBase.username ||
+    cdnBase.password ||
+    assetUrl.origin !== cdnBase.origin ||
+    assetUrl.search ||
+    assetUrl.hash
+  ) {
+    throw new PortalConfigError(`${field} must use the SupportV8 media CDN.`);
+  }
+  const tenantSegment = portalMediaTenantSegment(tenantId);
+  const expectedPrefix = new URL(`supportv8/portal/${tenantSegment}/${kind}/`, cdnBase).pathname;
+  if (!assetUrl.pathname.startsWith(expectedPrefix) || assetUrl.pathname.length <= expectedPrefix.length) {
+    throw new PortalConfigError(`${field} must belong to the current tenant.`);
+  }
+}
+
+export function parsePortalConfigForTenant(
+  value: unknown,
+  tenantId: string,
+  cdnBaseUrl = process.env.PORTAL_MEDIA_CDN_BASE_URL || "https://cdn.servicev8.com",
+): PortalConfig {
+  const config = parsePortalConfig(value);
+  assertTenantMediaUrl(config.branding.logoUrl, "Logo URL", "logo", tenantId, cdnBaseUrl);
+  assertTenantMediaUrl(config.branding.heroImageUrl, "Hero image URL", "hero", tenantId, cdnBaseUrl);
+  return config;
 }
 
 export function actionHref(action: Pick<PortalAction, "slug">): string {

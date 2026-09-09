@@ -13,6 +13,8 @@ describe("StudioMarketplaceHubView", () => {
     expect(html).toContain("Autonomous customer care reasoning, order resolution, and sentiment escalation.");
     expect(html).toContain('href="/api/voice/sophia/launch"');
     expect(html).toContain("Hire or configure Sophia");
+    expect(html).toContain("Free to hire");
+    expect(html).toContain("subscription allowance first, then purchased top-up credits");
     expect(html).not.toContain("sso_tk_");
     expect(html).not.toContain("Subscribe with Stripe");
     expect(html).not.toContain("Subscribed &amp; Active");

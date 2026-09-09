@@ -125,7 +125,7 @@ export function StudioMarketplaceHubView({
           </h2>
           <ol className="mt-5 space-y-5">
             {[
-              ["Hire", "Marketplace records the free demo entitlement and one canonical hire."],
+              ["Hire", "Free to hire. Voice usage consumes the account subscription allowance first, then purchased top-up credits."],
               ["Configure", "Workforce stores Sophia’s voice, support policy, and approved handoff behavior."],
               ["Activate", "Voice Agents activates inbound calls only after provider and SupportV8 readiness checks pass."],
             ].map(([title, description], index) => (

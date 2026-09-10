@@ -52,7 +52,7 @@ import {
   CornerDownRight,
   Download,
   ExternalLink,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type {
   Issue,
   SentimentClass,
@@ -245,7 +245,7 @@ export function FocusedWorkspaceView({
         onNotify(`Removed ticket ${extId} from front of line`, "info");
         return prev.filter((id) => id !== issueId);
       } else {
-        onNotify(`⚡ Ticket ${extId} moved to FRONT OF LINE triage queue`, "success");
+        onNotify(`Ticket ${extId} moved to FRONT OF LINE triage queue`, "success");
         setSelectedIssueId(issueId);
         return [issueId, ...prev.filter((id) => id !== issueId)];
       }
@@ -726,7 +726,7 @@ export function FocusedWorkspaceView({
       if (onDeductCredits) {
         onDeductCredits(20, "pgvector RAG vector embedding indexing");
       }
-      onNotify(`🧠 Ingested ticket ${selectedIssue.externalId} into Knowledge Base RAG corpus!`, "success");
+      onNotify(`Ingested ticket ${selectedIssue.externalId} into Knowledge Base RAG corpus!`, "success");
     } finally {
       setIsSavingRag(false);
     }
@@ -1449,7 +1449,7 @@ export function FocusedWorkspaceView({
                               ? "bg-[#F5A623] text-[#04201C] font-bold shadow-sm"
                               : "bg-[#141C26] text-[#8E9AA8] hover:text-[#F5A623] hover:bg-[#1C2838] border border-[var(--line-2)]"
                           }`}
-                          title={isFrontOfLine ? "Demote from front of line" : "⚡ Move to Front of Line"}
+                          title={isFrontOfLine ? "Demote from front of line" : "Move to Front of Line"}
                         >
                           <Zap className={`w-3 h-3 ${isFrontOfLine ? "fill-[#04201C]" : ""}`} />
                         </button>
@@ -1692,7 +1692,7 @@ export function FocusedWorkspaceView({
                       className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#2ED8B6]/20 via-[#4D9FFF]/15 to-[#2ED8B6]/20 hover:from-[#2ED8B6]/30 hover:to-[#4D9FFF]/30 border border-[#2ED8B6]/40 text-xs font-mono font-bold text-[#EAF1F8] flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
                     >
                       <Sparkles className={`w-4 h-4 text-[#2ED8B6] ${isSavingRag ? "animate-spin" : ""}`} />
-                      <span>{isSavingRag ? "Vectorizing into pgvector..." : "🧠 Save Resolution to Knowledge Base (RAG)"}</span>
+                      <span>{isSavingRag ? "Vectorizing into pgvector..." : "Save Resolution to Knowledge Base (RAG)"}</span>
                     </button>
                   )}
                 </div>
@@ -1707,11 +1707,11 @@ export function FocusedWorkspaceView({
                         onChange={(e) => handleUpdateSentiment(e.target.value as SentimentClass)}
                         className="bg-[#18222E] text-xs text-[#EAF1F8] rounded-lg px-2 py-1 border border-[var(--line-2)] focus:outline-none cursor-pointer w-full"
                       >
-                        <option value="positive">Positive 😊</option>
-                        <option value="neutral">Neutral 😐</option>
-                        <option value="frustrated">Frustrated 😟</option>
-                        <option value="angry">Angry 😡</option>
-                        <option value="urgent">Urgent 🚨</option>
+                        <option value="positive">Positive</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="frustrated">Frustrated</option>
+                        <option value="angry">Angry</option>
+                        <option value="urgent">Urgent</option>
                       </select>
                     </div>
                   </div>

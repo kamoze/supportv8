@@ -22,7 +22,8 @@ import {
   Phone,
   PhoneCall,
   Smartphone,
-} from "lucide-react";
+  Zap,
+} from "@/components/ui/FlatIcon";
 import type {
   ChatStreamType,
   CustomerChatMessage,
@@ -443,8 +444,9 @@ export function SupportChatWidget({
                       Work order dispatch, Lockbox PINs, GPS navigation, and site safety permits.
                     </p>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[9px] font-mono text-[#F5A623] bg-[#F5A623]/15 px-2 py-0.5 rounded font-bold">
-                        ⚡ Instant Dispatch
+                      <span className="inline-flex items-center gap-1 text-[9px] font-mono text-[#F5A623] bg-[#F5A623]/15 px-2 py-0.5 rounded font-bold">
+                        <Zap className="w-2.5 h-2.5" />
+                        Instant Dispatch
                       </span>
                       <span className="text-[9px] font-mono text-[#6B7C8D]">Mobile PIN Ready</span>
                     </div>

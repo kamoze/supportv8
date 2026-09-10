@@ -20,7 +20,7 @@ import {
   Server,
   Globe,
   Radio,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { MarketplaceConnector } from "@/lib/types/marketplace-types";
 
 interface MarketplaceConnectorsViewProps {

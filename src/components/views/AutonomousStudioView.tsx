@@ -28,7 +28,7 @@ import {
   User,
   SlidersHorizontal,
   Check,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { OperatingMode } from "@/lib/types";
 
 interface AutonomousStudioViewProps {

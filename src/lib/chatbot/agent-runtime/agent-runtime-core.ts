@@ -55,7 +55,7 @@ export class AgentRuntimeCore {
     const guardrailResult = Guardrails.evaluateInbound(payload.content, context);
 
     if (!guardrailResult.passed && guardrailResult.action === "block") {
-      const blockMsg = "⚠️ This inquiry cannot be processed as it touches prohibited compliance topics.";
+      const blockMsg = "This inquiry cannot be processed because it touches prohibited compliance topics.";
       await ConversationManager.appendMessage(payload.tenantId, payload.sessionId, {
         sender: "system",
         senderName: "Safety Guardrail",
@@ -75,7 +75,7 @@ export class AgentRuntimeCore {
         "Senior Support Lead",
         "urgent"
       );
-      const escMsg = "🚨 This conversation has been escalated to a live Senior Human Support Lead based on safety guardrails. A team member is joining now.";
+      const escMsg = "This conversation has been escalated to a live Senior Human Support Lead based on safety guardrails. A team member is joining now.";
       await ConversationManager.appendMessage(payload.tenantId, payload.sessionId, {
         sender: "system",
         senderName: "Supervisor Escalation",

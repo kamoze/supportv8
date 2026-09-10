@@ -11,7 +11,7 @@ import {
   Sparkles,
   Bot,
   Plus,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { MarketplaceWorkforceItem } from "@/lib/types/marketplace-types";
 
 interface MarketplaceWorkforceViewProps {

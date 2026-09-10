@@ -12,7 +12,7 @@ import {
   Search,
   CheckCircle2,
   X,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { ChatMessage } from "@/app/page";
 
 interface AskWorkspaceViewProps {

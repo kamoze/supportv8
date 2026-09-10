@@ -17,7 +17,7 @@ import {
   FileText,
   Clock,
   Layers,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 
 interface WorkforceAvatarProps {
   avatar?: string;
@@ -44,28 +44,28 @@ export function WorkforceAvatar({
   const getIcon = () => {
     const key = (avatar || "").toLowerCase() + " " + (name || "").toLowerCase() + " " + (role || "").toLowerCase();
 
-    if (key.includes("voice") || key.includes("sophia") || key.includes("🎙") || key.includes("mic") || key.includes("telephony")) {
+    if (key.includes("voice") || key.includes("sophia") || key.includes("mic") || key.includes("telephony")) {
       return <Mic className="w-full h-full" />;
     }
-    if (key.includes("brain") || key.includes("maya") || key.includes("analyst") || key.includes("impact") || key.includes("🧠")) {
+    if (key.includes("brain") || key.includes("maya") || key.includes("analyst") || key.includes("impact")) {
       return <Brain className="w-full h-full" />;
     }
-    if (key.includes("book") || key.includes("jordan") || key.includes("knowledge") || key.includes("kb") || key.includes("📚")) {
+    if (key.includes("book") || key.includes("jordan") || key.includes("knowledge") || key.includes("kb")) {
       return <BookOpen className="w-full h-full" />;
     }
     if (key.includes("tag") || key.includes("chip") || key.includes("categoriz")) {
       return <Tag className="w-full h-full" />;
     }
-    if (key.includes("stale") || key.includes("sweeper") || key.includes("broom") || key.includes("🧹")) {
+    if (key.includes("stale") || key.includes("sweeper") || key.includes("broom")) {
       return <Wrench className="w-full h-full" />;
     }
     if (key.includes("summar") || key.includes("note") || key.includes("digest")) {
       return <FileText className="w-full h-full" />;
     }
-    if (key.includes("triage") || key.includes("frontline") || key.includes("🎧") || key.includes("headphone")) {
+    if (key.includes("triage") || key.includes("frontline") || key.includes("headphone")) {
       return <Headphones className="w-full h-full" />;
     }
-    if (key.includes("manager") || key.includes("lead") || key.includes("alex") || key.includes("💼")) {
+    if (key.includes("manager") || key.includes("lead") || key.includes("alex")) {
       return <Briefcase className="w-full h-full" />;
     }
     if (isIntern) {

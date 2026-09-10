@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   FileCode,
   Plus,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import type { ChatStreamType } from "@/lib/types";
 import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
@@ -320,7 +320,8 @@ export function GovernanceSettingsView({
           <span className="text-xs font-mono text-[#B4C2D0] flex items-center gap-2">
             <span className="font-bold text-[#EAF1F8]">Active Compute &amp; Model Routing Mode:</span>
             <span className={`pill text-[10px] font-mono font-bold ${routingMode === "forgegw" ? "ok" : "warn"}`}>
-              {routingMode === "forgegw" ? "⚡ FORGEGW MANAGED ACTIVE" : "🔑 ENTERPRISE BYOM ACTIVE"}
+              {routingMode === "forgegw" ? <Zap className="w-3 h-3" /> : <Key className="w-3 h-3" />}
+              {routingMode === "forgegw" ? "FORGEGW MANAGED ACTIVE" : "ENTERPRISE BYOM ACTIVE"}
             </span>
           </span>
           <span className="text-[10px] text-[#6B7C8D] font-mono">ServiceV8 Multi-Model Governance</span>

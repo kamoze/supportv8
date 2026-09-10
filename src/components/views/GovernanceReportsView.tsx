@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lock,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { ComplianceAuditReport } from "@/lib/types/marketplace-types";
 
 interface GovernanceReportsViewProps {

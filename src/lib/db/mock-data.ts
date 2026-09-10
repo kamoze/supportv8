@@ -1020,7 +1020,7 @@ export const INITIAL_OVERVIEW_METRICS: OverviewMetrics = {
       assignedCount: 142,
       csat: 94.2,
       varr: 82.5,
-      avatar: "🤖",
+      avatar: "bot",
     },
     {
       id: "emp_2",
@@ -1030,7 +1030,7 @@ export const INITIAL_OVERVIEW_METRICS: OverviewMetrics = {
       assignedCount: 38,
       csat: 96.0,
       varr: 91.0,
-      avatar: "🧠",
+      avatar: "brain",
     },
     {
       id: "emp_3",
@@ -1040,7 +1040,7 @@ export const INITIAL_OVERVIEW_METRICS: OverviewMetrics = {
       assignedCount: 19,
       csat: 92.8,
       varr: 78.0,
-      avatar: "📚",
+      avatar: "book",
     },
   ],
 };
@@ -1325,7 +1325,7 @@ class SupportDatabase {
         assignedCount: this.issues.filter((i) => i.category === "checkout_failure" || i.category === "billing_invoice" || i.category === "auth_sso").length * 18 + 22,
         csat: csat,
         varr: varrRate,
-        avatar: "🤖",
+        avatar: "bot",
       },
       {
         id: "emp_2",
@@ -1335,7 +1335,7 @@ class SupportDatabase {
         assignedCount: this.issues.filter((i) => i.tags.includes("contractor") || i.category === "contractor_access").length * 15 + 14,
         csat: 96.0,
         varr: 88.5,
-        avatar: "🧠",
+        avatar: "brain",
       },
       {
         id: "emp_3",
@@ -1345,7 +1345,7 @@ class SupportDatabase {
         assignedCount: this.documents.length * 6 + this.gaps.length * 3 + 7,
         csat: 93.2,
         varr: 80.0,
-        avatar: "📚",
+        avatar: "book",
       },
     ];
 

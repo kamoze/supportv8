@@ -28,7 +28,7 @@ import {
   Maximize2,
   Minimize2,
   SlidersHorizontal,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { TenantAuditLog } from "@/lib/types/marketplace-types";
 
 interface GovernanceAuditLogsViewProps {

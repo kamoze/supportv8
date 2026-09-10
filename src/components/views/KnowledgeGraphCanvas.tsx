@@ -22,7 +22,7 @@ import {
   PhoneCall,
   CheckCircle2,
   AlertTriangle,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type {
   KnowledgeArticle,
   KnowledgeGap,

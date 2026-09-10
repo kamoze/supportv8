@@ -20,7 +20,7 @@ import {
   KeyRound,
   CheckCircle2,
   Smartphone,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { tenantSlugFromHostname } from "@/lib/auth/request-tenant";
 

@@ -825,14 +825,14 @@ export class ChatWorkflowService {
         existingIssue.sentiment = "urgent";
         existingIssue.status = "open";
         existingIssue.assignedTo = `${resolvedAdmin} (Support Lead)`;
-        existingIssue.recommendedAction = `🚨 Live Human Lead Escalation: Customer requested human operator. Assigned to ${resolvedAdmin}. Ready for operator takeover in Work Desk.`;
+        existingIssue.recommendedAction = `Live Human Lead Escalation: Customer requested human operator. Assigned to ${resolvedAdmin}. Ready for operator takeover in Work Desk.`;
       }
 
       const escalationMsg: CustomerChatMessage = {
         id: `msg_${Date.now()}_esc`,
         sender: "system",
         senderName: "System Safety Guardrail",
-        content: `🚨 Conversation Transferred to Live Human Operator: You are now connected with a Senior Support Lead (${resolvedAdmin}). An operator in the Work Desk is reviewing your transcript.`,
+        content: `Conversation Transferred to Live Human Operator: You are now connected with a Senior Support Lead (${resolvedAdmin}). An operator in the Work Desk is reviewing your transcript.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       session.messages.push(escalationMsg);
@@ -865,7 +865,7 @@ export class ChatWorkflowService {
         if (lowerContent.includes("refund") || lowerContent.includes("invoice") || lowerContent.includes("payment")) {
           aiContent = `I have verified your billing records on the OrderV8 ledger. Under our automated policy, transactions under $${activeGuardrails.maxAutonomousRefundAmount} qualify for instant refund or credit voucher. I have staged this refund action for immediate dispatch.`;
         } else if (lowerContent.includes("system status") || lowerContent.includes("health") || lowerContent.includes("uptime")) {
-          aiContent = `✅ **ServiceV8 System Health Status**: All microservices (OrderV8, WorkerV8, KnowledgeV8 RAG, and Twilio Telephony SIP Bridges) are fully operational with 99.99% uptime. Current API latency is 42ms with 0 active degradation incidents.`;
+          aiContent = `**ServiceV8 System Health Status**: All microservices (OrderV8, WorkerV8, KnowledgeV8 RAG, and Twilio Telephony SIP Bridges) are fully operational with 99.99% uptime. Current API latency is 42ms with 0 active degradation incidents.`;
         } else if (lowerContent.includes("log on") || lowerContent.includes("login") || lowerContent.includes("sign in") || lowerContent.includes("password") || lowerContent.includes("not working") || lowerContent.includes("cannot log")) {
           aiContent = `I have checked our identity and tenant gateway services. All authentication endpoints are healthy. If you are experiencing logon issues:
 1. Ensure you are accessing via your tenant slug (e.g. \`acme.support.servicev8.com\`).

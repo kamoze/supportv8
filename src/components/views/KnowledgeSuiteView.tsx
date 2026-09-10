@@ -29,7 +29,7 @@ import {
   Check,
   FolderPlus,
   BookOpen,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type {
   KnowledgeArticle,
   KnowledgeGap,

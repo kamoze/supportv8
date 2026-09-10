@@ -19,7 +19,7 @@ import {
   Sparkles,
   Check,
   Briefcase,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 
@@ -573,9 +573,10 @@ export function DemoAccessModal({
               type="button"
               onClick={handleQuickLaunch}
               disabled={isLoading}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-[var(--line-2)] hover:bg-[#18222E] text-[#B4C2D0] hover:text-[#EAF1F8] text-xs font-mono transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--line-2)] hover:bg-[#18222E] text-[#B4C2D0] hover:text-[#EAF1F8] text-xs font-mono transition-colors cursor-pointer disabled:opacity-50"
             >
-              Skip Form &amp; Quick Launch ⚡
+              <Zap className="w-3.5 h-3.5" />
+              Skip Form &amp; Quick Launch
             </button>
 
             {/* Primary Submit Button */}

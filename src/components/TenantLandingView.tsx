@@ -19,7 +19,7 @@ import {
   X,
   Copy,
   CheckCheck,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import type { ChatStreamType } from "@/lib/types";

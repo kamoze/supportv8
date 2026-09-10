@@ -108,7 +108,7 @@ describe("Omnichannel Chat Workflow & Group RBAC Engine", () => {
     expect(result.session.priority).toBe("urgent");
     expect(result.session.assignedType).toBe("human");
     expect(result.responseMessage?.sender).toBe("system");
-    expect(result.responseMessage?.content).toContain("🚨");
+    expect(result.responseMessage?.content).toContain("Transferred to Live Human Operator");
   });
 
   it("should manage RBAC groups and permissions", () => {

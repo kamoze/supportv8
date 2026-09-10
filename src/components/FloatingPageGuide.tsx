@@ -13,7 +13,7 @@ import {
   ExternalLink,
   MessageSquare,
   ArrowRight,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 
 export interface GuideEntry {
   label: string;

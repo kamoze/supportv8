@@ -26,7 +26,7 @@ import {
   Sparkles,
   UserCheck,
   AlertCircle,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { TenantMember } from "@/lib/types/marketplace-types";
 import type { MemberGroup, ChatStreamType } from "@/lib/types";
 import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";

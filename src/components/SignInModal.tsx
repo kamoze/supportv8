@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   KeyRound,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 

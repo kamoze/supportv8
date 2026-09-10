@@ -34,6 +34,7 @@ import {
   Gauge,
   Globe,
   HardHat,
+  Headphones,
   HeartPulse,
   Key,
   Layers,
@@ -78,7 +79,7 @@ import {
   Wrench,
   X,
   Zap,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import type {
   Issue,
@@ -858,7 +859,7 @@ export default function SupportV8Dashboard() {
         timeline: [event, ...(selectedIssue.timeline || [])],
       };
       await handleUpdateIssue(updated);
-      notify(`🧠 Indexed ticket ${selectedIssue.externalId} into KnowledgeV8 RAG corpus (Deducted 20 Credits)`, "success");
+      notify(`Indexed ticket ${selectedIssue.externalId} into KnowledgeV8 RAG corpus (Deducted 20 Credits)`, "success");
     } catch (err) {
       notify("Failed to index ticket into RAG corpus", "error");
     }
@@ -2172,7 +2173,7 @@ export default function SupportV8Dashboard() {
                 onClick={() => setIsChatOpen(true)}
                 className="btn btn-secondary w-full justify-start text-xs font-semibold cursor-pointer"
               >
-                <i className="fi fi-rr-comment-alt-dots text-sm text-[#2ED8B6]" />
+                <MessagesSquare className="w-3.5 h-3.5 text-[#2ED8B6]" />
                 <span className="flex-1 text-left">Ask supportV8</span>
                 <kbd className="bg-[#121A24] px-1 py-0.5 rounded text-[9px] text-[#6B7C8D] font-mono border border-[var(--line)]">
                   ⌘K
@@ -2183,8 +2184,9 @@ export default function SupportV8Dashboard() {
                   <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse"></span>
                   <div className="flex flex-col truncate">
                     <span className="truncate text-[#EAF1F8] font-bold">{operatorSession?.name || currentTenantSlug}</span>
-                    <span className="text-[9px] text-[#2ED8B6] uppercase tracking-wider font-semibold">
-                      {isContractorRole ? "🛠️ Contractor" : currentRole === "operator" ? "🎧 Operator" : "👑 CX Lead"}
+                    <span className="flex items-center gap-1 text-[9px] text-[#2ED8B6] uppercase tracking-wider font-semibold">
+                      {isContractorRole ? <HardHat className="w-2.5 h-2.5" /> : currentRole === "operator" ? <Headphones className="w-2.5 h-2.5" /> : <Award className="w-2.5 h-2.5" />}
+                      {isContractorRole ? "Contractor" : currentRole === "operator" ? "Operator" : "CX Lead"}
                     </span>
                   </div>
                 </div>
@@ -2205,7 +2207,7 @@ export default function SupportV8Dashboard() {
                 title="Ask supportV8 (⌘K)"
                 className="btn btn-secondary p-2 cursor-pointer text-[#2ED8B6]"
               >
-                <i className="fi fi-rr-comment-alt-dots text-base text-[#2ED8B6]" />
+                <MessagesSquare className="w-4 h-4 text-[#2ED8B6]" />
               </button>
               <button
                 onClick={handleLogout}
@@ -2326,7 +2328,7 @@ export default function SupportV8Dashboard() {
                 }`}
               >
                 <div className="w-6 h-6 rounded-lg bg-[#182635] border border-[var(--line-2)] flex items-center justify-center text-xs font-bold text-[#2ED8B6]">
-                  {isContractorRole ? "🛠️" : currentRole === "operator" ? "🎧" : "👑"}
+                  {isContractorRole ? <HardHat className="w-3.5 h-3.5" /> : currentRole === "operator" ? <Headphones className="w-3.5 h-3.5" /> : <Award className="w-3.5 h-3.5" />}
                 </div>
                 <div className="hidden lg:flex flex-col text-left text-xs font-mono">
                   <span className="font-bold text-[#EAF1F8] leading-tight truncate max-w-[110px]">
@@ -2376,14 +2378,15 @@ export default function SupportV8Dashboard() {
                           Switch Demo Persona ({currentTenantSlug})
                         </div>
                         {[
-                          { role: "contractor_lead", email: "dispatch@meridian.com", name: "Meridian Field Dispatch", slug: "meridian", icon: "🛠️", label: "Field Dispatch (Contractor)" },
-                          { role: "operator", email: "david.kim@acme.com", name: "David Kim", slug: "acme", icon: "🎧", label: "David Kim (Operator)" },
-                          { role: "cx_lead", email: "admin@acme.com", name: "Sarah Chen", slug: "acme", icon: "👑", label: "Sarah Chen (CX Lead)" },
-                          { role: "observer", email: "auditor@compliance.org", name: "Audit Officer", slug: "acme", icon: "👁️", label: "Compliance Auditor" },
+                          { role: "contractor_lead", email: "dispatch@meridian.com", name: "Meridian Field Dispatch", slug: "meridian", icon: HardHat, label: "Field Dispatch (Contractor)" },
+                          { role: "operator", email: "david.kim@acme.com", name: "David Kim", slug: "acme", icon: Headphones, label: "David Kim (Operator)" },
+                          { role: "cx_lead", email: "admin@acme.com", name: "Sarah Chen", slug: "acme", icon: Award, label: "Sarah Chen (CX Lead)" },
+                          { role: "observer", email: "auditor@compliance.org", name: "Audit Officer", slug: "acme", icon: Eye, label: "Compliance Auditor" },
                         ]
                           .filter((p) => p.slug === currentTenantSlug)
                           .map((p) => {
                             const isCurrent = currentRole === p.role;
+                            const PersonaIcon = p.icon;
                             return (
                               <button
                                 key={p.role}
@@ -2401,7 +2404,7 @@ export default function SupportV8Dashboard() {
                                 }`}
                               >
                                 <span className="flex items-center gap-2">
-                                  <span>{p.icon}</span>
+                                  <PersonaIcon className="w-3.5 h-3.5 text-[#2ED8B6]" />
                                   <span className="truncate">{p.label}</span>
                                 </span>
                                 {isCurrent && <Check className="w-3.5 h-3.5 text-[#2ED8B6]" />}

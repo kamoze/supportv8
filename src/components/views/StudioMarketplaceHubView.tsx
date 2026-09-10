@@ -27,7 +27,7 @@ import {
   Globe,
   DollarSign,
   Upload,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 
 interface StudioMarketplaceHubViewProps {

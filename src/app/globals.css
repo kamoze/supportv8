@@ -200,6 +200,24 @@
   display: inline-block;
 }
 
+/* One icon language across the product: Flaticon Uicons Regular Rounded. */
+.support-flat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  font-style: normal;
+  vertical-align: -0.08em;
+}
+
+.support-flat-icon::before {
+  display: block;
+  line-height: 1;
+}
+
 /* Eyebrows & Typography */
 .eyebrow {
   display: inline-block;

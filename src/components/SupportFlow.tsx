@@ -15,6 +15,7 @@ export function SupportFlow() {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const [reset, setReset] = useState(0);
+  const flowState = useRef({ nodes: anchors.map(([x, y]) => ({ x, y })), width: 620, time: 0, reset: 0 });
   const select = (index: number) => setActive(index % 3);
 
   useEffect(() => {
@@ -28,8 +29,15 @@ export function SupportFlow() {
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
-    let width = 620, frame = 0, previous = 0, time = 0, drag: number | null = null;
-    const nodes = anchors.map(([x, y]) => ({ x, y }));
+    const state = flowState.current;
+    if (state.reset !== reset) {
+      state.nodes = anchors.map(([x, y]) => ({ x, y }));
+      state.width = 620;
+      state.time = 0;
+      state.reset = reset;
+    }
+    let width = state.width, frame = 0, previous = 0, time = state.time, drag: number | null = null;
+    const nodes = state.nodes;
     const endpoints = [...svg.querySelectorAll<SVGGElement>(".support-endpoint")];
     const paths = [...svg.querySelectorAll<SVGPathElement>(".support-spoke")];
     const packets = [...svg.querySelectorAll<SVGGElement>(".support-packet")];
@@ -97,7 +105,12 @@ export function SupportFlow() {
     observer.observe(svg);
     document.addEventListener("visibilitychange", sync);
     resize(); sync();
-    return () => { observer.disconnect(); abort.abort(); cancelAnimationFrame(frame); document.removeEventListener("visibilitychange", sync); };
+    return () => {
+      // Pause and route selection replace listeners, not the user's layout or clock.
+      state.width = width;
+      state.time = time;
+      observer.disconnect(); abort.abort(); cancelAnimationFrame(frame); document.removeEventListener("visibilitychange", sync);
+    };
   }, [active, paused, reset]);
 
   return <section className="support-flow" aria-label="Illustrative support operations flow">

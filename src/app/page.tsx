@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { FamilyThemeToggle, groupSupportNavigation, useFamilyDialog } from "@/components/FamilyControls";
 import {
   Activity,
   AlertCircle,
@@ -276,6 +277,13 @@ export default function SupportV8Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const mobileRail = useFamilyDialog<HTMLElement>(isMobileSidebarOpen, () => setIsMobileSidebarOpen(false));
+  useEffect(() => {
+    const breakpoint = matchMedia("(min-width: 768px)");
+    const closeMobile = () => { if (breakpoint.matches) setIsMobileSidebarOpen(false); };
+    breakpoint.addEventListener("change", closeMobile);
+    return () => breakpoint.removeEventListener("change", closeMobile);
+  }, []);
   const [operatingMode, setOperatingMode] = useState<OperatingMode>("autonomous");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -2094,7 +2102,8 @@ export default function SupportV8Dashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
+    <div className="family-admin flex h-screen bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
+      <a className="family-skip" href="#support-workspace">Skip to workspace</a>
       {/* Toast Notification */}
       {actionNotice && (
         <div
@@ -2127,7 +2136,7 @@ export default function SupportV8Dashboard() {
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
-      <aside
+      <aside ref={mobileRail} id="support-navigation" aria-label="Application navigation" data-mobile-open={isMobileSidebarOpen}
         className={`fixed inset-y-0 left-0 z-30 flex h-screen w-64 shrink-0 flex-col border-r border-[var(--line)] bg-[#0C121A] transition-all duration-200 ease-in-out md:relative md:translate-x-0 ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
         } ${isSidebarCollapsed ? "md:w-[72px]" : "md:w-64"}`}
@@ -2139,14 +2148,17 @@ export default function SupportV8Dashboard() {
             type="button"
             onClick={() => setIsMobileSidebarOpen(false)}
             className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#6B7C8D] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
-            title="Close navigation"
+            title="Close navigation" aria-label="Close navigation"
           >
             <X className="h-4 w-4" />
           </button>
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="btn btn-secondary hidden cursor-pointer p-1.5 text-[#6B7C8D] hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:inline-flex"
-            title={isSidebarCollapsed ? "Maximize Sidebar (Expand)" : "Minimize Sidebar (Collapse)"}
+            title={isSidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-label={isSidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-expanded={!isSidebarCollapsed}
+            aria-controls="support-navigation"
           >
             {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
           </button>
@@ -2154,7 +2166,7 @@ export default function SupportV8Dashboard() {
 
         {/* Scrollable Navigation Sections */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-4">
-          {navSections.map((section, sIdx) => (
+          {groupSupportNavigation(navSections, isContractorRole).map((section, sIdx) => (
             <div key={sIdx} className="space-y-1">
               {!isSidebarCollapsed ? (
                 <div className="px-2.5 pt-2 pb-1 text-[10px] font-bold text-[#6B7C8D] uppercase tracking-wider font-mono">
@@ -2169,6 +2181,8 @@ export default function SupportV8Dashboard() {
                 return !isSidebarCollapsed ? (
                   <button
                     key={item.id}
+                    aria-label={item.label}
+                    aria-current={isActive ? "page" : undefined}
                     onClick={() => {
                       setActiveTab(item.id);
                       setIsMobileSidebarOpen(false);
@@ -2180,7 +2194,7 @@ export default function SupportV8Dashboard() {
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <i className={`${item.flaticon} text-sm ${isActive ? "text-[#2ED8B6]" : "text-[#6B7C8D]"}`} />
+                      <item.icon aria-hidden="true" className="w-4 h-4" />
                       <span className="truncate">{item.label}</span>
                     </div>
                     {item.badge !== undefined && item.badge > 0 && (
@@ -2192,6 +2206,8 @@ export default function SupportV8Dashboard() {
                 ) : (
                   <button
                     key={item.id}
+                    aria-label={item.label}
+                    aria-current={isActive ? "page" : undefined}
                     onClick={() => {
                       setActiveTab(item.id);
                       setIsMobileSidebarOpen(false);
@@ -2203,7 +2219,7 @@ export default function SupportV8Dashboard() {
                         : "text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] border border-transparent"
                     }`}
                   >
-                    <i className={`${item.flaticon} text-base ${isActive ? "text-[#2ED8B6]" : "text-[#6B7C8D]"}`} />
+                    <item.icon aria-hidden="true" className="w-4 h-4" />
                     {item.badge !== undefined && item.badge > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#F5A623] ring-2 ring-[#0C121A]" />
                     )}
@@ -2234,17 +2250,17 @@ export default function SupportV8Dashboard() {
                   <div className="flex flex-col truncate">
                     <span className="truncate text-[#EAF1F8] font-bold">{operatorSession?.name || currentTenantSlug}</span>
                     <span className="text-[9px] text-[#2ED8B6] uppercase tracking-wider font-semibold">
-                      {isContractorRole ? "🛠️ Contractor" : currentRole === "operator" ? "🎧 Operator" : "👑 CX Lead"}
+                      {isContractorRole ? "Contractor" : currentRole === "operator" ? "Operator" : "CX Lead"}
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={handleLogout}
-                  title="Sign out of Cockpit"
+                  title="Sign out of Cockpit" aria-label="Sign out of Cockpit"
                   className="text-[#E5484D] hover:text-[#FF7575] hover:bg-[#E5484D]/10 px-1.5 py-0.5 rounded transition-colors cursor-pointer flex items-center gap-1 text-[10px]"
                 >
                   <LogOut className="w-3 h-3" />
-                  <span>Exit</span>
+                  <span>Sign out</span>
                 </button>
               </div>
             </>
@@ -2259,7 +2275,7 @@ export default function SupportV8Dashboard() {
               </button>
               <button
                 onClick={handleLogout}
-                title="Sign out of Cockpit"
+                title="Sign out of Cockpit" aria-label="Sign out of Cockpit"
                 className="p-2 text-[#E5484D] hover:bg-[#E5484D]/15 rounded-lg transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
@@ -2272,19 +2288,19 @@ export default function SupportV8Dashboard() {
       {/* ========================================================================= */}
       {/* MAIN VIEWPORT (STICKY TOPBAR + SCROLLABLE DASHBOARD VIEW) */}
       {/* ========================================================================= */}
-      <div
+      <div id="support-workspace" tabIndex={-1}
         className={`flex-1 flex flex-col min-w-0 h-screen bg-[#0B1017] ${
           activeTab === "ask" || activeTab === "workspace" ? "overflow-hidden" : "overflow-y-auto"
         }`}
       >
         {/* Optimized Sticky Topbar Header */}
-        <header className="sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 select-none">
+        <header className="family-header sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 select-none">
           {/* Left: Breadcrumbs & Active Tenant Tag */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
               type="button"
               aria-label="Open navigation"
-              onClick={() => setIsMobileSidebarOpen(true)}
+              onClick={() => { setIsSidebarCollapsed(false); setIsMobileSidebarOpen(true); }}
               className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#8E9AA8] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
             >
               <PanelLeftOpen className="h-4 w-4" />
@@ -2292,7 +2308,7 @@ export default function SupportV8Dashboard() {
             <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
               <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
                 <span className="text-white font-extrabold text-sm">support</span>
-                <span className="text-[#2ED8B6] font-mono font-extrabold text-sm tracking-[-0.02em] ml-0.5">V8</span>
+                <span className="text-[#2ED8B6] font-mono font-extrabold text-sm tracking-[-0.02em] ml-0.5">v8</span>
               </span>
               <span className="text-[#6B7C8D] font-mono">/</span>
               <span className="text-[#EAF1F8] font-bold font-mono text-xs truncate max-w-[130px] sm:max-w-[200px]">
@@ -2306,6 +2322,7 @@ export default function SupportV8Dashboard() {
             </span>
           </div>
 
+          <FamilyThemeToggle />
           {/* Center: Autonomy Mode & ForgeGW Credits Capsule */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
             {/* Autonomy Mode Selector */}
@@ -2524,8 +2541,8 @@ export default function SupportV8Dashboard() {
         <main
           className={
             activeTab === "ask" || activeTab === "workspace"
-              ? "flex-1 flex flex-col min-h-0 w-full overflow-hidden"
-              : "flex-1 p-4 sm:p-6 md:p-8 max-w-[1680px] w-full mx-auto space-y-6"
+              ? "family-main flex-1 flex flex-col min-h-0 w-full overflow-hidden"
+              : "family-main flex-1 p-4 sm:p-6 md:p-8 w-full space-y-6"
           }
         >
         {/* ========================================================================= */}

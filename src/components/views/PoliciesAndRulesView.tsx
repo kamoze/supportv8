@@ -27,7 +27,7 @@ import {
   Layers,
   HelpCircle,
   X,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { SupportPolicy, PolicyRule, OperatingMode } from "@/lib/types";
 
 interface PoliciesAndRulesViewProps {

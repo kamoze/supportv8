@@ -66,7 +66,7 @@ html[data-family-theme="light"] .family-wordmark>span { color:#476d00; }
 .family-auth>div { border-radius:8px;box-shadow:0 18px 70px #0005; }
 .family-auth input { min-width:0;font-size:16px;min-height:44px;border-radius:5px; }
 .family-auth :is(button,a) { min-height:44px; }
-.family-auth button:has(>svg:only-child) { min-width:44px; }
+.family-auth button:has(>:is(svg,i):only-child) { min-width:44px; }
 html[data-family-theme="light"] .btn-primary { color:#fff; }
 html[data-family-theme="light"] .family-public .btn-primary { color:#152000; }
 .family-admin { width:100%;max-width:none; }
@@ -99,7 +99,7 @@ html[data-family-theme="light"] .family-public .btn-primary { color:#152000; }
   .family-auth>div>div { padding-inline:20px; }
   .family-auth>div { max-height:calc(100dvh - 24px); }
   .family-signup-steps { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
-  .family-signup-steps>svg { display:none; }
+  .family-signup-steps>:is(svg,i) { display:none; }
   .family-admin>aside[data-mobile-open="false"] { visibility:hidden; }
   .family-admin>aside button { min-height:44px; }
   .family-admin :is(input,textarea,select) { font-size:16px; }

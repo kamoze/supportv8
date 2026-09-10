@@ -1,6 +1,7 @@
 // Local release QA only. All API requests are intercepted; no calls, accounts or records are created.
-// Install the optional QA runner with: npm install --no-save --package-lock=false @playwright/test@1.61.0
-import { chromium, expect } from "@playwright/test";
+// Install @playwright/test@1.61.0 in a separate temporary directory, never in this locked production install.
+// Set SUPPORT_PLAYWRIGHT_MODULE to its absolute node_modules/@playwright/test/index.mjs path.
+const { chromium, expect } = await import(process.env.SUPPORT_PLAYWRIGHT_MODULE || "@playwright/test");
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
@@ -20,6 +21,8 @@ async function surface(role, issues = []) {
   if (role) await page.addInitScript(value => sessionStorage.setItem("sv8_operator_session", JSON.stringify(value)), session(role));
   await page.route("**/*", async route => {
     const request = route.request(), url = new URL(request.url());
+    // Current production main uses these read-only public icon font assets.
+    if (url.origin === "https://cdn-uicons.flaticon.com" && ["stylesheet", "font"].includes(request.resourceType())) return route.continue();
     if (url.origin !== base) return route.fulfill({ status: 200, contentType: "text/css", body: "" });
     if (!url.pathname.startsWith("/api/")) return route.continue();
     if (request.method() !== "GET") posts.push({ path: url.pathname, body: request.postDataJSON() });
@@ -45,6 +48,7 @@ async function check(name, fn, page) {
 const noOverflow = async page => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
 const capture = async (page, name) => {
   // Existing utility transitions take 150–200ms; capture the settled theme.
+  await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(250);
   return page.screenshot({ path: path.join(out, name + ".png") });
 };

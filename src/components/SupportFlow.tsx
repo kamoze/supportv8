@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowRight, Pause, Play, RotateCcw } from "lucide-react";
+import { ArrowRight, Pause, Play, RotateCcw } from "@/components/ui/FlatIcon";
 
 // Approved family direction: a full-width support hub, not operational telemetry.
 // Customer chat, tickets and field work carry issue/evidence/resolution through

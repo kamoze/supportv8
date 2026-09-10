@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "@/components/ui/FlatIcon";
 
 export function FamilyThemeToggle() {
   const [light, setLight] = useState(false);

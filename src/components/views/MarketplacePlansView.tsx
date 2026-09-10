@@ -11,7 +11,7 @@ import {
   ArrowRight,
   Clock,
   Layers,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 import type { MarketplacePlan } from "@/lib/types/marketplace-types";
 
 interface MarketplacePlansViewProps {

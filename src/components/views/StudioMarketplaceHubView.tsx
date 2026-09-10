@@ -10,7 +10,7 @@ import {
   PhoneCall,
   ShieldCheck,
   SlidersHorizontal,
-} from "lucide-react";
+} from "@/components/ui/FlatIcon";
 
 interface StudioMarketplaceHubViewProps {
   tenantId?: string;

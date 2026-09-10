@@ -8,6 +8,7 @@ import {
   requirePersistentMutationRole,
 } from "@/lib/chatbot/security/ingress-security";
 import type { Issue, SentimentClass, SourceType } from "@/lib/types";
+import { requireSameOrigin } from "@/lib/auth/account-error";
 
 const hasDurableDatabase = () => Boolean(process.env.DATABASE_URL);
 
@@ -121,6 +122,29 @@ export async function POST(req: NextRequest) {
     }
 
     requirePersistentMutationRole(tenant);
+    if (action === "create_manual") {
+      requireSameOrigin(req);
+      const { customerName, customerEmail = "", summary, stream = "customers", priority = "normal", channel = "manual_entry" } = body;
+      if (typeof customerName !== "string" || !customerName.trim() || customerName.length > 255 ||
+          typeof summary !== "string" || !summary.trim() || summary.length > 5000 ||
+          typeof customerEmail !== "string" || customerEmail.length > 254 ||
+          (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) ||
+          !["customers", "contractors", "enquiries"].includes(stream) || !ISSUE_PRIORITIES.has(priority) ||
+          !["web_chat", "email", "manual_entry", "field_dispatch"].includes(channel)) {
+        return NextResponse.json({ success: false, error: "Enter a customer name, summary, valid email (if provided), stream, and priority." }, { status: 400 });
+      }
+      if (!hasDurableDatabase()) throw new ChatIngressError("Ticket storage is unavailable. Your ticket has not been saved; please try again.", 503);
+      const session = await chatRepository.startSession({
+        tenantId: tenant.tenantId, tenantSlug: tenant.tenantSlug, stream,
+        customerName: customerName.trim(), customerEmail: customerEmail.trim(),
+        intakeData: { details: summary.trim(), origin: "operator_workdesk", ingressChannel: channel },
+        channel: channel === "email" ? "email" : channel === "field_dispatch" ? "voice" : "web",
+        manual: { operatorName: tenant.displayName || "Support operator", priority },
+      });
+      const [issue] = await chatRepository.listChatIssues(tenant.tenantId, session.id);
+      if (!issue) throw new Error("Ticket was saved but could not be loaded. Refresh Workdesk before retrying.");
+      return NextResponse.json({ success: true, data: issue }, { status: 201 });
+    }
     const issue = issueService.createFromInteraction({ ...body, tenant: tenant.tenantSlug });
     return NextResponse.json({
       success: true,

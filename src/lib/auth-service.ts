@@ -95,7 +95,7 @@ export const AuthService = {
     if (typeof window === "undefined") return;
     try {
       this.discardSession();
-      void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(() => undefined);
+      void fetch("/api/auth/logout", { method: "POST", redirect: "error", credentials: "same-origin" }).catch(() => undefined);
     } catch (_) {}
   },
 
@@ -109,7 +109,7 @@ export const AuthService = {
   ): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
     try {
       const res = await fetch("/api/auth/login", {
-        method: "POST",
+        method: "POST", redirect: "error",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, tenantSlug }),
@@ -135,7 +135,7 @@ export const AuthService = {
   ): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
     try {
       const response = await fetch("/api/auth/demo", {
-        method: "POST",
+        method: "POST", redirect: "error",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantSlug }),
@@ -160,7 +160,7 @@ export const AuthService = {
     refreshInFlight = (async () => {
       try {
         const response = await fetch("/api/auth/refresh", {
-          method: "POST",
+          method: "POST", redirect: "error",
           credentials: "same-origin",
         });
         const payload = await response.json().catch(() => ({}));
@@ -180,7 +180,7 @@ export const AuthService = {
   },
 
   async authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-    const requestInit = { ...init, credentials: "same-origin" as const };
+    const requestInit = { ...init, credentials: "same-origin" as const, redirect: "error" as const };
     let response = await fetch(input, requestInit);
     if (response.status !== 401) return response;
 

@@ -86,6 +86,11 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-servicev8-tenant-domain", tenantDomain);
   response.headers.set("x-servicev8-vertical", "supportv8");
+  if (["/accept-invite", "/signup"].includes(url.pathname)) {
+    response.headers.set("Content-Security-Policy", "connect-src 'self'; form-action 'self'; frame-src 'none'; base-uri 'self'; frame-ancestors 'self'");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("Cache-Control", "no-store");
+  }
 
   return response;
 }

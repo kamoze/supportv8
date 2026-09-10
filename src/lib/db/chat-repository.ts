@@ -99,6 +99,7 @@ export interface StartChatInput {
   intakeData: Record<string, string>;
   sessionId?: string;
   channel?: "web" | "email" | "whatsapp" | "voice";
+  manual?: { operatorName: string; priority: PriorityLevel };
 }
 
 export interface SendChatMessageInput {
@@ -390,8 +391,10 @@ export class ChatRepository {
   constructor(private readonly client: PostgresClient = pgClient) {}
 
   async startSession(input: StartChatInput): Promise<CustomerChatSession> {
-    const assignment = assignmentForTenant(input.tenantSlug, input.stream);
-    const priority = priorityFromIntake(input.intakeData);
+    const assignment = input.manual
+      ? { type: "human" as const, id: "human_support_queue", name: "Available online operator", avatar: "", groupId: `group_${input.stream}` }
+      : assignmentForTenant(input.tenantSlug, input.stream);
+    const priority = input.manual?.priority || priorityFromIntake(input.intakeData);
     const suffix = randomUUID().replace(/-/g, "");
     const requestedSessionId = input.sessionId?.trim();
     const sessionId =
@@ -481,11 +484,11 @@ export class ChatRepository {
         id: userMessageId,
         tenantId: input.tenantId,
         sessionId,
-        senderType: "customer",
-        senderName: input.customerName,
+        senderType: input.manual ? "operator" : "customer",
+        senderName: input.manual?.operatorName || input.customerName,
         content: initialContent,
       });
-      await insertMessage(db, {
+      if (!input.manual) await insertMessage(db, {
         id: greetingMessageId,
         tenantId: input.tenantId,
         sessionId,
@@ -509,6 +512,14 @@ export class ChatRepository {
         },
       });
 
+      if (input.manual) {
+        await db.query(`UPDATE supportv8.issues SET timeline = $2::jsonb WHERE id = $1`, [issueId, JSON.stringify([{
+          id: `tl_${suffix}`, timestamp: new Date().toISOString(), actor: input.manual.operatorName,
+          actorType: "human_operator", action: "Ticket created on behalf of customer",
+          details: `Customer: ${input.customerName}`,
+        }])]);
+      }
+
       await db.query(
         `INSERT INTO supportv8.workdesk_items
            (tenant_id, session_id, issue_id, status, priority, assigned_group_id)
@@ -519,7 +530,7 @@ export class ChatRepository {
         `INSERT INTO supportv8.chat_outbox
            (tenant_id, aggregate_type, aggregate_id, event_type, payload)
          VALUES ($1, 'chat_session', $2, 'chat.session.created', $3::jsonb)`,
-        [input.tenantId, sessionId, JSON.stringify({ sessionId, issueId, messageIds: [userMessageId, greetingMessageId] })]
+        [input.tenantId, sessionId, JSON.stringify({ sessionId, issueId, messageIds: input.manual ? [userMessageId] : [userMessageId, greetingMessageId] })]
       );
 
       const sessionPage = await loadSession(db, sessionId);
@@ -862,7 +873,7 @@ export class ChatRepository {
     });
   }
 
-  async listChatIssues(tenantId: string): Promise<Issue[]> {
+  async listChatIssues(tenantId: string, sessionId?: string): Promise<Issue[]> {
     return this.client.withTenantSession(tenantId, async (db) => {
       const rows = await db.query<IssueRow>(
         `SELECT i.id, i.tenant_id, i.external_id, i.source_url, i.customer_ref,
@@ -874,9 +885,9 @@ export class ChatRepository {
                 i.created_at, i.updated_at, s.intake_data
            FROM supportv8.issues i
            JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
-          WHERE i.source = 'chat'
+          WHERE i.source = 'chat' AND ($1::text IS NULL OR s.id = $1::text)
           ORDER BY i.updated_at DESC
-          LIMIT 500`
+          LIMIT 500`, [sessionId || null]
       );
       return rows.map((row) => {
         const metadata = ((row.intake_data || {}).__supportv8 || {}) as Partial<SessionMetadata>;

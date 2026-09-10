@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
           if (kcErr?.name === "KeycloakUserExists") {
             throw new SignupProvisioningError(
               409,
-              `An account with email '${cleanEmail}' already exists in Keycloak IdP.`
+              "An account with that email already exists. Please sign in or recover your password."
             );
           }
           if (productionIdentityRequired || process.env.KEYCLOAK_ADMIN_CLIENT_SECRET) {

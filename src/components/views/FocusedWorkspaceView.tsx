@@ -278,6 +278,9 @@ export function FocusedWorkspaceView({
   const [newSummary, setNewSummary] = useState("");
   const [newCategory, setNewCategory] = useState("customers");
   const [newPriority, setNewPriority] = useState<PriorityLevel>("normal");
+  const [newCustomerEmail, setNewCustomerEmail] = useState("");
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [createTicketError, setCreateTicketError] = useState("");
   const [newChannel, setNewChannel] = useState<string>("web_chat");
 
   // CSV Import State
@@ -1042,54 +1045,35 @@ export function FocusedWorkspaceView({
   };
 
   // Create Manual Ticket
-  const handleCreateManualTicket = (e: React.FormEvent) => {
+  const handleCreateManualTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creatingTicket) return;
     if (!newCustName.trim() || !newSummary.trim()) {
       onNotify("Please provide both customer name and summary", "error");
       return;
     }
 
-    const seqNumber = Math.floor(1000 + Math.random() * 9000);
-    const newId = `iss_${Date.now()}`;
-    const newExtId = `SV8-TK-${seqNumber}`;
-
-    const newTicket: Issue = {
-      id: newId,
-      tenantId: "tenant_default",
-      externalId: newExtId,
-      source: "chat",
-      sourceUrl: "https://support.servicev8.com/tickets/" + newExtId,
-      customerRef: "cust_" + Math.random().toString(36).substring(2, 7),
-      entityType: newCategory === "contractors" ? "contractor" : "customer",
-      customerName: newCustName,
-      customerTier: "standard",
-      summary: newSummary,
-      category: newCategory === "contractors" ? "contractor_dispatch" : "general_support",
-      product: "Platform Support",
-      version: "3.2.0",
-      status: "open",
-      sourceStatus: "open",
-      priority: newPriority,
-      sentiment: "neutral",
-      sentimentScore: 0.1,
-      sentimentTrajectory: "stable",
-      confidence: 0.95,
-      businessImpact: "medium",
-      resolutionRiskScore: 0.2,
-      recommendedAction: "Review customer request and assign appropriate support engineer.",
-      tags: ["manual_ingest", newCategory],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (onCreateIssue) {
-      onCreateIssue(newTicket);
-    }
-    setSelectedIssueId(newId);
-    setIsNewTicketModalOpen(false);
-    setNewCustName("");
-    setNewSummary("");
-    onNotify(`Created ticket ${newExtId} with unique sequence number`, "success");
+    setCreatingTicket(true);
+    setCreateTicketError("");
+    try {
+      const response = await AuthService.authenticatedFetch("/api/issues", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_manual", customerName: newCustName,
+          customerEmail: newCustomerEmail, summary: newSummary, stream: newCategory,
+          priority: newPriority, channel: newChannel }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success || !payload.data) throw new Error(payload.error || "Ticket could not be saved. Please try again.");
+      onCreateIssue?.(payload.data);
+      setSelectedIssueId(payload.data.id);
+      setIsNewTicketModalOpen(false);
+      setNewCustName("");
+      setNewCustomerEmail("");
+      setNewSummary("");
+      onNotify(`Created ticket ${payload.data.externalId}`, "success");
+    } catch (error) {
+      setCreateTicketError(error instanceof Error ? error.message : "Ticket could not be saved. Please try again.");
+    } finally { setCreatingTicket(false); }
   };
 
   // CSV Import Parse
@@ -2572,16 +2556,18 @@ export function FocusedWorkspaceView({
       {/* ========================================================================= */}
       {isNewTicketModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col">
+          <div role="dialog" aria-modal="true" aria-labelledby="create-ticket-title" className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto bg-[#0E1520] border border-[var(--line-2)] rounded-3xl shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col">
             <div className="px-6 py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Plus className="w-4 h-4 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">
-                  Create New Direct Ingest Ticket
+                <h3 id="create-ticket-title" className="text-sm font-bold text-[#EAF1F8]">
+                  Create customer ticket
                 </h3>
               </div>
               <button
                 type="button"
+                aria-label="Close create ticket"
+                disabled={creatingTicket}
                 onClick={() => setIsNewTicketModalOpen(false)}
                 className="p-1 rounded-lg text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
               >
@@ -2590,11 +2576,14 @@ export function FocusedWorkspaceView({
             </div>
 
             <form onSubmit={handleCreateManualTicket} className="p-6 space-y-4 text-xs font-mono">
+              {createTicketError && <p role="alert" className="text-[#FF7373]">{createTicketError}</p>}
               <div className="space-y-1">
                 <label className="text-[#B4C2D0] block">Customer / Organization Name</label>
                 <input
                   type="text"
                   value={newCustName}
+                  maxLength={255}
+                  aria-label="Customer or organization name"
                   onChange={(e) => setNewCustName(e.target.value)}
                   placeholder="e.g. Apex Global Logistics"
                   required
@@ -2602,10 +2591,16 @@ export function FocusedWorkspaceView({
                 />
               </div>
 
+              <label className="block space-y-1 text-[#B4C2D0]">
+                <span>Customer email (optional)</span>
+                <input type="email" value={newCustomerEmail} maxLength={254} onChange={e => setNewCustomerEmail(e.target.value)} className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-base text-[#EAF1F8]" />
+              </label>
               <div className="space-y-1">
                 <label className="text-[#B4C2D0] block">Summary &amp; Problem Statement</label>
                 <textarea
                   value={newSummary}
+                  maxLength={5000}
+                  aria-label="Summary and problem statement"
                   onChange={(e) => setNewSummary(e.target.value)}
                   placeholder="Describe the client issue or work order requirements..."
                   rows={3}
@@ -2618,6 +2613,7 @@ export function FocusedWorkspaceView({
                 <div className="space-y-1">
                   <label className="text-[#B4C2D0] block">Stream Type</label>
                   <select
+                    aria-label="Stream type"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none"
@@ -2631,6 +2627,7 @@ export function FocusedWorkspaceView({
                 <div className="space-y-1">
                   <label className="text-[#B4C2D0] block">Priority</label>
                   <select
+                    aria-label="Priority"
                     value={newPriority}
                     onChange={(e) => setNewPriority(e.target.value as PriorityLevel)}
                     className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none"
@@ -2646,6 +2643,7 @@ export function FocusedWorkspaceView({
               <div className="space-y-1">
                 <label className="text-[#B4C2D0] block">Ingress Channel</label>
                 <select
+                  aria-label="Ingress channel"
                   value={newChannel}
                   onChange={(e) => setNewChannel(e.target.value)}
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none"
@@ -2660,6 +2658,7 @@ export function FocusedWorkspaceView({
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-[var(--line)]">
                 <button
                   type="button"
+                  disabled={creatingTicket}
                   onClick={() => setIsNewTicketModalOpen(false)}
                   className="btn btn-secondary px-4 py-2 text-xs cursor-pointer"
                 >
@@ -2667,9 +2666,10 @@ export function FocusedWorkspaceView({
                 </button>
                 <button
                   type="submit"
+                  disabled={creatingTicket}
                   className="btn btn-primary px-6 py-2 text-xs font-bold cursor-pointer"
                 >
-                  Create &amp; Assign Ticket
+                  {creatingTicket ? "Saving ticket…" : "Create ticket"}
                 </button>
               </div>
             </form>

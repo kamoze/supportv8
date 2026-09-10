@@ -7,6 +7,14 @@ const TRUSTED_ROOT_HOSTS = new Set([
 ]);
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
+/** Authentication navigation is constructed locally, never from a provider URL. */
+export function supportWorkspaceUrl(tenantSlug: string, path: "/" | "/accept-invite" = "/") {
+  if (!TENANT_SLUG_PATTERN.test(tenantSlug) || ["www", "support", "localhost"].includes(tenantSlug)) {
+    throw new Error("Invalid workspace address.");
+  }
+  return new URL(path, `https://${tenantSlug}.support.servicev8.com`);
+}
+
 function hostnameWithoutPort(rawHostname: string): string {
   return rawHostname.trim().toLowerCase().replace(/:\d+$/, "");
 }

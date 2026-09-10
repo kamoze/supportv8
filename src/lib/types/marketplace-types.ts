@@ -60,7 +60,7 @@ export interface TenantMember {
   id: string;
   name: string;
   email: string;
-  role: "Owner / CX Director" | "CX Operations Lead" | "Tier 2 Escalation Agent" | "Security & Compliance Auditor";
+  role: "Owner / CX Director" | "CX Operations Lead" | "Tier 2 Escalation Agent" | "Security & Compliance Auditor" | "Contractor Lead" | "Field Technician" | "No SupportV8 Access";
   status: "active" | "invited" | "disabled";
   twoFactorEnabled: boolean;
   lastActive: string;

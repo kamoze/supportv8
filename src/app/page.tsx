@@ -124,10 +124,12 @@ import { MarketplaceWorkforceView } from "@/components/views/MarketplaceWorkforc
 import { MarketplacePlansView } from "@/components/views/MarketplacePlansView";
 import { GovernanceSettingsView } from "@/components/views/GovernanceSettingsView";
 import { GovernanceMembersView } from "@/components/views/GovernanceMembersView";
+import { OperatorProfileEditor } from "@/components/OperatorProfileEditor";
 import { GovernanceReportsView } from "@/components/views/GovernanceReportsView";
 import { GovernanceAuditLogsView } from "@/components/views/GovernanceAuditLogsView";
 import { AutonomousStudioView } from "@/components/views/AutonomousStudioView";
 import { KnowledgeSuiteView } from "@/components/views/KnowledgeSuiteView";
+import { PortalComposerView } from "@/components/views/PortalComposerView";
 import { PoliciesAndRulesView } from "@/components/views/PoliciesAndRulesView";
 import { FloatingPageGuide } from "@/components/FloatingPageGuide";
 import { GlobalLandingView } from "@/components/GlobalLandingView";
@@ -236,6 +238,7 @@ export default function SupportV8Dashboard() {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
   const [targetDemoSlug, setTargetDemoSlug] = useState<string>("acme");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
   const loadedTenantSlugRef = useRef<string | null>(null);
   const tenantFetchGenerationRef = useRef(0);
   const pendingIssueUpdatesRef = useRef(new Set<string>());
@@ -273,6 +276,7 @@ export default function SupportV8Dashboard() {
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [operatingMode, setOperatingMode] = useState<OperatingMode>("autonomous");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -931,6 +935,23 @@ export default function SupportV8Dashboard() {
       window.removeEventListener("sv8_ticket_created", handleTicketCreated);
     };
   }, []);
+
+  // Presence is an expiring server-side lease, never a seeded roster or browser toggle.
+  useEffect(() => {
+    if (viewMode !== "cockpit" || !operatorSession || operatorSession.role === "observer") return;
+    let inFlight = false;
+    const heartbeat = async () => {
+      if (inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
+      try { await AuthService.authenticatedFetch("/api/presence", { method: "POST" }); }
+      catch { /* No fabricated presence on network failure; the lease expires. */ }
+      finally { inFlight = false; }
+    };
+    void heartbeat();
+    const interval = setInterval(() => { void heartbeat(); }, 30_000);
+    document.addEventListener("visibilitychange", heartbeat);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", heartbeat); };
+  }, [viewMode, operatorSession?.token, currentTenantSlug, operatorSession?.role]);
 
   // Real-time polling for new tickets in Cockpit view
   useEffect(() => {
@@ -1769,6 +1790,13 @@ export default function SupportV8Dashboard() {
           roles: ["operator", "cx_lead", "superadmin", "observer"],
         },
         {
+          id: "portal_composer",
+          label: "Support Portal",
+          icon: LayoutDashboard,
+          flaticon: "fi fi-rr-browser",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
           id: "stale_work",
           label: "Work Sweep",
           icon: Clock,
@@ -2071,7 +2099,7 @@ export default function SupportV8Dashboard() {
       {/* Toast Notification */}
       {actionNotice && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg border shadow-xl flex items-center gap-3 ${
+          className={`fixed bottom-4 left-4 right-4 z-50 flex items-center gap-3 rounded-lg border px-4 py-3 shadow-xl sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-md sm:px-5 ${
             actionNotice.type === "success"
               ? "bg-[#121A24] border-[#2ED8B6]/50 text-[#2ED8B6]"
               : actionNotice.type === "error"
@@ -2092,17 +2120,33 @@ export default function SupportV8Dashboard() {
       {/* ========================================================================= */}
       {/* SIDEBAR NAVIGATION (COLLAPSIBLE MIN / MAX PANEL) */}
       {/* ========================================================================= */}
+      {isMobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-20 bg-black/60 md:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
       <aside
-        className={`relative flex flex-col shrink-0 bg-[#0C121A] border-r border-[var(--line)] transition-all duration-200 ease-in-out z-30 select-none h-screen ${
-          isSidebarCollapsed ? "w-[72px]" : "w-64"
-        }`}
+        className={`fixed inset-y-0 left-0 z-30 flex h-screen w-64 shrink-0 flex-col border-r border-[var(--line)] bg-[#0C121A] transition-all duration-200 ease-in-out md:relative md:translate-x-0 ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } ${isSidebarCollapsed ? "md:w-[72px]" : "md:w-64"}`}
       >
         {/* Sidebar Header with SupportV8 Logo & Min/Max Toggle */}
         <div className={`p-4 border-b border-[var(--line)] flex items-center ${isSidebarCollapsed ? "justify-center flex-col gap-2" : "justify-between"}`}>
           <SupportV8Logo size={32} showText={!isSidebarCollapsed} />
           <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#6B7C8D] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
+            title="Close navigation"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="btn btn-secondary p-1.5 cursor-pointer text-[#6B7C8D] hover:text-[#EAF1F8] hover:border-[#2ED8B6]"
+            className="btn btn-secondary hidden cursor-pointer p-1.5 text-[#6B7C8D] hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:inline-flex"
             title={isSidebarCollapsed ? "Maximize Sidebar (Expand)" : "Minimize Sidebar (Collapse)"}
           >
             {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
@@ -2126,7 +2170,10 @@ export default function SupportV8Dashboard() {
                 return !isSidebarCollapsed ? (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setIsMobileSidebarOpen(false);
+                    }}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                       isActive
                         ? "bg-[#2ED8B6]/12 text-[#2ED8B6] border border-[#2ED8B6]/40 shadow-sm font-semibold"
@@ -2146,7 +2193,10 @@ export default function SupportV8Dashboard() {
                 ) : (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setIsMobileSidebarOpen(false);
+                    }}
                     title={item.label}
                     className={`relative w-10 h-10 mx-auto flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                       isActive
@@ -2233,6 +2283,14 @@ export default function SupportV8Dashboard() {
         <header className="sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 select-none">
           {/* Left: Breadcrumbs & Active Tenant Tag */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              aria-label="Open navigation"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#8E9AA8] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
             <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
               <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
                 <span className="text-white font-extrabold text-sm">support</span>
@@ -2356,20 +2414,21 @@ export default function SupportV8Dashboard() {
                       </div>
                     </div>
 
-                    <a
-                      href="https://keycloak.servicev8.com/realms/supportv8/account/"
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileEditorOpen(true)}
                       className="flex items-center justify-between gap-3 rounded-xl p-2.5 text-[#B4C2D0] transition-colors hover:bg-[#141C26] hover:text-[#EAF1F8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2ED8B6]"
                     >
                       <span className="min-w-0">
                         <span className="block font-semibold">Edit operator name</span>
                         <span className="block truncate text-[10px] text-[#6B7C8D]">
-                          Set a nickname or first name · applies next sign-in
+                          Set your first name or nickname
                         </span>
                       </span>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#2ED8B6]" />
-                    </a>
+                    </button>
+                    {isProfileEditorOpen && operatorSession && <OperatorProfileEditor
+                      session={operatorSession} onSaved={setOperatorSession} onClose={() => setIsProfileEditorOpen(false)} />}
 
                     {/* Persona Switcher List: ONLY rendered for official demo sandboxes (acme / meridian) */}
                     {(currentTenantSlug === "acme" || currentTenantSlug === "meridian") && (
@@ -2683,7 +2742,7 @@ export default function SupportV8Dashboard() {
                     <span className="text-[#2ED8B6] font-bold">0.8ms Avg Latency</span>
                   </div>
                   <div className="flex justify-between pt-1">
-                    <span className="text-[#6B7C8D]">Keycloak SSO Gate</span>
+                    <span className="text-[#6B7C8D]">Workspace authentication</span>
                     <span className="text-[#2ED8B6] font-bold">Multi-tenant Active</span>
                   </div>
                 </div>
@@ -5963,6 +6022,14 @@ export default function SupportV8Dashboard() {
           />
         )}
 
+        {activeTab === "portal_composer" && (
+          <PortalComposerView
+            key={currentTenantSlug}
+            tenantSlug={currentTenantSlug}
+            onNotify={(message, type) => notify(message, type || "success")}
+          />
+        )}
+
         {/* ========================================================================= */}
         {/* TAB: STALE WORK SWEEPER (GROWTHV8 SWEEPER) */}
         {/* ========================================================================= */}
@@ -6199,6 +6266,7 @@ export default function SupportV8Dashboard() {
         {/* ========================================================================= */}
         {activeTab === "gov_members" && (
           <GovernanceMembersView
+            key={currentTenantSlug}
             members={members}
             onOpenInviteModal={() => setIsInviteModalOpen(true)}
             onUpdateMember={(updated) => {

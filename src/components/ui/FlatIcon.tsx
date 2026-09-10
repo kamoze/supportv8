@@ -125,6 +125,7 @@ export const MapPin = createFlatIcon("fi-rr-marker", "MapPin");
 export const Maximize2 = createFlatIcon("fi-rr-expand", "Maximize2");
 export const Meh = createFlatIcon("fi-rr-meh", "Meh");
 export const MessageSquare = createFlatIcon("fi-rr-comment-alt", "MessageSquare");
+export const MessageSquareText = createFlatIcon("fi-rr-comment-alt-dots", "MessageSquareText");
 export const MessagesSquare = createFlatIcon("fi-rr-comments", "MessagesSquare");
 export const Mic = createFlatIcon("fi-rr-microphone", "Mic");
 export const Minimize2 = createFlatIcon("fi-rr-compress", "Minimize2");

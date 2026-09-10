@@ -149,21 +149,17 @@ describe("Omnichannel Chat Workflow & Group RBAC Engine", () => {
     });
 
     expect(session.assignedType).toBe("human");
+    expect(session.assignedId).toBe("human_support_queue");
+    expect(session.assignedName).toBe("Available online operator");
     expect(session.messages[1].content).toContain("operator work desk");
 
     // Restore to ai_first
     ChatWorkflowService.updateGuardrails({ defaultChatRouting: "ai_first" });
   });
 
-  it("should toggle human staff online presence", () => {
-    const staff = ChatWorkflowService.listStaffPresence();
-    expect(staff.length).toBeGreaterThan(0);
-
-    const targetEmail = "alex.cx@servicev8.com";
-    const toggled = ChatWorkflowService.toggleStaffOnline(targetEmail, false);
-    expect(toggled.isOnline).toBe(false);
-
-    const restored = ChatWorkflowService.toggleStaffOnline(targetEmail, true);
-    expect(restored.isOnline).toBe(true);
+  it("cannot fabricate online staff through the legacy service", () => {
+    expect(ChatWorkflowService.listStaffPresence()).toEqual([]);
+    expect(() => ChatWorkflowService.toggleStaffOnline("alex.cx@servicev8.com", true)).toThrow("authenticated presence");
+    expect(ChatWorkflowService.listStaffPresence()).toEqual([]);
   });
 });

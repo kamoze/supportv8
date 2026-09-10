@@ -219,7 +219,7 @@ export function TenantLandingView({
   };
 
   return (
-    <div style={portalStyle(config)} className="min-h-screen bg-[#090E15] text-[#EAF1F8] selection:bg-[#2ED8B6]/30 selection:text-white">
+    <div style={portalStyle(config)} className="family-tenant min-h-screen bg-[#090E15] text-[#EAF1F8] selection:bg-[#2ED8B6]/30 selection:text-white">
       <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[#0B1017]/95 px-5 py-3.5 backdrop-blur-md sm:px-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">

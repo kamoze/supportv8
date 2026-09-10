@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   KeyRound,
 } from "@/components/ui/FlatIcon";
+import { useFamilyDialog } from "@/components/FamilyControls";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 
@@ -95,6 +96,8 @@ export function SignInModal({
       setDebugOtpCode("");
     }
   }, [isOpen, lockedTenantSlug, initialTenantSlug, initialEmail]);
+
+  const dialogRef = useFamilyDialog(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -252,8 +255,8 @@ export function SignInModal({
     .join(" ");
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+    <div className="family-auth fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Workspace sign in" className="w-full max-w-xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
           <div className="flex items-center gap-3.5">
@@ -278,6 +281,7 @@ export function SignInModal({
 
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-1.5 rounded-xl text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -287,14 +291,14 @@ export function SignInModal({
         {/* Modal Body */}
         <div className="p-8 overflow-y-auto space-y-5">
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
+            <div role="alert" className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 text-[#E5484D] shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
+            <div role="status" className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[#2ED8B6] shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -335,7 +339,7 @@ export function SignInModal({
                     </span>
                     <span className="text-xs text-[#6B7C8D] font-mono">.support.servicev8.com</span>
                   </label>
-                  <input
+                  <input aria-label="Workspace"
                     type="text"
                     value={tenantSlug}
                     onChange={(e) => setTenantSlug(e.target.value)}
@@ -352,7 +356,7 @@ export function SignInModal({
                   <Mail className="w-4 h-4 text-[#4D9FFF]" />
                   <span>Work Email</span>
                 </label>
-                <input
+                <input aria-label="Work email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -383,7 +387,7 @@ export function SignInModal({
                   </button>
                 </label>
                 <div className="relative">
-                  <input
+                  <input aria-label="Password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -422,7 +426,7 @@ export function SignInModal({
                   <div className="px-4 py-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] text-sm font-mono font-bold text-[#EAF1F8] select-none tracking-widest">
                     {captchaNum1} + {captchaNum2} = ?
                   </div>
-                  <input
+                  <input aria-label="Security verification answer"
                     type="number"
                     value={captchaAnswer}
                     onChange={(e) => {
@@ -460,7 +464,7 @@ export function SignInModal({
                   <Mail className="w-4 h-4 text-[#4D9FFF]" />
                   <span>Registered Work Email</span>
                 </label>
-                <input
+                <input aria-label="Registered work email"
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
@@ -504,7 +508,7 @@ export function SignInModal({
                     Resend Code
                   </button>
                 </label>
-                <input
+                <input aria-label="6-digit verification code"
                   type="text"
                   maxLength={6}
                   value={forgotOtp}
@@ -523,7 +527,7 @@ export function SignInModal({
                   <span>New Password (min. 6 chars)</span>
                 </label>
                 <div className="relative">
-                  <input
+                  <input aria-label="New password"
                     type={showNewPassword ? "text" : "password"}
                     value={forgotNewPassword}
                     onChange={(e) => setForgotNewPassword(e.target.value)}
@@ -547,7 +551,7 @@ export function SignInModal({
                   <Lock className="w-4 h-4 text-[#F5A623]" />
                   <span>Confirm New Password</span>
                 </label>
-                <input
+                <input aria-label="Confirm new password"
                   type={showNewPassword ? "text" : "password"}
                   value={forgotConfirmPassword}
                   onChange={(e) => setForgotConfirmPassword(e.target.value)}

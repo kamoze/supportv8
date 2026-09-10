@@ -71,6 +71,7 @@ workflows:
               only:
                 - main
                 - master
+                - codex/family-refresh-20260910
       - push-image:
           context:
             - servicev8-prod

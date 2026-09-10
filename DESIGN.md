@@ -599,3 +599,18 @@ The system uses **hairline + soft drop**. Cards float above the off-white canvas
 - Animation timings (orb drift, waveform pulse, hero entrance) out of scope.
 - In-product surfaces (voice library editor, agent playground) only partially captured via marketing mockups.
 - Form validation states beyond focus not visible on captured surfaces.
+
+## Approved production family refresh — 2026-09-10
+
+This scoped addendum records the approved servicev8 family release for supportv8. It supersedes conflicting marketing-reference typography/material guidance above for the changed global landing, tenant/auth chrome and admin shell; unrelated product workflows remain unchanged.
+
+- Identity: lowercase supportv8, four equal squares, lime `#c8ff00` left and incumbent mint `#2ED8B6` / cyan `#00F2FE` right. Original SVG component and favicon are preserved under `docs/brand-backups/2026-09-10/`.
+- Ground/material: flat ink surfaces, one-pixel boundaries and functional selected-state color. The original system sans remains primary; existing operational mono labels remain. No new font dependency. Compact controls use 5px corners, cards 6px, dialogs 8px.
+- Type: the centered hero uses a fluid 38–68px heading, 17px introduction and 14px actions. Existing lower factual content is retained rather than replaced with prototype claims.
+- Light-mode access tones: `#427000` focus outline, `#476d00` v8 text, `#152000` text on lime. White text on the dark light-mode teal primary control preserves contrast. Dialog-only shadow uses `#0005`; no ambient decorative canvas remains.
+- Mechanism: a full-width support hub receives Customer chat, Tickets and Field work, then routes through supportv8 to Support team, Work orders and Knowledge. Issue/Evidence/Resolution packets take 15 seconds, pause when hidden, and start static with reduced motion. Native path buttons and keyboard-movable SVG endpoints provide alternatives to dragging. The diagram is explicitly illustrative, never live telemetry.
+- Shell: existing role-filtered destinations are regrouped without new actions; full-width work area, left rail collapse, mobile drawer with Escape/focus containment, local light/dark preference and the incumbent Sign out callback. The existing resolution pane minimizes/maximizes only when an issue exists; mobile Queue/Details/Actions remain the existing navigation.
+- Authentication and tenancy stay first-party and server-owned. Dialog semantics, accessible input names, focus return and responsive layout supplement the existing field requirements, OTP/recovery handlers and tenant-lock behavior.
+- Proof: `test/family-refresh.test.tsx` pins incumbent auth handlers and complete role-filtered menu source; `scripts/family-qa.mjs` exercises the actual production render path with explicitly local intercepted API fixtures at 390/768/1440/2560px. No prototype handlers or mock records are added to production.
+
+Impeccable's one mechanical pass returned 13 advisory palette/type/radius documentation findings only. The deliberate family values are recorded above; they are not new system primitives for unrelated product views. Final screenshot, interaction and verification evidence lives in the controller's `servicev8-family-preview/release-reports/support.md`. Independent release review, CI and deployed health remain controller gates.

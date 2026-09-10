@@ -23,5 +23,6 @@ describe("Work Desk empty queue", () => {
     expect(html).toContain("No active conversations yet");
     expect(html).toContain("New Ticket");
     expect(html).toContain("Import CSV");
+    expect(html).not.toContain("family-context-controls");
   });
 });

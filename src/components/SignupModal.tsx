@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Smartphone,
 } from "@/components/ui/FlatIcon";
+import { useFamilyDialog } from "@/components/FamilyControls";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { browserTenantSlugFromHostname as tenantSlugFromHostname, supportWorkspaceUrl } from "@/lib/tenant-host";
 
@@ -110,6 +111,8 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
     }
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  const dialogRef = useFamilyDialog(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -365,8 +368,8 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-3xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+    <div className="family-auth fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Create support workspace" className="w-full max-w-3xl bg-[#0E1520] border border-[var(--line-2)] rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="px-8 py-5 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between">
           <div className="flex items-center gap-3.5">
@@ -379,6 +382,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-1.5 rounded-xl text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -386,7 +390,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         </div>
 
         {/* Stepper Progress */}
-        <div className="px-8 py-3 bg-[#0B1017] border-b border-[var(--line)] flex items-center justify-between text-xs font-mono">
+        <div className="family-signup-steps px-8 py-3 bg-[#0B1017] border-b border-[var(--line)] flex items-center justify-between text-xs font-mono">
           <div className={`flex items-center gap-2 ${step >= 1 ? "text-[#2ED8B6] font-bold" : "text-[#6B7C8D]"}`}>
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 1 ? "bg-[#2ED8B6] text-[#090E15]" : "bg-[#18222E]"}`}>1</span>
             <span>Organization</span>
@@ -411,7 +415,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
         {/* Modal Body */}
         <div className="p-8 overflow-y-auto space-y-6">
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
+            <div role="alert" className="p-3.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
               <AlertCircle className="w-4 h-4 text-[#E5484D] shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -425,7 +429,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   <Building2 className="w-4 h-4 text-[#2ED8B6]" />
                   <span>Organization Name</span>
                 </label>
-                <input
+                <input aria-label="Organization name"
                   type="text"
                   value={companyName}
                   onChange={(e) => handleCompanyNameChange(e.target.value)}
@@ -443,7 +447,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 <div className="flex items-center">
                   <input
                     type="text"
-                    value={slug}
+                    aria-label="Subdomain slug" value={slug}
                     onChange={(e) => {
                       setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
                       if (errorMsg) setErrorMsg("");
@@ -523,7 +527,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   </label>
                   <input
                     type="text"
-                    value={adminName}
+                    aria-label="Administrator name" value={adminName}
                     onChange={(e) => setAdminName(e.target.value)}
                     placeholder="Alex Vance"
                     required
@@ -538,7 +542,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   </label>
                   <input
                     type="email"
-                    value={adminEmail}
+                    aria-label="Corporate work email" value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
                     placeholder="alex@company.com"
                     required
@@ -554,7 +558,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     <span>Master Password</span>
                   </label>
                   <div className="relative">
-                    <input
+                    <input aria-label="Password"
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -585,7 +589,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                       </span>
                     )}
                   </label>
-                  <input
+                  <input aria-label="Confirm password"
                     type={showPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -624,7 +628,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   <div className="px-4 py-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] text-sm font-mono font-bold text-[#EAF1F8] select-none tracking-widest">
                     {captchaNum1} + {captchaNum2} = ?
                   </div>
-                  <input
+                  <input aria-label="Security verification answer"
                     type="number"
                     value={captchaAnswer}
                     onChange={(e) => {
@@ -669,7 +673,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               )}
 
               <div className="space-y-2">
-                <input
+                <input aria-label="Email verification code"
                   type="text"
                   maxLength={6}
                   value={otpCode}

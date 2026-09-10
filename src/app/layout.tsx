@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./family.css";
+import "./family-legacy-tokens.css";
 
 export const metadata: Metadata = {
-  title: "supportV8 — AI Customer Support Intelligence & Automation",
+  title: "supportv8 — AI Customer Support Intelligence & Automation",
   description: "Enterprise AI customer support intelligence, interaction, and governed automation layer for ServiceV8.",
   icons: {
     icon: [
@@ -19,8 +21,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <script src="/family-theme.js" />
         <meta name="theme-color" content="#0B1017" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,4 +42,3 @@ export default function RootLayout({
     </html>
   );
 }
-

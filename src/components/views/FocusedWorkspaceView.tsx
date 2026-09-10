@@ -52,6 +52,10 @@ import {
   CornerDownRight,
   Download,
   ExternalLink,
+  PanelRightClose,
+  PanelRightOpen,
+  Maximize2,
+  Minimize2,
 } from "@/components/ui/FlatIcon";
 import type {
   Issue,
@@ -221,6 +225,7 @@ export function FocusedWorkspaceView({
     isContractorUser ? "details" : "queue"
   );
   const [copiedPin, setCopiedPin] = useState(false);
+  const [contextMode, setContextMode] = useState<"expanded" | "minimized" | "maximized">("expanded");
 
   const handleCopyPin = (pin: string) => {
     try {
@@ -1138,7 +1143,7 @@ export function FocusedWorkspaceView({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
+    <div data-context={contextMode} className="family-workdesk flex-1 flex flex-col h-full bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
       {/* ========================================================================= */}
       {/* TOP WORK DESK TOOLBAR */}
       {/* ========================================================================= */}
@@ -1160,7 +1165,11 @@ export function FocusedWorkspaceView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {selectedIssue && <div className="family-context-controls">
+            <button type="button" className="family-icon-button" aria-label={contextMode === "minimized" ? "Expand resolution context" : "Minimize resolution context"} title={contextMode === "minimized" ? "Expand resolution context" : "Minimize resolution context"} aria-expanded={contextMode !== "minimized"} aria-controls="support-resolution" onClick={() => setContextMode(contextMode === "minimized" ? "expanded" : "minimized")}>{contextMode === "minimized" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}</button>
+            <button type="button" className="family-icon-button" aria-label={contextMode === "maximized" ? "Restore work desk layout" : "Maximize resolution context"} title={contextMode === "maximized" ? "Restore work desk layout" : "Maximize resolution context"} aria-pressed={contextMode === "maximized"} onClick={() => setContextMode(contextMode === "maximized" ? "expanded" : "maximized")}>{contextMode === "maximized" ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
+          </div>}
           {/* Create Ticket Button */}
           <button
             type="button"
@@ -1261,7 +1270,7 @@ export function FocusedWorkspaceView({
         {/* PANE 1: Work Queue (Width: 3 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
         <div
-          className={`col-span-12 lg:col-span-3 bg-[#0E1520] border-r border-[var(--line)] flex flex-col overflow-hidden ${
+          className={`family-queue col-span-12 lg:col-span-3 bg-[#0E1520] border-r border-[var(--line)] flex flex-col overflow-hidden ${
             mobileActivePane === "queue" ? "flex" : "hidden lg:flex"
           }`}
         >
@@ -1475,7 +1484,7 @@ export function FocusedWorkspaceView({
         {/* PANE 2: Ticket Details & Context (Width: 4 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
         <div
-          className={`col-span-12 lg:col-span-4 bg-[#0B1017] border-r border-[var(--line)] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
+          className={`family-details col-span-12 lg:col-span-4 bg-[#0B1017] border-r border-[var(--line)] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
             mobileActivePane === "details" ? "flex" : "hidden lg:flex"
           }`}
         >
@@ -2003,7 +2012,7 @@ export function FocusedWorkspaceView({
         {/* PANE 3: Resolution & Dispatch Station (Width: 5 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
         <div
-          className={`col-span-12 lg:col-span-5 bg-[#101620] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
+          id="support-resolution" aria-label="Resolution context" className={`family-resolution col-span-12 lg:col-span-5 bg-[#101620] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
             mobileActivePane === "actions" ? "flex" : "hidden lg:flex"
           }`}
         >

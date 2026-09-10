@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
+import { SupportFlow } from "@/components/SupportFlow";
 import {
   Shield,
   Bot,
@@ -47,7 +48,6 @@ export function GlobalLandingView({
   onOpenDemoLogin,
   onOpenSignup,
 }: GlobalLandingViewProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const handleLaunchDemo = (slug: string) => {
     if (onOpenDemoGate) {
@@ -59,140 +59,9 @@ export function GlobalLandingView({
     }
   };
 
-  // Signal particle network animation
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animFrame: number;
-    let w = (canvas.width = canvas.parentElement?.clientWidth || window.innerWidth);
-    let h = (canvas.height = canvas.parentElement?.clientHeight || 650);
-
-    const PALETTE = [
-      { r: 46, g: 216, b: 182, hex: "#2ED8B6" }, // Teal
-      { r: 77, g: 159, b: 255, hex: "#4D9FFF" }, // Blue
-      { r: 245, g: 166, b: 35, hex: "#F5A623" }, // Amber
-      { r: 52, g: 211, b: 153, hex: "#34D399" }, // Emerald
-    ];
-
-    interface ParticleNode {
-      x: number;
-      y: number;
-      vx: number;
-      vy: number;
-      baseRadius: number;
-      color: (typeof PALETTE)[0];
-      isHub: boolean;
-    }
-
-    interface Packet {
-      from: number;
-      to: number;
-      progress: number;
-      speed: number;
-      color: string;
-    }
-
-    const nodeCount = Math.max(16, Math.min(36, Math.floor(w / 45)));
-    const nodes: ParticleNode[] = [];
-    const packets: Packet[] = [];
-
-    for (let i = 0; i < nodeCount; i++) {
-      nodes.push({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.35,
-        vy: (Math.random() - 0.5) * 0.35,
-        baseRadius: i % 6 === 0 ? 3.5 : 1.8,
-        color: PALETTE[i % PALETTE.length],
-        isHub: i % 6 === 0,
-      });
-    }
-
-    for (let p = 0; p < 10; p++) {
-      packets.push({
-        from: Math.floor(Math.random() * nodes.length),
-        to: Math.floor(Math.random() * nodes.length),
-        progress: Math.random(),
-        speed: 0.004 + Math.random() * 0.006,
-        color: PALETTE[Math.floor(Math.random() * PALETTE.length)].hex,
-      });
-    }
-
-    const draw = () => {
-      ctx.clearRect(0, 0, w, h);
-
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[i].x - nodes[j].x;
-          const dy = nodes[i].y - nodes[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const maxDist = 130;
-          if (dist < maxDist) {
-            const alpha = (1 - dist / maxDist) * 0.15;
-            ctx.strokeStyle = `rgba(46, 216, 182, ${alpha})`;
-            ctx.lineWidth = 0.8;
-            ctx.beginPath();
-            ctx.moveTo(nodes[i].x, nodes[i].y);
-            ctx.lineTo(nodes[j].x, nodes[j].y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      packets.forEach((p) => {
-        const from = nodes[p.from];
-        const to = nodes[p.to];
-        if (!from || !to) return;
-        p.progress += p.speed;
-        if (p.progress >= 1) {
-          p.progress = 0;
-          p.from = Math.floor(Math.random() * nodes.length);
-          p.to = Math.floor(Math.random() * nodes.length);
-        }
-        const px = from.x + (to.x - from.x) * p.progress;
-        const py = from.y + (to.y - from.y) * p.progress;
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 6;
-        ctx.beginPath();
-        ctx.arc(px, py, 2.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-
-      nodes.forEach((n) => {
-        n.x += n.vx;
-        n.y += n.vy;
-        if (n.x < 0 || n.x > w) n.vx *= -1;
-        if (n.y < 0 || n.y > h) n.vy *= -1;
-        ctx.fillStyle = `rgba(${n.color.r}, ${n.color.g}, ${n.color.b}, 0.7)`;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.baseRadius, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      animFrame = requestAnimationFrame(draw);
-    };
-
-    draw();
-
-    const handleResize = () => {
-      w = canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
-      h = canvas.height = canvas.parentElement?.clientHeight || 650;
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      cancelAnimationFrame(animFrame);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
   return (
-    <div className="min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[#2ED8B6]">
+    <div className="family-public min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[#2ED8B6]">
+      <a className="family-skip" href="#support-main">Skip to content</a>
       {/* Top Header Navigation */}
       <header className="sticky top-0 z-40 bg-[#090E15]/85 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -254,80 +123,18 @@ export function GlobalLandingView({
         </div>
       </header>
 
-      {/* Hero Section with Particle Canvas */}
-      <section className="relative pt-20 pb-28 px-6 lg:px-12 overflow-hidden border-b border-[var(--line)]">
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-60 pointer-events-none" />
-
-        <div className="relative z-10 max-w-5xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center px-3.5 py-1.5 rounded-full bg-[#121A24]/90 border border-[#2ED8B6]/40 shadow-xl shadow-[#2ED8B6]/10 text-xs font-mono text-[#2ED8B6] animate-pulse">
-            <span>Universal AI Support Engine • Multi-Stream Operations • Governed Automation</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.05] text-[#EAF1F8]">
-            Universal AI Support &amp; <br />
-            <span className="text-[#2ED8B6]">
-              Autonomous Operations Engine
-            </span>
-          </h1>
-
-          <p className="text-base sm:text-lg text-[#8E9AA8] max-w-3xl mx-auto leading-relaxed">
-            A single, adaptive support platform built for any enterprise. Seamlessly orchestrate B2B SaaS customer success, field contractor dispatches, e-commerce dispute resolutions, and inbound inquiries — grounded by deep domain knowledge and bounded by strict action limits.
-          </p>
-
-          {/* Hero CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
-            <button
-              onClick={onOpenSignup}
-              className="btn btn-primary px-7 py-3.5 rounded-2xl text-sm font-bold shadow-2xl shadow-[#2ED8B6]/30 flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform"
-            >
-              <span>Get Started Free</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => handleLaunchDemo("acme")}
-              className="btn btn-secondary px-5 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:border-[#2ED8B6]"
-            >
-              <Users className="w-4 h-4 text-[#2ED8B6]" />
-              <span>Launch Acme Demo</span>
-            </button>
-
-            <button
-              onClick={() => handleLaunchDemo("meridian")}
-              className="btn btn-secondary px-5 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:border-[#F5A623]"
-            >
-              <HardHat className="w-4 h-4 text-[#F5A623]" />
-              <span>Launch Meridian Demo</span>
-            </button>
-          </div>
-
-          {/* Metric Highlights Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-12 max-w-4xl mx-auto">
-            <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
-              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Account Health</div>
-              <div className="text-2xl font-bold text-[#EAF1F8] mt-1">99.4% CSAT</div>
-              <div className="text-[10px] text-[#2ED8B6] font-mono mt-0.5">Enterprise Tier-1 SLA</div>
-            </div>
-
-            <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
-              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Resolution Rate</div>
-              <div className="text-2xl font-bold text-[#2ED8B6] mt-1">74.2% Auto</div>
-              <div className="text-[10px] text-[#8E9AA8] font-mono mt-0.5">First-Contact Resolution</div>
-            </div>
-
-            <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
-              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Response Time</div>
-              <div className="text-2xl font-bold text-[#4D9FFF] mt-1">1.2s Average</div>
-              <div className="text-[10px] text-[#8E9AA8] font-mono mt-0.5">Instant Omnichannel Triage</div>
-            </div>
-
-            <div className="card p-4 text-left border-[var(--line)] bg-[#121A24]/60 backdrop-blur-md">
-              <div className="text-[10px] font-mono text-[#6B7C8D] uppercase">Operational Safety</div>
-              <div className="text-2xl font-bold text-[#F5A623] mt-1">Governed</div>
-              <div className="text-[10px] text-[#F5A623] font-mono mt-0.5">Audited Action Limits</div>
-            </div>
+      <section id="support-main" className="family-hero">
+        <div className="family-hero-copy">
+          <h1>One desk.<br />Every path to resolution.</h1>
+          <p>Bring customer issues, field work and recurring problems into a shared work desk. Keep human decisions, AI assistance and governed actions in context.</p>
+          <div className="family-hero-actions">
+            <button type="button" onClick={onOpenSignup} className="btn btn-primary">Get Started Free <ArrowRight size={16} /></button>
+            <button type="button" onClick={() => handleLaunchDemo("acme")} className="btn btn-secondary">Explore the work desk <ArrowRight size={16} /></button>
+            <a href="#capabilities">See how it works</a>
           </div>
         </div>
+        <SupportFlow />
+        <ol className="family-work-stages">{["Receive the issue", "Gather context", "Choose a safe action", "Verify resolution"].map(step => <li key={step}>{step}</li>)}</ol>
       </section>
 
       {/* INSTANT DEMO SANDBOX OPERATOR ACCESS */}
@@ -357,7 +164,7 @@ export function GlobalLandingView({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
             {/* Acme Corp Demo Card */}
-            <div
+            <button type="button"
               onClick={() => handleLaunchDemo("acme")}
               className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
             >
@@ -389,10 +196,10 @@ export function GlobalLandingView({
                 </span>
                 <span className="text-[10px] text-[#6B7C8D]">acme.support.servicev8.com</span>
               </div>
-            </div>
+            </button>
 
             {/* Meridian Logistics Demo Card */}
-            <div
+            <button type="button"
               onClick={() => handleLaunchDemo("meridian")}
               className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#F5A623] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
             >
@@ -424,7 +231,7 @@ export function GlobalLandingView({
                 </span>
                 <span className="text-[10px] text-[#6B7C8D]">meridian.support.servicev8.com</span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </section>
@@ -770,12 +577,10 @@ export function GlobalLandingView({
       <footer className="px-6 lg:px-12 py-8 border-t border-[var(--line)] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-[#6B7C8D]">
         <div className="flex items-center gap-2">
           <SupportV8Logo size={20} showText={false} />
-          <span>© 2026 SupportV8</span>
+          <span>© 2026 supportv8 · A servicev8 platform service</span>
         </div>
 
-        <div className="flex items-center gap-6">
-          <span>support.servicev8.com</span>
-        </div>
+        <nav aria-label="Footer" className="family-footer-links"><a href="#capabilities">Capabilities</a><a href="#security">Security</a><button type="button" onClick={onOpenSignIn}>Sign in</button><button type="button" onClick={onOpenSignup}>Create workspace</button></nav>
       </footer>
     </div>
   );

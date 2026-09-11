@@ -121,7 +121,8 @@ export async function resolveSophiaLaunch(input: {
   const tenantUrl = new URL(`/v1/tenants/by-slug/${encodeURIComponent(input.tenantSlug)}`, `${input.env.registryUrl}/`);
   const tenant = await registryGet<RegistryTenant>(tenantUrl, token, "Registry tenant lookup");
   if (
-    tenant.id !== input.tenantId ||
+    typeof tenant.id !== "string" ||
+    !tenant.id ||
     tenant.slug !== input.tenantSlug ||
     tenant.status !== "active" ||
     typeof tenant.accountId !== "string" ||
@@ -129,15 +130,16 @@ export async function resolveSophiaLaunch(input: {
   ) {
     throw new Error("Registry tenant does not match the SupportV8 workspace");
   }
+  const registryTenantId = tenant.id;
 
   const membershipUrl = new URL(
-    `/v1/tenants/${encodeURIComponent(input.tenantId)}/memberships/${encodeURIComponent(input.identitySubject)}`,
+    `/v1/tenants/${encodeURIComponent(registryTenantId)}/memberships/${encodeURIComponent(input.identitySubject)}`,
     `${input.env.registryUrl}/`,
   );
   membershipUrl.searchParams.set("accountId", tenant.accountId);
   const membership = await registryGet<Record<string, unknown>>(membershipUrl, token, "Registry membership lookup");
   if (
-    membership.tenantId !== input.tenantId ||
+    membership.tenantId !== registryTenantId ||
     membership.accountId !== tenant.accountId ||
     membership.identitySubject !== input.identitySubject ||
     membership.status !== "active"
@@ -147,13 +149,13 @@ export async function resolveSophiaLaunch(input: {
 
   const projectionsUrl = new URL("/v1/projections/installations", `${input.env.registryUrl}/`);
   projectionsUrl.searchParams.set("accountId", tenant.accountId);
-  projectionsUrl.searchParams.set("tenantId", input.tenantId);
+  projectionsUrl.searchParams.set("tenantId", registryTenantId);
   projectionsUrl.searchParams.set("verticalId", SUPPORT_VERTICAL_ID);
   const projection = await registryGet<{ installations?: unknown }>(projectionsUrl, token, "Registry installation lookup");
   const installations = Array.isArray(projection.installations) ? projection.installations as RegistryInstallation[] : [];
   const matches = installations.filter((candidate) =>
     candidate.accountId === tenant.accountId &&
-    candidate.tenantId === input.tenantId &&
+    candidate.tenantId === registryTenantId &&
     candidate.verticalId === SUPPORT_VERTICAL_ID &&
     candidate.productId === SOPHIA_PRODUCT_ID &&
     candidate.entitlementStatus === "active" &&
@@ -167,7 +169,7 @@ export async function resolveSophiaLaunch(input: {
   const exact = matches[0];
   if (exact) {
     const handoff = jwt({
-      tenantId: input.tenantId,
+      tenantId: registryTenantId,
       tenantDomain: input.tenantSlug,
       vertical: SUPPORT_VERTICAL_ID,
       identitySubject: input.identitySubject,
@@ -185,7 +187,7 @@ export async function resolveSophiaLaunch(input: {
       kind: "studio",
       url: destination.toString(),
       accountId: tenant.accountId,
-      registryTenantId: input.tenantId,
+      registryTenantId,
       installationId: exact.installationId as string,
       hireId: exact.hireId as string,
     };
@@ -197,7 +199,7 @@ export async function resolveSophiaLaunch(input: {
     sub: input.identitySubject,
     identitySubject: input.identitySubject,
     accountId: tenant.accountId,
-    tenantId: input.tenantId,
+    tenantId: registryTenantId,
     tenantDomain: input.tenantSlug,
     verticalId: SUPPORT_VERTICAL_ID,
     origin: SUPPORT_VERTICAL_ID,
@@ -212,6 +214,6 @@ export async function resolveSophiaLaunch(input: {
     kind: "marketplace",
     url: destination.toString(),
     accountId: tenant.accountId,
-    registryTenantId: input.tenantId,
+    registryTenantId,
   };
 }

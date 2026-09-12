@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     await chatRepository.sendMessage({ tenantId: event.tenantId, tenantSlug, sessionId, sender: "customer", senderName: senderName(event.sender), content: event.content, clientMessageId: messageId });
   } else {
     await chatRepository.startSession({
+      sessionId,
       tenantId: event.tenantId, tenantSlug, stream: "enquiries", channel: "email", forceHumanQueue: true, initialMessageId: messageId,
       customerName: senderName(event.sender), customerEmail: senderAddress(event.sender),
       intakeData: { details: event.content, inquiryCategory: "Email support request", subject: event.subject, messagingConversationId: event.conversationId, hasAttachments: String(event.hasAttachments) },

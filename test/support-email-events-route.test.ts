@@ -21,6 +21,9 @@ describe("private SupportV8 email intake", () => {
     vi.mocked(chatRepository.startSession).mockResolvedValue({ id: "email-session" } as never);
     const response = await POST(request());
     expect(response.status).toBe(202);
+    const { sessionId } = await response.json();
+    expect(chatRepository.startSession).toHaveBeenCalledWith(expect.objectContaining({ sessionId }));
+    expect(chatRepository.recordEmailJourney).toHaveBeenCalledWith(expect.objectContaining({ sessionId }));
     expect(verifySupportEmailTenantAccount).toHaveBeenCalledWith({ tenantId: "tenant_acme", accountId: "account-1" });
     expect(chatRepository.validateAndBindEmailChannel).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant_acme", accountId: "account-1", connectionId: "connection-1", eventId: "email-in-1" }));
     expect(chatRepository.startSession).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant_acme", tenantSlug: "acme", channel: "email", customerEmail: "customer@example.com", forceHumanQueue: true, initialMessageId: expect.stringMatching(/^msg_email_/), intakeData: expect.objectContaining({ messagingConversationId: event.conversationId }) }));

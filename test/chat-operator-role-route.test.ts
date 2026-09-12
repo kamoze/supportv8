@@ -13,8 +13,11 @@ vi.mock("../src/lib/db/chat-repository", () => ({
     getSession: vi.fn(),
     getSessionPage: vi.fn(),
     listSessions: vi.fn(),
+    getEmailDeliveryContext: vi.fn(),
+    recordEmailJourney: vi.fn(),
   },
 }));
+vi.mock("../src/lib/messaging/email-client", () => ({ sendMessagingEmailReply: vi.fn() }));
 
 import { resolveRequestTenant } from "../src/lib/auth/request-tenant";
 import { chatRepository } from "../src/lib/db/chat-repository";
@@ -26,6 +29,7 @@ import { POST as mutateMarketplace } from "../src/app/api/marketplace/route";
 import { POST as mutateWorkforce } from "../src/app/api/workforce/route";
 import { issueService } from "../src/lib/services/issue-service";
 import { marketplaceService } from "../src/lib/services/marketplace-service";
+import { sendMessagingEmailReply } from "../src/lib/messaging/email-client";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -131,6 +135,19 @@ describe("operator chat route authorization", () => {
         senderName: "David",
       })
     );
+  });
+
+  it("delivers an email reply through its server-owned Messaging conversation before local persistence", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(resolveRequestTenant).mockResolvedValue({ tenantId: "tenant_acme", tenantSlug: "acme", authenticated: true, userId: "operator_1", displayName: "David", roles: ["support_operator"] });
+    vi.mocked(chatRepository.getEmailDeliveryContext).mockResolvedValue({ accountId: "account-1", messagingConversationId: "11111111-1111-4111-8111-111111111111" });
+    vi.mocked(sendMessagingEmailReply).mockResolvedValue({ id: "message-1", executionId: "execution-1", status: "queued" });
+    vi.mocked(chatRepository.sendMessage).mockResolvedValue({ session: { id: "email-session" } } as never);
+    const response = await POST(new NextRequest("https://acme.support.servicev8.com/api/chat/message", { method: "POST", body: JSON.stringify({ sessionId: "email-session", sender: "agent", content: "Verified email reply", clientMessageId: "msg_client_email_1" }) }));
+    expect(response.status).toBe(200);
+    expect(sendMessagingEmailReply).toHaveBeenCalledWith(expect.objectContaining({ accountId: "account-1", tenantId: "tenant_acme", conversationId: "11111111-1111-4111-8111-111111111111", idempotencyKey: "supportv8:tenant_acme:msg_client_email_1" }));
+    expect(vi.mocked(sendMessagingEmailReply).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(chatRepository.sendMessage).mock.invocationCallOrder[0]!);
+    expect(chatRepository.recordEmailJourney).toHaveBeenCalledWith(expect.objectContaining({ direction: "outbound", actor: "David" }));
   });
 
   it("rejects an observer before listing tenant chat sessions", async () => {

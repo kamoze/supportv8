@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { QueryResultRow } from "pg";
 import type {
   ChatStreamType,
@@ -100,6 +100,8 @@ export interface StartChatInput {
   sessionId?: string;
   channel?: "web" | "email" | "whatsapp" | "voice";
   manual?: { operatorName: string; priority: PriorityLevel };
+  forceHumanQueue?: boolean;
+  initialMessageId?: string;
 }
 
 export interface SendChatMessageInput {
@@ -391,7 +393,7 @@ export class ChatRepository {
   constructor(private readonly client: PostgresClient = pgClient) {}
 
   async startSession(input: StartChatInput): Promise<CustomerChatSession> {
-    const assignment = input.manual
+    const assignment = input.manual || input.forceHumanQueue
       ? { type: "human" as const, id: "human_support_queue", name: "Available online operator", avatar: "", groupId: `group_${input.stream}` }
       : assignmentForTenant(input.tenantSlug, input.stream);
     const priority = input.manual?.priority || priorityFromIntake(input.intakeData);
@@ -402,8 +404,8 @@ export class ChatRepository {
         ? requestedSessionId
         : `chat_${suffix}`;
     const issueId = `iss_${suffix}`;
-    const externalId = `SV8-CHAT-${suffix.slice(0, 12).toUpperCase()}`;
-    const userMessageId = `msg_${randomUUID().replace(/-/g, "")}`;
+    const externalId = `SV8-${input.channel === "email" ? "EMAIL" : "CHAT"}-${suffix.slice(0, 12).toUpperCase()}`;
+    const userMessageId = input.initialMessageId && /^msg_[a-zA-Z0-9_-]{8,120}$/.test(input.initialMessageId) ? input.initialMessageId : `msg_${randomUUID().replace(/-/g, "")}`;
     const greetingMessageId = `msg_${randomUUID().replace(/-/g, "")}`;
     const tenantName = displayTenant(input.tenantSlug) || "SupportV8";
     const workflowTitle = input.stream === "contractors" ? "contractor support" : input.stream === "enquiries" ? "general enquiry" : "customer support";
@@ -436,7 +438,7 @@ export class ChatRepository {
             confidence, business_impact, resolution_risk_score, source_status,
             tags, recommended_action)
          VALUES
-           ($1, $2, 'chat', $3, $4, $5, $6, 'standard', $7, $8, $9,
+           ($1, $2, $16, $3, $4, $5, $6, 'standard', $7, $8, $9,
             '3.2.0', $10, 0.2, 'stable', $11, 0.94, $12, $13, 'open',
             $14, $15)`,
         [
@@ -457,6 +459,7 @@ export class ChatRepository {
           assignment.type === "ai"
             ? `AI employee ${assignment.name} active on ${externalId}.`
             : `Waiting for an authenticated operator on ${externalId}.`,
+          input.channel === "email" ? "email" : "chat",
         ]
       );
 
@@ -543,6 +546,61 @@ export class ChatRepository {
     return this.client.withTenantSession(tenantId, async (db) => {
       const page = await loadSession(db, sessionId);
       return page?.session || null;
+    });
+  }
+
+  async validateAndBindEmailChannel(input: { tenantId: string; accountId: string; connectionId: string; connectorKey: string; recipient: string; eventId: string }): Promise<void> {
+    await this.client.withTenantSession(input.tenantId, async (db) => {
+      const tenants = await db.query<{ id: string; servicev8_account_id: string | null }>(`SELECT id, servicev8_account_id FROM supportv8.tenants WHERE id = $1 FOR UPDATE`, [input.tenantId]);
+      if (!tenants[0] || (tenants[0].servicev8_account_id !== null && tenants[0].servicev8_account_id !== input.accountId)) throw new Error("Email tenant account binding is invalid");
+      if (tenants[0].servicev8_account_id === null) {
+        await db.query(`UPDATE supportv8.tenants SET servicev8_account_id = $2, updated_at = now() WHERE id = $1 AND servicev8_account_id IS NULL`, [input.tenantId, input.accountId]);
+      }
+      const alreadyProcessed = await db.query<{ source_event_id: string }>(`SELECT source_event_id FROM supportv8.email_channel_binding_history WHERE tenant_id = $1 AND source_event_id = $2 LIMIT 1`, [input.tenantId, input.eventId]);
+      if (alreadyProcessed[0]) return;
+      const bindings = await db.query<{ servicev8_account_id: string; connection_id: string; connector_key: string; recipient: string; status: string }>(`SELECT servicev8_account_id, connection_id, connector_key, recipient, status FROM supportv8.email_channel_bindings WHERE tenant_id = $1 FOR UPDATE`, [input.tenantId]);
+      const previous = bindings[0];
+      const current = { servicev8AccountId: input.accountId, connectionId: input.connectionId, connectorKey: input.connectorKey, recipient: input.recipient.toLowerCase(), status: "active" };
+      if (!previous) {
+        await db.query(`INSERT INTO supportv8.email_channel_bindings (tenant_id, servicev8_account_id, connection_id, connector_key, recipient)
+          VALUES ($1, $2, $3, $4, $5)`, [input.tenantId, input.accountId, input.connectionId, input.connectorKey, current.recipient]);
+        await db.query(`INSERT INTO supportv8.email_channel_binding_history (tenant_id, source_event_id, action, previous_binding, current_binding)
+          VALUES ($1, $2, 'created', NULL, $3::jsonb)`, [input.tenantId, input.eventId, JSON.stringify(current)]);
+        return;
+      }
+      if (previous.servicev8_account_id !== input.accountId) throw new Error("Email tenant account binding is invalid");
+      const unchanged = previous.status === "active" && previous.connection_id === input.connectionId && previous.connector_key === input.connectorKey && previous.recipient === current.recipient;
+      if (!unchanged) {
+        const rotated = await db.query<{ tenant_id: string }>(`UPDATE supportv8.email_channel_bindings
+          SET connection_id = $2, connector_key = $3, recipient = $4, status = 'active', updated_at = now()
+          WHERE tenant_id = $1 AND servicev8_account_id = $5 AND connection_id = $6 AND connector_key = $7 AND recipient = $8
+          RETURNING tenant_id`, [input.tenantId, input.connectionId, input.connectorKey, current.recipient, input.accountId, previous.connection_id, previous.connector_key, previous.recipient]);
+        if (!rotated[0]) throw new Error("Email channel binding changed concurrently");
+      }
+      await db.query(`INSERT INTO supportv8.email_channel_binding_history (tenant_id, source_event_id, action, previous_binding, current_binding)
+        VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)`, [input.tenantId, input.eventId, unchanged ? "verified" : "rotated", JSON.stringify(previous), JSON.stringify(current)]);
+    });
+  }
+
+  async getEmailDeliveryContext(tenantId: string, sessionId: string): Promise<{ accountId: string; messagingConversationId: string } | null> {
+    return this.client.withTenantSession(tenantId, async (db) => {
+      const rows = await db.query<{ channel: string; intake_data: Record<string, unknown> | null; servicev8_account_id: string }>(`SELECT s.channel, s.intake_data, b.servicev8_account_id
+        FROM supportv8.chat_sessions s JOIN supportv8.email_channel_bindings b ON b.tenant_id = s.tenant_id AND b.status = 'active'
+        WHERE s.id = $1 AND s.tenant_id = $2 LIMIT 1`, [sessionId, tenantId]);
+      if (rows[0]?.channel !== "email") return null;
+      const accountId = rows[0].servicev8_account_id, messagingConversationId = rows[0].intake_data?.messagingConversationId;
+      return typeof accountId === "string" && typeof messagingConversationId === "string" ? { accountId, messagingConversationId } : null;
+    });
+  }
+
+  async recordEmailJourney(input: { tenantId: string; sessionId: string; eventId: string; direction: "inbound" | "outbound"; actor: string; details: string }): Promise<void> {
+    const timelineId = `email_${input.direction}_${createHash("sha256").update(input.eventId).digest("hex").slice(0, 24)}`;
+    await this.client.withTenantSession(input.tenantId, async (db) => {
+      await db.query(`UPDATE supportv8.issues i SET timeline = COALESCE(i.timeline, '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+          'id', $3::text, 'timestamp', now(), 'actor', $4::text, 'actorType', $5::text, 'action', $6::text, 'details', $7::text))
+        FROM supportv8.chat_sessions s WHERE s.id = $1 AND s.tenant_id = $2 AND i.id = s.issue_id
+          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(i.timeline, '[]'::jsonb)) item WHERE item->>'id' = $3)`,
+        [input.sessionId, input.tenantId, timelineId, input.actor, input.direction === "inbound" ? "customer" : "human_operator", input.direction === "inbound" ? "Customer email received" : "Operator email reply sent", input.details]);
     });
   }
 

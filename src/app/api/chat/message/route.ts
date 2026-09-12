@@ -5,6 +5,8 @@ import {
   ChatIngressError,
   requireChatOperatorRole,
 } from "@/lib/chatbot/security/ingress-security";
+import { randomUUID } from "node:crypto";
+import { sendMessagingEmailReply } from "@/lib/messaging/email-client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +24,15 @@ export async function POST(request: NextRequest) {
       requireAuthentication: sender === "agent",
     });
     if (sender === "agent") requireChatOperatorRole(tenant);
+    const effectiveMessageId = typeof clientMessageId === "string" && /^msg_[a-zA-Z0-9_-]{8,120}$/.test(clientMessageId.trim())
+      ? clientMessageId.trim()
+      : `msg_${randomUUID().replace(/-/g, "")}`;
+    const emailContext = sender === "agent" && chatRepository.getEmailDeliveryContext
+      ? await chatRepository.getEmailDeliveryContext(tenant.tenantId, sessionId)
+      : null;
+    if (emailContext) {
+      await sendMessagingEmailReply({ accountId: emailContext.accountId, tenantId: tenant.tenantId, conversationId: emailContext.messagingConversationId, content, idempotencyKey: `supportv8:${tenant.tenantId}:${effectiveMessageId}` });
+    }
     const result = await chatRepository.sendMessage({
       tenantId: tenant.tenantId,
       tenantSlug: tenant.tenantSlug,
@@ -30,8 +41,11 @@ export async function POST(request: NextRequest) {
       senderName: sender === "agent" ? tenant.displayName || "Support Operator" : undefined,
       senderId: sender === "agent" ? tenant.userId : undefined,
       content,
-      clientMessageId: typeof clientMessageId === "string" ? clientMessageId : undefined,
+      clientMessageId: effectiveMessageId,
     });
+    if (emailContext && sender === "agent") {
+      await chatRepository.recordEmailJourney({ tenantId: tenant.tenantId, sessionId, eventId: effectiveMessageId, direction: "outbound", actor: tenant.displayName || "Support Operator", details: "Reply sent through the customer email thread" });
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,18 @@
 export async function sendMessagingEmailReply(input: {
-  accountId: string; tenantId: string; conversationId: string; content: string; idempotencyKey: string; fetcher?: typeof fetch;
-}): Promise<{ id: string; executionId: string; status: string; replayed?: boolean }> {
+  accountId: string;
+  tenantId: string;
+  conversationId: string;
+  content?: string;
+  template?: {
+    scenarioId: string;
+    scenarioVersion: string;
+    slot: string;
+    locale: string;
+    variables: Readonly<Record<string, unknown>>;
+  };
+  idempotencyKey: string;
+  fetcher?: typeof fetch;
+}): Promise<{ id: string; executionId: string; status: string; replayed?: boolean; content?: string; subject?: string }> {
   const baseUrl = process.env.MESSAGING_SERVICE_URL?.trim();
   const issuer = process.env.SERVICEV8_OIDC_ISSUER?.trim();
   const clientId = process.env.SUPPORTV8_EMAIL_CLIENT_ID?.trim();
@@ -10,7 +22,8 @@ export async function sendMessagingEmailReply(input: {
   if (!baseUrl || !issuer || !clientId || !clientSecret || !installationId || !grantRef) throw new Error("Messaging email service is not configured");
   if (!/^tenant_[a-z0-9_]{1,56}$/.test(input.tenantId) || !input.accountId.trim()) throw new Error("Invalid Messaging tenant envelope");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.conversationId)) throw new Error("Invalid Messaging conversation");
-  if (!input.content.trim() || input.content.length > 20_000 || !input.idempotencyKey.trim()) throw new Error("Invalid Messaging email reply");
+  const payload = emailReplyPayload(input);
+  if (!input.idempotencyKey.trim()) throw new Error("Invalid Messaging email reply");
   const endpoint = new URL(`/v1/conversations/${encodeURIComponent(input.conversationId)}/reply`, baseUrl);
   if (endpoint.protocol !== "https:" && endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1" && !endpoint.hostname.endsWith(".svc.cluster.local")) throw new Error("Messaging email service must use HTTPS or an in-cluster service address");
   const tokenResponse = await (input.fetcher ?? fetch)(`${issuer.replace(/\/$/, "")}/protocol/openid-connect/token`, {
@@ -23,9 +36,33 @@ export async function sendMessagingEmailReply(input: {
   const response = await (input.fetcher ?? fetch)(endpoint.toString(), {
     method: "POST", redirect: "error", signal: AbortSignal.timeout(10_000),
     headers: { authorization: `Bearer ${tokenBody.access_token}`, "content-type": "application/json", "x-servicev8-account-id": input.accountId, "x-servicev8-tenant-id": input.tenantId, "x-servicev8-installation-id": installationId, "x-servicev8-grant-ref": grantRef, "idempotency-key": input.idempotencyKey },
-    body: JSON.stringify({ content: input.content.trim() }),
+    body: JSON.stringify(payload),
   });
   const result = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok || typeof result.id !== "string" || typeof result.executionId !== "string" || typeof result.status !== "string") throw new Error(`Messaging email reply failed (${response.status})`);
-  return result as { id: string; executionId: string; status: string; replayed?: boolean };
+  return result as { id: string; executionId: string; status: string; replayed?: boolean; content?: string; subject?: string };
+}
+
+function emailReplyPayload(input: {
+  content?: string;
+  template?: {
+    scenarioId: string; scenarioVersion: string; slot: string; locale: string;
+    variables: Readonly<Record<string, unknown>>;
+  };
+}): { content: string } | { template: NonNullable<typeof input.template> } {
+  if (input.template && input.content !== undefined) throw new Error("Invalid Messaging email reply");
+  if (!input.template) {
+    if (!input.content?.trim() || input.content.length > 20_000) throw new Error("Invalid Messaging email reply");
+    return { content: input.content.trim() };
+  }
+  const template = input.template;
+  if (!template.scenarioId.trim() || !template.scenarioVersion.trim()
+    || !/^[a-z][a-z0-9_]{0,63}$/.test(template.slot)
+    || !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(template.locale)
+    || !template.variables || typeof template.variables !== "object" || Array.isArray(template.variables)
+    || Object.keys(template.variables).length > 50
+    || JSON.stringify(template.variables).length > 20_000) {
+    throw new Error("Invalid Messaging email reply");
+  }
+  return { template };
 }

@@ -150,6 +150,24 @@ describe("operator chat route authorization", () => {
     expect(chatRepository.recordEmailJourney).toHaveBeenCalledWith(expect.objectContaining({ direction: "outbound", actor: "David" }));
   });
 
+  it("uses Messaging-rendered scenario content for the durable Work Desk transcript", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.mocked(resolveRequestTenant).mockResolvedValue({ tenantId: "tenant_acme", tenantSlug: "acme", authenticated: true, userId: "operator_1", displayName: "David", roles: ["support_operator"] });
+    vi.mocked(chatRepository.getEmailDeliveryContext).mockResolvedValue({ accountId: "account-1", messagingConversationId: "11111111-1111-4111-8111-111111111111" });
+    vi.mocked(sendMessagingEmailReply).mockResolvedValue({ id: "message-1", executionId: "execution-1", status: "queued", content: "Hello Avery, ticket SV8-101 is open." });
+    vi.mocked(chatRepository.sendMessage).mockResolvedValue({ session: { id: "email-session" } } as never);
+    const emailTemplate = {
+      scenarioId: "servicev8.scenario.conversational-support-intake", scenarioVersion: "1.1.0",
+      slot: "acknowledgement", locale: "en-CA", variables: { customer_name: "Avery", ticket_reference: "SV8-101" },
+    };
+    const response = await POST(new NextRequest("https://acme.support.servicev8.com/api/chat/message", {
+      method: "POST", body: JSON.stringify({ sessionId: "email-session", sender: "agent", emailTemplate, clientMessageId: "msg_scenario_email_1" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(sendMessagingEmailReply).toHaveBeenCalledWith(expect.objectContaining({ template: emailTemplate }));
+    expect(chatRepository.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ content: "Hello Avery, ticket SV8-101 is open." }));
+  });
+
   it("rejects an observer before listing tenant chat sessions", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.mocked(resolveRequestTenant).mockResolvedValue({

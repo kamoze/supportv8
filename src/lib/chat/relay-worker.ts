@@ -1,62 +1,72 @@
 import http from "node:http";
-import { setTimeout as delay } from "node:timers/promises";
 import { PostgresChatOutboxStore } from "./outbox-store";
 import { chatRealtime } from "./realtime";
 import { createChatRelayWorkerId, processChatOutboxBatch } from "./relay";
-
-const healthPort = Number(process.env.HEALTH_PORT || 8081);
-const batchSize = Number(process.env.CHAT_RELAY_BATCH_SIZE || 100);
-const idleDelayMs = Number(process.env.CHAT_RELAY_IDLE_DELAY_MS || 250);
-const workerId = createChatRelayWorkerId();
-const store = new PostgresChatOutboxStore();
-let healthy = false;
-let stopping = false;
-
-const healthServer = http.createServer((request, response) => {
-  if (request.url !== "/health" && request.url !== "/ready" && request.url !== "/live") {
-    response.writeHead(404).end("not found");
-    return;
-  }
-  response.writeHead(healthy ? 200 : 503, { "Content-Type": "text/plain" });
-  response.end(healthy ? "ok" : "not ready");
-});
-
-async function shutdown() {
-  if (stopping) return;
-  stopping = true;
-  healthy = false;
-  healthServer.close();
-  await Promise.allSettled([store.close(), chatRealtime.close()]);
-}
+import { PostgresRuntimeDeliveryStore } from "./runtime-outbox-store";
+import { RedisRuntimePublisher } from "./runtime-realtime";
+import { processRuntimeDeliveryBatch } from "./runtime-relay";
+import { createRelayAdapters, readRelayConfig, RelayRunner } from "./relay-runner";
 
 async function main() {
-  healthServer.listen(healthPort, "0.0.0.0");
-  healthy = true;
-  console.log(`[supportv8-chat-relay] ready worker=${workerId} port=${healthPort}`);
-
-  while (!stopping) {
-    try {
-      const result = await processChatOutboxBatch(store, chatRealtime, workerId, batchSize);
-      if (result.failed > 0) {
-        console.warn(`[supportv8-chat-relay] batch claimed=${result.claimed} delivered=${result.delivered} failed=${result.failed}`);
-      }
-      if (result.claimed === 0) await delay(idleDelayMs);
-    } catch (error) {
-      healthy = false;
-      console.error("[supportv8-chat-relay] polling failure", error);
-      await delay(1_000);
-      healthy = true;
+  // Validate all opt-in settings before constructing either source's clients.
+  const config = readRelayConfig();
+  const workerId = createChatRelayWorkerId();
+  const adapters = createRelayAdapters(config, {
+    support: batchSize => {
+      const store = new PostgresChatOutboxStore();
+      return {
+        name: "supportv8",
+        process: () => processChatOutboxBatch(store, chatRealtime, workerId, batchSize),
+        close: async () => { await Promise.allSettled([store.close(), chatRealtime.close()]); },
+        forceClose: () => { store.forceClose(); chatRealtime.forceClose(); },
+      };
+    },
+    runtime: ({ databaseUrl, redisUrl, batchSize }) => {
+      const store = new PostgresRuntimeDeliveryStore(databaseUrl);
+      const publisher = new RedisRuntimePublisher(redisUrl);
+      return {
+        name: "agenticos",
+        process: () => processRuntimeDeliveryBatch(store, publisher, batchSize),
+        close: async () => { await Promise.allSettled([store.close(), publisher.close()]); },
+        forceClose: () => { store.forceClose(); publisher.forceClose(); },
+      };
+    },
+  });
+  const runner = new RelayRunner(adapters, {
+    log: (source, category, counts) => console.warn(`[shared-chat-relay] source=${source} category=${category}${counts
+      ? ` claimed=${counts.claimed} delivered=${counts.delivered} failed=${counts.failed}` : ""}`),
+  });
+  const healthServer = http.createServer((request, response) => {
+    if (!["/health", "/ready", "/live"].includes(request.url ?? "")) {
+      response.writeHead(404).end("not found"); return;
     }
-  }
+    const health = runner.health();
+    response.writeHead((request.url === "/live" ? health.live : health.ready) ? 200 : 503,
+      { "Content-Type": "application/json" });
+    response.end(JSON.stringify(health));
+  });
+  let shuttingDown = false;
+  const shutdown = async (code: number) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    const stopped = runner.stop();
+    healthServer.close();
+    await stopped;
+    healthServer.closeAllConnections();
+    process.exit(code);
+  };
+  process.once("SIGTERM", () => void shutdown(0));
+  process.once("SIGINT", () => void shutdown(0));
+  healthServer.once("error", () => {
+    console.error("[shared-chat-relay] health_server_failed");
+    void shutdown(1);
+  });
+  healthServer.listen(config.healthPort, "0.0.0.0");
+  runner.start();
+  console.log("[shared-chat-relay] started");
 }
 
-process.on("SIGTERM", () => void shutdown());
-process.on("SIGINT", () => void shutdown());
-
-main()
-  .then(() => shutdown())
-  .catch(async (error) => {
-    console.error("[supportv8-chat-relay] fatal error", error);
-    await shutdown();
-    process.exit(1);
-  });
+main().catch(() => {
+  console.error("[shared-chat-relay] startup_failed: Invalid chat relay configuration");
+  process.exit(1);
+});

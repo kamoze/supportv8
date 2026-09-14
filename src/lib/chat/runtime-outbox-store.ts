@@ -1,3 +1,4 @@
+import { relayQuery } from "./relay-query";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
 export interface RuntimeDeliveryEvent {
@@ -52,7 +53,7 @@ export class PostgresRuntimeDeliveryStore implements RuntimeDeliveryStore {
   constructor(connectionString: string, factory: (options: PoolConfig) => Pool = options => new Pool(options),
     log: (category: string) => void = category => console.warn(`[agenticos-chat-relay] ${category}`)) {
     validateRuntimeDatabaseUrl(connectionString);
-    this.pool = factory({ connectionString, max: 1, connectionTimeoutMillis: 5_000, statement_timeout: 5_000,
+    this.pool = factory({ connectionString, max: 1, connectionTimeoutMillis: 5_000,
       query_timeout: 6_000, application_name: "agenticos-chat-relay" });
     this.pool.on("connect", client => this.clients.add(client));
     this.pool.on("remove", client => this.clients.delete(client));
@@ -61,7 +62,7 @@ export class PostgresRuntimeDeliveryStore implements RuntimeDeliveryStore {
   async claim(limit: number): Promise<RuntimeDeliveryEvent[]> {
     validateRuntimeBatchSize(limit);
     let rows: Record<string, unknown>[];
-    try { ({ rows } = await this.pool.query("SELECT * FROM runtime_chat.claim_delivery($1)", [limit])); }
+    try { ({ rows } = await relayQuery(this.pool, "SELECT * FROM runtime_chat.claim_delivery($1)", [limit])); }
     catch { throw new Error("Runtime delivery claim failed"); }
     return rows.map(row => {
       const event = { eventId: row.event_id, threadId: row.thread_id, sequence: row.sequence,
@@ -73,14 +74,14 @@ export class PostgresRuntimeDeliveryStore implements RuntimeDeliveryStore {
   async complete(eventId: string, leaseId: string): Promise<boolean> {
     if (!isUuid(eventId) || !isUuid(leaseId)) throw new Error("Invalid Runtime delivery lease");
     try {
-      const result = await this.pool.query("SELECT runtime_chat.complete_delivery($1,$2) AS completed", [eventId, leaseId]);
+      const result = await relayQuery(this.pool, "SELECT runtime_chat.complete_delivery($1,$2) AS completed", [eventId, leaseId]);
       return result.rows[0]?.completed === true;
     } catch { throw new Error("Runtime delivery completion failed"); }
   }
   async fail(eventId: string, leaseId: string): Promise<boolean> {
     if (!isUuid(eventId) || !isUuid(leaseId)) throw new Error("Invalid Runtime delivery lease");
     try {
-      const result = await this.pool.query("SELECT runtime_chat.fail_delivery($1,$2) AS failed", [eventId, leaseId]);
+      const result = await relayQuery(this.pool, "SELECT runtime_chat.fail_delivery($1,$2) AS failed", [eventId, leaseId]);
       return result.rows[0]?.failed === true;
     } catch { throw new Error("Runtime delivery failure release failed"); }
   }

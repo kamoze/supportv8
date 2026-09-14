@@ -1,3 +1,4 @@
+import { relayQuery } from "./relay-query";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 export interface ClaimedChatOutboxEvent {
@@ -36,7 +37,6 @@ export class PostgresChatOutboxStore implements ChatOutboxStore {
       max: Number(process.env.CHAT_RELAY_DB_POOL_MAX || 4),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
-      statement_timeout: 5_000,
       query_timeout: 6_000,
       application_name: "supportv8-chat-relay",
     });
@@ -46,7 +46,7 @@ export class PostgresChatOutboxStore implements ChatOutboxStore {
   }
 
   async claim(workerId: string, limit: number): Promise<ClaimedChatOutboxEvent[]> {
-    const result = await this.pool.query<ClaimedRow>(
+    const result = await relayQuery<ClaimedRow>(this.pool,
       "SELECT * FROM supportv8.claim_chat_outbox($1, $2)",
       [workerId, Math.min(Math.max(limit, 1), 200)],
     );
@@ -61,11 +61,11 @@ export class PostgresChatOutboxStore implements ChatOutboxStore {
   }
 
   async complete(eventId: string, workerId: string): Promise<void> {
-    await this.pool.query("SELECT supportv8.complete_chat_outbox($1, $2)", [eventId, workerId]);
+    await relayQuery(this.pool, "SELECT supportv8.complete_chat_outbox($1, $2)", [eventId, workerId]);
   }
 
   async fail(eventId: string, workerId: string, error: string): Promise<void> {
-    await this.pool.query("SELECT supportv8.fail_chat_outbox($1, $2, $3)", [
+    await relayQuery(this.pool, "SELECT supportv8.fail_chat_outbox($1, $2, $3)", [
       eventId,
       workerId,
       error.slice(0, 1_000),

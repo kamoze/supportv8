@@ -49,13 +49,15 @@ export class RedisChatRealtime {
 
   private createClient(): Redis {
     if (!this.redisUrl) throw new ChatRealtimeUnavailableError();
-    return new Redis(this.redisUrl, {
+    const client = new Redis(this.redisUrl, {
       lazyConnect: true,
       enableReadyCheck: true,
       maxRetriesPerRequest: 2,
       connectTimeout: 5_000,
       retryStrategy: (attempt) => Math.min(attempt * 250, 3_000),
     });
+    client.on("error", () => console.warn("[supportv8-chat-realtime] redis_unavailable"));
+    return client;
   }
 
   private async commandClient(): Promise<Redis> {
@@ -161,6 +163,11 @@ export class RedisChatRealtime {
       this.subscriptions.delete(channel);
       if (this.subscriber?.status === "ready") await this.subscriber.unsubscribe(channel);
     };
+  }
+
+  forceClose(): void {
+    this.publisher?.disconnect();
+    this.subscriber?.disconnect();
   }
 
   async close(): Promise<void> {

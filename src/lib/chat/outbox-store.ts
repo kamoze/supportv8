@@ -1,4 +1,4 @@
-import { Pool, type QueryResultRow } from "pg";
+import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
 export interface ClaimedChatOutboxEvent {
   eventId: string;
@@ -27,6 +27,7 @@ export interface ChatOutboxStore {
 
 export class PostgresChatOutboxStore implements ChatOutboxStore {
   private readonly pool: Pool;
+  private readonly clients = new Set<PoolClient>();
 
   constructor(connectionString = process.env.DATABASE_URL) {
     if (!connectionString) throw new Error("DATABASE_URL is required for the chat relay");
@@ -35,8 +36,13 @@ export class PostgresChatOutboxStore implements ChatOutboxStore {
       max: Number(process.env.CHAT_RELAY_DB_POOL_MAX || 4),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
+      statement_timeout: 5_000,
+      query_timeout: 6_000,
       application_name: "supportv8-chat-relay",
     });
+    this.pool.on("connect", client => this.clients.add(client));
+    this.pool.on("remove", client => this.clients.delete(client));
+    this.pool.on("error", () => console.warn("[supportv8-chat-relay] database_unavailable"));
   }
 
   async claim(workerId: string, limit: number): Promise<ClaimedChatOutboxEvent[]> {
@@ -64,6 +70,10 @@ export class PostgresChatOutboxStore implements ChatOutboxStore {
       workerId,
       error.slice(0, 1_000),
     ]);
+  }
+
+  forceClose(): void {
+    for (const client of this.clients) void client.end().catch(() => undefined);
   }
 
   async close(): Promise<void> {

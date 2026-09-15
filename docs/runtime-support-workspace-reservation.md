@@ -18,4 +18,4 @@ No application lookup selects a tenant by `servicev8_account_id` alone. Existing
 
 ## Database boundary
 
-`runtime_support_workspaces` uses FORCE RLS with the exact native tenant, account, and Registry tenant transaction-local settings. A database trigger rejects identity changes, resurrection, invalid state transitions, and physical deletion. The module reuses the existing PostgreSQL pool and transaction session; it has no in-memory fallback.
+`runtime_support_workspaces` uses FORCE RLS with the exact native tenant, account, and Registry tenant transaction-local settings. A mapping trigger rejects identity changes, resurrection, invalid state transitions, and physical mapping deletion. A composite foreign key binds the mapping to the native tenant ID, domain, and account, so native ownership drift and native tenant deletion fail at the database boundary. Exact retries also re-read and verify that native owner tuple. The module reuses the existing PostgreSQL pool and transaction session; it has no in-memory fallback.

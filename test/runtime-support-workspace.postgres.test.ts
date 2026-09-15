@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PostgresClient } from "@/lib/db/pg-client";
@@ -40,11 +41,20 @@ describe.skipIf(!enabled)("runtime Support workspace genuine PostgreSQL boundary
   });
   it("rejects changed scope, operation reuse, native/domain collision, rollback retry, and tombstone resurrection",async()=>{
     const input=base("conflict"); const made=await store.acquire(input);
-    await expect(store.acquire({...input,subject:"changed"})).rejects.toBeInstanceOf(WorkspaceReservationConflictError);
+    for (const changed of [
+      {...input,accountId:"changed-account"}, {...input,registryTenantId:"changed-registry"},
+      {...input,installationId:"changed-installation"}, {...input,operationId:"changed-operation"},
+      {...input,tenantDomain:"changed.support.test"}, {...input,subject:"changed-subject"},
+      {...input,companyDisplayName:"Changed Company"},
+    ]) await expect(store.acquire(changed)).rejects.toBeInstanceOf(WorkspaceReservationConflictError);
     await expect(store.acquire(base("other-install",{operationId:input.operationId}))).rejects.toBeInstanceOf(WorkspaceReservationConflictError);
     await admin.query("SET ROLE support_app; INSERT INTO supportv8.tenants VALUES('tenant_collision','collision.support.test','collision','autonomous','another-account'); RESET ROLE");
     await expect(store.acquire(base("collision"))).rejects.toBeInstanceOf(WorkspaceReservationConflictError);
     expect((await admin.query("SELECT 1 FROM supportv8.runtime_support_workspaces WHERE installation_id='install-collision'")).rowCount).toBe(0);
+    const nativeInput=base("native-collision"), nativeDigest=createHash("sha256").update(`${nativeInput.accountId}\0${nativeInput.registryTenantId}\0${nativeInput.installationId}`).digest("hex"), nativeId=`tenant_rt_${nativeDigest.slice(0,48)}`;
+    await app.query("INSERT INTO supportv8.tenants VALUES($1,'unrelated.support.test','collision','autonomous','another-account')",[nativeId]);
+    await expect(store.acquire(nativeInput)).rejects.toBeInstanceOf(WorkspaceReservationConflictError);
+    expect((await admin.query("SELECT 1 FROM supportv8.runtime_support_workspaces WHERE installation_id=$1",[nativeInput.installationId])).rowCount).toBe(0);
     const c=await app.connect();try{await c.query("BEGIN");await c.query("SELECT set_config('app.current_tenant_id',$1,true),set_config('app.current_account_id',$2,true),set_config('app.current_registry_tenant_id',$3,true)",[made.workspaceId,input.accountId,input.registryTenantId]);await c.query("UPDATE supportv8.runtime_support_workspaces SET state='tombstoned',deleted_at=now() WHERE installation_id=$1",[input.installationId]);await c.query("COMMIT");}finally{c.release();}
     await expect(store.acquire(input)).rejects.toBeInstanceOf(WorkspaceReservationConflictError);
   });
@@ -55,6 +65,10 @@ describe.skipIf(!enabled)("runtime Support workspace genuine PostgreSQL boundary
     expect((await scoped("wrong",input.registryTenantId,"SELECT * FROM supportv8.runtime_support_workspaces")).rowCount).toBe(0);
     expect((await scoped(input.accountId,"wrong","SELECT * FROM supportv8.runtime_support_workspaces")).rowCount).toBe(0);
     await expect(scoped(input.accountId,input.registryTenantId,"UPDATE supportv8.runtime_support_workspaces SET account_id='changed'")).rejects.toThrow(/immutable/);
+    await expect(app.query("UPDATE supportv8.tenants SET domain='drift.support.test' WHERE id=$1",[made.workspaceId])).rejects.toThrow(/foreign key constraint/);
+    await expect(app.query("UPDATE supportv8.tenants SET servicev8_account_id='drift-account' WHERE id=$1",[made.workspaceId])).rejects.toThrow(/foreign key constraint/);
+    await expect(app.query("DELETE FROM supportv8.tenants WHERE id=$1",[made.workspaceId])).rejects.toThrow(/foreign key constraint/);
+    expect(await store.acquire(input)).toEqual(made);
     await reader.end();
   });
 });

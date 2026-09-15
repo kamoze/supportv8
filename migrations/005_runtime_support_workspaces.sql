@@ -1,6 +1,8 @@
 DROP INDEX IF EXISTS supportv8.uq_supportv8_tenants_servicev8_account;
 CREATE INDEX IF NOT EXISTS idx_supportv8_tenants_servicev8_account
   ON supportv8.tenants(servicev8_account_id) WHERE servicev8_account_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_supportv8_tenants_runtime_identity
+  ON supportv8.tenants(id,domain,servicev8_account_id);
 
 CREATE TABLE IF NOT EXISTS supportv8.runtime_support_workspaces (
   installation_id varchar(128) PRIMARY KEY,
@@ -18,7 +20,10 @@ CREATE TABLE IF NOT EXISTS supportv8.runtime_support_workspaces (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CHECK (native_domain = tenant_domain),
-  CHECK ((state = 'tombstoned') = (deleted_at IS NOT NULL))
+  CHECK ((state = 'tombstoned') = (deleted_at IS NOT NULL)),
+  FOREIGN KEY (native_tenant_id,native_domain,account_id)
+    REFERENCES supportv8.tenants(id,domain,servicev8_account_id)
+    DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE OR REPLACE FUNCTION supportv8.protect_runtime_support_workspace_identity() RETURNS trigger

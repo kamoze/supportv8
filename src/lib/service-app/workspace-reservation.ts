@@ -75,7 +75,13 @@ export class RuntimeSupportWorkspaceStore {
           RETURNING native_tenant_id,native_domain,state`, [input.installationId,input.operationId,input.accountId,input.registryTenantId,input.verticalId,input.tenantDomain,input.subject,input.companyDisplayName ?? null,workspaceId]);
         const reserved = rows[0];
         if (!reserved) throw new WorkspaceReservationConflictError();
-        if (reserved.state === "workspace_created") return { status: "workspace_created", workspaceId: reserved.native_tenant_id, domain: reserved.native_domain };
+        if (reserved.state === "workspace_created") {
+          const owner = (await db.query<{id:string;domain:string;servicev8_account_id:string|null}>(
+            `SELECT id,domain,servicev8_account_id FROM supportv8.tenants WHERE id=$1`, [reserved.native_tenant_id]
+          ))[0];
+          if (!owner || owner.domain !== reserved.native_domain || owner.servicev8_account_id !== input.accountId) throw new WorkspaceReservationConflictError();
+          return { status: "workspace_created", workspaceId: reserved.native_tenant_id, domain: reserved.native_domain };
+        }
         const inserted = await db.query<{id:string}>(`INSERT INTO supportv8.tenants(id,domain,name,operating_mode,servicev8_account_id)
           VALUES($1,$2,$3,'autonomous',$4) ON CONFLICT DO NOTHING RETURNING id`, [workspaceId,input.tenantDomain,input.companyDisplayName ?? input.tenantDomain,input.accountId]);
         if (inserted.length !== 1) throw new WorkspaceReservationConflictError();
@@ -86,7 +92,7 @@ export class RuntimeSupportWorkspaceStore {
       });
     } catch (error) {
       if (error instanceof InvalidWorkspaceReservationInputError || error instanceof WorkspaceReservationConflictError) throw error;
-      if ((error as {code?:string}).code === "23505") throw new WorkspaceReservationConflictError();
+      if (["23505", "23514", "42501"].includes((error as {code?:string}).code ?? "")) throw new WorkspaceReservationConflictError();
       throw error;
     }
   }

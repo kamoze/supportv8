@@ -16,6 +16,12 @@ export interface DatabasePool {
   end?(): Promise<void>;
 }
 
+export type WorkspaceProvisioningScope = {
+  tenantId: string;
+  accountId: string;
+  registryTenantId: string;
+};
+
 const TENANT_ID_PATTERN = /^tenant_[a-z0-9_]{1,56}$/;
 
 export class InvalidTenantContextError extends Error {
@@ -80,6 +86,37 @@ export class PostgresClient {
         },
       };
 
+      const result = await callback(session);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Trusted provisioning-core transaction with exact, transaction-local RLS scope. */
+  public async withWorkspaceProvisioningSession<T>(
+    scope: WorkspaceProvisioningScope,
+    callback: (session: DatabaseSession) => Promise<T>
+  ): Promise<T> {
+    if (!TENANT_ID_PATTERN.test(scope.tenantId) || !scope.accountId || !scope.registryTenantId) {
+      throw new InvalidTenantContextError();
+    }
+    const client = await this.getPool().connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [scope.tenantId]);
+      await client.query("SELECT set_config('app.current_account_id', $1, true)", [scope.accountId]);
+      await client.query("SELECT set_config('app.current_registry_tenant_id', $1, true)", [scope.registryTenantId]);
+      await client.query("SELECT set_config('statement_timeout', $1, true)", [process.env.SUPPORTV8_DB_STATEMENT_TIMEOUT || "15s"]);
+      const session: DatabaseSession = {
+        tenantId: scope.tenantId,
+        query: async <R extends QueryResultRow = QueryResultRow>(sql: string, params: unknown[] = []) =>
+          (await client.query<R>(sql, params)).rows,
+      };
       const result = await callback(session);
       await client.query("COMMIT");
       return result;

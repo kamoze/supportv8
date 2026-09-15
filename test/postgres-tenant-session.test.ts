@@ -63,4 +63,18 @@ describe("Postgres tenant transaction boundary", () => {
     );
     expect(pool.connect).not.toHaveBeenCalled();
   });
+
+  it("sets exact account and Registry scope transaction-locally for trusted workspace provisioning", async () => {
+    const { pool, calls } = fakePool();
+    const client = new PostgresClient(undefined, pool);
+    await client.withWorkspaceProvisioningSession({tenantId:"tenant_runtime",accountId:"acct-1",registryTenantId:"reg-1"}, async () => undefined);
+    expect(calls.slice(0, 6)).toEqual([
+      {sql:"BEGIN",params:undefined},
+      {sql:"SELECT set_config('app.current_tenant_id', $1, true)",params:["tenant_runtime"]},
+      {sql:"SELECT set_config('app.current_account_id', $1, true)",params:["acct-1"]},
+      {sql:"SELECT set_config('app.current_registry_tenant_id', $1, true)",params:["reg-1"]},
+      {sql:"SELECT set_config('statement_timeout', $1, true)",params:["15s"]},
+      {sql:"COMMIT",params:undefined},
+    ]);
+  });
 });

@@ -295,8 +295,8 @@ function origin(
   const hosts =
     kind === "runtime"
       ? [
-          "servicev8-agentic-runtime",
-          "servicev8-agentic-runtime.default.svc.cluster.local",
+          "servicev8-runtime",
+          "servicev8-runtime.default.svc.cluster.local",
         ]
       : kind === "registry"
         ? [

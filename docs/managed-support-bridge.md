@@ -1,0 +1,15 @@
+# Managed Support read boundary v1
+
+POST `/internal/service-apps/support/invoke` is workload-only. It does not accept browser cookies or user tokens. Operations are `connection.verify`, `connection.readiness`, and `support_ticket_lookup`; only lookup queries tickets. The exact target is accountId, tenantId, verticalId=runtime, destination installationId and native workspaceId.
+
+Connect is data-free and requires the locally committed immutable native mapping, Registry verified service-app binding, current active entitlement and included plan. It permits provisioning/configuration_required/active installation states so a durable registration job can converge before activation. Data readiness and lookup require active/ready installation. Lookup additionally requires signed employee identity and an exact current explicit Registry support-context grant; an app installation or catalog requirement never grants a tool.
+
+Scopes: supportv8:managed:connect, supportv8:managed:readiness, supportv8:tickets:read. Data JWTs additionally bind account_id, tenant_id, actor(ai_employee/canonical hire), capabilities=[ticket.read], support_grant, correlation_id and purpose=direct_read. support_grant fields: connectionId, generation, employeeId, employeeInstallationId, employeeEntitlementId, principalId, destinationInstallationId, workspaceId. Central control workloads may omit tenant/account claims; supplied claims must match. Required standard claims are iss/aud/sub/azp/iat/nbf/exp/jti; audience supportv8, RS256, maximum 300 seconds, exact client allowlist and scope.
+
+Lookup accepts `parameters.ticketRef` and returns only `{reference,status,priority}`. Tenant RLS plus explicit tenant_id and external_id predicates are used; absent, foreign and ambiguous references return no ticket. No customer data, summary, timeline, IDs, search, list or mutation is exposed.
+
+Configuration: SUPPORTV8_MANAGED_WORKLOAD_ISSUER, SUPPORTV8_MANAGED_WORKLOAD_JWKS_URL, SUPPORTV8_MANAGED_WORKLOAD_CLIENT_IDS; REGISTRY_URL; SUPPORTV8_MANAGED_TOKEN_URL, SUPPORTV8_MANAGED_CLIENT_ID, SUPPORTV8_MANAGED_CLIENT_SECRET. Registry client scopes are separate read-only registry:installations:read, registry:employees:read, registry:support-context:read. All credential endpoints require HTTPS. Registry may use only the explicitly supported servicev8-registry cluster origins over HTTP.
+
+Keycloak is the canonical issuer. Data claim issuance/exchange support is an unresolved deployment dependency; the owner rejects missing signed claims, and no signing fallback exists. This change alone does not activate voice/chat or install an automatic lifecycle job.
+
+Tests: ordinary `npm test`; opt-in real PostgreSQL `MANAGED_SUPPORT_TEST_DATABASE_URL=postgres://127.0.0.1:53097/support_managed_bridge_test npm test -- test/managed-support.postgres.test.ts` on an owned disposable fixture. The test refuses other hosts/ports/database names and uses a non-bypass application role.

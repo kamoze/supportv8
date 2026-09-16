@@ -1,17 +1,18 @@
 import { headers } from "next/headers";
 import { authorizeRuntimeSupportRequest } from "@/lib/service-app/runtime-session";
 import { runtimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
+import { loadRuntimeWorkspaceTickets } from "@/lib/service-app/runtime-workspace-view";
 import { RuntimeWorkspace } from "./runtime-workspace";
 import "./runtime.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Runtime support tickets | SupportV8",
+  title: "Support workspace | SupportV8",
   robots: { index: false, follow: false },
 };
 export default async function RuntimePage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string; ticket?: string }>;
+  searchParams: Promise<{ cursor?: string; ticket?: string; view?: string }>;
 }) {
   const h = await headers(),
     host = h.get("host") ?? "",
@@ -36,14 +37,23 @@ export default async function RuntimePage({
     subject: auth.session.sub,
   };
   try {
-    const query = await searchParams,
-      page = await runtimeSupportTicketReader.list(scope, {
-        limit: 30,
-        ...(query.cursor ? { cursor: query.cursor } : {}),
-      }),
-      selected = query.ticket
-        ? await runtimeSupportTicketReader.get(scope, query.ticket)
-        : (page.tickets[0] ?? null);
+    const query = await searchParams;
+    const loaded = await loadRuntimeWorkspaceTickets(
+      runtimeSupportTicketReader,
+      scope,
+      query,
+    );
+    if (!loaded.page) {
+      return (
+        <RuntimeWorkspace
+          domain={auth.session.tenantDomain}
+          role={auth.role}
+          state="ready"
+          view={loaded.view}
+        />
+      );
+    }
+    const { page, selected } = loaded;
     return (
       <RuntimeWorkspace
         domain={auth.session.tenantDomain}
@@ -53,6 +63,7 @@ export default async function RuntimePage({
         selectionRequested={Boolean(query.ticket)}
         state={page.tickets.length ? "ready" : "empty"}
         cursor={query.cursor}
+        view={loaded.view}
       />
     );
   } catch {

@@ -1,0 +1,45 @@
+import { describe,expect,it,vi } from "vitest";
+import { RuntimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
+import type { SupportRuntimeScope } from "@/lib/service-app/runtime-access";
+import type { DatabasePool } from "@/lib/db/pg-client";
+import { PostgresClient } from "@/lib/db/pg-client";
+
+const scope:SupportRuntimeScope={accountId:"acct-1",tenantId:"registry-1",verticalId:"runtime",installationId:"install-1",workspaceId:"tenant_rt_1234567890abcdef1234567890abcdef1234567890abcdef",subject:"member-2"};
+const access={...scope,capability:"support:read" as const,email:"member@example.test",domain:"acme-support"};
+function harness(rows:Record<string,unknown>[]){
+  const calls:Array<{sql:string;params?:unknown[]}>=[];
+  const query=vi.fn(async(sql:string,params?:unknown[])=>{calls.push({sql,params});return {rows:sql.includes("FROM supportv8.issues")?rows:[]};});
+  const pool={connect:vi.fn(async()=>({query,release:vi.fn()}))} as unknown as DatabasePool;
+  const current=vi.fn(async()=>access);
+  return {reader:new RuntimeSupportTicketReader({client:new PostgresClient(undefined,pool),resolve:current}),calls,current};
+}
+const row=(id:string,source:string,updatedAt:string)=>({id,external_id:`ref-${id}`,customer_ref:`customer-${id}`,customer_name:`Customer ${id}`,source_status:"open",priority:"normal",summary:`Summary ${id}`,source,created_at:"2026-09-01T00:00:00.000Z",updated_at:updatedAt});
+
+describe("Runtime Support durable ticket reader",()=>{
+  it("returns all sources with a bounded keyset and a scope-bound cursor",async()=>{
+    const {reader,calls}=harness([row("voice-1","voice","2026-09-16T12:00:00.000Z"),row("handoff-1","orderv8_handoff","2026-09-16T11:00:00.000Z"),row("email-1","email","2026-09-16T10:00:00.000Z")]);
+    const page=await reader.list(scope,{limit:2});
+    expect(page.tickets.map(ticket=>ticket.source)).toEqual(["voice","orderv8_handoff"]);
+    expect(page.nextCursor).toEqual(expect.any(String));
+    expect(calls.find(call=>call.sql.includes("FROM supportv8.issues"))?.params).toEqual([scope.workspaceId,3]);
+    const next=harness([row("email-1","email","2026-09-16T10:00:00.000Z")]);
+    await next.reader.list(scope,{limit:2,cursor:page.nextCursor});
+    expect(next.calls.find(call=>call.sql.includes("FROM supportv8.issues"))?.params).toEqual([scope.workspaceId,"2026-09-16T11:00:00.000Z","handoff-1",3]);
+    await expect(next.reader.list({...scope,tenantId:"registry-2"},{limit:2,cursor:page.nextCursor})).rejects.toThrow("invalid_ticket_cursor");
+  });
+  it.each([0,101,1.5])("rejects invalid limit %s",async(limit)=>expect(harness([]).reader.list(scope,{limit})).rejects.toThrow("invalid_ticket_query"));
+  it("does exact detail lookup and reauthorizes on every read",async()=>{
+    const h=harness([row("ticket-1","chat","2026-09-16T12:00:00.000Z")]);
+    expect((await h.reader.get(scope,"ticket-1"))?.ticketRef).toBe("ref-ticket-1");
+    await h.reader.list(scope,{limit:10});
+    expect(h.current).toHaveBeenCalledTimes(2);
+    const sql=h.calls.filter(call=>call.sql.includes("FROM supportv8.issues"));
+    expect(sql[0]?.sql).toContain("tenant_id=$1 AND id=$2");
+    expect(sql[0]?.params).toEqual([scope.workspaceId,"ticket-1"]);
+  });
+  it("denies before querying when current access is revoked",async()=>{
+    const h=harness([]); (h.reader as unknown as {resolve:unknown}).resolve=async()=>null;
+    await expect(h.reader.list(scope,{})).rejects.toThrow("support_access_denied");
+    expect(h.calls.some(call=>call.sql.includes("FROM supportv8.issues"))).toBe(false);
+  });
+});

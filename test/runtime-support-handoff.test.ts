@@ -124,7 +124,7 @@ describe("Runtime handoff admission", () => {
     const d = deps(),
       response = await handleRuntimeSupportHandoff(request(), d);
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("/runtime");
+    expect(response.headers.get("location")).toBe("/?view=cockpit&handoff=runtime");
     expect(response.headers.get("set-cookie")).toMatch(
       /^__Host-sv8_runtime_support=.*; Path=\/; Max-Age=28800; HttpOnly; Secure; SameSite=Lax$/,
     );
@@ -513,7 +513,7 @@ describe("runtime ticket HTTP boundary", () => {
 });
 
 describe("legacy and runtime route isolation", () => {
-  it("does not let the runtime cookie authorize legacy tenant access", async () => {
+  it("rejects an unverifiable runtime cookie at the native boundary", async () => {
     const token = signRuntimeSupportSession(
       {
         accountId: claims.accountId,
@@ -528,16 +528,14 @@ describe("legacy and runtime route isolation", () => {
       sessionSecret,
       now,
     )!;
-    const legacy = await resolveRequestTenant(
+    await expect(resolveRequestTenant(
       new Request("http://127.0.0.1:3000/api/issues", {
         headers: {
           host: "synthetic-support.support.servicev8.com",
           cookie: runtimeSupportCookie(token),
         },
       }),
-    );
-    expect(legacy.authenticated).toBe(false);
-    expect(legacy.userId).toBeUndefined();
+    )).rejects.toThrow("Invalid or revoked workspace session");
   });
   it("wires the actual route exports to the dedicated boundaries", async () => {
     const handoff = await import("@/app/auth/runtime/handoff/route");

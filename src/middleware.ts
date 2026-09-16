@@ -59,11 +59,24 @@ export function middleware(request: NextRequest) {
   const bearer = authorization?.startsWith("Bearer ")
     ? authorization.slice("Bearer ".length).trim()
     : undefined;
+  const hasRuntimeSession = request.cookies.has("__Host-sv8_runtime_support");
+  // Deny-only migration boundary: these native mutations already revalidate the
+  // handoff through resolveRequestTenant. Older global/demo stores cannot write
+  // on behalf of a linked workspace until their tenant storage is integrated.
+  const scopedRuntimeMutations = new Set([
+    "/api/issues", "/api/presence", "/api/auth/profile", "/api/auth/logout",
+    "/api/members", "/api/groups",
+  ]);
+  if (hasRuntimeSession && !SAFE_HTTP_METHODS.has(request.method) && url.pathname.startsWith("/api/")
+    && !url.pathname.startsWith("/api/runtime/") && !scopedRuntimeMutations.has(url.pathname)) {
+    return NextResponse.json({success:false,error:"This operation is not connected to this workspace's tenant storage."},{status:403});
+  }
   const presentedAccessToken =
     bearer || request.cookies.get("sv8_access_token")?.value;
 
   if (
     !SAFE_HTTP_METHODS.has(request.method) &&
+    !hasRuntimeSession &&
     tokenHasDemoOperatorRole(presentedAccessToken) &&
     !DEMO_MUTATION_PATHS.has(url.pathname)
   ) {

@@ -173,3 +173,14 @@ describe("trusted request tenant normalization", () => {
     expect(() => tenantSlugFromId("postgres")).toThrow("valid tenant claim");
   });
 });
+
+it('a Runtime cookie cannot reach legacy global mutations, even with a manager browser label',()=>{
+ for(const path of ['/api/policies','/api/knowledge','/api/knowledge/upload','/api/workforce','/api/credits','/api/marketplace','/api/voice/session']) {
+  const response=middleware(new NextRequest(`https://acme.support.servicev8.com${path}`,{method:'POST',headers:{host:'acme.support.servicev8.com',cookie:'__Host-sv8_runtime_support=unverified'}}));
+  expect(response.status).toBe(403);
+ }
+});
+it('stale demo metadata cannot deny a handoff before its native route verifies authority',()=>{
+ const response=middleware(new NextRequest('https://acme.support.servicev8.com/api/issues',{method:'POST',headers:{host:'acme.support.servicev8.com',cookie:`__Host-sv8_runtime_support=unverified; sv8_access_token=${tokenWithRoles(['support_demo_operator'])}`}}));
+ expect(response.status).not.toBe(403);
+});

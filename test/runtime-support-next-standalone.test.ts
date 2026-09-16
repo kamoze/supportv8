@@ -349,7 +349,7 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
       { headers: { host: tenantHost, "x-forwarded-host": "attacker.example" } },
     );
     expect(handoff.status).toBe(303);
-    expect(handoff.headers.location).toBe("/runtime");
+    expect(handoff.headers.location).toBe("/?view=cockpit&handoff=runtime");
     const setCookie = handoff.headers["set-cookie"]?.[0];
     expect(setCookie).toContain("__Host-sv8_runtime_support=");
     const cookie = setCookie!.split(";", 1)[0]!;

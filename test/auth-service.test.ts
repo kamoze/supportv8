@@ -43,3 +43,13 @@ describe("SupportV8 AuthService & Zero-Trust Session Management", () => {
     expect(AuthService.getActiveSession()).toBeNull();
   });
 });
+
+it('expired browser display metadata never logs out a newly issued HttpOnly handoff',()=>{
+ const data=new Map([['sv8_operator_session',JSON.stringify({expiresAt:1})]]);
+ vi.stubGlobal('window',{});
+ vi.stubGlobal('sessionStorage',{getItem:(k:string)=>data.get(k)??null,removeItem:(k:string)=>data.delete(k)});
+ vi.stubGlobal('localStorage',{removeItem:vi.fn()});
+ const fetcher=vi.fn().mockResolvedValue(new Response());vi.stubGlobal('fetch',fetcher);
+ expect(AuthService.getActiveSession()).toBeNull();expect(fetcher).not.toHaveBeenCalled();
+ vi.unstubAllGlobals();
+});

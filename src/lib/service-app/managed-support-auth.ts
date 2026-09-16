@@ -39,6 +39,7 @@ export function createManagedSupportAuthenticator(input: {
       )
         return null;
       const scopes = {
+        "connection.lifecycle": "supportv8:managed:lifecycle",
         "connection.verify": "supportv8:managed:connect",
         "connection.readiness": "supportv8:managed:readiness",
         support_ticket_lookup: "supportv8:tickets:read",

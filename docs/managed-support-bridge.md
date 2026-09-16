@@ -13,3 +13,11 @@ Configuration: SUPPORTV8_MANAGED_WORKLOAD_ISSUER, SUPPORTV8_MANAGED_WORKLOAD_JWK
 Keycloak is the canonical issuer. Data claim issuance/exchange support is an unresolved deployment dependency; the owner rejects missing signed claims, and no signing fallback exists. This change alone does not activate voice/chat or install an automatic lifecycle job.
 
 Tests: ordinary `npm test`; opt-in real PostgreSQL `MANAGED_SUPPORT_TEST_DATABASE_URL=postgres://127.0.0.1:53097/support_managed_bridge_test npm test -- test/managed-support.postgres.test.ts` on an owned disposable fixture. The test refuses other hosts/ports/database names and uses a non-bypass application role.
+
+## Permanent managed connection lifecycle
+
+Migration 009 makes ready registration jobs eligible for periodic observation (five minutes after a successful reconciliation). The worker first observes the exact local native workspace while holding its registration lease. Only `state = tombstoned AND deleted_at IS NOT NULL` on that immutable account/Registry tenant/Runtime installation/native workspace tuple changes desired state to `permanently_revoked` and increments the job generation once. Retries preserve generation; a stale lease cannot observe or finish. This generation is unrelated to employee grant policy generations.
+
+The owner operation `connection.lifecycle` requires `supportv8:managed:lifecycle` through the existing issuer/audience/client allowlist. It freshly rereads the exact local tombstone and its persisted observation. Registry has no trusted exposed terminal marker: suspension, expired plans, non-ready installations, missing projections, and Registry failures cannot supply permanent proof. Active/temporary results have generation zero. Only the local observed tombstone returns `permanently_revoked`, generation one, reason `workspace_tombstoned`.
+
+The worker calls Gateway `/v1/support/managed/disable` with `action:support:lifecycle`, the deterministic connection ID and persisted generation. Gateway independently obtains owner proof. Only an exact disabled acknowledgement advances applied generation and marks the job revoked. Failed or lost replies stay retryable. If the connection was never created, disable remains pending without creating a connection. There is no re-enable or historical acquisition replay in this slice.

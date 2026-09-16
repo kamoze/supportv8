@@ -155,6 +155,57 @@ export class ManagedSupportAuthority {
         ).length === 1,
     );
   }
+  async lifecycle(target: SupportTarget): Promise<Record<string, unknown>> {
+    const rows = await this.client.withWorkspaceProvisioningSession(
+      {
+        tenantId: target.workspaceId,
+        accountId: target.accountId,
+        registryTenantId: target.tenantId,
+      },
+      (db) =>
+        db.query<{
+          state: string;
+          deleted_at: unknown;
+          desired_state: string;
+          observed_generation: number;
+        }>(
+          `SELECT w.state,w.deleted_at,j.desired_state,j.observed_generation FROM supportv8.runtime_support_workspaces w JOIN supportv8.managed_support_registration_jobs j ON j.installation_id=w.installation_id AND j.account_id=w.account_id AND j.registry_tenant_id=w.registry_tenant_id AND j.vertical_id=w.vertical_id AND j.native_workspace_id=w.native_tenant_id WHERE w.installation_id=$1 AND w.account_id=$2 AND w.registry_tenant_id=$3 AND w.vertical_id='runtime' AND w.native_tenant_id=$4`,
+          [
+            target.installationId,
+            target.accountId,
+            target.tenantId,
+            target.workspaceId,
+          ],
+        ),
+    );
+    if (rows.length !== 1) throw Error("lifecycle_authority_unavailable");
+    const row = rows[0]!;
+    if (row.state === "tombstoned" && row.deleted_at != null) {
+      if (
+        row.desired_state !== "permanently_revoked" ||
+        !Number.isSafeInteger(row.observed_generation) ||
+        row.observed_generation < 1
+      )
+        throw Error("lifecycle_observation_pending");
+      return {
+        ok: true,
+        target,
+        decision: "permanently_revoked",
+        observedGeneration: row.observed_generation,
+        reasonCode: "workspace_tombstoned",
+      };
+    }
+    if (row.desired_state !== "active" || row.observed_generation !== 0)
+      throw Error("lifecycle_identity_conflict");
+    const active = await this.verify(target);
+    return {
+      ok: true,
+      target,
+      decision: active ? "active" : "temporarily_unavailable",
+      observedGeneration: 0,
+      reasonCode: active ? "workspace_active" : "authority_unavailable",
+    };
+  }
   async verify(
     target: SupportTarget,
     operation: SupportOperation = "connection.readiness",

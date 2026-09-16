@@ -16,6 +16,7 @@ export type TicketStatus = {
 };
 export type ManagedSupportDependencies = {
   authenticate?: ManagedSupportAuthenticator;
+  lifecycle?: (target: SupportTarget) => Promise<Record<string, unknown>>;
   verify: (
     target: SupportTarget,
     operation: SupportOperation,
@@ -46,6 +47,7 @@ export async function handleManagedSupport(
     const operation = body?.operation as SupportOperation;
     if (
       ![
+        "connection.lifecycle",
         "connection.verify",
         "connection.readiness",
         "support_ticket_lookup",
@@ -66,6 +68,10 @@ export async function handleManagedSupport(
       (actor.tenantId !== undefined && actor.tenantId !== target.tenantId)
     )
       return reply(403, { error: "support_not_authorized" });
+    if (operation === "connection.lifecycle") {
+      if (!deps.lifecycle) return reply(503, { error: "support_unavailable" });
+      return reply(200, await deps.lifecycle(target));
+    }
     if (!(await deps.verify(target, operation)))
       return reply(403, { error: "support_not_authorized" });
     if (operation !== "support_ticket_lookup")

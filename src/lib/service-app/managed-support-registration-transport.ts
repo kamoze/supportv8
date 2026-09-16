@@ -78,13 +78,18 @@ async function systemToken(scope: string): Promise<string> {
 }
 
 export async function callManagedSupportGateway(
-  kind: "connect" | "readiness",
+  kind: "connect" | "readiness" | "disable",
   job: ManagedSupportRegistrationJob,
   connectionId?: string,
+  observedGeneration?: number,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const base = configuredUrl(process.env.ACTION_GATEWAY_URL, "gateway");
   const token = await systemToken(
-    kind === "connect" ? "action:support:connect" : "action:support:readiness",
+    kind === "disable"
+      ? "action:support:lifecycle"
+      : kind === "connect"
+        ? "action:support:connect"
+        : "action:support:readiness",
   );
   const target = {
     accountId: job.accountId,
@@ -95,9 +100,11 @@ export async function callManagedSupportGateway(
   };
   const response = await fetch(
     new URL(
-      kind === "connect"
-        ? "/v1/support/managed/connect"
-        : "/v1/support/managed/readiness",
+      kind === "disable"
+        ? "/v1/support/managed/disable"
+        : kind === "connect"
+          ? "/v1/support/managed/connect"
+          : "/v1/support/managed/readiness",
       base,
     ),
     {
@@ -108,7 +115,11 @@ export async function callManagedSupportGateway(
         accept: "application/json",
       },
       body: JSON.stringify(
-        kind === "connect" ? { target } : { target, connectionId },
+        kind === "disable"
+          ? { target, connectionId, observedGeneration }
+          : kind === "connect"
+            ? { target }
+            : { target, connectionId },
       ),
       redirect: "error",
       cache: "no-store",

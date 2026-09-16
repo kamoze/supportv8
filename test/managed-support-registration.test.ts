@@ -19,7 +19,7 @@ const job: ManagedSupportRegistrationJob = {
 describe("managed Support registration reconciliation", () => {
   it("persists exact connect then readiness without employee authority", async () => {
     const update = vi.fn(),
-      call = vi.fn(async (kind: "connect" | "readiness") =>
+      call = vi.fn(async (kind: "connect" | "readiness" | "disable") =>
         kind === "connect"
           ? {
               status: 200,

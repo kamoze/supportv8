@@ -26,6 +26,7 @@ export type SupportActor = {
 export type SupportOperation =
   | "connection.verify"
   | "connection.readiness"
+  | "connection.lifecycle"
   | "support_ticket_lookup";
 export const SUPPORT_MANIFEST = {
   schemaVersion: "servicev8.managed-support.v1",

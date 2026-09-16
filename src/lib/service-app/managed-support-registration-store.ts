@@ -8,6 +8,8 @@ type JobRow = QueryResultRow & {
   registry_tenant_id: string;
   vertical_id: "runtime";
   native_workspace_id: string;
+  observed_generation: number;
+  desired_state: "active" | "permanently_revoked";
   state: ManagedSupportRegistrationJob["state"];
   attempt_count: number;
   connection_id: string | null;
@@ -37,17 +39,18 @@ export class ManagedSupportRegistrationStore {
       "SELECT * FROM supportv8.claim_managed_support_registration_jobs($1,$2)",
       [workerId, limit],
     );
-    return rows.map((row) => ({
-      installationId: row.installation_id,
-      acquisitionId: row.acquisition_id,
-      accountId: row.account_id,
-      registryTenantId: row.registry_tenant_id,
-      verticalId: row.vertical_id,
-      workspaceId: row.native_workspace_id,
-      state: row.state,
-      attemptCount: row.attempt_count,
-      ...(row.connection_id ? { connectionId: row.connection_id } : {}),
-    }));
+    return rows.map(mapJob);
+  }
+  async observe(
+    workerId: string,
+    installationId: string,
+  ): Promise<ManagedSupportRegistrationJob> {
+    const { rows } = await this.pool.query<JobRow>(
+      "SELECT * FROM supportv8.observe_managed_support_lifecycle($1,$2)",
+      [workerId, installationId],
+    );
+    if (rows.length !== 1) throw Error("lifecycle_observation_missing");
+    return mapJob(rows[0]!);
   }
   async finish(
     workerId: string,
@@ -69,4 +72,20 @@ export class ManagedSupportRegistrationStore {
   async close() {
     await this.pool.end();
   }
+}
+
+function mapJob(row: JobRow): ManagedSupportRegistrationJob {
+  return {
+    installationId: row.installation_id,
+    acquisitionId: row.acquisition_id,
+    accountId: row.account_id,
+    registryTenantId: row.registry_tenant_id,
+    verticalId: row.vertical_id,
+    workspaceId: row.native_workspace_id,
+    state: row.state,
+    attemptCount: row.attempt_count,
+    observedGeneration: row.observed_generation,
+    desiredState: row.desired_state,
+    ...(row.connection_id ? { connectionId: row.connection_id } : {}),
+  };
 }

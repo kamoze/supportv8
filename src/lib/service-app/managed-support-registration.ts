@@ -7,8 +7,16 @@ export type ManagedSupportRegistrationJob = {
   registryTenantId: string;
   verticalId: "runtime";
   workspaceId: string;
-  state: "pending" | "connected" | "ready" | "conflict";
+  state:
+    | "pending"
+    | "connected"
+    | "ready"
+    | "conflict"
+    | "revocation_pending"
+    | "revoked";
   attemptCount: number;
+  desiredState?: "active" | "permanently_revoked";
+  observedGeneration?: number;
   connectionId?: string;
 };
 type Update = Partial<
@@ -16,9 +24,10 @@ type Update = Partial<
 > & { nextAttemptAt?: string; lastErrorCode?: string };
 type Dependencies = {
   call: (
-    kind: "connect" | "readiness",
+    kind: "connect" | "readiness" | "disable",
     target: Record<string, string>,
     connectionId?: string,
+    observedGeneration?: number,
   ) => Promise<{ status: number; body: Record<string, unknown> }>;
   update: (value: Update) => Promise<void> | void;
   connectionId?: (target: Record<string, string>) => string;
@@ -75,6 +84,32 @@ export async function reconcileManagedSupportRegistration(
       lastErrorCode: code,
     });
   };
+  if (job.state === "revoked") return;
+  if (job.desiredState === "permanently_revoked") {
+    if (
+      job.state !== "revocation_pending" ||
+      !Number.isSafeInteger(job.observedGeneration) ||
+      job.observedGeneration! < 1
+    )
+      throw Error("invalid_lifecycle_observation");
+    const disabled = await deps.call(
+      "disable",
+      target,
+      expected,
+      job.observedGeneration,
+    );
+    if (
+      disabled.status !== 200 ||
+      disabled.body.connectionId !== expected ||
+      disabled.body.status !== "disabled" ||
+      disabled.body.observedGeneration !== job.observedGeneration
+    ) {
+      await retry("disable_pending", "revocation_pending");
+      return;
+    }
+    await deps.update({ state: "revoked", connectionId: expected });
+    return;
+  }
   const connect = await deps.call("connect", target);
   if (connect.status !== 200) {
     if (connect.status === 409) {

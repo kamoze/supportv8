@@ -1,6 +1,8 @@
 # Runtime Support workspace reservation
 
-This internal persistence boundary reserves a native Support workspace for an already-authorized Runtime installation. It does not expose an HTTP route and does not assert entitlement, plan inclusion, employee permission, shared-pool binding, managed connection, or service-app readiness. Its only successful state is `workspace_created`.
+This internal persistence boundary reserves a native Support workspace for an already-authorized Runtime installation. The private `POST /internal/service-app/v1/provision` owner endpoint exposes it only to a dedicated configured Registry workload using a short-lived RS256 credential with audience `supportv8` and exact provision scope. The endpoint does not assert entitlement, plan inclusion, employee permission, shared-pool binding, managed connection, or service-app readiness. Its successful response reports `workspace_created` with `readiness: configuration_required`.
+
+The endpoint authenticates before reading its bounded request body, rejects unknown fields and query parameters, and requires the exact immutable scope below. Optional account and Registry tenant JWT claims must match the body. Configuration uses `SUPPORTV8_PROVISION_WORKLOAD_ISSUER`, `SUPPORTV8_PROVISION_WORKLOAD_CLIENT_IDS`, and optionally `SUPPORTV8_PROVISION_WORKLOAD_JWKS_URL`; it does not fall back to a broader Runtime workload allowlist.
 
 The immutable owner scope is the exact tuple `accountId`, `registryTenantId`, `installationId`, `operationId`, `tenantDomain`, `subject`, and `verticalId: runtime`, plus the optional display name. A SHA-256 scope identity produces a canonical native tenant identifier; the reservation and native tenant are inserted in one transaction. Existing tenant or domain collisions fail and roll back rather than adopting the existing workspace. Exact retry returns the stored mapping. Tombstones remain stored and cannot be reacquired.
 

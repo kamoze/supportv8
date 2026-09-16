@@ -1,6 +1,6 @@
 # Runtime Support owner-boundary qualification
 
-The Runtime workspace reservation is a persistence foundation. It is not callable Support provisioning and must not be published or acquired as a Support service app yet. It creates no employee, entitlement, charge, plan inclusion, pool binding, managed connection, login session, or capability grant.
+The Runtime workspace reservation now has a private, authenticated Support owner endpoint at `POST /internal/service-app/v1/provision`. It accepts only a dedicated, configured Registry workload credential and preserves the approved account, Registry tenant, installation, operation, subject, vertical, and domain scope. Missing workload configuration fails closed. This is a partial owner boundary, not full service-app qualification. It creates no employee, entitlement, charge, plan inclusion, pool binding, managed connection, login session, or capability grant.
 
 ## Verified persistence boundary
 
@@ -12,7 +12,7 @@ The same database also exercises the production `PostgresTenantReservationBacken
 
 These are release blockers for callable Support provisioning:
 
-- **Trusted Registry provision adapter:** there is no authenticated internal Support service-app provision route or registered product/version owner. A future adapter must accept only Registry-authorized acquisition and operation identity after current plan and admin checks, call this reservation store, and preserve its exact account, Registry tenant, installation, subject, vertical, operation, and domain scope. Browser authentication cannot authorize provisioning.
+- **Registry caller and publication:** Support now verifies a short-lived, audience-bound Registry workload credential and calls the reservation store. Registry must still implement its caller after current plan and admin checks and register the product/version owner. Browser authentication cannot authorize provisioning, and the Support endpoint does not make acquisition decisions.
 - **Shared-pool and managed connection:** Support has no verified Forge shared-pool binding and credit-settlement contract, or Action Gateway managed connector evidence contract. Knowledge's Forge `/v1/service-apps/knowledge/bind-pool` owner path is Knowledge-specific and is not a Support adapter. Future Support-specific owner responses must prove the exact account, metering tenant, external workspace, pool binding, and managed connection state. Reservation success cannot stand in for pool or connection readiness.
 - **Replay-protected tenant SSO:** existing native login and handoff paths do not establish an installation-scoped Runtime-to-Support session with current Registry membership and entitlement rechecks. A future handoff must verify signed short-lived audience-bound claims, consume replay identity, map roles explicitly, and carry exact account/Registry tenant/installation/workspace scope through every request.
 - **Durable ticket workspace:** the general issues UI still combines mock-backed data with chat-specific persistence and does not provide a qualified tenant-scoped list/detail/update path for all persisted Support issue sources. Callable provisioning cannot claim a usable home workspace until voice and Runtime handoff receipts resolve in the durable UI.

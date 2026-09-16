@@ -1,4 +1,4 @@
-import { pgClient, type PostgresClient } from "@/lib/db/pg-client";
+import { pgClient, type PostgresClient } from "../db/pg-client";
 
 export type SupportRuntimeScope = {
   accountId: string;

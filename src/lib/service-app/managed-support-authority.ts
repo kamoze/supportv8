@@ -1,8 +1,20 @@
+import {
+  RegistrySupportAuthority,
+  resolveOperationalSupportAccess,
+} from "./runtime-access";
+import {
+  managedSupportSourceAuthorityFromEnv,
+  parseSourceSelector,
+  supportProofTarget,
+  type SourceMode,
+  type SupportSourceProof,
+} from "./managed-support-source";
 import { pgClient, type PostgresClient } from "../db/pg-client";
 import {
   boundedJson,
+  exact,
+  sameTarget,
   record,
-  type SupportActor,
   type SupportTarget,
   type SupportOperation,
 } from "./managed-support-contract";
@@ -13,10 +25,6 @@ type Dependencies = {
   client?: PostgresClient;
   get?: (url: URL) => Promise<unknown>;
   local?: (target: SupportTarget) => Promise<boolean>;
-  verifyGrant?: (
-    target: SupportTarget,
-    actor: SupportActor,
-  ) => Promise<boolean>;
   now?: () => number;
 };
 /** Registry proves lifecycle/consumer identity. The capability owner separately proves current assignment. */
@@ -36,6 +44,8 @@ export class ManagedSupportAuthority {
         !(
           url.protocol === "http:" &&
           [
+            "registry-service",
+            "registry-service.default.svc.cluster.local",
             "servicev8-registry",
             "servicev8-registry.default.svc.cluster.local",
           ].includes(url.hostname)
@@ -155,6 +165,65 @@ export class ManagedSupportAuthority {
         ).length === 1,
     );
   }
+  async verifySource(
+    mode: SourceMode,
+    target: SupportTarget,
+    value: unknown,
+    reference?: string,
+  ): Promise<SupportSourceProof | null> {
+    try {
+      const source = exact(
+        value,
+        mode === "lookup"
+          ? ["kind", "invocationId", "digest"]
+          : ["kind", "disclosureId", "digest"],
+      );
+      if (source.kind !== "runtime") return null;
+      const { kind, ...referenceFields } = source;
+      const selector = parseSourceSelector(
+        {
+          ...referenceFields,
+          accountId: target.accountId,
+          tenantId: target.tenantId,
+        },
+        mode,
+      );
+      const proof = await managedSupportSourceAuthorityFromEnv(
+        this.env,
+        this.request,
+        this.deps.now,
+      ).verify(mode, selector);
+      if (
+        !proof ||
+        !sameTarget(supportProofTarget(proof), target) ||
+        (mode === "lookup" &&
+          (proof.parameters as Record<string, unknown>).ticketReference !==
+            reference)
+      )
+        return null;
+      const registry = new RegistrySupportAuthority({
+        env: this.env,
+        request: this.request,
+      });
+      const access = await resolveOperationalSupportAccess(
+        { ...target, subject: proof.subject },
+        {
+          current: (scope) => registry.read(scope),
+          client: this.client,
+          now: this.deps.now,
+        },
+      );
+      if (
+        !access ||
+        !["support:read", "support:manage"].includes(access.capability) ||
+        proof.expiresAt <= (this.deps.now ?? Date.now)()
+      )
+        return null;
+      return proof;
+    } catch {
+      return null;
+    }
+  }
   async lifecycle(target: SupportTarget): Promise<Record<string, unknown>> {
     const rows = await this.client.withWorkspaceProvisioningSession(
       {
@@ -247,95 +316,8 @@ export class ManagedSupportAuthority {
       return false;
     }
   }
-  async authorize(
-    target: SupportTarget,
-    actor: SupportActor,
-  ): Promise<boolean> {
-    try {
-      const grant = actor.grant;
-      if (
-        !grant ||
-        actor.accountId !== target.accountId ||
-        actor.tenantId !== target.tenantId ||
-        actor.actorId !== grant.employeeId ||
-        grant.destinationInstallationId !== target.installationId ||
-        grant.workspaceId !== target.workspaceId
-      )
-        return false;
-      const rows = await this.rows(target, grant.employeeInstallationId);
-      if (rows.length !== 1) return false;
-      const p = rows[0]!;
-      if (
-        p.accountId !== target.accountId ||
-        p.tenantId !== target.tenantId ||
-        p.installationId !== grant.employeeInstallationId ||
-        p.entitlementId !== grant.employeeEntitlementId ||
-        p.hireId !== grant.employeeId ||
-        p.productKind !== "ai_employee" ||
-        p.productId !== "servicev8.ai-support-agent" ||
-        p.verticalId !== "runtime" ||
-        !this.active(p) ||
-        !Array.isArray(p.missingCapabilities) ||
-        p.missingCapabilities.length !== 0
-      )
-        return false;
-      const url = new URL("/v1/employee-consumer-bindings", this.origin());
-      for (const [key, value] of Object.entries({
-        accountId: target.accountId,
-        tenantId: target.tenantId,
-        identitySubject: grant.principalId,
-        consumerAppId: "supportv8",
-        installationId: grant.employeeInstallationId,
-      }))
-        url.searchParams.set(key, value);
-      const value = record(await this.get(url));
-      if (!Array.isArray(value.bindings) || value.bindings.length !== 1)
-        return false;
-      const b = record(value.bindings[0]);
-      if (
-        b.accountId !== target.accountId ||
-        b.tenantId !== target.tenantId ||
-        b.consumerAppId !== "supportv8" ||
-        b.ownerAppId !== "runtime" ||
-        b.canonicalInstallationId !== grant.employeeInstallationId ||
-        b.canonicalEntitlementId !== grant.employeeEntitlementId ||
-        b.canonicalHireId !== grant.employeeId ||
-        b.productId !== "servicev8.ai-support-agent" ||
-        b.state !== "consumer_bound"
-      )
-        return false;
-      // An enabled consumer is not a per-tool grant. Missing owner verifier always denies.
-      if (this.deps.verifyGrant)
-        return await this.deps.verifyGrant(target, actor);
-      const grantUrl = new URL(
-        `/v1/installations/${encodeURIComponent(grant.employeeInstallationId)}/support-context`,
-        this.origin(),
-      );
-      grantUrl.searchParams.set("accountId", target.accountId);
-      grantUrl.searchParams.set("tenantId", target.tenantId);
-      const proof = record(await this.get(grantUrl)),
-        policy = record(proof.policy);
-      return (
-        proof.active === true &&
-        policy.schemaVersion === "servicev8.support-grant.v1" &&
-        policy.accountId === target.accountId &&
-        policy.tenantId === target.tenantId &&
-        policy.installationId === grant.employeeInstallationId &&
-        policy.employeeId === grant.employeeId &&
-        policy.employeeEntitlementId === grant.employeeEntitlementId &&
-        policy.principalId === grant.principalId &&
-        policy.connectionId === grant.connectionId &&
-        policy.destinationInstallationId === target.installationId &&
-        policy.workspaceId === target.workspaceId &&
-        policy.capability === "support_ticket_lookup" &&
-        policy.state === "active" &&
-        policy.generation === grant.generation
-      );
-    } catch {
-      return false;
-    }
-  }
 }
+
 export class ManagedSupportTicketReader {
   constructor(private readonly client: PostgresClient = pgClient) {}
   async lookup(target: SupportTarget, reference: string) {

@@ -6,28 +6,18 @@ export type SupportTarget = {
   installationId: string;
   workspaceId: string;
 };
-export type SupportGrant = {
-  connectionId: string;
-  generation: number;
-  employeeId: string;
-  employeeInstallationId: string;
-  employeeEntitlementId: string;
-  principalId: string;
-  destinationInstallationId: string;
-  workspaceId: string;
-};
 export type SupportActor = {
+  clientId?: string;
   accountId?: string;
   tenantId?: string;
-  actorId?: string;
-  grant?: SupportGrant;
   correlationId: string;
 };
 export type SupportOperation =
   | "connection.verify"
   | "connection.readiness"
   | "connection.lifecycle"
-  | "support_ticket_lookup";
+  | "support_ticket_lookup"
+  | "support_output_access";
 export const SUPPORT_MANIFEST = {
   schemaVersion: "servicev8.managed-support.v1",
   operations: [
@@ -87,28 +77,6 @@ export function parseTarget(value: unknown): SupportTarget {
     installationId: identifier(row.installationId),
     workspaceId: row.workspaceId,
   };
-}
-export function parseGrant(value: unknown): SupportGrant {
-  const row = exact(value, [
-    "connectionId",
-    "generation",
-    "employeeId",
-    "employeeInstallationId",
-    "employeeEntitlementId",
-    "principalId",
-    "destinationInstallationId",
-    "workspaceId",
-  ]);
-  if (!Number.isSafeInteger(row.generation) || (row.generation as number) < 1)
-    throw new TypeError();
-  return {
-    ...Object.fromEntries(
-      Object.entries(row)
-        .filter(([key]) => key !== "generation")
-        .map(([key, v]) => [key, identifier(v)]),
-    ),
-    generation: row.generation,
-  } as SupportGrant;
 }
 export function sameTarget(value: unknown, target: SupportTarget): boolean {
   try {

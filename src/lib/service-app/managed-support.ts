@@ -1,11 +1,14 @@
 import {
+  type SourceMode,
+  type SupportSourceProof,
+} from "./managed-support-source";
+import {
   SUPPORT_MANIFEST,
   boundedJson,
   exact,
   parseTarget,
   ticketRef,
   type SupportTarget,
-  type SupportActor,
   type SupportOperation,
 } from "./managed-support-contract";
 import type { ManagedSupportAuthenticator } from "./managed-support-auth";
@@ -16,12 +19,17 @@ export type TicketStatus = {
 };
 export type ManagedSupportDependencies = {
   authenticate?: ManagedSupportAuthenticator;
+  verifySource?: (
+    mode: SourceMode,
+    target: SupportTarget,
+    source: unknown,
+    reference?: string,
+  ) => Promise<SupportSourceProof | null>;
   lifecycle?: (target: SupportTarget) => Promise<Record<string, unknown>>;
   verify: (
     target: SupportTarget,
     operation: SupportOperation,
   ) => Promise<boolean>;
-  authorize: (target: SupportTarget, actor: SupportActor) => Promise<boolean>;
   lookup: (
     target: SupportTarget,
     reference: string,
@@ -51,14 +59,17 @@ export async function handleManagedSupport(
         "connection.verify",
         "connection.readiness",
         "support_ticket_lookup",
+        "support_output_access",
       ].includes(operation)
     )
       throw new TypeError();
     exact(
       body,
       operation === "support_ticket_lookup"
-        ? ["target", "operation", "parameters"]
-        : ["target", "operation"],
+        ? ["target", "operation", "source", "parameters"]
+        : operation === "support_output_access"
+          ? ["target", "operation", "source"]
+          : ["target", "operation"],
     );
     const target = parseTarget(body.target);
     const actor = await deps.authenticate(request, operation);
@@ -72,21 +83,36 @@ export async function handleManagedSupport(
       if (!deps.lifecycle) return reply(503, { error: "support_unavailable" });
       return reply(200, await deps.lifecycle(target));
     }
-    if (!(await deps.verify(target, operation)))
-      return reply(403, { error: "support_not_authorized" });
-    if (operation !== "support_ticket_lookup")
-      return reply(200, { ok: true, target, manifest: SUPPORT_MANIFEST });
-    const ref = ticketRef(exact(body.parameters, ["ticketRef"]).ticketRef),
-      grant = actor.grant;
     if (
-      !grant ||
-      actor.actorId !== grant.employeeId ||
-      grant.destinationInstallationId !== target.installationId ||
-      grant.workspaceId !== target.workspaceId ||
-      !(await deps.authorize(target, actor))
-    )
+      operation !== "support_ticket_lookup" &&
+      operation !== "support_output_access"
+    ) {
+      if (!(await deps.verify(target, operation)))
+        return reply(403, { error: "support_not_authorized" });
+      return reply(200, { ok: true, target, manifest: SUPPORT_MANIFEST });
+    }
+    const ref =
+      operation === "support_ticket_lookup"
+        ? ticketRef(exact(body.parameters, ["ticketRef"]).ticketRef)
+        : undefined;
+    const proof = await deps.verifySource?.(
+      operation === "support_ticket_lookup" ? "lookup" : "output",
+      target,
+      body.source,
+      ref,
+    );
+    if (!proof) return reply(403, { error: "support_not_authorized" });
+    if (operation === "support_output_access")
+      return reply(200, {
+        ok: true,
+        target,
+        disclosureId: proof.disclosureId,
+        digest: proof.digest,
+        allowed: true,
+      });
+    const ticket = await deps.lookup(target, ref!);
+    if (proof.expiresAt <= Date.now())
       return reply(403, { error: "support_not_authorized" });
-    const ticket = await deps.lookup(target, ref);
     if (!ticket) return reply(404, { error: "ticket_not_found" });
     if (
       ticket.ticketRef !== ref ||

@@ -1,8 +1,6 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import {
   identifier,
-  parseGrant,
-  record,
   type SupportActor,
   type SupportOperation,
 } from "./managed-support-contract";
@@ -13,6 +11,7 @@ export type ManagedSupportAuthenticator = (
 export function createManagedSupportAuthenticator(input: {
   issuer: string;
   allowedClientIds: readonly string[];
+  allowedDataClientIds?: readonly string[];
   key: JWTVerifyGetKey | CryptoKey | Uint8Array;
 }): ManagedSupportAuthenticator {
   return async (request, operation) => {
@@ -42,38 +41,31 @@ export function createManagedSupportAuthenticator(input: {
         "connection.lifecycle": "supportv8:managed:lifecycle",
         "connection.verify": "supportv8:managed:connect",
         "connection.readiness": "supportv8:managed:readiness",
+        support_output_access: "supportv8:output:authorize",
         support_ticket_lookup: "supportv8:tickets:read",
       };
       if (p.scope !== scopes[operation]) return null;
+      const data =
+        operation === "support_ticket_lookup" ||
+        operation === "support_output_access";
+      if (
+        data &&
+        (p.exp - p.iat > 120 ||
+          !(input.allowedDataClientIds ?? input.allowedClientIds).includes(
+            p.azp,
+          ))
+      )
+        return null;
       const actor: SupportActor = {
+        clientId: p.azp,
         ...(p.account_id === undefined
           ? {}
           : { accountId: identifier(p.account_id) }),
         ...(p.tenant_id === undefined
           ? {}
           : { tenantId: identifier(p.tenant_id) }),
-        correlationId: identifier(
-          operation === "support_ticket_lookup"
-            ? p.correlation_id
-            : (p.correlation_id ?? p.jti),
-        ),
+        correlationId: identifier(p.correlation_id ?? p.jti),
       };
-      if (operation === "support_ticket_lookup") {
-        const principal = record(p.actor);
-        const grant = parseGrant(p.support_grant);
-        if (
-          !actor.accountId ||
-          !actor.tenantId ||
-          principal.type !== "ai_employee" ||
-          identifier(principal.id) !== grant.employeeId ||
-          p.purpose !== "direct_read" ||
-          !Array.isArray(p.capabilities) ||
-          p.capabilities.length !== 1 ||
-          p.capabilities[0] !== "ticket.read"
-        )
-          return null;
-        return { ...actor, actorId: grant.employeeId, grant };
-      }
       return actor;
     } catch {
       return null;
@@ -92,6 +84,10 @@ export function managedSupportAuthenticatorFromEnv(
     return createManagedSupportAuthenticator({
       issuer,
       allowedClientIds: clients,
+      allowedDataClientIds: (env.SUPPORTV8_MANAGED_DATA_CLIENT_IDS ?? "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
       key: createRemoteJWKSet(
         new URL(
           env.SUPPORTV8_MANAGED_WORKLOAD_JWKS_URL ??

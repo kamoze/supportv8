@@ -11,9 +11,10 @@ const authority = new ManagedSupportAuthority(),
 export function POST(request: Request) {
   return handleManagedSupport(request, {
     authenticate: managedSupportAuthenticatorFromEnv(),
+    verifySource: (mode, target, source, reference) =>
+      authority.verifySource(mode, target, source, reference),
     lifecycle: (target) => authority.lifecycle(target),
     verify: (target, operation) => authority.verify(target, operation),
-    authorize: (target, actor) => authority.authorize(target, actor),
     lookup: (target, reference) => tickets.lookup(target, reference),
   });
 }

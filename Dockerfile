@@ -28,10 +28,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/package-lock.json* ./package-lock.json
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/src ./src
+# tsx workers execute source files and require the same path aliases as the build.
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
+# Exercise the real worker activity import graph without starting Temporal or effects.
+RUN node --import tsx --input-type=module -e "await import('./src/lib/temporal/activities.ts')"
 EXPOSE 3005
 
 CMD ["node", "server.js"]

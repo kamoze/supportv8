@@ -9,6 +9,7 @@ const SAFE_HTTP_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const DEMO_MUTATION_PATHS = new Set([
   "/api/auth/demo",
   "/api/auth/logout",
+  "/auth/runtime/logout",
   "/api/chat",
   "/api/chat/draft",
   "/api/chat/message",
@@ -34,13 +35,17 @@ function tokenHasDemoOperatorRole(token: string | undefined): boolean {
       resource_access?: Record<string, { roles?: unknown }>;
     };
     const realmRoles = claims.realm_access?.roles;
-    if (Array.isArray(realmRoles) && realmRoles.includes("support_demo_operator")) {
+    if (
+      Array.isArray(realmRoles) &&
+      realmRoles.includes("support_demo_operator")
+    ) {
       return true;
     }
 
     return Object.values(claims.resource_access || {}).some(
       (access) =>
-        Array.isArray(access?.roles) && access.roles.includes("support_demo_operator"),
+        Array.isArray(access?.roles) &&
+        access.roles.includes("support_demo_operator"),
     );
   } catch {
     return false;
@@ -54,7 +59,8 @@ export function middleware(request: NextRequest) {
   const bearer = authorization?.startsWith("Bearer ")
     ? authorization.slice("Bearer ".length).trim()
     : undefined;
-  const presentedAccessToken = bearer || request.cookies.get("sv8_access_token")?.value;
+  const presentedAccessToken =
+    bearer || request.cookies.get("sv8_access_token")?.value;
 
   if (
     !SAFE_HTTP_METHODS.has(request.method) &&
@@ -70,11 +76,18 @@ export function middleware(request: NextRequest) {
   // Public chat intake is only accepted on an exact ServiceV8 tenant or root
   // hostname. This prevents a forged Host such as tenant.support.attacker.tld
   // from becoming trusted tenant context.
-  if (url.pathname.startsWith("/api/chat/") && !isTrustedServiceV8Hostname(hostname)) {
-    return NextResponse.json({ error: "Unknown SupportV8 host" }, { status: 421 });
+  if (
+    url.pathname.startsWith("/api/chat/") &&
+    !isTrustedServiceV8Hostname(hostname)
+  ) {
+    return NextResponse.json(
+      { error: "Unknown SupportV8 host" },
+      { status: 421 },
+    );
   }
 
-  const tenantDomain = browserTenantSlugFromHostname(hostname) || "tenant_default";
+  const tenantDomain =
+    browserTenantSlugFromHostname(hostname) || "tenant_default";
 
   // Overwrite, rather than trust, any inbound tenant header. Route handlers use
   // this request header as the public-host tenant boundary.
@@ -87,7 +100,10 @@ export function middleware(request: NextRequest) {
   response.headers.set("x-servicev8-tenant-domain", tenantDomain);
   response.headers.set("x-servicev8-vertical", "supportv8");
   if (["/accept-invite", "/signup"].includes(url.pathname)) {
-    response.headers.set("Content-Security-Policy", "connect-src 'self'; form-action 'self'; frame-src 'none'; base-uri 'self'; frame-ancestors 'self'");
+    response.headers.set(
+      "Content-Security-Policy",
+      "connect-src 'self'; form-action 'self'; frame-src 'none'; base-uri 'self'; frame-ancestors 'self'",
+    );
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("Cache-Control", "no-store");
   }

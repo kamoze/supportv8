@@ -13,13 +13,17 @@ import { middleware } from "@/middleware";
 import { NextRequest } from "next/server";
 
 function tokenWithRoles(roles: string[]): string {
-  const payload = Buffer.from(JSON.stringify({ realm_access: { roles } })).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({ realm_access: { roles } }),
+  ).toString("base64url");
   return `header.${payload}.signature`;
 }
 
 describe("trusted request tenant normalization", () => {
   it("maps hosted tenant domains to canonical database IDs", () => {
-    expect(tenantSlugFromHostname("acme-movers.support.servicev8.com")).toBe("acme-movers");
+    expect(tenantSlugFromHostname("acme-movers.support.servicev8.com")).toBe(
+      "acme-movers",
+    );
     expect(tenantIdFromSlug("acme-movers")).toBe("tenant_acme_movers");
     expect(tenantSlugFromId("tenant_acme_movers")).toBe("acme-movers");
   });
@@ -30,12 +34,22 @@ describe("trusted request tenant normalization", () => {
   });
 
   it("locks the browser workspace to every valid hosted tenant, including acme", () => {
-    expect(browserTenantSlugFromHostname("acme.support.servicev8.com")).toBe("acme");
-    expect(browserTenantSlugFromHostname("fresh-customer.support.servicev8.com")).toBe("fresh-customer");
-    expect(browserTenantSlugFromHostname("ACME.support.servicev8.internal:3005")).toBe("acme");
+    expect(browserTenantSlugFromHostname("acme.support.servicev8.com")).toBe(
+      "acme",
+    );
+    expect(
+      browserTenantSlugFromHostname("fresh-customer.support.servicev8.com"),
+    ).toBe("fresh-customer");
+    expect(
+      browserTenantSlugFromHostname("ACME.support.servicev8.internal:3005"),
+    ).toBe("acme");
     expect(browserTenantSlugFromHostname("support.servicev8.com")).toBeNull();
-    expect(browserTenantSlugFromHostname("www.support.servicev8.com")).toBeNull();
-    expect(browserTenantSlugFromHostname("victim.support.attacker.tld")).toBeNull();
+    expect(
+      browserTenantSlugFromHostname("www.support.servicev8.com"),
+    ).toBeNull();
+    expect(
+      browserTenantSlugFromHostname("victim.support.attacker.tld"),
+    ).toBeNull();
   });
 
   it("rejects chat intake from a forged or unknown Host header", () => {
@@ -88,10 +102,23 @@ describe("trusted request tenant normalization", () => {
         },
       }),
     );
+    const runtimeLogoutAllowed = middleware(
+      new NextRequest(
+        "https://acme.support.servicev8.com/auth/runtime/logout",
+        {
+          method: "POST",
+          headers: {
+            host: "acme.support.servicev8.com",
+            cookie: `sv8_access_token=${token}; __Host-sv8_runtime_support=runtime-session`,
+          },
+        },
+      ),
+    );
 
     expect(blocked.status).toBe(403);
     expect(allowed.status).toBe(200);
     expect(draftAllowed.status).toBe(200);
+    expect(runtimeLogoutAllowed.status).toBe(200);
   });
 
   it("applies the demo mutation firewall to bearer tokens as well as cookies", () => {

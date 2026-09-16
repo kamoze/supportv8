@@ -102,18 +102,20 @@ async function main() {
     `[supportv8-worker] connected to ${resolvedAddress} ns=${TEMPORAL_NAMESPACE} queue=${TASK_QUEUE}`
   );
 
+  const clientConnection = await Connection.connect({ address: resolvedAddress });
+  const client = new Client({ connection: clientConnection, namespace: TEMPORAL_NAMESPACE });
+  try { await client.workflow.start("managedSupportRegistrationReconcilerWorkflow",{workflowId:"support-managed-registration-reconciler-v1",taskQueue:TASK_QUEUE}); }
+  catch(error){if((error as {name?:string}).name!=="WorkflowExecutionAlreadyStartedError")throw error;}
   // Register periodic Schedules (idempotent)
   try {
-    const clientConnection = await Connection.connect({ address: resolvedAddress });
-    const client = new Client({ connection: clientConnection, namespace: TEMPORAL_NAMESPACE });
     const res = await ensureTemporalSchedules(client);
     console.log(
       `[supportv8-worker] registered schedules: created=[${res.created.join(", ")}] existing=[${res.existing.join(", ")}]`
     );
-    await clientConnection.close();
   } catch (err) {
     console.warn("[supportv8-worker] schedule registration warning:", err);
   }
+  await clientConnection.close();
 
   healthy = true;
 

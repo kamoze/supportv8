@@ -2,7 +2,7 @@ name: CI & Build Validation
 
 on:
   push:
-    branches: [ main, master, codex/support-runtime-provisioning-20260915, codex/support-growth-provision-20260915 ]
+    branches: [ main, master, codex/support-runtime-provisioning-20260915 ]
   pull_request:
     branches: [ main, master ]
 

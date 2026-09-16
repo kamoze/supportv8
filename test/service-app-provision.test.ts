@@ -37,6 +37,12 @@ describe('Support provision authentication',()=>{
     const auth=createSupportProvisionAuthenticator({issuer:'https://issuer.test',allowedClientIds:['registry-provision'],key:publicKey});
     await expect(auth(request(body,{authorization:`Bearer ${token}`}))).rejects.toBeInstanceOf(SupportProvisionScopeError);
   });
+  it('denies a real signed token with the provision scope plus another scope',async()=>{
+    const {privateKey,publicKey}=await generateKeyPair('RS256');const now=Math.floor(Date.now()/1000);
+    const token=await new SignJWT({azp:'registry-provision',scope:'supportv8:service-app:provision other:privilege'}).setProtectedHeader({alg:'RS256'}).setSubject('registry').setIssuer('https://issuer.test').setAudience('supportv8').setIssuedAt(now).setExpirationTime(now+120).sign(privateKey);
+    const auth=createSupportProvisionAuthenticator({issuer:'https://issuer.test',allowedClientIds:['registry-provision'],key:publicKey});
+    await expect(auth(request(body,{authorization:`Bearer ${token}`}))).rejects.toBeInstanceOf(SupportProvisionScopeError);
+  });
   it('fails closed on missing or malformed dedicated configuration',()=>{
     expect(supportProvisionAuthenticatorFromEnv({})).toBeUndefined();
     expect(supportProvisionAuthenticatorFromEnv({SUPPORTV8_PROVISION_WORKLOAD_ISSUER:'https://issuer.test',SUPPORTV8_PROVISION_WORKLOAD_CLIENT_IDS:'registry',SUPPORTV8_PROVISION_WORKLOAD_JWKS_URL:'not a url'})).toBeUndefined();
@@ -74,6 +80,9 @@ describe('Support provision request',()=>{
     const conflict=deps();conflict.acquire.mockRejectedValue(new WorkspaceReservationConflictError());expect((await handleSupportProvisionRequest(request(),conflict)).status).toBe(409);
     const invalid=deps();invalid.acquire.mockResolvedValue({status:'workspace_created',workspaceId:'other',domain:'acme-support'});expect((await handleSupportProvisionRequest(request(),invalid)).status).toBe(503);
     const failed=deps();failed.acquire.mockRejectedValue(new Error('private database detail'));const response=await handleSupportProvisionRequest(request(),failed);expect(response.status).toBe(503);expect(await response.text()).not.toContain('private');
+  });
+  it.each([new TypeError('dependency type detail'),new RangeError('dependency range detail')])('maps dependency %s to a sanitized 503',async error=>{
+    const failed=deps();failed.acquire.mockRejectedValue(error);const response=await handleSupportProvisionRequest(request(),failed);expect(response.status).toBe(503);expect(await response.text()).not.toContain('detail');
   });
   it('sanitizes authenticator failures and maps scope denial',async()=>{
     const unavailable=await handleSupportProvisionRequest(request(),{authenticate:async()=>{throw new Error('key provider detail');},acquire:vi.fn()});expect(unavailable.status).toBe(503);expect(await unavailable.text()).not.toContain('provider');

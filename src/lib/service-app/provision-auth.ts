@@ -21,7 +21,7 @@ export function createSupportProvisionAuthenticator(input:{issuer:string;allowed
       if(payload.account_id!==undefined&&!optionalReference(payload.account_id))return null;
       if(payload.tenant_id!==undefined&&!optionalReference(payload.tenant_id))return null;
       const scopes=typeof payload.scope==='string'?payload.scope.split(/\s+/).filter(Boolean):[];
-      if(!scopes.includes('supportv8:service-app:provision'))throw new SupportProvisionScopeError();
+      if(scopes.length!==1||scopes[0]!=='supportv8:service-app:provision')throw new SupportProvisionScopeError();
       return {clientId:payload.azp,...(payload.account_id===undefined?{}:{accountId:payload.account_id as string}),...(payload.tenant_id===undefined?{}:{tenantId:payload.tenant_id as string})};
     }catch(error){
       if(error instanceof SupportProvisionScopeError)throw error;

@@ -32,6 +32,7 @@ export async function handleSupportProvisionRequest(request:Request,deps:Depende
   let actor;
   try{actor=await deps.authenticate(request);}catch(error){if(error instanceof SupportProvisionScopeError)return reply(403,{error:'support_provision_scope_denied'});return reply(503,{error:'support_provision_unavailable'});}
   if(!actor)return reply(401,{error:'support_provision_not_authorized'});
+  let mapped:RuntimeSupportWorkspaceInput;
   try{
     if(new URL(request.url).search)return reply(400,{error:'invalid_request'});
     const raw=await boundedBody(request);const parsed:unknown=JSON.parse(raw);
@@ -40,14 +41,18 @@ export async function handleSupportProvisionRequest(request:Request,deps:Depende
     const input=parsed as Record<string,unknown>;const bodyKeys=Object.keys(input);
     if(bodyKeys.some(key=>!allowed.includes(key))||required.some(key=>!(key in input)))throw new TypeError();
     if(actor.accountId!==undefined&&input.accountId!==actor.accountId||actor.tenantId!==undefined&&input.tenantId!==actor.tenantId)return reply(403,{error:'support_provision_scope_denied'});
-    const mapped=validateRuntimeSupportWorkspaceInput({accountId:input.accountId,registryTenantId:input.tenantId,installationId:input.installationId,operationId:input.operationId,tenantDomain:input.tenantDomain,verticalId:input.verticalId,subject:input.subject,...(input.companyDisplayName===undefined?{}:{companyDisplayName:input.companyDisplayName})});
+    mapped=validateRuntimeSupportWorkspaceInput({accountId:input.accountId,registryTenantId:input.tenantId,installationId:input.installationId,operationId:input.operationId,tenantDomain:input.tenantDomain,verticalId:input.verticalId,subject:input.subject,...(input.companyDisplayName===undefined?{}:{companyDisplayName:input.companyDisplayName})});
     if(!/^[a-z0-9][a-z0-9-]{0,62}$/.test(mapped.tenantDomain))throw new InvalidWorkspaceReservationInputError();
+  }catch(error){
+    if(error instanceof RangeError)return reply(413,{error:'payload_too_large'});
+    if(error instanceof SyntaxError||error instanceof TypeError||error instanceof InvalidWorkspaceReservationInputError)return reply(400,{error:'invalid_request'});
+    return reply(503,{error:'support_provision_unavailable'});
+  }
+  try{
     const saved=await deps.acquire(mapped);
     if(saved.status!=='workspace_created'||saved.domain!==mapped.tenantDomain||!/^tenant_rt_[0-9a-f]{48}$/.test(saved.workspaceId))throw new Error('invalid_workspace_result');
     return reply(200,{schemaVersion:'servicev8.support-workspace.v1',status:'workspace_created',readiness:'configuration_required',workspaceId:saved.workspaceId,tenantDomain:mapped.tenantDomain});
   }catch(error){
-    if(error instanceof RangeError)return reply(413,{error:'payload_too_large'});
-    if(error instanceof SyntaxError||error instanceof TypeError||error instanceof InvalidWorkspaceReservationInputError)return reply(400,{error:'invalid_request'});
     if(error instanceof WorkspaceReservationConflictError)return reply(409,{error:'workspace_reservation_conflict'});
     return reply(503,{error:'support_provision_unavailable'});
   }

@@ -2,6 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { RuntimeWorkspace } from "@/app/runtime/runtime-workspace";
+import { RuntimeMutationNotice, formatRuntimeLocalTime, runtimeFormState, runtimeMutationAllowed } from "@/components/views/FocusedWorkspaceView";
 const ticket = {
   id: "synthetic-1",
   ticketRef: "SYN-101",
@@ -63,6 +64,18 @@ describe("Runtime role-aware workspace", () => {
     expect(html).toContain("Create ticket");
     expect(html).not.toContain("Acme");
     expect(html).not.toContain("Import CSV");
+  });
+  it("keeps non-runtime sources view-only and renders mutation failures visibly",()=>{
+    const native={...ticket,source:"chat"};
+    const html=renderToStaticMarkup(<RuntimeWorkspace domain="synthetic-support" role="support:manage" state="ready" page={{tickets:[native]}} selected={native}/>);
+    expect(html).toContain("native editor");expect(html).not.toContain("Edit ticket");
+    const notice=renderToStaticMarkup(<RuntimeMutationNotice message="Current access is read only."/>);
+    expect(notice).toContain("runtime-notice-visible");expect(notice).toContain("Current access is read only.");
+    expect(runtimeMutationAllowed(true,"runtime_manual")).toBe(true);
+    expect(runtimeMutationAllowed(false,"runtime_manual")).toBe(false);
+    expect(runtimeFormState(false,runtimeFormState(true,{creating:true,editing:true}))).toEqual({creating:false,editing:false});
+    expect(html).toContain("Local time loading…");
+    expect(formatRuntimeLocalTime(ticket.updatedAt,"en-US","America/Los_Angeles")).toContain("4:00 AM");
   });
   it.each([
     ["empty", "No support tickets yet"],

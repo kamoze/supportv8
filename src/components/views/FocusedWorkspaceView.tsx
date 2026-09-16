@@ -207,8 +207,18 @@ function RuntimeFocusedWorkspace({
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
   const active = selectionRequested ? selected : (selected ?? tickets[0]);
+  const canEditActive = runtimeMutationAllowed(canManage, active?.source);
+  useEffect(() => {
+    const next=runtimeFormState(canManage,{creating,editing});
+    if (!next.creating && creating) setCreating(false);
+    if (!next.editing && editing) setEditing(false);
+    if (!canManage) {
+      setBusy(false);
+    }
+  }, [canManage,creating,editing]);
   async function createTicket(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!runtimeMutationAllowed(canManage, "runtime_manual")) return;
     setBusy(true);
     setNotice("");
     const data = new FormData(event.currentTarget);
@@ -232,7 +242,7 @@ function RuntimeFocusedWorkspace({
   }
   async function updateTicket(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!active) return;
+    if (!canEditActive || !active) return;
     setBusy(true);
     setNotice("");
     const data = new FormData(event.currentTarget);
@@ -255,19 +265,16 @@ function RuntimeFocusedWorkspace({
   }
   return (
     <WorkDeskFrame>
+      <WorkDeskToolbar
+        count={tickets.length}
+        subtitle="Runtime workspace tickets • Durable Support records"
+        actions={canManage ? <button type="button" onClick={() => setCreating((value) => !value)}>Create ticket</button> : <span className="runtime-readonly">Read only</span>}
+      />
       <section aria-label="Ticket queue" className="runtime-list">
         <div className="runtime-list-head">
           <h2>{tickets.length} tickets</h2>
-          {canManage && (
-            <button
-              type="button"
-              onClick={() => setCreating((value) => !value)}
-            >
-              Create ticket
-            </button>
-          )}
         </div>
-        {creating && (
+        {canManage && creating && (
           <form className="runtime-form" onSubmit={createTicket}>
             <label>
               Customer name
@@ -321,12 +328,12 @@ function RuntimeFocusedWorkspace({
           <>
             <span className="runtime-status">{active.status}</span>
             <h2>{active.customerName}</h2>
-            {canManage && !editing && (
+            {canEditActive && !editing && (
               <button type="button" onClick={() => setEditing(true)}>
                 Edit ticket
               </button>
             )}
-            {canManage && editing ? (
+            {canEditActive && editing ? (
               <form className="runtime-form" onSubmit={updateTicket}>
                 <label>
                   Summary
@@ -374,11 +381,10 @@ function RuntimeFocusedWorkspace({
                   <dd>{active.priority}</dd>
                   <dt>Source</dt>
                   <dd>{active.source}</dd>
+                  {canManage && !canEditActive && <><dt>Editing</dt><dd>Use this ticket source’s native editor.</dd></>}
                   <dt>Updated</dt>
                   <dd>
-                    <time dateTime={active.updatedAt} suppressHydrationWarning>
-                      {localDate(active.updatedAt)}
-                    </time>
+                    <LocalTime value={active.updatedAt} />
                   </dd>
                 </dl>
               </>
@@ -392,12 +398,13 @@ function RuntimeFocusedWorkspace({
           </p>
         )}
       </aside>
-      <p className="runtime-notice" aria-live="polite">
-        {notice}
-      </p>
+      <RuntimeMutationNotice message={notice} />
     </WorkDeskFrame>
   );
 }
+export function runtimeMutationAllowed(canManage:boolean,source?:string) { return canManage && source === "runtime_manual"; }
+export function runtimeFormState(canManage:boolean,state:{creating:boolean;editing:boolean}) { return canManage ? state : {creating:false,editing:false}; }
+export function RuntimeMutationNotice({message}:{message:string}) { return <p className={`runtime-notice${message ? " runtime-notice-visible" : ""}`} aria-live="polite">{message}</p>; }
 function WorkDeskFrame({
   children,
   context,
@@ -420,21 +427,21 @@ function WorkDeskFrame({
     </div>
   );
 }
+function WorkDeskToolbar({count,subtitle,actions}:{count:number;subtitle:string;actions?:React.ReactNode}) {
+  return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Customer Care &amp; Field Resolution Work Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2><p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p></div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
+}
 function TicketSummary({ ticket }: { ticket: RuntimeWorkDeskTicket }) {
   return (
     <>
-      <strong>{ticket.customerName}</strong>
       <span>{ticket.ticketRef}</span>
-      <p>{ticket.summary}</p>
-      <time dateTime={ticket.updatedAt} suppressHydrationWarning>{localDate(ticket.updatedAt)}</time>
+      <WorkDeskTicketIdentity customerName={ticket.customerName} summary={ticket.summary} status={ticket.status} />
+      <LocalTime value={ticket.updatedAt} />
     </>
   );
 }
-const localDate = (value: string) =>
-  new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+function WorkDeskTicketIdentity({customerName,summary,status,compact=false}:{customerName:string;summary:string;status:string;compact?:boolean}) { return compact ? <><h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1 group-hover:text-[#EAF1F8] transition-colors">{summary}</h4><div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]"><span>{customerName}</span><span className="text-[#2ED8B6] font-semibold">{status}</span></div></> : <><strong>{customerName}</strong><p>{summary}</p><span className="runtime-status">{status}</span></>; }
+export function formatRuntimeLocalTime(value:string,locales?:Intl.LocalesArgument,timeZone?:string) { return new Intl.DateTimeFormat(locales,{dateStyle:"medium",timeStyle:"short",...(timeZone?{timeZone}:{})}).format(new Date(value)); }
+function LocalTime({value}:{value:string}) { const [label,setLabel]=useState(""); useEffect(()=>setLabel(formatRuntimeLocalTime(value)),[value]); return <time dateTime={value}>{label||"Local time loading…"}</time>; }
 
 function LegacyFocusedWorkspaceView({
   issues,
@@ -1421,25 +1428,11 @@ function LegacyFocusedWorkspaceView({
       {/* ========================================================================= */}
       {/* TOP WORK DESK TOOLBAR */}
       {/* ========================================================================= */}
-      <div className="px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]">
-            <Sliders className="w-5 h-5" />
-          </span>
-          <div>
-            <h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
-              <span>Customer Care &amp; Field Resolution Work Desk</span>
-              <span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">
-                {issues.length} Active Queue
-              </span>
-            </h2>
-            <p className="text-[11px] font-mono text-[#6B7C8D]">
-              Unified Human Operator Station • Direct Ingest &amp; Omnichannel Sync
-            </p>
-          </div>
-        </div>
+      <WorkDeskToolbar
+        count={issues.length}
+        subtitle="Unified Human Operator Station • Direct Ingest & Omnichannel Sync"
+        actions={<>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
           {selectedIssue && <div className="family-context-controls">
             <button type="button" className="family-icon-button" aria-label={contextMode === "minimized" ? "Expand resolution context" : "Minimize resolution context"} title={contextMode === "minimized" ? "Expand resolution context" : "Minimize resolution context"} aria-expanded={contextMode !== "minimized"} aria-controls="support-resolution" onClick={() => setContextMode(contextMode === "minimized" ? "expanded" : "minimized")}>{contextMode === "minimized" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}</button>
             <button type="button" className="family-icon-button" aria-label={contextMode === "maximized" ? "Restore work desk layout" : "Maximize resolution context"} title={contextMode === "maximized" ? "Restore work desk layout" : "Maximize resolution context"} aria-pressed={contextMode === "maximized"} onClick={() => setContextMode(contextMode === "maximized" ? "expanded" : "maximized")}>{contextMode === "maximized" ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
@@ -1479,8 +1472,9 @@ function LegacyFocusedWorkspaceView({
               <span>Insights ({insights.length})</span>
             </button>
           )}
-        </div>
-      </div>
+
+        </>}
+      />
 
       {!selectedIssue ? (
         <div className="flex-1 flex items-center justify-center p-6">
@@ -1739,14 +1733,7 @@ function LegacyFocusedWorkspaceView({
                       </div>
                     </div>
 
-                    <h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1 group-hover:text-[#EAF1F8] transition-colors">
-                      {issue.summary}
-                    </h4>
-
-                    <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
-                      <span>{isCtr && issue.contractor ? issue.contractor.company : issue.customerName}</span>
-                      <span className="text-[#2ED8B6] font-semibold">{issue.status}</span>
-                    </div>
+                    <WorkDeskTicketIdentity customerName={isCtr && issue.contractor ? issue.contractor.company : issue.customerName} summary={issue.summary} status={issue.status || "open"} compact />
                   </div>
                 );
               })

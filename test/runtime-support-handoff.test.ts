@@ -505,6 +505,11 @@ describe("runtime ticket HTTP boundary", () => {
     expect(response.status).toBe(400);
     expect(create).not.toHaveBeenCalled();
   });
+  it("returns a truthful conflict for sources requiring their native editor",async()=>{
+    const manage=async()=>({...(await auth()),role:"support:manage" as const});
+    const response=await handleRuntimeTicketUpdate(new Request("https://synthetic-support.support.servicev8.com/api/runtime/tickets/chat-1",{method:"PATCH",headers:{host:"synthetic-support.support.servicev8.com",origin:"https://synthetic-support.support.servicev8.com","content-type":"application/json"},body:JSON.stringify({status:"resolved"})}),"chat-1",{authorize:manage as never,update:async()=>{throw new Error("unsupported_ticket_source")}});
+    expect(response.status).toBe(409);expect(await response.json()).toEqual({error:"ticket source requires its native editor"});
+  });
 });
 
 describe("legacy and runtime route isolation", () => {

@@ -99,4 +99,10 @@ describe("Runtime Support durable ticket reader",()=>{
       h.calls.some((call) => call.sql.includes("INSERT INTO supportv8.issues")),
     ).toBe(false);
   });
+  it("refuses updates for sources that require their native editor",async()=>{
+    const h=harness([row("chat-1","chat","2026-09-16T12:00:00.000Z")]);
+    (h.reader as unknown as {resolve:unknown}).resolve=async()=>({...access,capability:"support:manage"});
+    await expect(h.reader.update(scope,"chat-1",{status:"resolved"})).rejects.toThrow("unsupported_ticket_source");
+    expect(h.calls.some(call=>call.sql.startsWith("UPDATE supportv8.issues"))).toBe(false);
+  });
 });

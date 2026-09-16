@@ -149,6 +149,7 @@
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
 }
+.runtime-notice-visible { position:static; width:auto; height:auto; overflow:visible; clip:auto; grid-column:1 / -1; margin:0; padding:12px 16px; border-top:1px solid var(--line); color:var(--body); }
 .runtime-list {
   min-width: 0;
   border-right: 1px solid var(--line);

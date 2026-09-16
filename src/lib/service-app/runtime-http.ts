@@ -32,6 +32,8 @@ function failure(error: unknown) {
     return json({ error: "support access denied" }, 403);
   if (message === "support_manage_denied")
     return json({ error: "support management permission required" }, 403);
+  if (message === "unsupported_ticket_source")
+    return json({ error: "ticket source requires its native editor" }, 409);
   return json({ error: "ticket service unavailable" }, 503);
 }
 const priorities = new Set(["low", "normal", "high", "urgent"]),

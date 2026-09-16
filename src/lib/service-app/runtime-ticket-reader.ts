@@ -241,8 +241,11 @@ export class RuntimeSupportTicketReader {
   ): Promise<SupportTicketSummary | null> {
     if (!idPattern.test(id)) throw new Error("invalid_ticket_query");
     const access = await this.manage(scope);
-    const rows = await this.client.withTenantSession(access.workspaceId, (db) =>
-      db.query<Row>(
+    const rows = await this.client.withTenantSession(access.workspaceId, async (db) => {
+      const owned = await db.query<{source:string}>("SELECT source FROM supportv8.issues WHERE tenant_id=$1 AND id=$2 LIMIT 1",[access.workspaceId,id]);
+      if (!owned[0]) return [];
+      if (owned[0].source !== "runtime_manual") throw new Error("unsupported_ticket_source");
+      return db.query<Row>(
         `UPDATE supportv8.issues SET
       summary=COALESCE($3,summary),priority=COALESCE($4,priority),source_status=COALESCE($5,source_status),updated_at=NOW(),
       timeline=timeline||jsonb_build_array(jsonb_build_object('timestamp',NOW(),'actor',$6::text,'actorType','runtime_member','action','Ticket updated'))
@@ -255,8 +258,8 @@ export class RuntimeSupportTicketReader {
           input.status ?? null,
           scope.subject,
         ],
-      ),
-    );
+      );
+    });
     return rows[0] ? ticket(rows[0]) : null;
   }
 }

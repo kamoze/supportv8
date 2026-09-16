@@ -303,6 +303,9 @@ describe.skipIf(!enabled)(
           })
         )?.status,
       ).toBe("resolved");
+      const voiceBefore=await fresh.get(scope,"voice-1");
+      await expect(fresh.update(scope,"voice-1",{status:"closed"})).rejects.toThrow("unsupported_ticket_source");
+      expect(await fresh.get(scope,"voice-1")).toEqual(voiceBefore);
       expect(await fresh.get(scope, "other-1")).toBeNull();
       const readOnly = new RuntimeSupportTicketReader({
         client,

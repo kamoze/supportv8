@@ -13,7 +13,7 @@ export type BusinessImpactLevel = "low" | "medium" | "high" | "critical";
 
 export type ProblemStatus = "detecting" | "active" | "investigating" | "mitigating" | "resolved";
 
-export type SourceType = "zendesk" | "intercom" | "freshdesk" | "twilio_voice" | "email" | "chat" | "knowledgev8" | "whatsapp" | "voice";
+export type SourceType = "runtime_manual" | "zendesk" | "intercom" | "freshdesk" | "twilio_voice" | "email" | "chat" | "knowledgev8" | "whatsapp" | "voice";
 
 export type ConnectorHealth = "connected" | "degraded" | "auth_failed" | "rate_limited" | "sync_failed" | "disconnected";
 

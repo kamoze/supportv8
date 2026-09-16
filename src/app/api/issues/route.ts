@@ -43,6 +43,10 @@ async function updateIssue(
   rawUpdates: unknown,
 ): Promise<Issue | undefined | null> {
   const updates = sanitizeIssueUpdates(rawUpdates);
+  if (tenant.runtimeLinked) {
+    requirePersistentMutationRole(tenant);
+    return chatRepository.updateWorkspaceIssue(tenant.tenantId, targetId, updates);
+  }
   requirePersistentMutationRole(tenant);
   return (
     (hasDurableDatabase()
@@ -64,12 +68,13 @@ export async function GET(req: NextRequest) {
     requireChatOperatorRole(tenant);
 
     const [mockIssues, durableChatIssues] = await Promise.all([
-      Promise.resolve(issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug })),
-      source && source !== "chat" || !hasDurableDatabase()
+      Promise.resolve(tenant.runtimeLinked ? [] : issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug })),
+      tenant.runtimeLinked ? chatRepository.listWorkspaceIssues(tenant.tenantId) : source && source !== "chat" || !hasDurableDatabase()
         ? Promise.resolve([])
         : chatRepository.listChatIssues(tenant.tenantId),
     ]);
     const filteredChatIssues = durableChatIssues.filter((issue) => {
+      if (source && issue.source !== source) return false;
       if (sentiment && issue.sentiment !== sentiment) return false;
       if (category && issue.category !== category) return false;
       if (problemId && issue.problemId !== problemId) return false;
@@ -145,6 +150,7 @@ export async function POST(req: NextRequest) {
       if (!issue) throw new Error("Ticket was saved but could not be loaded. Refresh Workdesk before retrying.");
       return NextResponse.json({ success: true, data: issue }, { status: 201 });
     }
+    if (tenant.runtimeLinked) return NextResponse.json({success:false,error:"Use create_manual to save a workspace ticket."},{status:400});
     const issue = issueService.createFromInteraction({ ...body, tenant: tenant.tenantSlug });
     return NextResponse.json({
       success: true,

@@ -14,13 +14,13 @@ describe("logout presence cleanup", () => {
     expect(staffPresence.remove).toHaveBeenCalledWith(ctx);
     expect(response.headers.getSetCookie().join(";")).toContain("Max-Age=0");
   });
-  it("still clears both authentication cookies if Redis is unavailable", async () => {
+  it("still clears all authentication cookies if Redis is unavailable", async () => {
     vi.mocked(resolveRequestTenant).mockResolvedValue(ctx);
     vi.mocked(staffPresence.remove).mockRejectedValue(new Error("Redis unavailable"));
     const response = await POST(new Request("https://alpha.support.servicev8.com/api/auth/logout", { method: "POST" }));
     const cookies = response.headers.getSetCookie();
     expect(response.status).toBe(200);
-    expect(cookies).toHaveLength(2);
+    expect(cookies).toHaveLength(3);
     expect(cookies.every(cookie => cookie.includes("Max-Age=0"))).toBe(true);
   });
 });

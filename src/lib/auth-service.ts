@@ -79,7 +79,8 @@ export const AuthService = {
       if (!raw) return null;
       const session: AuthSession = JSON.parse(raw);
       if (Date.now() > session.expiresAt) {
-        this.clearSession();
+        // Browser metadata can predate a fresh HttpOnly SSO cookie.
+        this.discardSession();
         return null;
       }
       return session;
@@ -153,6 +154,16 @@ export const AuthService = {
     } catch {
       return { success: false, error: "Demo authentication service unavailable." };
     }
+  },
+
+  async restoreRuntimeSession(): Promise<AuthSession | null> {
+    try {
+      const response = await fetch("/api/auth/workspace-session", {credentials:"same-origin",cache:"no-store",redirect:"error"});
+      const payload = await response.json();
+      if (!response.ok || !payload.success || !payload.session) return null;
+      this.storeSession(payload.session);
+      return payload.session as AuthSession;
+    } catch { return null; }
   },
 
   async refreshSession(): Promise<AuthSession | null> {

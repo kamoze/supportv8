@@ -183,6 +183,22 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
         "CREATE SCHEMA supportv8; CREATE TABLE supportv8.tenants(id varchar(64) PRIMARY KEY,domain varchar(128) UNIQUE NOT NULL,name varchar(255) NOT NULL,operating_mode varchar(32) NOT NULL DEFAULT 'autonomous',servicev8_account_id varchar(128),created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now()); CREATE TABLE supportv8.issues(id varchar(64) PRIMARY KEY,tenant_id varchar(64) NOT NULL REFERENCES supportv8.tenants(id),source varchar(32) NOT NULL,external_id varchar(128) NOT NULL,customer_ref varchar(128) NOT NULL,customer_name varchar(255) NOT NULL,summary text NOT NULL,priority varchar(32) NOT NULL,source_status varchar(32) NOT NULL,created_at timestamptz NOT NULL,updated_at timestamptz NOT NULL); ALTER TABLE supportv8.issues ENABLE ROW LEVEL SECURITY; ALTER TABLE supportv8.issues FORCE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation_issues ON supportv8.issues USING(tenant_id=current_setting('app.current_tenant_id',true)) WITH CHECK(tenant_id=current_setting('app.current_tenant_id',true))",
       );
       schemaCreated = true;
+      // The native repository reads the complete issue shape and optional chat metadata.
+      await database.query(`ALTER TABLE supportv8.issues
+        ADD COLUMN source_url text NOT NULL DEFAULT '', ADD COLUMN customer_tier text NOT NULL DEFAULT 'standard',
+        ADD COLUMN category text NOT NULL DEFAULT 'general', ADD COLUMN product text NOT NULL DEFAULT 'supportv8',
+        ADD COLUMN version text NOT NULL DEFAULT '', ADD COLUMN sentiment text NOT NULL DEFAULT 'neutral',
+        ADD COLUMN sentiment_score numeric NOT NULL DEFAULT 0, ADD COLUMN sentiment_trajectory text NOT NULL DEFAULT 'stable',
+        ADD COLUMN confidence numeric NOT NULL DEFAULT 0, ADD COLUMN business_impact text NOT NULL DEFAULT 'low',
+        ADD COLUMN resolution_risk_score numeric NOT NULL DEFAULT 0, ADD COLUMN tags text[] NOT NULL DEFAULT '{}',
+        ADD COLUMN recommended_action text, ADD COLUMN timeline jsonb NOT NULL DEFAULT '[]',
+        ADD COLUMN messages jsonb NOT NULL DEFAULT '[]', ADD COLUMN assigned_to text, ADD COLUMN assigned_agent text;
+        CREATE TABLE supportv8.chat_sessions(id text PRIMARY KEY, tenant_id text NOT NULL, issue_id text, intake_data jsonb);
+        ALTER TABLE supportv8.chat_sessions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE supportv8.chat_sessions FORCE ROW LEVEL SECURITY;
+        CREATE POLICY chat_tenant ON supportv8.chat_sessions USING(tenant_id=current_setting('app.current_tenant_id',true));
+        GRANT SELECT ON supportv8.chat_sessions TO ${runtimeRole}`);
+
       await database.query(
         await readFile(
           new URL(
@@ -349,10 +365,23 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
       { headers: { host: tenantHost, "x-forwarded-host": "attacker.example" } },
     );
     expect(handoff.status).toBe(303);
-    expect(handoff.headers.location).toBe("/runtime");
+    expect(handoff.headers.location).toBe("/?view=cockpit&handoff=runtime");
     const setCookie = handoff.headers["set-cookie"]?.[0];
     expect(setCookie).toContain("__Host-sv8_runtime_support=");
     const cookie = setCookie!.split(";", 1)[0]!;
+
+    const nativeSession = await standaloneRequest(appPort, "/api/auth/workspace-session", {
+      headers: { host: tenantHost, cookie },
+    });
+    expect(nativeSession.status).toBe(200);
+    expect(JSON.parse(nativeSession.body).session.role).toBe("observer");
+    const nativeIssues = await standaloneRequest(appPort, "/api/issues", {
+      headers: { host: tenantHost, cookie },
+    });
+    expect(nativeIssues.status).toBe(200);
+    expect(JSON.parse(nativeIssues.body).data).toEqual(expect.arrayContaining([
+      expect.objectContaining({customerName:"Synthetic Customer",summary:"Synthetic dispatch needs review"}),
+    ]));
 
     const populated = await standaloneRequest(appPort, "/runtime", {
       headers: { host: tenantHost, cookie },

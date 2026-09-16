@@ -60,6 +60,7 @@ interface MessageRow extends QueryResultRow {
 }
 
 interface IssueRow extends QueryResultRow {
+  source?: Issue["source"];
   id: string;
   tenant_id: string;
   external_id: string;
@@ -931,10 +932,13 @@ export class ChatRepository {
     });
   }
 
-  async listChatIssues(tenantId: string, sessionId?: string): Promise<Issue[]> {
+  async listWorkspaceIssues(tenantId: string): Promise<Issue[]> {
+    return this.listChatIssues(tenantId, undefined, true);
+  }
+  async listChatIssues(tenantId: string, sessionId?: string, includeOtherSources = false): Promise<Issue[]> {
     return this.client.withTenantSession(tenantId, async (db) => {
       const rows = await db.query<IssueRow>(
-        `SELECT i.id, i.tenant_id, i.external_id, i.source_url, i.customer_ref,
+        `SELECT i.id, i.tenant_id, i.source, i.external_id, i.source_url, i.customer_ref,
                 i.customer_name, i.customer_tier, i.summary, i.category, i.product,
                 i.version, i.source_status, i.priority, i.sentiment, i.sentiment_score,
                 i.sentiment_trajectory, i.confidence, i.business_impact,
@@ -942,10 +946,10 @@ export class ChatRepository {
                 i.timeline, i.messages, i.assigned_to, i.assigned_agent,
                 i.created_at, i.updated_at, s.intake_data
            FROM supportv8.issues i
-           JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
-          WHERE i.source = 'chat' AND ($1::text IS NULL OR s.id = $1::text)
+           LEFT JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
+          WHERE ($2::boolean OR (i.source = 'chat' AND s.id IS NOT NULL)) AND ($1::text IS NULL OR s.id = $1::text)
           ORDER BY i.updated_at DESC
-          LIMIT 500`, [sessionId || null]
+          LIMIT 500`, [sessionId || null, includeOtherSources]
       );
       return rows.map((row) => {
         const metadata = ((row.intake_data || {}).__supportv8 || {}) as Partial<SessionMetadata>;
@@ -953,7 +957,7 @@ export class ChatRepository {
           id: row.id,
           tenantId: row.tenant_id,
           externalId: row.external_id,
-          source: "chat",
+          source: row.source || "chat",
           sourceUrl: row.source_url,
           customerRef: row.customer_ref,
           entityType: row.category === "contractor_dispatch" ? "contractor" : "customer",
@@ -985,10 +989,14 @@ export class ChatRepository {
     });
   }
 
+  async updateWorkspaceIssue(tenantId: string, issueId: string, updates: Partial<Issue>): Promise<Issue | null> {
+    return this.updateChatIssue(tenantId, issueId, updates, true);
+  }
   async updateChatIssue(
     tenantId: string,
     issueId: string,
-    updates: Partial<Issue>
+    updates: Partial<Issue>,
+    includeOtherSources = false
   ): Promise<Issue | null> {
     return this.client.withTenantSession(tenantId, async (db) => {
       const changed = await db.query<{ id: string } & QueryResultRow>(
@@ -1003,7 +1011,7 @@ export class ChatRepository {
                 messages = COALESCE($9::jsonb, messages),
                 assigned_to = COALESCE($10, assigned_to),
                 assigned_agent = COALESCE($11, assigned_agent)
-          WHERE id = $1 AND source = 'chat'
+          WHERE id = $1 AND ($12::boolean OR source = 'chat')
           RETURNING id`,
         [
           issueId,
@@ -1017,6 +1025,7 @@ export class ChatRepository {
           updates.messages === undefined ? null : JSON.stringify(updates.messages),
           updates.assignedTo || null,
           updates.assignedAgent || null,
+          includeOtherSources,
         ]
       );
       if (!changed[0]) return null;
@@ -1063,7 +1072,7 @@ export class ChatRepository {
       }
 
       const rows = await db.query<IssueRow>(
-        `SELECT i.id, i.tenant_id, i.external_id, i.source_url, i.customer_ref,
+        `SELECT i.id, i.tenant_id, i.source, i.external_id, i.source_url, i.customer_ref,
                 i.customer_name, i.customer_tier, i.summary, i.category, i.product,
                 i.version, i.source_status, i.priority, i.sentiment, i.sentiment_score,
                 i.sentiment_trajectory, i.confidence, i.business_impact,
@@ -1071,7 +1080,7 @@ export class ChatRepository {
                 i.timeline, i.messages, i.assigned_to, i.assigned_agent,
                 i.created_at, i.updated_at, s.intake_data
            FROM supportv8.issues i
-           JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
+           LEFT JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
           WHERE i.id = $1`,
         [issueId]
       );
@@ -1081,7 +1090,7 @@ export class ChatRepository {
         id: rows[0].id,
         tenantId: rows[0].tenant_id,
         externalId: rows[0].external_id,
-        source: "chat",
+        source: rows[0].source || "chat",
         sourceUrl: rows[0].source_url,
         customerRef: rows[0].customer_ref,
         customerName: rows[0].customer_name,

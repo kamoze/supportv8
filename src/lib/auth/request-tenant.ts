@@ -1,3 +1,4 @@
+import { authorizeRuntimeSupportRequest } from "../service-app/runtime-session";
 import type { NextRequest } from "next/server";
 import {
   supportOperatorDisplayName,
@@ -32,6 +33,7 @@ export interface RequestTenantContext {
   username?: string;
   displayName?: string;
   roles: string[];
+  runtimeLinked?: boolean;
 }
 
 const RESTRICTED_DEMO_MUTATION_PATHS = new Set([
@@ -118,6 +120,21 @@ export async function resolveRequestTenant(
     request.headers.get("x-servicev8-tenant-domain") ||
     tenantSlugFromHostname(request.headers.get("host"));
   const normalizedHostTenant = hostTenant ? normalizeTenantSlug(hostTenant) : null;
+  // The first-party handoff is a native session, with live membership and installation checks.
+  // Prefer an explicitly presented handoff cookie over any older Keycloak browser session.
+  const hasRuntimeCookie = (request.headers.get("cookie") ?? "").split(";").some(p => p.trim().startsWith("__Host-sv8_runtime_support="));
+  if (hasRuntimeCookie) {
+    const authorized = await authorizeRuntimeSupportRequest(request);
+    if (!authorized) throw new RequestAuthError("Invalid or revoked workspace session");
+    const {session, role} = authorized;
+    if (normalizedHostTenant && normalizedHostTenant !== session.tenantDomain) throw new RequestAuthError("Workspace host mismatch", 403);
+    const path = new URL(request.url).pathname;
+    if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout"))) {
+      throw new RequestAuthError("This workspace role is read only", 403);
+    }
+    return {runtimeLinked:true,tenantId:session.workspaceId,tenantSlug:session.tenantDomain,authenticated:true,userId:session.sub,username:authorized.access.email,
+      roles:role === "support:manage" ? ["support_cx_lead"] : ["support_operator", "support_observer"]};
+  }
   const token = bearerToken(request);
 
   if (token) {

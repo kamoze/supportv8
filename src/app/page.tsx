@@ -919,6 +919,17 @@ export default function SupportV8Dashboard() {
       }
     }
 
+    // Hydrate the existing native cockpit from the verified HttpOnly handoff session.
+    // This display descriptor grants nothing; each API rechecks the server session.
+    void AuthService.restoreRuntimeSession().then(session => {
+      if (!session) return;
+      setOperatorSession(session);
+      setCurrentTenantSlug(session.tenantSlug);
+      setViewMode("cockpit");
+      setIsSignInModalOpen(false);
+      void fetchData(session.tenantSlug);
+    });
+
     const activeSession = AuthService.getActiveSession();
     if (activeSession) {
       void fetchData(initialTenant);

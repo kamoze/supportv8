@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   const response = NextResponse.json({ success: true });
   for (const [name, path] of [
     ["sv8_access_token", "/"],
+    ["__Host-sv8_runtime_support", "/"],
     ["sv8_refresh_token", "/api/auth"],
   ] as const) {
     response.cookies.set(name, "", {

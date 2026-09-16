@@ -106,7 +106,7 @@ export async function handleRuntimeSupportHandoff(
       status: 303,
       headers: {
         ...secure,
-        location: "/runtime",
+        location: "/?view=cockpit&handoff=runtime",
         "set-cookie": runtimeSupportCookie(session),
       },
     });

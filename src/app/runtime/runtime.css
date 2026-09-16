@@ -1,0 +1,258 @@
+.runtime-shell {
+  min-height: 100dvh;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--sans);
+}
+.runtime-skip {
+  position: fixed;
+  z-index: 10;
+  top: 8px;
+  left: 8px;
+  transform: translateY(-150%);
+  background: var(--family-lime);
+  color: #04201c;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+}
+.runtime-skip:focus {
+  transform: none;
+}
+.runtime-shell > header {
+  min-height: 68px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  gap: 24px;
+}
+.runtime-brand {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  color: var(--text);
+  text-decoration: none;
+}
+.runtime-brand b {
+  color: var(--family-lime);
+}
+.runtime-shell > header > div {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.runtime-shell a {
+  color: var(--body);
+  text-underline-offset: 4px;
+}
+.runtime-shell button,
+.runtime-next {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 8px 14px;
+}
+.runtime-scope,
+.runtime-readonly,
+.runtime-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--body);
+  font-size: 12px;
+}
+.runtime-readonly {
+  border-color: color-mix(in srgb, var(--teal) 45%, transparent);
+  color: var(--teal);
+}
+.runtime-shell main {
+  width: 100%;
+  padding: 28px 24px 40px;
+}
+.runtime-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.runtime-heading h1 {
+  font-size: 24px;
+  letter-spacing: -0.025em;
+  margin: 0 0 6px;
+}
+.runtime-heading p,
+.runtime-state p {
+  color: var(--muted);
+  margin: 0;
+  max-width: 70ch;
+}
+.runtime-grid {
+  display: grid;
+  grid-template-columns: minmax(380px, 1fr) minmax(320px, 0.72fr);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 620px;
+  background: var(--surface);
+}
+.runtime-list {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+}
+.runtime-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.runtime-list-head h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.runtime-list-head span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.runtime-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.runtime-list li {
+  border-bottom: 1px solid var(--line);
+}
+.runtime-list li > a {
+  display: block;
+  padding: 16px;
+  text-decoration: none;
+}
+.runtime-list li > a:hover,
+.runtime-list li > a[aria-current="page"] {
+  background: var(--surface-2);
+}
+.runtime-list li > a:focus-visible {
+  outline: 2px solid var(--family-lime);
+  outline-offset: -3px;
+}
+.runtime-list li div,
+.runtime-list footer,
+.runtime-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.runtime-list strong {
+  color: var(--text);
+}
+.runtime-list li div span,
+.runtime-list time,
+.runtime-detail-head > span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+.runtime-list p {
+  margin: 8px 0;
+  color: var(--body);
+  overflow-wrap: anywhere;
+}
+.runtime-list footer {
+  margin-top: 12px;
+}
+.runtime-next {
+  margin: 16px;
+  text-decoration: none;
+}
+.runtime-shell aside {
+  padding: 24px;
+  min-width: 0;
+}
+.runtime-shell aside h2 {
+  font-size: 22px;
+  margin: 20px 0 8px;
+}
+.runtime-shell aside > p {
+  color: var(--body);
+  overflow-wrap: anywhere;
+  max-width: 70ch;
+}
+.runtime-shell aside dl {
+  margin-top: 30px;
+}
+.runtime-shell aside dl div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.runtime-shell aside dt {
+  color: var(--muted);
+}
+.runtime-shell aside dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.runtime-state {
+  padding: 48px 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.runtime-state h2 {
+  margin: 0 0 8px;
+}
+.runtime-state a {
+  display: inline-flex;
+  margin-top: 20px;
+  min-height: 44px;
+  align-items: center;
+}
+@media (max-width: 760px) {
+  .runtime-shell > header {
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+  .runtime-shell > header > div {
+    justify-content: flex-end;
+  }
+  .runtime-scope {
+    display: none;
+  }
+  .runtime-shell main {
+    padding: 20px 16px;
+  }
+  .runtime-grid {
+    grid-template-columns: 1fr;
+  }
+  .runtime-list {
+    border-right: 0;
+  }
+  .runtime-shell .runtime-grid aside {
+    border-top: 1px solid var(--line);
+  }
+  .runtime-list-head {
+    align-items: flex-start;
+  }
+  .runtime-heading h1 {
+    font-size: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .runtime-skip {
+    transition: none;
+  }
+}

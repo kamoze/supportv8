@@ -49,8 +49,20 @@ jobs:
         SUPPORTV8_REAL_POSTGRES: 1
         SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
 
+    - name: Verify Runtime Support handoff replay and RLS
+      run: npx vitest run test/runtime-support-handoff.postgres.test.ts
+      env:
+        SUPPORTV8_REAL_POSTGRES: 1
+        SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+
     - name: Next.js Production Build
       run: npm run build
       env:
         NEXT_TELEMETRY_DISABLED: 1
         NODE_ENV: production
+
+    - name: Verify standalone Runtime Support host and logout boundary
+      run: npx vitest run test/runtime-support-next-standalone.test.ts
+      env:
+        SUPPORTV8_NEXT_STANDALONE_PROOF: 1
+        SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres

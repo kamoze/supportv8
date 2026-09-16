@@ -97,7 +97,8 @@
   margin: 0;
   max-width: 70ch;
 }
-.runtime-grid {
+.runtime-grid,
+.runtime-workdesk {
   display: grid;
   grid-template-columns: minmax(380px, 1fr) minmax(320px, 0.72fr);
   border: 1px solid var(--line);
@@ -106,6 +107,50 @@
   min-height: 620px;
   background: var(--surface);
 }
+.runtime-workdesk > .family-workdesk-toolbar { grid-column: 1 / -1; }
+.runtime-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.runtime-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--body);
+  font-size: 13px;
+}
+.runtime-form input,
+.runtime-form textarea,
+.runtime-form select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--ground);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+.runtime-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+.runtime-form :focus-visible {
+  outline: 2px solid var(--family-lime);
+  outline-offset: 2px;
+}
+.runtime-empty {
+  padding: 24px 16px;
+}
+.runtime-notice {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+.runtime-notice-visible { position:static; width:auto; height:auto; overflow:visible; clip:auto; grid-column:1 / -1; margin:0; padding:12px 16px; border-top:1px solid var(--line); color:var(--body); }
 .runtime-list {
   min-width: 0;
   border-right: 1px solid var(--line);
@@ -235,7 +280,8 @@
   .runtime-shell main {
     padding: 20px 16px;
   }
-  .runtime-grid {
+  .runtime-grid,
+  .runtime-workdesk {
     grid-template-columns: 1fr;
   }
   .runtime-list {

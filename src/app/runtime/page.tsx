@@ -47,8 +47,10 @@ export default async function RuntimePage({
     return (
       <RuntimeWorkspace
         domain={auth.session.tenantDomain}
+        role={auth.role}
         page={page}
         selected={selected}
+        selectionRequested={Boolean(query.ticket)}
         state={page.tickets.length ? "ready" : "empty"}
         cursor={query.cursor}
       />

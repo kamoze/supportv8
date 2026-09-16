@@ -10,6 +10,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const enabled = process.env.SUPPORTV8_NEXT_STANDALONE_PROOF === "1";
 const localDatabaseUrl =
   "postgres://postgres@127.0.0.1:52996/support_runtime_handoff_test";
+const rbacDatabaseUrl =
+  "postgres://postgres@127.0.0.1:52996/support_runtime_rbac_test";
 const ciDatabaseUrl =
   "postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres";
 const tenantHost = "synthetic-support.support.servicev8.com";
@@ -137,7 +139,9 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
   beforeAll(async () => {
     const configuredDatabase =
       process.env.SUPPORTV8_WORKSPACE_TEST_DATABASE_URL ?? "";
-    expect([localDatabaseUrl, ciDatabaseUrl]).toContain(configuredDatabase);
+    expect([localDatabaseUrl, rbacDatabaseUrl, ciDatabaseUrl]).toContain(
+      configuredDatabase,
+    );
     const parsed = new URL(configuredDatabase);
     database = new Pool({ connectionString: configuredDatabase });
     const identity = await database.query<{
@@ -157,7 +161,10 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
     const tableCount = await database.query<{ count: string }>(
       "SELECT count(*)::text count FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')",
     );
-    if (configuredDatabase === localDatabaseUrl)
+    if (
+      configuredDatabase === localDatabaseUrl ||
+      configuredDatabase === rbacDatabaseUrl
+    )
       expect(tableCount.rows[0]?.count).toBe("0");
     const roleConflict = await database.query<{ exists: boolean }>(
       "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1) exists",

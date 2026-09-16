@@ -2,6 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { RuntimeWorkspace } from "@/app/runtime/runtime-workspace";
+import { RuntimeMutationNotice, formatRuntimeLocalTime, runtimeFormState, runtimeMutationAllowed } from "@/components/views/FocusedWorkspaceView";
 const ticket = {
   id: "synthetic-1",
   ticketRef: "SYN-101",
@@ -14,11 +15,12 @@ const ticket = {
   createdAt: "2026-09-16T10:00:00Z",
   updatedAt: "2026-09-16T11:00:00Z",
 };
-describe("Runtime read-only workspace", () => {
+describe("Runtime role-aware workspace", () => {
   it("renders real ticket fields, safe return and POST logout without implementation identifiers", () => {
     const html = renderToStaticMarkup(
       <RuntimeWorkspace
         domain="synthetic-support"
+        role="support:read"
         state="ready"
         page={{ tickets: [ticket] }}
         selected={ticket}
@@ -32,12 +34,15 @@ describe("Runtime read-only workspace", () => {
     expect(html).toContain('method="post"');
     expect(html).not.toContain("customer-1");
     expect(html).not.toContain("tenant_rt_");
+    expect(html).toContain("Read only");
+    expect(html).not.toContain("Create ticket");
   });
 
   it("preserves the page cursor in ticket detail links", () => {
     const html = renderToStaticMarkup(
       <RuntimeWorkspace
         domain="synthetic-support"
+        role="support:read"
         state="ready"
         page={{ tickets: [ticket] }}
         selected={ticket}
@@ -46,6 +51,32 @@ describe("Runtime read-only workspace", () => {
     );
     expect(html).toContain("/runtime?ticket=synthetic-1&amp;cursor=page-two");
   });
+  it("shows durable workdesk mutations only to managers", () => {
+    const html = renderToStaticMarkup(
+      <RuntimeWorkspace
+        domain="synthetic-support"
+        role="support:manage"
+        state="empty"
+        page={{ tickets: [] }}
+      />,
+    );
+    expect(html).toContain("Administrator");
+    expect(html).toContain("Create ticket");
+    expect(html).not.toContain("Acme");
+    expect(html).not.toContain("Import CSV");
+  });
+  it("keeps non-runtime sources view-only and renders mutation failures visibly",()=>{
+    const native={...ticket,source:"chat"};
+    const html=renderToStaticMarkup(<RuntimeWorkspace domain="synthetic-support" role="support:manage" state="ready" page={{tickets:[native]}} selected={native}/>);
+    expect(html).toContain("native editor");expect(html).not.toContain("Edit ticket");
+    const notice=renderToStaticMarkup(<RuntimeMutationNotice message="Current access is read only."/>);
+    expect(notice).toContain("runtime-notice-visible");expect(notice).toContain("Current access is read only.");
+    expect(runtimeMutationAllowed(true,"runtime_manual")).toBe(true);
+    expect(runtimeMutationAllowed(false,"runtime_manual")).toBe(false);
+    expect(runtimeFormState(false,runtimeFormState(true,{creating:true,editing:true}))).toEqual({creating:false,editing:false});
+    expect(html).toContain("Local time loading…");
+    expect(formatRuntimeLocalTime(ticket.updatedAt,"en-US","America/Los_Angeles")).toContain("4:00 AM");
+  });
   it.each([
     ["empty", "No support tickets yet"],
     ["denied", "Access denied"],
@@ -53,7 +84,11 @@ describe("Runtime read-only workspace", () => {
   ] as const)("renders %s recovery", (state, label) =>
     expect(
       renderToStaticMarkup(
-        <RuntimeWorkspace domain="synthetic-support" state={state} />,
+        <RuntimeWorkspace
+          domain="synthetic-support"
+          role="support:read"
+          state={state}
+        />,
       ),
     ).toContain(label),
   );

@@ -162,7 +162,288 @@ interface FocusedWorkspaceViewProps {
   onNotify: (msg: string, type?: "success" | "error" | "info") => void;
 }
 
-export function FocusedWorkspaceView({
+export type RuntimeWorkDeskTicket = {
+  id: string;
+  ticketRef: string;
+  customerName: string;
+  summary: string;
+  status: string;
+  priority: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+};
+type RuntimeFocusedWorkspaceProps = {
+  runtimeTransport: {
+    tickets: RuntimeWorkDeskTicket[];
+    selected?: RuntimeWorkDeskTicket | null;
+    selectionRequested?: boolean;
+    cursor?: string;
+    canManage: boolean;
+    onCreate: (input: {
+      customerName: string;
+      summary: string;
+      priority: string;
+    }) => Promise<void>;
+    onUpdate: (
+      id: string,
+      input: { summary?: string; priority?: string; status?: string },
+    ) => Promise<void>;
+  };
+};
+function RuntimeFocusedWorkspace({
+  runtimeTransport: {
+    tickets,
+    selected,
+    selectionRequested,
+    cursor,
+    canManage,
+    onCreate,
+    onUpdate,
+  },
+}: RuntimeFocusedWorkspaceProps) {
+  const [creating, setCreating] = useState(false),
+    [editing, setEditing] = useState(false),
+    [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState("");
+  const active = selectionRequested ? selected : (selected ?? tickets[0]);
+  const canEditActive = runtimeMutationAllowed(canManage, active?.source);
+  useEffect(() => {
+    const next=runtimeFormState(canManage,{creating,editing});
+    if (!next.creating && creating) setCreating(false);
+    if (!next.editing && editing) setEditing(false);
+    if (!canManage) {
+      setBusy(false);
+    }
+  }, [canManage,creating,editing]);
+  async function createTicket(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!runtimeMutationAllowed(canManage, "runtime_manual")) return;
+    setBusy(true);
+    setNotice("");
+    const data = new FormData(event.currentTarget);
+    try {
+      await onCreate({
+        customerName: String(data.get("customerName") ?? ""),
+        summary: String(data.get("summary") ?? ""),
+        priority: String(data.get("priority") ?? "normal"),
+      });
+      setCreating(false);
+      setNotice("Ticket created and saved.");
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Ticket could not be saved. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function updateTicket(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canEditActive || !active) return;
+    setBusy(true);
+    setNotice("");
+    const data = new FormData(event.currentTarget);
+    try {
+      await onUpdate(active.id, {
+        summary: String(data.get("summary") ?? ""),
+        priority: String(data.get("priority") ?? "normal"),
+        status: String(data.get("status") ?? "open"),
+      });
+      setNotice("Ticket changes saved.");
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Ticket changes were not saved. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <WorkDeskFrame>
+      <WorkDeskToolbar
+        count={tickets.length}
+        subtitle="Runtime workspace tickets • Durable Support records"
+        actions={canManage ? <button type="button" onClick={() => setCreating((value) => !value)}>Create ticket</button> : <span className="runtime-readonly">Read only</span>}
+      />
+      <section aria-label="Ticket queue" className="runtime-list">
+        <div className="runtime-list-head">
+          <h2>{tickets.length} tickets</h2>
+        </div>
+        {canManage && creating && (
+          <form className="runtime-form" onSubmit={createTicket}>
+            <label>
+              Customer name
+              <input
+                name="customerName"
+                required
+                maxLength={255}
+                autoComplete="name"
+              />
+            </label>
+            <label>
+              Summary
+              <textarea name="summary" required maxLength={5000} />
+            </label>
+            <label>
+              Priority
+              <select name="priority" defaultValue="normal">
+                <option>low</option>
+                <option>normal</option>
+                <option>high</option>
+                <option>urgent</option>
+              </select>
+            </label>
+            <button disabled={busy}>{busy ? "Saving…" : "Save ticket"}</button>
+          </form>
+        )}
+        {tickets.length ? (
+          <ul>
+            {tickets.map((ticket) => (
+              <li key={ticket.id}>
+                <a
+                  href={`/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
+                  aria-current={active?.id === ticket.id ? "page" : undefined}
+                >
+                  <TicketSummary ticket={ticket} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="runtime-empty">
+            No support tickets yet.{" "}
+            {canManage
+              ? "Create the first ticket for this workspace."
+              : "Tickets created for this workspace will appear here."}
+          </p>
+        )}
+      </section>
+      <aside aria-label="Ticket details">
+        {active ? (
+          <>
+            <span className="runtime-status">{active.status}</span>
+            <h2>{active.customerName}</h2>
+            {canEditActive && !editing && (
+              <button type="button" onClick={() => setEditing(true)}>
+                Edit ticket
+              </button>
+            )}
+            {canEditActive && editing ? (
+              <form className="runtime-form" onSubmit={updateTicket}>
+                <label>
+                  Summary
+                  <textarea
+                    name="summary"
+                    defaultValue={active.summary}
+                    required
+                    maxLength={5000}
+                  />
+                </label>
+                <label>
+                  Priority
+                  <select name="priority" defaultValue={active.priority}>
+                    {["low", "normal", "high", "urgent"].map((value) => (
+                      <option key={value}>{value}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select name="status" defaultValue={active.status}>
+                    {[
+                      "open",
+                      "in_progress",
+                      "escalated",
+                      "resolved",
+                      "closed",
+                    ].map((value) => (
+                      <option key={value}>{value}</option>
+                    ))}
+                  </select>
+                </label>
+                <button disabled={busy}>
+                  {busy ? "Saving…" : "Save changes"}
+                </button>
+                <button type="button" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <>
+                <p>{active.summary}</p>
+                <dl>
+                  <dt>Priority</dt>
+                  <dd>{active.priority}</dd>
+                  <dt>Source</dt>
+                  <dd>{active.source}</dd>
+                  {canManage && !canEditActive && <><dt>Editing</dt><dd>Use this ticket source’s native editor.</dd></>}
+                  <dt>Updated</dt>
+                  <dd>
+                    <LocalTime value={active.updatedAt} />
+                  </dd>
+                </dl>
+              </>
+            )}
+          </>
+        ) : (
+          <p>
+            {selectionRequested
+              ? "Ticket not found in this workspace."
+              : "Select a ticket to review its current support summary."}
+          </p>
+        )}
+      </aside>
+      <RuntimeMutationNotice message={notice} />
+    </WorkDeskFrame>
+  );
+}
+export function runtimeMutationAllowed(canManage:boolean,source?:string) { return canManage && source === "runtime_manual"; }
+export function runtimeFormState(canManage:boolean,state:{creating:boolean;editing:boolean}) { return canManage ? state : {creating:false,editing:false}; }
+export function RuntimeMutationNotice({message}:{message:string}) { return <p className={`runtime-notice${message ? " runtime-notice-visible" : ""}`} aria-live="polite">{message}</p>; }
+function WorkDeskFrame({
+  children,
+  context,
+  legacy = false,
+}: {
+  children: React.ReactNode;
+  context?: string;
+  legacy?: boolean;
+}) {
+  return (
+    <div
+      data-context={context}
+      className={
+        legacy
+          ? "family-workdesk flex-1 flex flex-col h-full bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden"
+          : "runtime-workdesk family-workdesk"
+      }
+    >
+      {children}
+    </div>
+  );
+}
+function WorkDeskToolbar({count,subtitle,actions}:{count:number;subtitle:string;actions?:React.ReactNode}) {
+  return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Customer Care &amp; Field Resolution Work Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2><p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p></div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
+}
+function TicketSummary({ ticket }: { ticket: RuntimeWorkDeskTicket }) {
+  return (
+    <>
+      <span>{ticket.ticketRef}</span>
+      <WorkDeskTicketIdentity customerName={ticket.customerName} summary={ticket.summary} status={ticket.status} />
+      <LocalTime value={ticket.updatedAt} />
+    </>
+  );
+}
+function WorkDeskTicketIdentity({customerName,summary,status,compact=false}:{customerName:string;summary:string;status:string;compact?:boolean}) { return compact ? <><h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1 group-hover:text-[#EAF1F8] transition-colors">{summary}</h4><div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]"><span>{customerName}</span><span className="text-[#2ED8B6] font-semibold">{status}</span></div></> : <><strong>{customerName}</strong><p>{summary}</p><span className="runtime-status">{status}</span></>; }
+export function formatRuntimeLocalTime(value:string,locales?:Intl.LocalesArgument,timeZone?:string) { return new Intl.DateTimeFormat(locales,{dateStyle:"medium",timeStyle:"short",...(timeZone?{timeZone}:{})}).format(new Date(value)); }
+function LocalTime({value}:{value:string}) { const [label,setLabel]=useState(""); useEffect(()=>setLabel(formatRuntimeLocalTime(value)),[value]); return <time dateTime={value}>{label||"Local time loading…"}</time>; }
+
+function LegacyFocusedWorkspaceView({
   issues,
   initialSelectedIssueId,
   problems = [],
@@ -1143,29 +1424,15 @@ export function FocusedWorkspaceView({
   };
 
   return (
-    <div data-context={contextMode} className="family-workdesk flex-1 flex flex-col h-full bg-[#0B1017] text-[#EAF1F8] font-sans overflow-hidden">
+    <WorkDeskFrame context={contextMode} legacy>
       {/* ========================================================================= */}
       {/* TOP WORK DESK TOOLBAR */}
       {/* ========================================================================= */}
-      <div className="px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]">
-            <Sliders className="w-5 h-5" />
-          </span>
-          <div>
-            <h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
-              <span>Customer Care &amp; Field Resolution Work Desk</span>
-              <span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">
-                {issues.length} Active Queue
-              </span>
-            </h2>
-            <p className="text-[11px] font-mono text-[#6B7C8D]">
-              Unified Human Operator Station • Direct Ingest &amp; Omnichannel Sync
-            </p>
-          </div>
-        </div>
+      <WorkDeskToolbar
+        count={issues.length}
+        subtitle="Unified Human Operator Station • Direct Ingest & Omnichannel Sync"
+        actions={<>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
           {selectedIssue && <div className="family-context-controls">
             <button type="button" className="family-icon-button" aria-label={contextMode === "minimized" ? "Expand resolution context" : "Minimize resolution context"} title={contextMode === "minimized" ? "Expand resolution context" : "Minimize resolution context"} aria-expanded={contextMode !== "minimized"} aria-controls="support-resolution" onClick={() => setContextMode(contextMode === "minimized" ? "expanded" : "minimized")}>{contextMode === "minimized" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}</button>
             <button type="button" className="family-icon-button" aria-label={contextMode === "maximized" ? "Restore work desk layout" : "Maximize resolution context"} title={contextMode === "maximized" ? "Restore work desk layout" : "Maximize resolution context"} aria-pressed={contextMode === "maximized"} onClick={() => setContextMode(contextMode === "maximized" ? "expanded" : "maximized")}>{contextMode === "maximized" ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
@@ -1205,8 +1472,9 @@ export function FocusedWorkspaceView({
               <span>Insights ({insights.length})</span>
             </button>
           )}
-        </div>
-      </div>
+
+        </>}
+      />
 
       {!selectedIssue ? (
         <div className="flex-1 flex items-center justify-center p-6">
@@ -1465,14 +1733,7 @@ export function FocusedWorkspaceView({
                       </div>
                     </div>
 
-                    <h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1 group-hover:text-[#EAF1F8] transition-colors">
-                      {issue.summary}
-                    </h4>
-
-                    <div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
-                      <span>{isCtr && issue.contractor ? issue.contractor.company : issue.customerName}</span>
-                      <span className="text-[#2ED8B6] font-semibold">{issue.status}</span>
-                    </div>
+                    <WorkDeskTicketIdentity customerName={isCtr && issue.contractor ? issue.contractor.company : issue.customerName} summary={issue.summary} status={issue.status || "open"} compact />
                   </div>
                 );
               })
@@ -2877,6 +3138,11 @@ export function FocusedWorkspaceView({
           </div>
         </div>
       )}
-    </div>
+    </WorkDeskFrame>
   );
+}
+
+
+export function FocusedWorkspaceView(props: FocusedWorkspaceViewProps | RuntimeFocusedWorkspaceProps) {
+  return "runtimeTransport" in props ? <RuntimeFocusedWorkspace {...props} /> : <LegacyFocusedWorkspaceView {...props} />;
 }

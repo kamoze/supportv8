@@ -17,6 +17,38 @@ const workspaceId = `tenant_rt_${"a".repeat(48)}`;
 const handoffSecret = "standalone-handoff-secret-at-least-32-bytes";
 const sessionSecret = "standalone-session-secret-at-least-32-bytes";
 
+function recognizedServerHost(
+  databaseUrl: string,
+  host: string,
+  ci = process.env.CI === "true",
+) {
+  const loopback = host === "127.0.0.1" || host === "::1";
+  const privateNetwork =
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(?:1[6-9]|2\d|3[01])\./.test(host);
+  return loopback || (databaseUrl === ciDatabaseUrl && ci && privateNetwork);
+}
+
+function demoToken() {
+  const payload = Buffer.from(
+    JSON.stringify({ realm_access: { roles: ["support_demo_operator"] } }),
+  ).toString("base64url");
+  return `header.${payload}.signature`;
+}
+
+describe("standalone PostgreSQL fixture safety gate", () => {
+  it("accepts a private sidecar address only for the exact CI fixture in CI", () => {
+    expect(recognizedServerHost(ciDatabaseUrl, "172.18.0.2", true)).toBe(true);
+    expect(recognizedServerHost(ciDatabaseUrl, "172.18.0.2", false)).toBe(
+      false,
+    );
+    expect(recognizedServerHost(localDatabaseUrl, "172.18.0.2", true)).toBe(
+      false,
+    );
+  });
+});
+
 function token() {
   const now = Math.floor(Date.now() / 1000);
   const header = Buffer.from(
@@ -115,11 +147,13 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
     }>(
       "SELECT current_database() database, host(inet_server_addr()) host, inet_server_port() port",
     );
-    expect(identity.rows[0]).toEqual({
+    expect(identity.rows[0]).toMatchObject({
       database: parsed.pathname.slice(1),
-      host: "127.0.0.1",
       port: Number(parsed.port),
     });
+    expect(
+      recognizedServerHost(configuredDatabase, identity.rows[0]?.host ?? ""),
+    ).toBe(true);
     const tableCount = await database.query<{ count: string }>(
       "SELECT count(*)::text count FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')",
     );
@@ -380,12 +414,14 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
         host: tenantHost,
         origin: `https://${tenantHost}`,
         "sec-fetch-site": "same-origin",
+        cookie: `sv8_access_token=${demoToken()}; __Host-sv8_runtime_support=synthetic-runtime-session`,
       },
     });
     expect(valid.status).toBe(303);
     expect(valid.headers["set-cookie"]?.[0]).toBe(
       "__Host-sv8_runtime_support=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax",
     );
+    expect(valid.headers["set-cookie"]?.[0]).not.toContain("sv8_access_token");
     for (const origin of [undefined, "https://attacker.example"]) {
       const headers: Record<string, string> = { host: tenantHost };
       if (origin) headers.origin = origin;

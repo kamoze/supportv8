@@ -31,6 +31,18 @@ function owned(value: string) {
     isLocal: value === localFixture,
   };
 }
+function recognizedServerHost(
+  fixture: ReturnType<typeof owned>,
+  host: string,
+  ci = process.env.CI === "true",
+) {
+  const loopback = host === "127.0.0.1" || host === "::1";
+  const privateNetwork =
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(?:1[6-9]|2\d|3[01])\./.test(host);
+  return loopback || (!fixture.isLocal && ci && privateNetwork);
+}
 describe("Runtime handoff PostgreSQL fixture safety gate", () => {
   it.each([
     `${localFixture}?x=1`,
@@ -39,6 +51,17 @@ describe("Runtime handoff PostgreSQL fixture safety gate", () => {
   ])("rejects %s", (url) =>
     expect(() => owned(url)).toThrow("exact owned fixture URL"),
   );
+  it("accepts a private sidecar address only for the exact CI fixture in CI", () => {
+    expect(recognizedServerHost(owned(ciFixture), "172.18.0.2", true)).toBe(
+      true,
+    );
+    expect(recognizedServerHost(owned(ciFixture), "172.18.0.2", false)).toBe(
+      false,
+    );
+    expect(recognizedServerHost(owned(localFixture), "172.18.0.2", true)).toBe(
+      false,
+    );
+  });
 });
 describe.skipIf(!enabled)("Runtime handoff durable replay boundary", () => {
   let admin: Pool,
@@ -87,7 +110,9 @@ describe.skipIf(!enabled)("Runtime handoff durable replay boundary", () => {
       db: fixture.database,
       port: fixture.port,
     });
-    expect(["127.0.0.1", "::1"]).toContain(identity.rows[0]?.host);
+    expect(recognizedServerHost(fixture, identity.rows[0]?.host ?? "")).toBe(
+      true,
+    );
     const count = await admin.query<{ count: string }>(
       "select count(*)::text count from pg_tables where schemaname not in ('pg_catalog','information_schema')",
     );

@@ -107,6 +107,7 @@
   min-height: 620px;
   background: var(--surface);
 }
+.runtime-workdesk > .family-workdesk-toolbar { grid-column: 1 / -1; }
 .runtime-form {
   display: grid;
   gap: 12px;

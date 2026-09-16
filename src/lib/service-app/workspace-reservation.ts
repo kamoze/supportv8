@@ -49,6 +49,9 @@ function nativeWorkspaceId(input: RuntimeSupportWorkspaceInput): string {
 }
 
 type Row = { native_tenant_id: string; native_domain: string; state: string };
+async function ensureRegistrationJob(db:{query:(sql:string,params?:unknown[])=>Promise<unknown>},input:RuntimeSupportWorkspaceInput,workspaceId:string){await db.query(`INSERT INTO supportv8.managed_support_registration_jobs
+  (installation_id,acquisition_id,account_id,registry_tenant_id,vertical_id,native_workspace_id)
+  VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(installation_id) DO NOTHING`,[input.installationId,input.operationId,input.accountId,input.registryTenantId,input.verticalId,workspaceId]);}
 
 export class RuntimeSupportWorkspaceStore {
   constructor(private readonly client: PostgresClient = pgClient) {}
@@ -80,6 +83,7 @@ export class RuntimeSupportWorkspaceStore {
             `SELECT id,domain,servicev8_account_id FROM supportv8.tenants WHERE id=$1`, [reserved.native_tenant_id]
           ))[0];
           if (!owner || owner.domain !== reserved.native_domain || owner.servicev8_account_id !== input.accountId) throw new WorkspaceReservationConflictError();
+          await ensureRegistrationJob(db,input,reserved.native_tenant_id);
           return { status: "workspace_created", workspaceId: reserved.native_tenant_id, domain: reserved.native_domain };
         }
         const inserted = await db.query<{id:string}>(`INSERT INTO supportv8.tenants(id,domain,name,operating_mode,servicev8_account_id)
@@ -88,6 +92,7 @@ export class RuntimeSupportWorkspaceStore {
         const completed = (await db.query<Row>(`UPDATE supportv8.runtime_support_workspaces SET state='workspace_created',updated_at=now()
           WHERE installation_id=$1 AND state='reserved' RETURNING native_tenant_id,native_domain,state`, [input.installationId]))[0];
         if (!completed) throw new WorkspaceReservationConflictError();
+        await ensureRegistrationJob(db,input,completed.native_tenant_id);
         return { status: "workspace_created", workspaceId: completed.native_tenant_id, domain: completed.native_domain };
       });
     } catch (error) {

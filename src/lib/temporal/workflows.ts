@@ -1,4 +1,4 @@
-import { proxyActivities, sleep, workflowInfo } from "@temporalio/workflow";
+import { continueAsNew, proxyActivities, sleep, workflowInfo } from "@temporalio/workflow";
 import type * as activities from "./activities";
 import type { ChatStreamType, PriorityLevel } from "@/lib/types";
 
@@ -19,6 +19,8 @@ const {
     maximumAttempts: 3,
   },
 });
+const registrationActivities=proxyActivities<typeof activities>({startToCloseTimeout:"30 seconds",retry:{initialInterval:"2 seconds",maximumInterval:"30 seconds",maximumAttempts:5}});
+export async function managedSupportRegistrationReconcilerWorkflow(input:{iteration?:number}={}):Promise<never>{const workerId=`${workflowInfo().workflowId}:${workflowInfo().runId}`;for(let iteration=input.iteration??0;iteration<500;iteration++){const claimOwner=`${workerId}:${iteration}`;let jobs:Awaited<ReturnType<typeof registrationActivities.claimManagedSupportRegistrationJobsActivity>>=[];try{jobs=await registrationActivities.claimManagedSupportRegistrationJobsActivity({claimOwner,limit:8});}catch{await sleep("5 seconds");continue;}await Promise.all(jobs.map(job=>registrationActivities.reconcileManagedSupportRegistrationActivity({workerId:claimOwner,job}).catch(()=>undefined)));if(jobs.length===0)await sleep("5 seconds");}return continueAsNew<typeof managedSupportRegistrationReconcilerWorkflow>({iteration:0});}
 
 // =============================================================================
 // Workflow Types

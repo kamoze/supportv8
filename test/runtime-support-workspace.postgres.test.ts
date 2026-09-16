@@ -147,6 +147,19 @@ describe.skipIf(!enabled)(
       await admin.query(emailMigration);
       await admin.query(migration);
       await admin.query("RESET ROLE");
+      // Lifecycle functions need the migration administrator as owner, as in
+      // deployment; the fixture app receives only the runtime permissions.
+      for (const name of [
+        "008_managed_support_registration_jobs.sql",
+        "009_managed_support_permanent_lifecycle.sql",
+      ]) {
+        await admin.query(
+          await readFile(new URL(`../migrations/${name}`, import.meta.url), "utf8"),
+        );
+      }
+      await admin.query(
+        "GRANT SELECT,INSERT ON supportv8.managed_support_registration_jobs TO support_app; GRANT EXECUTE ON FUNCTION supportv8.claim_managed_support_registration_jobs(varchar,integer),supportv8.finish_managed_support_registration_job(varchar,varchar,varchar,uuid,varchar,timestamptz),supportv8.observe_managed_support_lifecycle(varchar,varchar) TO support_app",
+      );
       await admin.query(
         "GRANT USAGE ON SCHEMA supportv8 TO support_reader; GRANT SELECT,UPDATE,DELETE ON supportv8.runtime_support_workspaces TO support_reader",
       );
@@ -457,6 +470,7 @@ describe.skipIf(!enabled)(
         repository = new ChatRepository(client);
       const tenantId = "tenant_native_compat",
         accountId = "acct-shared";
+      await store.acquire(base("native-compat-runtime"));
       expect(
         await signup.reserve({
           tenantId,

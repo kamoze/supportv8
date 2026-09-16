@@ -1,4 +1,7 @@
 import type { ChatStreamType, PriorityLevel } from "@/lib/types";
+import { ManagedSupportRegistrationStore } from "@/lib/service-app/managed-support-registration-store";
+import { reconcileManagedSupportRegistration, type ManagedSupportRegistrationJob } from "@/lib/service-app/managed-support-registration";
+import { callManagedSupportGateway } from "@/lib/service-app/managed-support-registration-transport";
 
 // =============================================================================
 // Temporal Activity Input / Output Types
@@ -52,6 +55,10 @@ export interface ExecuteForgeActionOutput {
   auditHash: string;
   timestamp: string;
 }
+let registrationStoreSingleton:ManagedSupportRegistrationStore|undefined;
+function registrationStore(){return registrationStoreSingleton??=new ManagedSupportRegistrationStore();}
+export async function claimManagedSupportRegistrationJobsActivity(input:{claimOwner:string;limit:number}){return registrationStore().claim(input.claimOwner,input.limit);}
+export async function reconcileManagedSupportRegistrationActivity(input:{workerId:string;job:ManagedSupportRegistrationJob}){const store=registrationStore();try{const observed=await store.observe(input.workerId,input.job.installationId);await reconcileManagedSupportRegistration(observed,{call:(kind,_target,id,generation)=>callManagedSupportGateway(kind,observed,id,generation),update:value=>store.finish(input.workerId,input.job.installationId,{state:value.state??input.job.state,connectionId:value.connectionId,lastErrorCode:value.lastErrorCode,nextAttemptAt:value.nextAttemptAt})});}catch{await store.finish(input.workerId,input.job.installationId,{state:input.job.state,connectionId:input.job.connectionId,lastErrorCode:"registration_unavailable",nextAttemptAt:new Date(Date.now()+30000).toISOString()});}}
 
 // =============================================================================
 // Activity Implementations

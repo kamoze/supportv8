@@ -308,7 +308,7 @@ function origin(
         : [];
   if (
     (url.protocol !== "https:" &&
-      !(url.protocol === "http:" && hosts.includes(url.hostname))) ||
+      !(url.protocol === "http:" && hosts.includes(url.hostname) && (kind !== "runtime" || url.port === "3000"))) ||
     url.username ||
     url.password ||
     url.hash ||

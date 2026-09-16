@@ -23,7 +23,7 @@ export function createManagedSupportAuthenticator(input: {
         issuer: input.issuer,
         audience: "supportv8",
         algorithms: ["RS256"],
-        requiredClaims: ["sub", "azp", "iat", "nbf", "exp", "jti"],
+        requiredClaims: ["sub", "azp", "iat", "exp", "jti"],
         maxTokenAge: "5m",
         clockTolerance: 0,
       });

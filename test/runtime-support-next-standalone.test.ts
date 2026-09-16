@@ -354,6 +354,19 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
     expect(setCookie).toContain("__Host-sv8_runtime_support=");
     const cookie = setCookie!.split(";", 1)[0]!;
 
+    const nativeSession = await standaloneRequest(appPort, "/api/auth/workspace-session", {
+      headers: { host: tenantHost, cookie },
+    });
+    expect(nativeSession.status).toBe(200);
+    expect(JSON.parse(nativeSession.body).session.role).toBe("cx_lead");
+    const nativeIssues = await standaloneRequest(appPort, "/api/issues", {
+      headers: { host: tenantHost, cookie },
+    });
+    expect(nativeIssues.status).toBe(200);
+    expect(JSON.parse(nativeIssues.body).data).toEqual(expect.arrayContaining([
+      expect.objectContaining({customerName:"Synthetic Customer",summary:"Synthetic dispatch needs review"}),
+    ]));
+
     const populated = await standaloneRequest(appPort, "/runtime", {
       headers: { host: tenantHost, cookie },
     });

@@ -1,12 +1,13 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { RuntimeWorkspace } from "@/app/runtime/runtime-workspace";
 import {
   SupportWorkspaceHeader,
   SupportWorkspaceNavigation,
 } from "@/components/workspace/SupportWorkspaceShell";
+import { loadRuntimeWorkspaceTickets } from "@/lib/service-app/runtime-workspace-view";
 
 const ticket = {
   id: "runtime-1",
@@ -100,13 +101,49 @@ describe("Runtime native Support workspace", () => {
       '|| "acme"',
     ])
       expect(source).not.toContain(forbidden);
-    const page = readFileSync(
-      `${process.cwd()}/src/app/runtime/page.tsx`,
-      "utf8",
+  });
+  it("normalizes an unknown view before reading its selected ticket", async () => {
+    const list = vi.fn(async () => ({ tickets: [ticket] }));
+    const get = vi.fn(async () => ticket);
+    const scope = {
+      accountId: "account",
+      tenantId: "tenant",
+      verticalId: "runtime" as const,
+      installationId: "installation",
+      workspaceId: "workspace",
+      subject: "subject",
+    };
+    const loaded = await loadRuntimeWorkspaceTickets(
+      { list, get },
+      scope,
+      { view: "unknown", ticket: ticket.id, cursor: "cursor" },
     );
-    expect(
-      page.indexOf('!["overview", "workspace", "issues"].includes'),
-    ).toBeLessThan(page.indexOf("runtimeSupportTicketReader.list"));
+    expect(loaded).toMatchObject({
+      view: "workspace",
+      selected: ticket,
+      page: { tickets: [ticket] },
+    });
+    expect(list).toHaveBeenCalledWith(scope, { limit: 30, cursor: "cursor" });
+    expect(get).toHaveBeenCalledWith(scope, ticket.id);
+  });
+  it("does not read ticket data for a known unavailable native module", async () => {
+    const list = vi.fn();
+    const get = vi.fn();
+    const loaded = await loadRuntimeWorkspaceTickets(
+      { list, get },
+      {
+        accountId: "account",
+        tenantId: "tenant",
+        verticalId: "runtime",
+        installationId: "installation",
+        workspaceId: "workspace",
+        subject: "subject",
+      },
+      { view: "knowledge", ticket: ticket.id },
+    );
+    expect(loaded).toEqual({ view: "knowledge" });
+    expect(list).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
   });
   it("preserves ticket deep links through native Work Desk navigation", () => {
     const html = renderToStaticMarkup(
@@ -120,5 +157,14 @@ describe("Runtime native Support workspace", () => {
       />,
     );
     expect(html).toContain("/runtime?view=workspace&amp;ticket=runtime-1");
+  });
+  it("keeps shared chrome outside ticket CSS and gives the full queue a scroll surface", () => {
+    const css = readFileSync(
+      `${process.cwd()}/src/app/runtime/runtime.css`,
+      "utf8",
+    );
+    expect(css).not.toMatch(/\.runtime-shell\s+button/);
+    expect(css).not.toMatch(/\.runtime-shell\s+aside/);
+    expect(css).toMatch(/\.runtime-ticket-scroll\s*{[^}]*overscroll-behavior:\s*contain/s);
   });
 });

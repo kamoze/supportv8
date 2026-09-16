@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useFamilyDialog } from "@/components/FamilyControls";
 import { LogOut } from "@/components/ui/FlatIcon";
 import { FocusedWorkspaceView } from "@/components/views/FocusedWorkspaceView";
@@ -14,6 +14,10 @@ import type {
   SupportTicketPage,
   SupportTicketSummary,
 } from "@/lib/service-app/runtime-ticket-reader";
+import {
+  normalizeRuntimeWorkspaceView,
+  runtimeViewUsesTickets,
+} from "@/lib/service-app/runtime-workspace-view";
 type Props = {
   domain: string;
   page?: SupportTicketPage;
@@ -40,23 +44,9 @@ export function RuntimeWorkspace({
   const mobileRail = useFamilyDialog<HTMLElement>(mobileOpen, () =>
     setMobileOpen(false),
   );
-  const active = fullSupportNavigation
-      .flatMap((s) => s.items)
-      .some((i) => i.id === view)
-      ? view
-      : "workspace",
+  const active = normalizeRuntimeWorkspaceView(view),
     canManage = role === "support:manage",
     returnTo = `https://${domain}.runtime.servicev8.com/workspace/${domain}/applications`;
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("view");
-    if (
-      requested &&
-      !fullSupportNavigation
-        .flatMap((s) => s.items)
-        .some((i) => i.id === requested)
-    )
-      window.history.replaceState({}, "", "/runtime?view=workspace");
-  }, []);
   const hrefFor = (id: string) => {
     const q = new URLSearchParams();
     q.set("view", id);
@@ -112,7 +102,7 @@ export function RuntimeWorkspace({
       <div
         id="support-workspace"
         tabIndex={-1}
-        className={`flex-1 flex flex-col min-w-0 h-screen bg-[#0B1017] ${active === "workspace" || active === "issues" ? "overflow-hidden" : "overflow-y-auto"}`}
+        className={`flex-1 flex flex-col min-w-0 h-screen bg-[#0B1017] ${runtimeViewUsesTickets(active) && active !== "overview" ? "overflow-hidden" : "overflow-y-auto"}`}
       >
         <SupportWorkspaceHeader
           activeLabel={label}
@@ -129,7 +119,7 @@ export function RuntimeWorkspace({
         <main
           className={
             active === "workspace" || active === "issues"
-              ? "family-main flex-1 flex flex-col min-h-0 w-full overflow-hidden"
+              ? "runtime-ticket-scroll family-main flex-1 min-h-0 w-full overflow-y-auto"
               : "family-main flex-1 p-4 sm:p-6 md:p-8 w-full space-y-6"
           }
         >

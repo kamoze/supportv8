@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { authorizeRuntimeSupportRequest } from "@/lib/service-app/runtime-session";
 import { runtimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
+import { loadRuntimeWorkspaceTickets } from "@/lib/service-app/runtime-workspace-view";
 import { RuntimeWorkspace } from "./runtime-workspace";
 import "./runtime.css";
 export const dynamic = "force-dynamic";
@@ -37,26 +38,22 @@ export default async function RuntimePage({
   };
   try {
     const query = await searchParams;
-    if (
-      query.view &&
-      !["overview", "workspace", "issues"].includes(query.view)
-    ) {
+    const loaded = await loadRuntimeWorkspaceTickets(
+      runtimeSupportTicketReader,
+      scope,
+      query,
+    );
+    if (!loaded.page) {
       return (
         <RuntimeWorkspace
           domain={auth.session.tenantDomain}
           role={auth.role}
           state="ready"
-          view={query.view}
+          view={loaded.view}
         />
       );
     }
-    const page = await runtimeSupportTicketReader.list(scope, {
-        limit: 30,
-        ...(query.cursor ? { cursor: query.cursor } : {}),
-      }),
-      selected = query.ticket
-        ? await runtimeSupportTicketReader.get(scope, query.ticket)
-        : (page.tickets[0] ?? null);
+    const { page, selected } = loaded;
     return (
       <RuntimeWorkspace
         domain={auth.session.tenantDomain}
@@ -66,7 +63,7 @@ export default async function RuntimePage({
         selectionRequested={Boolean(query.ticket)}
         state={page.tickets.length ? "ready" : "empty"}
         cursor={query.cursor}
-        view={query.view}
+        view={loaded.view}
       />
     );
   } catch {

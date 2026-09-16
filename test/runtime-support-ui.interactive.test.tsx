@@ -5,8 +5,9 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { FocusedWorkspaceView } from "@/components/views/FocusedWorkspaceView";
+import { RuntimeWorkspace } from "@/app/runtime/runtime-workspace";
 
-const ticket={id:"runtime-1",ticketRef:"SV8-RUNTIME-1",customerName:"Synthetic Customer",summary:"Synthetic request",status:"open",priority:"normal",source:"runtime_manual",createdAt:"2026-09-16T10:00:00Z",updatedAt:"2026-09-16T11:00:00Z"};
+const ticket={id:"runtime-1",ticketRef:"SV8-RUNTIME-1",customerRef:"customer-synthetic",customerName:"Synthetic Customer",summary:"Synthetic request",status:"open",priority:"normal",source:"runtime_manual",createdAt:"2026-09-16T10:00:00Z",updatedAt:"2026-09-16T11:00:00Z"};
 const roots:Root[]=[];
 (globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
 afterEach(()=>{for(const root of roots)act(()=>root.unmount());roots.length=0;document.body.innerHTML="";});
@@ -14,6 +15,28 @@ function props(canManage:boolean,onCreate=vi.fn(async()=>{}),onUpdate=vi.fn(asyn
 function click(label:string){const button=[...document.querySelectorAll("button")].find(node=>node.textContent===label);expect(button).toBeTruthy();act(()=>button!.dispatchEvent(new MouseEvent("click",{bubbles:true})));}
 
 describe("Runtime Work Desk mounted capability behavior",()=>{
+  it("renders the last item and pagination inside the bounded scroll surface",()=>{
+    const tickets=Array.from({length:30},(_,index)=>({...ticket,id:`runtime-${index+1}`,ticketRef:`SV8-RUNTIME-${index+1}`,customerName:`Customer ${index+1}`}));
+    const container=document.createElement("div");document.body.append(container);const root=createRoot(container);roots.push(root);
+    act(()=>root.render(<RuntimeWorkspace domain="synthetic-support" state="ready" page={{tickets,nextCursor:"next-page"}} selected={tickets[0]}/>));
+    const scroll=container.querySelector(".runtime-ticket-scroll");
+    expect(scroll).toBeTruthy();
+    expect(scroll?.textContent).toContain("Customer 30");
+    expect(scroll?.querySelector<HTMLAnchorElement>(".runtime-next")?.href).toContain("cursor=next-page");
+  });
+
+  it("opens and closes the mobile native navigation with Escape",()=>{
+    const container=document.createElement("div");document.body.append(container);const root=createRoot(container);roots.push(root);
+    act(()=>root.render(<RuntimeWorkspace domain="synthetic-support" state="empty" page={{tickets:[]}}/>));
+    const open=container.querySelector<HTMLButtonElement>('button[aria-label="Open navigation"]');
+    expect(open).toBeTruthy();
+    open!.focus();
+    act(()=>open!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
+    expect(container.querySelector("#support-navigation")?.getAttribute("data-mobile-open")).toBe("true");
+    act(()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true})));
+    expect(container.querySelector("#support-navigation")?.getAttribute("data-mobile-open")).toBe("false");
+    expect(document.activeElement).toBe(container.querySelector("#support-workspace"));
+  });
   it("clears open Create and Edit forms when current access rerenders read-only",()=>{
     const container=document.createElement("div");document.body.append(container);const root=createRoot(container);roots.push(root);
     const onCreate=vi.fn(async()=>{}),onUpdate=vi.fn(async()=>{});

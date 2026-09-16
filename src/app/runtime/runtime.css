@@ -18,16 +18,6 @@
 .runtime-skip:focus {
   transform: none;
 }
-.runtime-shell > header {
-  min-height: 68px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 24px;
-  gap: 24px;
-}
 .runtime-brand {
   font-size: 22px;
   font-weight: 750;
@@ -38,17 +28,14 @@
 .runtime-brand b {
   color: var(--family-lime);
 }
-.runtime-shell > header > div {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.runtime-shell a {
+.runtime-return,
+.runtime-list a,
+.runtime-next,
+.runtime-state a {
   color: var(--body);
   text-underline-offset: 4px;
 }
-.runtime-shell button,
+.runtime-workdesk button,
 .runtime-next {
   min-height: 44px;
   display: inline-flex;
@@ -75,9 +62,9 @@
   border-color: color-mix(in srgb, var(--teal) 45%, transparent);
   color: var(--teal);
 }
-.runtime-shell main {
-  width: 100%;
+.runtime-ticket-scroll {
   padding: 28px 24px 40px;
+  overscroll-behavior: contain;
 }
 .runtime-heading {
   display: flex;
@@ -103,7 +90,7 @@
   grid-template-columns: minmax(380px, 1fr) minmax(320px, 0.72fr);
   border: 1px solid var(--line);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   min-height: 620px;
   background: var(--surface);
 }
@@ -203,11 +190,23 @@
 .runtime-list strong {
   color: var(--text);
 }
+.runtime-list li > a > span:first-child {
+  display: block;
+  margin-bottom: 5px;
+}
+.runtime-list li > a > time {
+  display: block;
+  margin-top: 7px;
+}
 .runtime-list li div span,
 .runtime-list time,
 .runtime-detail-head > span:last-child {
   color: var(--muted);
   font-size: 12px;
+}
+.runtime-list li div,
+.runtime-list footer {
+  row-gap: 6px;
 }
 .runtime-list p {
   margin: 8px 0;
@@ -221,33 +220,33 @@
   margin: 16px;
   text-decoration: none;
 }
-.runtime-shell aside {
+.runtime-workdesk > aside {
   padding: 24px;
   min-width: 0;
 }
-.runtime-shell aside h2 {
+.runtime-workdesk > aside h2 {
   font-size: 22px;
   margin: 20px 0 8px;
 }
-.runtime-shell aside > p {
+.runtime-workdesk > aside > p {
   color: var(--body);
   overflow-wrap: anywhere;
   max-width: 70ch;
 }
-.runtime-shell aside dl {
+.runtime-workdesk > aside dl {
   margin-top: 30px;
 }
-.runtime-shell aside dl div {
+.runtime-workdesk > aside dl div {
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 16px;
   padding: 12px 0;
   border-top: 1px solid var(--line);
 }
-.runtime-shell aside dt {
+.runtime-workdesk > aside dt {
   color: var(--muted);
 }
-.runtime-shell aside dd {
+.runtime-workdesk > aside dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -267,17 +266,10 @@
   align-items: center;
 }
 @media (max-width: 760px) {
-  .runtime-shell > header {
-    align-items: flex-start;
-    padding: 12px 16px;
-  }
-  .runtime-shell > header > div {
-    justify-content: flex-end;
-  }
   .runtime-scope {
     display: none;
   }
-  .runtime-shell main {
+  .runtime-ticket-scroll {
     padding: 20px 16px;
   }
   .runtime-grid,
@@ -287,7 +279,7 @@
   .runtime-list {
     border-right: 0;
   }
-  .runtime-shell .runtime-grid aside {
+  .runtime-workdesk > aside {
     border-top: 1px solid var(--line);
   }
   .runtime-list-head {

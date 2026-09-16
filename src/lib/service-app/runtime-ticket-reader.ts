@@ -10,9 +10,19 @@ type Cursor={v:1;scope:string;updatedAt:string;id:string};
 type Deps={client?:PostgresClient;resolve?:(scope:SupportRuntimeScope)=>Promise<OperationalSupportAccess|null>};
 const idPattern=/^[A-Za-z0-9_:@.-]{1,192}$/;
 const timestampPattern=/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}(?::?\d{2})?)$/;
+const cursorPattern=/^[A-Za-z0-9_-]+$/;
+const maxEncodedCursorLength=512;
 function scopeKey(scope:SupportRuntimeScope):string{return createHash("sha256").update([scope.accountId,scope.tenantId,scope.installationId,scope.workspaceId].join("\0")).digest("base64url");}
 function decodeCursor(raw:string,scope:SupportRuntimeScope):Cursor{
-  try{const value=JSON.parse(Buffer.from(raw,"base64url").toString("utf8")) as Cursor;if(!value||value.v!==1||value.scope!==scopeKey(scope)||typeof value.updatedAt!=="string"||!timestampPattern.test(value.updatedAt)||!Number.isFinite(Date.parse(value.updatedAt))||typeof value.id!=="string"||!idPattern.test(value.id))throw new Error();return value;}catch{throw new Error("invalid_ticket_cursor");}
+  try{
+    if(typeof raw!=="string"||raw.length<1||raw.length>maxEncodedCursorLength||raw.length%4===1||!cursorPattern.test(raw))throw new Error();
+    const decoded=Buffer.from(raw,"base64url");if(decoded.toString("base64url")!==raw||decoded.byteLength>384)throw new Error();
+    const value=JSON.parse(decoded.toString("utf8")) as unknown;
+    if(!value||typeof value!=="object"||Array.isArray(value))throw new Error();
+    const item=value as Record<string,unknown>;
+    if(Object.keys(item).length!==4||!['v','scope','updatedAt','id'].every(key=>Object.hasOwn(item,key))||item.v!==1||item.scope!==scopeKey(scope)||typeof item.updatedAt!=="string"||!timestampPattern.test(item.updatedAt)||!Number.isFinite(Date.parse(item.updatedAt))||typeof item.id!=="string"||!idPattern.test(item.id))throw new Error();
+    return item as Cursor;
+  }catch{throw new Error("invalid_ticket_cursor");}
 }
 function encodeCursor(row:Row,scope:SupportRuntimeScope):string{return Buffer.from(JSON.stringify({v:1,scope:scopeKey(scope),updatedAt:row.updated_at,id:row.id} satisfies Cursor)).toString("base64url");}
 function ticket(row:Row):SupportTicketSummary{return {ticketRef:row.external_id,id:row.id,customerRef:row.customer_ref,customerName:row.customer_name,status:row.source_status,priority:row.priority,summary:row.summary,source:row.source,createdAt:row.created_at,updatedAt:row.updated_at};}

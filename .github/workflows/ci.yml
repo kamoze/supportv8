@@ -43,6 +43,12 @@ jobs:
         SUPPORTV8_REAL_POSTGRES: 1
         SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
 
+    - name: Verify Runtime Support access and ticket RLS
+      run: npx vitest run test/runtime-support-access.postgres.test.ts
+      env:
+        SUPPORTV8_REAL_POSTGRES: 1
+        SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+
     - name: Next.js Production Build
       run: npm run build
       env:

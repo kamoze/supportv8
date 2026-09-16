@@ -6,6 +6,24 @@ import { resolveOperationalSupportAccess,type SupportRuntimeScope } from "@/lib/
 import { RuntimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
 
 const enabled=process.env.SUPPORTV8_REAL_POSTGRES==="1";
+const localFixture="postgres://postgres@127.0.0.1:52996/support_runtime_access_test";
+const ciFixture="postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres";
+function ownedDatabase(value:string):{url:string;database:string;port:number;serverHost:(value:string)=>boolean}{
+  if(value!==localFixture&&value!==ciFixture)throw new Error("Support access PostgreSQL proof requires an exact owned fixture URL");
+  const parsed=new URL(value);
+  if(parsed.search||parsed.hash||parsed.hostname!=="127.0.0.1"||parsed.username!=="postgres")throw new Error("Support access PostgreSQL proof requires an exact owned fixture URL");
+  const loopback=(host:string)=>host==="127.0.0.1"||host==="::1";
+  const privateNetwork=(host:string)=>loopback(host)||/^10\./.test(host)||/^192\.168\./.test(host)||/^172\.(?:1[6-9]|2\d|3[01])\./.test(host);
+  return {url:value,database:parsed.pathname.slice(1),port:Number(parsed.port),serverHost:value===localFixture?loopback:privateNetwork};
+}
+describe("Runtime Support PostgreSQL fixture safety gate",()=>{
+  it.each([
+    `${localFixture}?sslmode=disable`,`${localFixture}#fragment`,
+    "postgres://other@127.0.0.1:52996/support_runtime_access_test",
+    "postgres://postgres@database.example:52996/support_runtime_access_test",
+    "postgres://postgres@127.0.0.1:52996/postgres",
+  ])("rejects non-owned destination %s",value=>expect(()=>ownedDatabase(value)).toThrow("exact owned fixture URL"));
+});
 describe.skipIf(!enabled)("Runtime Support access genuine PostgreSQL boundary",()=>{
   let admin:Pool,app:Pool,client:PostgresClient;
   const databaseUrl=process.env.SUPPORTV8_WORKSPACE_TEST_DATABASE_URL??"";
@@ -15,9 +33,10 @@ describe.skipIf(!enabled)("Runtime Support access genuine PostgreSQL boundary",(
   const projection={accountId:scope.accountId,tenantId:scope.tenantId,verticalId:"runtime",installationId:scope.installationId,principalId:"reservation-creator",tenantDomain:"synthetic-support",productId:"servicev8.service-app.supportv8",productVersion:"1.0.0",productKind:"service_app",entitlementStatus:"active",installationState:"active",serviceAppReadiness:{state:"ready"},serviceAppPlanAccess:{state:"included",planId:"scale"},serviceAppBinding:{schemaVersion:"servicev8.service-app-binding.v1",appKey:"supportv8",externalWorkspaceId:workspaceId,meteringTenantId:"synthetic-meter",poolAccountId:scope.accountId,provisioningState:"provisioned",poolBindingState:"verified"}};
   const current=async()=>({member:{accountId:scope.accountId,tenantId:scope.tenantId,identitySubject:scope.subject,email:"admin@synthetic.test",role:"ADMIN",status:"active",slug:"synthetic-support"},projection});
   beforeAll(async()=>{
-    expect(databaseUrl).toBeTruthy();const parsed=new URL(databaseUrl);expect([parsed.hostname,parsed.port,parsed.pathname]).toEqual(["127.0.0.1","52996","/support_runtime_access_test"]);
-    admin=new Pool({connectionString:databaseUrl});
-    const identity=await admin.query("select current_database() db,inet_server_addr()::text host,inet_server_port() port");expect(identity.rows[0]).toEqual({db:"support_runtime_access_test",host:"127.0.0.1/32",port:52996});
+    const fixture=ownedDatabase(databaseUrl);const parsed=new URL(fixture.url);
+    admin=new Pool({connectionString:fixture.url});
+    const identity=await admin.query<{db:string;host:string;port:number}>("select current_database() db,host(inet_server_addr()) host,inet_server_port() port");
+    expect(identity.rows[0]?.db).toBe(fixture.database);expect(identity.rows[0]?.port).toBe(fixture.port);expect(fixture.serverHost(identity.rows[0]?.host??"")).toBe(true);
     await admin.query("DROP SCHEMA IF EXISTS supportv8 CASCADE; DROP ROLE IF EXISTS support_runtime_reader; CREATE ROLE support_runtime_reader LOGIN PASSWORD 'synthetic-only'; CREATE SCHEMA supportv8; CREATE TABLE supportv8.tenants(id varchar(64) PRIMARY KEY,domain varchar(128) UNIQUE NOT NULL,name varchar(255) NOT NULL,operating_mode varchar(32) NOT NULL DEFAULT 'autonomous',servicev8_account_id varchar(128),created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now()); CREATE TABLE supportv8.issues(id varchar(64) PRIMARY KEY,tenant_id varchar(64) NOT NULL REFERENCES supportv8.tenants(id),source varchar(32) NOT NULL,external_id varchar(128) NOT NULL,customer_ref varchar(128) NOT NULL,customer_name varchar(255) NOT NULL,summary text NOT NULL,priority varchar(32) NOT NULL,source_status varchar(32) NOT NULL,created_at timestamptz NOT NULL,updated_at timestamptz NOT NULL); ALTER TABLE supportv8.issues ENABLE ROW LEVEL SECURITY; ALTER TABLE supportv8.issues FORCE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation_issues ON supportv8.issues USING(tenant_id=current_setting('app.current_tenant_id',true)) WITH CHECK(tenant_id=current_setting('app.current_tenant_id',true));");
     await admin.query(await readFile(new URL("../migrations/005_runtime_support_workspaces.sql",import.meta.url),"utf8"));
     await admin.query(await readFile(new URL("../migrations/006_runtime_ticket_read_index.sql",import.meta.url),"utf8"));

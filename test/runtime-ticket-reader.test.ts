@@ -28,6 +28,18 @@ describe("Runtime Support durable ticket reader",()=>{
     await expect(next.reader.list({...scope,tenantId:"registry-2"},{limit:2,cursor:page.nextCursor})).rejects.toThrow("invalid_ticket_cursor");
   });
   it.each([0,101,1.5])("rejects invalid limit %s",async(limit)=>expect(harness([]).reader.list(scope,{limit})).rejects.toThrow("invalid_ticket_query"));
+  it.each([
+    ["non-string",42],
+    ["empty",""],
+    ["oversized","a".repeat(513)],
+    ["non-base64url","not+base64/url="],
+    ["wrong shape",Buffer.from(JSON.stringify([])).toString("base64url")],
+    ["extra field",Buffer.from(JSON.stringify({v:1,scope:"x",updatedAt:"2026-09-16T12:00:00Z",id:"ticket-1",extra:true})).toString("base64url")],
+  ])("rejects %s cursor before querying",async(_name,cursor)=>{
+    const h=harness([]);
+    await expect(h.reader.list(scope,{cursor:cursor as string})).rejects.toThrow("invalid_ticket_cursor");
+    expect(h.calls.some(call=>call.sql.includes("FROM supportv8.issues"))).toBe(false);
+  });
   it("does exact detail lookup and reauthorizes on every read",async()=>{
     const h=harness([row("ticket-1","chat","2026-09-16T12:00:00.000Z")]);
     expect((await h.reader.get(scope,"ticket-1"))?.ticketRef).toBe("ref-ticket-1");

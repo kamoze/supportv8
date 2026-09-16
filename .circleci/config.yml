@@ -9,6 +9,9 @@ jobs:
           SUPPORTV8_RUN_REDIS_INTEGRATION: "true"
       - image: redis:7.4-alpine
         command: ["redis-server", "--requirepass", "ci-supportv8-auth"]
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_PASSWORD: support-workspace-test
     steps:
       - checkout
       - run:
@@ -17,6 +20,12 @@ jobs:
       - run:
           name: Run Unit and Conformance Tests
           command: npx vitest run
+      - run:
+          name: Rehearse Runtime Support workspace migration and RLS
+          command: npx vitest run test/runtime-support-workspace.postgres.test.ts
+          environment:
+            SUPPORTV8_REAL_POSTGRES: "1"
+            SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Build Next.js Application
           command: npm run build
@@ -72,6 +81,8 @@ workflows:
                 - main
                 - master
                 - codex/family-refresh-20260910
+                - codex/support-runtime-provisioning-20260915
+                - codex/support-growth-provision-20260915
       - push-image:
           context:
             - servicev8-prod

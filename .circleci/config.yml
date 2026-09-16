@@ -108,6 +108,7 @@ workflows:
                 - codex/support-runtime-provisioning-20260915
                 - codex/support-growth-provision-20260915
                 - codex/support-runtime-rbac-20260916
+                - fix/runtime-native-support-workspace
       - push-image:
           context:
             - servicev8-prod

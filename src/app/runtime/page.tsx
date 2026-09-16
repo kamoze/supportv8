@@ -5,13 +5,13 @@ import { RuntimeWorkspace } from "./runtime-workspace";
 import "./runtime.css";
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Runtime support tickets | SupportV8",
+  title: "Support workspace | SupportV8",
   robots: { index: false, follow: false },
 };
 export default async function RuntimePage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string; ticket?: string }>;
+  searchParams: Promise<{ cursor?: string; ticket?: string; view?: string }>;
 }) {
   const h = await headers(),
     host = h.get("host") ?? "",
@@ -36,8 +36,21 @@ export default async function RuntimePage({
     subject: auth.session.sub,
   };
   try {
-    const query = await searchParams,
-      page = await runtimeSupportTicketReader.list(scope, {
+    const query = await searchParams;
+    if (
+      query.view &&
+      !["overview", "workspace", "issues"].includes(query.view)
+    ) {
+      return (
+        <RuntimeWorkspace
+          domain={auth.session.tenantDomain}
+          role={auth.role}
+          state="ready"
+          view={query.view}
+        />
+      );
+    }
+    const page = await runtimeSupportTicketReader.list(scope, {
         limit: 30,
         ...(query.cursor ? { cursor: query.cursor } : {}),
       }),
@@ -53,6 +66,7 @@ export default async function RuntimePage({
         selectionRequested={Boolean(query.ticket)}
         state={page.tickets.length ? "ready" : "empty"}
         cursor={query.cursor}
+        view={query.view}
       />
     );
   } catch {

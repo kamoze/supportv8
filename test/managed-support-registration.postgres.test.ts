@@ -82,6 +82,12 @@ describe.skipIf(!url)(
         ),
       );
       const appUrl = new URL(url);
+      await admin.query(
+        await readFile(
+          new URL("../migrations/009_managed_support_permanent_lifecycle.sql", import.meta.url),
+          "utf8",
+        ),
+      );
       appUrl.username = "supportv8_app";
       app = new Pool({ connectionString: appUrl.toString(), max: 8 });
     }, 30000);
@@ -204,6 +210,9 @@ describe.skipIf(!url)(
         second.claim("worker-two", 3),
       ]);
       const ids = [...one, ...two].map((x) => x.installationId);
+      for (const job of [...one, ...two]) {
+        expect(job).toMatchObject({ desiredState: "active", observedGeneration: 0 });
+      }
       expect(new Set(ids).size).toBe(ids.length);
       expect([...one, ...two].some((x) => x.accountId === "account-b")).toBe(
         true,

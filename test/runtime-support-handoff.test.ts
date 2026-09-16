@@ -13,8 +13,10 @@ import {
   verifyRuntimeSupportSession,
 } from "@/lib/service-app/runtime-session";
 import {
+  handleRuntimeTicketCreate,
   handleRuntimeTicketDetail,
   handleRuntimeTicketList,
+  handleRuntimeTicketUpdate,
 } from "@/lib/service-app/runtime-http";
 const secret = "handoff-secret-that-is-at-least-thirty-two-bytes";
 const sessionSecret = "session-secret-that-is-at-least-thirty-two-bytes";
@@ -359,6 +361,149 @@ describe("runtime ticket HTTP boundary", () => {
         )
       ).status,
     ).toBe(503);
+  });
+  it("permits only current managers to create and update tickets", async () => {
+    const manage = async () => ({
+      ...(await auth()),
+      role: "support:manage" as const,
+    });
+    const create = vi.fn(async () => ({ id: "ticket-new" }) as never);
+    const created = await handleRuntimeTicketCreate(
+      new Request(
+        "https://synthetic-support.support.servicev8.com/api/runtime/tickets",
+        {
+          method: "POST",
+          headers: {
+            host: "synthetic-support.support.servicev8.com",
+            origin: "https://synthetic-support.support.servicev8.com",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            customerName: "Synthetic Customer",
+            summary: "Needs help",
+            priority: "high",
+          }),
+        },
+      ),
+      { authorize: manage as never, create },
+    );
+    expect(created.status).toBe(201);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId }),
+      {
+        customerName: "Synthetic Customer",
+        summary: "Needs help",
+        priority: "high",
+      },
+    );
+    const update = vi.fn(async () => ({ id: "ticket-1" }) as never);
+    expect(
+      (
+        await handleRuntimeTicketUpdate(
+          new Request(
+            "https://synthetic-support.support.servicev8.com/api/runtime/tickets/ticket-1",
+            {
+              method: "PATCH",
+              headers: {
+                host: "synthetic-support.support.servicev8.com",
+                origin: "https://synthetic-support.support.servicev8.com",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({ status: "resolved" }),
+            },
+          ),
+          "ticket-1",
+          { authorize: manage as never, update },
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await handleRuntimeTicketCreate(
+          new Request(
+            "https://synthetic-support.support.servicev8.com/api/runtime/tickets",
+            {
+              method: "POST",
+              headers: {
+                host: "synthetic-support.support.servicev8.com",
+                origin: "https://synthetic-support.support.servicev8.com",
+                "content-type": "application/json",
+              },
+              body: "{}",
+            },
+          ),
+          { authorize: auth as never, create },
+        )
+      ).status,
+    ).toBe(403);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ["missing origin", undefined, { customerName: "A", summary: "B" }],
+    [
+      "cross origin",
+      "https://evil.example",
+      { customerName: "A", summary: "B" },
+    ],
+    [
+      "unknown field",
+      "https://synthetic-support.support.servicev8.com",
+      { customerName: "A", summary: "B", tenantId: workspaceId },
+    ],
+  ])("rejects %s before storage", async (_name, origin, body) => {
+    const manage = async () => ({
+      ...(await auth()),
+      role: "support:manage" as const,
+    });
+    const create = vi.fn();
+    const headers: Record<string, string> = {
+      host: "synthetic-support.support.servicev8.com",
+      "content-type": "application/json",
+    };
+    if (origin) headers.origin = origin;
+    const response = await handleRuntimeTicketCreate(
+      new Request(
+        "https://synthetic-support.support.servicev8.com/api/runtime/tickets",
+        { method: "POST", headers, body: JSON.stringify(body) },
+      ),
+      { authorize: manage as never, create },
+    );
+    expect(response.status).toBe(
+      origin?.includes("synthetic-support") ? 400 : 403,
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+  it("stops reading a chunked oversized write before storage", async () => {
+    const manage = async () => ({
+        ...(await auth()),
+        role: "support:manage" as const,
+      }),
+      create = vi.fn();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"summary":"'));
+        controller.enqueue(new Uint8Array(17_000));
+        controller.close();
+      },
+    });
+    const response = await handleRuntimeTicketCreate(
+      new Request(
+        "https://synthetic-support.support.servicev8.com/api/runtime/tickets",
+        {
+          method: "POST",
+          headers: {
+            host: "synthetic-support.support.servicev8.com",
+            origin: "https://synthetic-support.support.servicev8.com",
+            "content-type": "application/json",
+          },
+          body,
+          duplex: "half",
+        } as RequestInit,
+      ),
+      { authorize: manage as never, create },
+    );
+    expect(response.status).toBe(400);
+    expect(create).not.toHaveBeenCalled();
   });
 });
 

@@ -1,4 +1,7 @@
+"use client";
 import React from "react";
+import { FocusedWorkspaceView } from "@/components/views/FocusedWorkspaceView";
+import { SupportV8Logo } from "@/components/SupportV8Logo";
 import type {
   SupportTicketPage,
   SupportTicketSummary,
@@ -9,6 +12,8 @@ type Props = {
   selected?: SupportTicketSummary | null;
   state: "ready" | "empty" | "denied" | "unavailable";
   cursor?: string;
+  role?: "support:read" | "support:manage";
+  selectionRequested?: boolean;
 };
 const date = (value: string) =>
   new Intl.DateTimeFormat("en", {
@@ -22,7 +27,10 @@ export function RuntimeWorkspace({
   selected,
   state,
   cursor,
+  role = "support:read",
+  selectionRequested = false,
 }: Props) {
+  const canManage = role === "support:manage";
   const returnTo = `https://${domain}.runtime.servicev8.com/workspace/${domain}/applications`;
   return (
     <div className="runtime-shell">
@@ -35,8 +43,7 @@ export function RuntimeWorkspace({
           href="/runtime"
           aria-label="SupportV8 runtime ticket view"
         >
-          <span>support</span>
-          <b>v8</b>
+          <SupportV8Logo size={32} />
         </a>
         <div>
           <span className="runtime-scope">{domain}</span>
@@ -50,9 +57,11 @@ export function RuntimeWorkspace({
         <section className="runtime-heading">
           <div>
             <h1>Support tickets</h1>
-            <p>Read-only support activity for this Runtime workspace.</p>
+            <p>Tenant-scoped support activity for this Runtime workspace.</p>
           </div>
-          <span className="runtime-readonly">Read only</span>
+          <span className="runtime-readonly">
+            {canManage ? "Administrator" : "Read only"}
+          </span>
         </section>
         {state === "denied" ? (
           <State
@@ -66,96 +75,52 @@ export function RuntimeWorkspace({
             body="Support could not verify current access or read tickets. Try again from Runtime."
             href={returnTo}
           />
-        ) : state === "empty" ? (
-          <State
-            title="No support tickets yet"
-            body="Tickets created for this workspace will appear here. Return to Runtime to continue working."
-            href={returnTo}
-          />
         ) : (
-          <div className="runtime-grid">
-            <section aria-label="Ticket list" className="runtime-list">
-              <div className="runtime-list-head">
-                <h2>{page?.tickets.length ?? 0} recent tickets</h2>
-                <span>Newest updates first</span>
-              </div>
-              <ul>
-                {page?.tickets.map((ticket) => (
-                  <li key={ticket.id}>
-                    <a
-                      href={`/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
-                      aria-current={
-                        selected?.id === ticket.id ? "page" : undefined
-                      }
-                    >
-                      <div>
-                        <strong>{ticket.customerName}</strong>
-                        <span>{ticket.ticketRef}</span>
-                      </div>
-                      <p>{ticket.summary}</p>
-                      <footer>
-                        <span
-                          className={`runtime-status runtime-status-${ticket.status.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                        >
-                          {ticket.status}
-                        </span>
-                        <time dateTime={ticket.updatedAt}>
-                          {date(ticket.updatedAt)}
-                        </time>
-                      </footer>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-              {page?.nextCursor && (
-                <a
-                  className="runtime-next"
-                  href={`/runtime?cursor=${encodeURIComponent(page.nextCursor)}`}
-                >
-                  Next page
-                </a>
-              )}
-            </section>
-            <aside aria-label="Ticket details">
-              {selected ? (
-                <>
-                  <div className="runtime-detail-head">
-                    <span className="runtime-status">{selected.status}</span>
-                    <span>{selected.ticketRef}</span>
-                  </div>
-                  <h2>{selected.customerName}</h2>
-                  <p>{selected.summary}</p>
-                  <dl>
-                    <div>
-                      <dt>Priority</dt>
-                      <dd>{selected.priority}</dd>
-                    </div>
-                    <div>
-                      <dt>Source</dt>
-                      <dd>{selected.source}</dd>
-                    </div>
-                    <div>
-                      <dt>Created</dt>
-                      <dd>{date(selected.createdAt)}</dd>
-                    </div>
-                    <div>
-                      <dt>Last updated</dt>
-                      <dd>{date(selected.updatedAt)}</dd>
-                    </div>
-                  </dl>
-                </>
-              ) : (
-                <State
-                  title="Select a ticket"
-                  body="Choose a ticket to review its current support summary."
-                />
-              )}
-            </aside>
-          </div>
+          <>
+            <FocusedWorkspaceView
+              runtimeTransport={{
+                tickets: page?.tickets ?? [],
+                selected,
+                selectionRequested,
+                cursor,
+                canManage,
+                onCreate: async (input) =>
+                  mutation("/api/runtime/tickets", "POST", input),
+                onUpdate: async (id, input) =>
+                  mutation(
+                    `/api/runtime/tickets/${encodeURIComponent(id)}`,
+                    "PATCH",
+                    input,
+                  ),
+              }}
+            />
+            {page?.nextCursor && (
+              <a
+                className="runtime-next"
+                href={`/runtime?cursor=${encodeURIComponent(page.nextCursor)}`}
+              >
+                Next page
+              </a>
+            )}
+          </>
         )}
       </main>
     </div>
   );
+}
+async function mutation(url: string, method: "POST" | "PATCH", body: unknown) {
+  const response = await fetch(url, {
+      method,
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    payload = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(
+      payload.error || "Support could not save this change. Try again.",
+    );
+  window.location.reload();
 }
 function State({
   title,

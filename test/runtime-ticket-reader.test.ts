@@ -8,7 +8,7 @@ const scope:SupportRuntimeScope={accountId:"acct-1",tenantId:"registry-1",vertic
 const access={...scope,capability:"support:read" as const,email:"member@example.test",domain:"acme-support"};
 function harness(rows:Record<string,unknown>[]){
   const calls:Array<{sql:string;params?:unknown[]}>=[];
-  const query=vi.fn(async(sql:string,params?:unknown[])=>{calls.push({sql,params});return {rows:sql.includes("FROM supportv8.issues")?rows:[]};});
+  const query=vi.fn(async(sql:string,params?:unknown[])=>{calls.push({sql,params});return {rows:sql.includes("supportv8.issues")?rows:[]};});
   const pool={connect:vi.fn(async()=>({query,release:vi.fn()}))} as unknown as DatabasePool;
   const current=vi.fn(async()=>access);
   return {reader:new RuntimeSupportTicketReader({client:new PostgresClient(undefined,pool),resolve:current}),calls,current};
@@ -53,5 +53,50 @@ describe("Runtime Support durable ticket reader",()=>{
     const h=harness([]); (h.reader as unknown as {resolve:unknown}).resolve=async()=>null;
     await expect(h.reader.list(scope,{})).rejects.toThrow("support_access_denied");
     expect(h.calls.some(call=>call.sql.includes("FROM supportv8.issues"))).toBe(false);
+  });
+  it("creates and updates durable tickets only after a fresh manage check", async () => {
+    const h = harness([
+      row("ticket-1", "runtime_manual", "2026-09-16T12:00:00.000Z"),
+    ]);
+    (h.reader as unknown as { resolve: unknown }).resolve = async () => ({
+      ...access,
+      capability: "support:manage",
+    });
+    expect(
+      (
+        await h.reader.create(scope, {
+          customerName: "Synthetic Customer",
+          summary: "Needs help",
+          priority: "high",
+        })
+      ).id,
+    ).toBe("ticket-1");
+    expect(
+      (await h.reader.update(scope, "ticket-1", { status: "resolved" }))?.id,
+    ).toBe("ticket-1");
+    const writes = h.calls.filter(
+      (call) =>
+        call.sql.includes("INSERT INTO supportv8.issues") ||
+        call.sql.includes("UPDATE supportv8.issues"),
+    );
+    expect(writes).toHaveLength(2);
+    expect(writes[0]?.params?.[1]).toBe(scope.workspaceId);
+    expect(writes[1]?.params?.slice(0, 2)).toEqual([
+      scope.workspaceId,
+      "ticket-1",
+    ]);
+  });
+  it("blocks durable writes after a fresh downgrade", async () => {
+    const h = harness([]);
+    await expect(
+      h.reader.create(scope, {
+        customerName: "Synthetic Customer",
+        summary: "Needs help",
+        priority: "normal",
+      }),
+    ).rejects.toThrow("support_manage_denied");
+    expect(
+      h.calls.some((call) => call.sql.includes("INSERT INTO supportv8.issues")),
+    ).toBe(false);
   });
 });

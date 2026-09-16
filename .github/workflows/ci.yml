@@ -2,7 +2,7 @@ name: CI & Build Validation
 
 on:
   push:
-    branches: [ main, master, codex/support-runtime-provisioning-20260915 ]
+    branches: [ main, master, codex/support-runtime-provisioning-20260915, codex/support-runtime-rbac-20260916 ]
   pull_request:
     branches: [ main, master ]
 
@@ -51,6 +51,12 @@ jobs:
 
     - name: Verify Runtime Support handoff replay and RLS
       run: npx vitest run test/runtime-support-handoff.postgres.test.ts
+      env:
+        SUPPORTV8_REAL_POSTGRES: 1
+        SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+
+    - name: Verify Runtime Support durable ticket writes and RLS
+      run: npx vitest run test/runtime-ticket-write.postgres.test.ts
       env:
         SUPPORTV8_REAL_POSTGRES: 1
         SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres

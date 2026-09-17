@@ -22,6 +22,10 @@ import {
   extractNarrative,
   isBudgetExhausted,
 } from "@/lib/agentic-runtime/gateway/completion";
+import {
+  isCentralAgenticChatEnabled,
+  executeAgenticChatAsk,
+} from "@/lib/chat/agenticos-chat-client";
 
 const DEMO_HIRE_IDS: Record<string, string> = {
   acme: "hi_supportv8_demo_acme",
@@ -139,6 +143,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const scopedContext = buildTenantContext(tenant.tenantSlug);
+
+    if (isCentralAgenticChatEnabled()) {
+      try {
+        const centralResult = await executeAgenticChatAsk({
+          tenantSlug: tenant.tenantSlug,
+          tenantId: tenant.tenantId,
+          employeeId: employee.id,
+          employeeRole: employee.role,
+          query,
+          contextPrompt: scopedContext.prompt,
+        });
+
+        if (centralResult?.answer) {
+          return NextResponse.json({
+            success: true,
+            data: {
+              query,
+              employeeId: employee.id,
+              employeeName: employee.name,
+              employeeRole: employee.role,
+              employeeAvatar: employee.avatar,
+              answer: centralResult.answer,
+              citations: scopedContext.citations,
+              suggestedActions: [
+                { label: "Open Issues Explorer", action: "navigate", targetTab: "issues" },
+              ],
+              timestamp: new Date().toISOString(),
+              runtime: "agenticos_central",
+            },
+          });
+        }
+      } catch (err) {
+        console.warn("[chat-route] Central agentic chat execution failed, falling back to local forge gateway:", err);
+      }
+    }
+
     const forgeConfig = forgeGatewayConfigFromEnv();
     if (!forgeConfig) {
       return NextResponse.json(
@@ -155,7 +196,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const scopedContext = buildTenantContext(tenant.tenantSlug);
     const completion = await forge.complete(tenant.tenantId, {
       instanceId,
       feature: "agent_narrative",

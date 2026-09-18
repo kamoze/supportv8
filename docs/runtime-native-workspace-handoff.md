@@ -11,7 +11,7 @@ The destination is the existing SupportV8 application at `/?view=cockpit&handoff
 - Expired display metadata is discarded locally. It must not call logout during bootstrap and erase a newly issued SSO cookie. Explicit logout clears both native and Runtime session cookies.
 - Native member management retains its own Keycloak identity checks. This release does not fabricate a local account or bypass those checks for a Registry subject.
 
-Native ticket reads and updates use the existing Postgres/RLS repository with all workspace sources, including `runtime_manual`. Linked workspaces do not merge seeded mock tickets or fall back to mock updates. Manual creation uses the existing durable workdesk path.
+Native ticket reads and updates use the existing Postgres/RLS repository with all workspace sources, including `runtime_manual`. Linked workspaces do not merge seeded mock tickets or fall back to mock updates. Manual creation uses the existing durable workdesk path. Website chat intake and operator message interactions (`/api/chat/session`, `/api/chat/message`, `/api/chat/draft`, `/api/chat/stream`) write to the linked workspace's Postgres tenant storage through the audited `chatRepository` and `resolveRequestTenant`.
 
 ## Legacy storage boundary
 

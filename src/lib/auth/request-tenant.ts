@@ -129,7 +129,9 @@ export async function resolveRequestTenant(
     const {session, role} = authorized;
     if (normalizedHostTenant && normalizedHostTenant !== session.tenantDomain) throw new RequestAuthError("Workspace host mismatch", 403);
     const path = new URL(request.url).pathname;
-    if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout"))) {
+    const isCustomerChatIntake =
+      path === "/api/chat/session" || (path === "/api/chat/message" && !options.requireAuthentication);
+    if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout" && !isCustomerChatIntake))) {
       throw new RequestAuthError("This workspace role is read only", 403);
     }
     return {runtimeLinked:true,tenantId:session.workspaceId,tenantSlug:session.tenantDomain,authenticated:true,userId:session.sub,username:authorized.access.email,

@@ -184,3 +184,19 @@ it('stale demo metadata cannot deny a handoff before its native route verifies a
  const response=middleware(new NextRequest('https://acme.support.servicev8.com/api/issues',{method:'POST',headers:{host:'acme.support.servicev8.com',cookie:`__Host-sv8_runtime_support=unverified; sv8_access_token=${tokenWithRoles(['support_demo_operator'])}`}}));
  expect(response.status).not.toBe(403);
 });
+
+it('allows website chat and operator chat mutations to reach tenant storage with a Runtime session', () => {
+  for (const path of ['/api/chat/session', '/api/chat/message', '/api/chat/draft', '/api/chat/stream']) {
+    const response = middleware(
+      new NextRequest(`https://acme.support.servicev8.com${path}`, {
+        method: 'POST',
+        headers: {
+          host: 'acme.support.servicev8.com',
+          cookie: '__Host-sv8_runtime_support=unverified',
+        },
+      }),
+    );
+    expect(response.status).not.toBe(403);
+  }
+});
+

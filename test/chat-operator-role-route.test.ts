@@ -241,4 +241,51 @@ describe("operator chat route authorization", () => {
     addCredits.mockRestore();
     hire.mockRestore();
   });
+
+  it("starts a session and writes to tenant storage for a runtime-linked workspace", async () => {
+    vi.mocked(resolveRequestTenant).mockResolvedValue({
+      tenantId: "tenant_rt_1234567890abcdef1234567890abcdef1234567890abcdef",
+      tenantSlug: "acme",
+      authenticated: true,
+      runtimeLinked: true,
+      roles: ["support_cx_lead"],
+    });
+    vi.mocked(chatRepository.startSession).mockResolvedValue({
+      id: "chat_rt_test",
+      tenantDomain: "acme",
+      stream: "customers",
+      customerName: "Alice",
+      customerEmail: "alice@example.com",
+      intakeData: {},
+      status: "active",
+      priority: "normal",
+      unreadCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messages: [],
+    } as any);
+
+    const response = await startSession(
+      new NextRequest("https://acme.support.servicev8.com/api/chat/session", {
+        method: "POST",
+        body: JSON.stringify({
+          tenantSlug: "acme",
+          stream: "customers",
+          customerName: "Alice",
+          customerEmail: "alice@example.com",
+          intakeData: {},
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(chatRepository.startSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant_rt_1234567890abcdef1234567890abcdef1234567890abcdef",
+        tenantSlug: "acme",
+        customerName: "Alice",
+      }),
+    );
+  });
 });
+

@@ -74,6 +74,8 @@ import {
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
 import { AuthService } from "@/lib/auth-service";
+import { AsunPalaceContextPanel } from "@/components/workspace/AsunPalaceContextPanel";
+import { isAsunPalaceTenant } from "@/lib/services/chat-workflow-service";
 
 type CommunicationChannel = "chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass";
 
@@ -2118,6 +2120,26 @@ function LegacyFocusedWorkspaceView({
                   </div>
                 )}
               </div>
+
+              {/* ========================================================================= */}
+              {/* 3B. ASUN PALACE STORE LIVE COMMERCE & ORDER 360 */}
+              {/* ========================================================================= */}
+              {(isAsunPalaceTenant(selectedIssue.tenantId) ||
+                isAsunPalaceTenant(typeof window !== "undefined" ? window.location.hostname : "") ||
+                isAsunPalaceTenant(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : "") ||
+                selectedIssue.product?.toLowerCase().includes("order") ||
+                selectedIssue.category?.toLowerCase().includes("order") ||
+                selectedIssue.category?.toLowerCase().includes("food") ||
+                selectedIssue.tags?.includes("orderv8") ||
+                selectedIssue.tags?.includes("asun-palace")) && (
+                <AsunPalaceContextPanel
+                  issue={selectedIssue}
+                  onInsertReply={(text) =>
+                    setOperatorReplyText((prev) => (prev ? `${prev}\n\n${text}` : text))
+                  }
+                  onNotify={onNotify}
+                />
+              )}
 
               {/* ========================================================================= */}
               {/* 4. CONTEXT ATTACHMENTS & DEBUG SNIPPETS CARD */}

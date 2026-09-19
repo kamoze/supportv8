@@ -119,10 +119,10 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
       {
         id: "company",
         name: "company",
-        label: "Company / Organization (Optional)",
+        label: "Company / Organization",
         type: "text",
-        placeholder: "Acme Logistics Inc. (or Shopper)",
-        required: false,
+        placeholder: "Acme Logistics Inc.",
+        required: true,
       },
       {
         id: "enquiryType",
@@ -131,14 +131,11 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
         type: "select",
         required: true,
         options: [
-          "Store Menu, Hours & General Inquiries",
-          "Order Status, Delivery & Tracking",
-          "Returns, Refunds & Policies",
           "Platform Demo & Architecture Deep-Dive",
           "Pricing & Enterprise Volume Licensing",
           "Custom API & Telephony Integrations",
           "Security, HIPAA & SOC-2 Compliance",
-          "Other Question",
+          "Other Technical Question",
         ],
       },
       {
@@ -195,12 +192,10 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
         required: true,
         options: [
           "Billing, Invoices & Refund Request",
-          "Order Status, Delivery & Tracking",
           "Technical Outage / Bug Report",
           "Account Access & RBAC Permissions",
           "Agent Autonomy & Policy Tuning",
           "Data Ingestion & S3 Vault Help",
-          "General Customer Inquiry",
         ],
       },
       {
@@ -343,6 +338,140 @@ export interface OnlineStaffMember {
 
 let activeGroups: MemberGroup[] = [...DEFAULT_MEMBER_GROUPS];
 let activeGuardrails: AiChatGuardrailConfig = { ...DEFAULT_AI_GUARDRAILS };
+
+// =============================================================================
+// Tenant-Specific Workflows & Distinctions (e.g. Asun Palace Store vs Corporate)
+// =============================================================================
+
+export function isAsunPalaceTenant(tenantIdentifier?: string | null): boolean {
+  if (!tenantIdentifier) return false;
+  const norm = tenantIdentifier.toLowerCase().trim();
+  return (
+    norm.includes("asun-palace") ||
+    norm === "apalace" ||
+    norm.includes("asun_palace") ||
+    norm.includes("asunpalace")
+  );
+}
+
+export const ASUN_PALACE_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> = {
+  ...DEFAULT_CHAT_WORKFLOWS,
+  enquiries: {
+    ...DEFAULT_CHAT_WORKFLOWS.enquiries,
+    title: "Store Enquiries & Menu Help",
+    subtitle: "Store menu items, allergens, opening hours, catering, and guest inquiries",
+    intakeFields: [
+      {
+        id: "name",
+        name: "name",
+        label: "Your Name",
+        type: "text",
+        placeholder: "e.g. John Doe",
+        required: true,
+      },
+      {
+        id: "email",
+        name: "email",
+        label: "Contact Email",
+        type: "email",
+        placeholder: "john@example.com",
+        required: true,
+      },
+      {
+        id: "company",
+        name: "company",
+        label: "Company / Organization (Optional)",
+        type: "text",
+        placeholder: "Optional (e.g. Guest Shopper / Event Org)",
+        required: false,
+      },
+      {
+        id: "enquiryType",
+        name: "enquiryType",
+        label: "Inquiry Type",
+        type: "select",
+        required: true,
+        options: [
+          "Store Menu, Hours & General Inquiries",
+          "Order Status, Delivery & Tracking",
+          "Returns, Refunds & Policies",
+          "Catering & Bulk Food Orders",
+          "Other Question",
+        ],
+      },
+      {
+        id: "details",
+        name: "details",
+        label: "How can we help?",
+        type: "textarea",
+        placeholder: "Ask us anything about our store, menu, or placing an order...",
+        required: true,
+      },
+    ],
+  },
+  customers: {
+    ...DEFAULT_CHAT_WORKFLOWS.customers,
+    title: "Order Care & Support",
+    subtitle: "Food orders, delivery updates, returns, and customer care",
+    intakeFields: [
+      {
+        id: "name",
+        name: "name",
+        label: "Full Name",
+        type: "text",
+        placeholder: "e.g. Marcus Vance",
+        required: true,
+      },
+      {
+        id: "email",
+        name: "email",
+        label: "Account / Order Email",
+        type: "email",
+        placeholder: "marcus@example.com",
+        required: true,
+      },
+      {
+        id: "accountOrOrderId",
+        name: "accountOrOrderId",
+        label: "Order ID (Optional)",
+        type: "text",
+        placeholder: "e.g. ORD-94021 (leave blank if lost)",
+        required: false,
+      },
+      {
+        id: "issueType",
+        name: "issueType",
+        label: "Support Category",
+        type: "select",
+        required: true,
+        options: [
+          "Order Status, Delivery & Tracking",
+          "Returns, Refunds & Damaged Items",
+          "Billing, Invoices & Receipt Request",
+          "Store Menu & Allergen Question",
+          "General Customer Inquiry",
+        ],
+      },
+      {
+        id: "urgency",
+        name: "urgency",
+        label: "Urgency",
+        type: "select",
+        required: true,
+        options: ["Normal", "High (Active Delivery)", "Critical (Missing Order / Urgent)"],
+      },
+      {
+        id: "details",
+        name: "details",
+        label: "Issue Details",
+        type: "textarea",
+        placeholder: "Provide any additional details or your phone number to help us locate your order...",
+        required: true,
+      },
+    ],
+  },
+};
+
 let activeWorkflows: Record<ChatStreamType, ChatWorkflowConfig> = { ...DEFAULT_CHAT_WORKFLOWS };
 
 let chatSessions: CustomerChatSession[] = [
@@ -451,11 +580,17 @@ export class ChatWorkflowService {
   /**
    * Get workflow configuration for all streams or a specific stream
    */
-  static getWorkflows(): Record<ChatStreamType, ChatWorkflowConfig> {
+  static getWorkflows(tenantSlug?: string | null): Record<ChatStreamType, ChatWorkflowConfig> {
+    if (isAsunPalaceTenant(tenantSlug)) {
+      return ASUN_PALACE_CHAT_WORKFLOWS;
+    }
     return activeWorkflows;
   }
 
-  static getWorkflow(stream: ChatStreamType): ChatWorkflowConfig {
+  static getWorkflow(stream: ChatStreamType, tenantSlug?: string | null): ChatWorkflowConfig {
+    if (isAsunPalaceTenant(tenantSlug)) {
+      return ASUN_PALACE_CHAT_WORKFLOWS[stream] || activeWorkflows[stream] || DEFAULT_CHAT_WORKFLOWS[stream];
+    }
     return activeWorkflows[stream] || DEFAULT_CHAT_WORKFLOWS[stream];
   }
 
@@ -502,6 +637,9 @@ export class ChatWorkflowService {
     } else if (rawSubdomain.includes("aplogistics") || rawSubdomain.includes("apex")) {
       tenantBrand = "AP Logistics Dispatch";
       tenantGreetingSpecialty = "freight shipments, dock scheduling, or carrier manifests";
+    } else if (rawSubdomain.includes("asun-palace") || rawSubdomain.includes("apalace")) {
+      tenantBrand = "Asun Palace Store Support";
+      tenantGreetingSpecialty = "store menu, food orders, delivery, or returns";
     } else if (tenantData.tenant?.name) {
       tenantBrand = `${tenantData.tenant.name} Support`;
       tenantGreetingSpecialty = "account assistance, order status, or technical support";

@@ -24,14 +24,22 @@ export class ToolPlanner {
       });
     }
 
+    const tenantStr = (context.tenantId || "").toLowerCase();
+    const isRetailOrderTenant =
+      tenantStr.includes("asun-palace") ||
+      tenantStr === "apalace" ||
+      tenantStr.includes("asun") ||
+      tenantStr.includes("store");
+
     if (
-      lower.includes("order") ||
-      lower.includes("track") ||
-      lower.includes("delivery") ||
-      lower.includes("package") ||
-      lower.includes("where is") ||
-      lower.includes("status") ||
-      lower.includes("lookup")
+      isRetailOrderTenant &&
+      (lower.includes("order") ||
+        lower.includes("track") ||
+        lower.includes("delivery") ||
+        lower.includes("package") ||
+        lower.includes("where is") ||
+        lower.includes("status") ||
+        lower.includes("lookup"))
     ) {
       plannedTools.push({
         name: "order_lookup",

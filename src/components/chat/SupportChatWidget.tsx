@@ -33,6 +33,7 @@ import type {
 import {
   DEFAULT_CHAT_WORKFLOWS,
   ChatWorkflowService,
+  isAsunPalaceTenant,
 } from "@/lib/services/chat-workflow-service";
 import {
   clearStoredChatSessionId,
@@ -92,9 +93,12 @@ export function SupportChatWidget({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const workflows = ChatWorkflowService.getWorkflows();
-  const currentWorkflow: ChatWorkflowConfig = workflows[selectedStream] || DEFAULT_CHAT_WORKFLOWS.customers;
   const tenantSessionKey = tenantDomain || tenantSlug;
+  const rawHost = typeof window !== "undefined" ? window.location.hostname : "";
+  const searchParamTenant = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tenant") : null;
+  const isAsunTenant = isAsunPalaceTenant(tenantDomain) || isAsunPalaceTenant(tenantSlug) || isAsunPalaceTenant(rawHost) || isAsunPalaceTenant(searchParamTenant);
+  const workflows = ChatWorkflowService.getWorkflows(isAsunTenant ? "asun-palace-store" : tenantSessionKey);
+  const currentWorkflow: ChatWorkflowConfig = workflows[selectedStream] || DEFAULT_CHAT_WORKFLOWS.customers;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -115,7 +119,7 @@ export function SupportChatWidget({
     const customerName = searchParams.get("customerName") || searchParams.get("name");
     const topic = searchParams.get("topic");
 
-    if (isGuest) {
+    if (isGuest && isAsunTenant) {
       setIsGuestShopper(true);
     }
 
@@ -127,14 +131,20 @@ export function SupportChatWidget({
       prefilledData.workOrderNumber = orderId;
     }
     if (topic) {
-      if (topic === "general_inquiry") {
-        prefilledData.enquiryType = "Store Menu, Hours & General Inquiries";
-      } else if (topic === "returns" || topic === "refunds") {
-        prefilledData.issueType = "Billing, Invoices & Refund Request";
-        prefilledData.enquiryType = "Returns, Refunds & Policies";
-      } else if (topic === "orders" || topic === "delivery") {
-        prefilledData.issueType = "Order Status, Delivery & Tracking";
-        prefilledData.enquiryType = "Order Status, Delivery & Tracking";
+      if (isAsunTenant) {
+        if (topic === "general_inquiry") {
+          prefilledData.enquiryType = "Store Menu, Hours & General Inquiries";
+        } else if (topic === "returns" || topic === "refunds") {
+          prefilledData.issueType = "Returns, Refunds & Damaged Items";
+          prefilledData.enquiryType = "Returns, Refunds & Policies";
+        } else if (topic === "orders" || topic === "delivery") {
+          prefilledData.issueType = "Order Status, Delivery & Tracking";
+          prefilledData.enquiryType = "Order Status, Delivery & Tracking";
+        }
+      } else {
+        if (topic === "returns" || topic === "refunds") {
+          prefilledData.issueType = "Billing, Invoices & Refund Request";
+        }
       }
     }
 
@@ -428,7 +438,7 @@ export function SupportChatWidget({
                 <p className="text-[10px] font-mono text-[#6B7C8D] truncate">
                   {activeStep === "chat"
                     ? activeSession?.assignedName
-                    : isGuestShopper
+                    : isAsunTenant && isGuestShopper
                     ? "Storefront Shopper & Guest Helpdesk"
                     : "Intelligent Triage & Live Omnichannel"}
                 </p>

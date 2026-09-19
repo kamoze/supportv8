@@ -12,9 +12,9 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 
 describe("production support family refresh", () => {
   it("groups only already-authorized navigation objects without changing destinations", () => {
-    const items = ["overview", "workspace", "voice", "gov_audit", "market_plans"].map(id => ({ id, handler: vi.fn() }));
+    const items = ["overview", "workspace", "approvals", "market_workforce", "market_plans"].map(id => ({ id, handler: vi.fn() }));
     const grouped = groupSupportNavigation([{ title: "Incumbent", items }], false);
-    expect(grouped.map(group => group.title)).toEqual(["Work", "Workforce", "Governance", "Settings"]);
+    expect(grouped.map(group => group.title)).toEqual(["Work Desk", "Core Intelligence", "Workforce", "Marketplace", "Settings"]);
     expect(grouped.flatMap(group => group.items)).toHaveLength(items.length);
     for (const item of items) expect(grouped.flatMap(group => group.items)).toContain(item);
     expect(groupSupportNavigation([{ title: "Filtered", items: [items[1]] }], true)).toEqual([{ title: "Field Operations", items: [items[1]] }]);
@@ -39,7 +39,7 @@ describe("production support family refresh", () => {
   });
   it("preserves the complete incumbent menu role filters and auth action handlers", () => {
     const page = source("app/page.tsx");
-    expect(hash(page.slice(page.indexOf("  const allNavSections ="), page.indexOf("  // Automatically enforce tab route guards")))).toBe("8149bfd03bf1dd8c2a4c1451109eb5008eb7a7415e4b72a6933139fbf2cb7449");
+    expect(hash(page.slice(page.indexOf("  const allNavSections ="), page.indexOf("  // Automatically enforce tab route guards")))).toBe("5a7b9d6643100dd355b51b73ef0e4d45fbb45825f408f884bf58f82406feb406");
     for (const [name, expected] of [["SignInModal", "462f2a7ea44bcc064fca87bc01d7a4337875b702ee55ea238110dee8c87bc81d"], ["SignupModal", "aad4ac72f4f4d23eb517d508f72f031bfe54ba994444390c6b025171d9b27802"]]) {
       const text = source(`components/${name}.tsx`);
       const start = text.indexOf("  if (!isOpen) return null;");

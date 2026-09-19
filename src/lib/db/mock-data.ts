@@ -934,7 +934,7 @@ export const INITIAL_OVERVIEW_METRICS: OverviewMetrics = {
       description: "AI refund refusals causing elevated ticket re-opens in self-serve segment.",
       impactText: "CSAT IMPACT (-12% DECLINE)",
       actionText: "Review Insight",
-      targetTab: "insights",
+      targetTab: "trends",
       targetId: "INS-301",
     },
     {
@@ -974,7 +974,7 @@ export const INITIAL_OVERVIEW_METRICS: OverviewMetrics = {
       description: "Dormant external helpdesk tickets ready for automated sweep.",
       confidence: 0.98,
       actionText: "Run Work Sweep",
-      targetTab: "stale_work",
+      targetTab: "studio",
     },
   ],
   recentActivity: [
@@ -1228,7 +1228,7 @@ class SupportDatabase {
         description: ins.finding,
         impactText: `${ins.businessImpact.toUpperCase()} IMPACT`,
         actionText: "Review Insight",
-        targetTab: "insights",
+        targetTab: "trends",
         targetId: ins.id,
       });
     }
@@ -1275,7 +1275,7 @@ class SupportDatabase {
         description: "Dormant external helpdesk tickets ready for automated sweep and resolution verification.",
         confidence: 0.98,
         actionText: "Run Work Sweep",
-        targetTab: "stale_work",
+        targetTab: "studio",
       },
     ];
 

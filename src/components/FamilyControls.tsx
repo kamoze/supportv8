@@ -47,9 +47,11 @@ export function useFamilyDialog<T extends HTMLElement = HTMLDivElement>(isOpen: 
 export function groupSupportNavigation<T extends { id: string }>(sections: { title: string; items: T[] }[], contractor: boolean) {
   const items = sections.flatMap(section => section.items);
   const groups: [string, string[]][] = [
-    [contractor ? "Field Operations" : "Work", ["workspace", "problems", "issues", "cx_cockpit", "overview", "ask", "studio", "trends", "knowledge", "portal_composer", "stale_work"]],
-    ["Workforce", ["workforce", "voice"]], ["Governance", ["gov_audit", "gov_reports", "policies"]],
-    ["Marketplace", ["studio_marketplace", "market_workforce"]], ["Settings", ["gov_settings", "gov_members", "market_plans"]],
+    [contractor ? "Field Operations" : "Work Desk", ["workspace", "problems", "issues", "cx_cockpit"]],
+    [contractor ? "Field Assistant & Comms" : "Core Intelligence", contractor ? ["ask"] : ["overview", "studio", "trends", "knowledge", "portal_composer"]],
+    ["Workforce", contractor ? [] : ["workforce", "ask", "approvals", "workflows", "gov_audit"]],
+    ["Marketplace", ["studio_marketplace", "market_workforce", "market_connectors"]],
+    ["Settings", ["gov_settings", "gov_members", "market_plans", "policies", "gov_reports"]],
   ];
   return groups.map(([title, ids]) => ({ title, items: ids.flatMap(id => items.filter(item => item.id === id)) })).filter(group => group.items.length);
 }

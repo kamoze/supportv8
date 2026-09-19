@@ -41,7 +41,7 @@ describe("Runtime native Support workspace", () => {
       "Issues Explorer",
       "CX Cockpit",
       "Knowledge Suite",
-      "AI Workforce",
+      "Workforce",
       "Settings",
     ])
       expect(html).toContain(label);

@@ -103,6 +103,26 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     ],
     tip: "AI Interns (Chip, Rusty, Echo) handle high-volume triage, while AI Leads (Alex, Eleanor) enforce governance.",
   },
+  approvals: {
+    label: "Workforce Approvals",
+    what: "Human-in-the-loop supervisor queue: review, authorize, or reject AI employee actions exceeding autonomous safety caps.",
+    actions: [
+      "Review high-risk actions flagged by safety policies (refunds > $25, bulk updates).",
+      "Inspect AI reasoning, policy rule violations, and payload parameters.",
+      "Approve or reject mutations with one click and optional explanation feedback.",
+    ],
+    tip: "Actions approved by supervisors train reinforcement preferences for future autonomous runs.",
+  },
+  workflows: {
+    label: "Autonomous Workflows",
+    what: "Systemic automated workflows: proactive issue resolution, incident auto-routing, SLA breach prevention, and scheduled sweeps.",
+    actions: [
+      "Monitor active automated workflows across channels and customer tiers.",
+      "Track execution frequency, success rates, and assigned AI employees.",
+      "Trigger manual workflow dispatches or pause automated runs.",
+    ],
+    tip: "Pair workflows with Autonomy Policies in Settings to enforce strict safety boundaries.",
+  },
   voice: {
     label: "Voice Telephony Hub",
     what: "Real-time WebRTC and SIP voice assistance: live inbound/outbound customer phone calls with instant AI speech synthesis and transcript generation.",
@@ -173,6 +193,16 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
       "Verify payload schemas and delivery retry queues.",
     ],
     tip: "Subscribed marketplace connectors appear automatically in the Vertical Mesh.",
+  },
+  studio_marketplace: {
+    label: "Browse Marketplace",
+    what: "Capability and solution marketplace: hire AI Employees, activate inbound telephony, and discover enterprise support solutions.",
+    actions: [
+      "Deploy specialized AI personas like Sophia (Voice & Customer Care Lead).",
+      "Provision Twilio telephony endpoints and configure WebRTC voice agents.",
+      "Discover and subscribe to integrations across CRM, commerce, and telephony.",
+    ],
+    tip: "AI employees hired from Marketplace immediately inherit your workspace knowledge vault and policies.",
   },
   market_connectors: {
     label: "Marketplace Connectors",

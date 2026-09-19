@@ -42,7 +42,7 @@ function getFilteredNavSections(role: AuthSession["role"]) {
       ],
     },
     {
-      title: isContractorRole ? "Field Assistant & Comms" : "Core Intelligence",
+      title: "Core Intelligence",
       items: [
         {
           id: "overview",
@@ -50,30 +50,10 @@ function getFilteredNavSections(role: AuthSession["role"]) {
           roles: ["operator", "cx_lead", "superadmin", "observer"],
         },
         {
-          id: "ask",
-          label: isContractorRole ? "Field Assistant (AI)" : "Ask supportV8",
-          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
-        },
-        {
           id: "studio",
           label: "Autonomous Studio",
           roles: ["cx_lead", "superadmin"],
         },
-        {
-          id: "workforce",
-          label: "AI Workforce",
-          roles: ["cx_lead", "superadmin"],
-        },
-        {
-          id: "voice",
-          label: isContractorRole ? "Dispatch Audio (Comms)" : "Voice Telephony",
-          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
-        },
-      ],
-    },
-    {
-      title: "Knowledge & Radar",
-      items: [
         {
           id: "trends",
           label: "Trend Radar",
@@ -85,34 +65,64 @@ function getFilteredNavSections(role: AuthSession["role"]) {
           roles: ["operator", "cx_lead", "superadmin", "observer"],
         },
         {
-          id: "stale_work",
-          label: "Work Sweep",
+          id: "portal_composer",
+          label: "Support Portal",
           roles: ["cx_lead", "superadmin"],
         },
       ],
     },
     {
-      title: "Marketplace & Registry",
+      title: isContractorRole ? "Field Assistant & Comms" : "Workforce",
+      items: [
+        {
+          id: "workforce",
+          label: "Workforce",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "ask",
+          label: isContractorRole ? "Field Assistant (AI)" : "AgenticOS Chat",
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "approvals",
+          label: "Approvals",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "workflows",
+          label: "Workflows",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "gov_audit",
+          label: "Audit & Logs",
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
+      ],
+    },
+    {
+      title: "Marketplace",
       items: [
         {
           id: "studio_marketplace",
-          label: "Studio Marketplace",
+          label: "Browse Marketplace",
           roles: ["cx_lead", "superadmin"],
         },
         {
           id: "market_workforce",
-          label: "Active Capabilities",
+          label: "Installed Products",
           roles: ["cx_lead", "superadmin"],
         },
         {
-          id: "market_plans",
-          label: "Plans & Credits",
+          id: "market_connectors",
+          label: "Connectors",
           roles: ["cx_lead", "superadmin"],
         },
       ],
     },
     {
-      title: "Governance",
+      title: "Settings",
       items: [
         {
           id: "gov_settings",
@@ -125,18 +135,18 @@ function getFilteredNavSections(role: AuthSession["role"]) {
           roles: ["cx_lead", "superadmin"],
         },
         {
-          id: "gov_audit",
-          label: "Audit Logs",
+          id: "market_plans",
+          label: "Plans & Credits",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "policies",
+          label: "Policies & Rules",
           roles: ["cx_lead", "superadmin", "observer"],
         },
         {
           id: "gov_reports",
           label: "Reports",
-          roles: ["cx_lead", "superadmin", "observer"],
-        },
-        {
-          id: "policies",
-          label: "Policies & Rules",
           roles: ["cx_lead", "superadmin", "observer"],
         },
       ],
@@ -156,8 +166,8 @@ describe("Demo Accounts RBAC Navigation & Menu Restrictions", () => {
     const contractorSections = getFilteredNavSections("contractor_lead");
     const itemIds = contractorSections.flatMap((s) => s.items.map((i) => i.id));
 
-    // Must have exactly the 4 field operations menus
-    expect(itemIds).toEqual(["workspace", "issues", "ask", "voice"]);
+    // Must have exactly the 3 field operations menus (voice removed per standard)
+    expect(itemIds).toEqual(["workspace", "issues", "ask"]);
     expect(contractorSections.length).toBe(2);
     expect(contractorSections[0].title).toBe("Field Operations");
     expect(contractorSections[1].title).toBe("Field Assistant & Comms");
@@ -186,17 +196,20 @@ describe("Demo Accounts RBAC Navigation & Menu Restrictions", () => {
     expect(itemIds).toContain("issues");
     expect(itemIds).toContain("overview");
     expect(itemIds).toContain("ask");
-    expect(itemIds).toContain("voice");
     expect(itemIds).toContain("trends");
     expect(itemIds).toContain("knowledge");
 
-    // Strictly restricted from management & admin
+    // Strictly restricted from management, admin, or voice
+    expect(itemIds).not.toContain("voice");
     expect(itemIds).not.toContain("cx_cockpit");
     expect(itemIds).not.toContain("studio");
     expect(itemIds).not.toContain("workforce");
+    expect(itemIds).not.toContain("approvals");
+    expect(itemIds).not.toContain("workflows");
     expect(itemIds).not.toContain("stale_work");
     expect(itemIds).not.toContain("studio_marketplace");
     expect(itemIds).not.toContain("market_workforce");
+    expect(itemIds).not.toContain("market_connectors");
     expect(itemIds).not.toContain("market_plans");
     expect(itemIds).not.toContain("gov_settings");
     expect(itemIds).not.toContain("gov_members");
@@ -207,14 +220,17 @@ describe("Demo Accounts RBAC Navigation & Menu Restrictions", () => {
     const cxLeadSections = getFilteredNavSections("cx_lead");
     const itemIds = cxLeadSections.flatMap((s) => s.items.map((i) => i.id));
 
-    // Full 20 menus across all 5 sections
+    // Full 22 menus across all 5 sections
     expect(cxLeadSections.length).toBe(5);
-    expect(itemIds.length).toBe(20);
+    expect(itemIds.length).toBe(22);
     expect(itemIds).toContain("cx_cockpit");
     expect(itemIds).toContain("studio");
     expect(itemIds).toContain("workforce");
-    expect(itemIds).toContain("stale_work");
+    expect(itemIds).toContain("approvals");
+    expect(itemIds).toContain("workflows");
     expect(itemIds).toContain("studio_marketplace");
+    expect(itemIds).toContain("market_workforce");
+    expect(itemIds).toContain("market_connectors");
     expect(itemIds).toContain("gov_settings");
     expect(itemIds).toContain("gov_members");
     expect(itemIds).toContain("policies");

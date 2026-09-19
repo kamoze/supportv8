@@ -84,6 +84,7 @@ export function SupportChatWidget({
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [isGuestShopper, setIsGuestShopper] = useState(false);
 
   const chatConnectionState = useChatRealtimeSession(activeSession?.id, (session) => {
     setActiveSession((current) => mergeChatSession(current, session));
@@ -104,6 +105,58 @@ export function SupportChatWidget({
     setFormErrors({});
     setInputMessage("");
     setChatError(null);
+
+    // Parse URL search params for deep linking from storefronts, order trackers & returns portals
+    const searchParams = new URLSearchParams(window.location.search);
+    const urlStream = searchParams.get("stream") as ChatStreamType | null;
+    const isGuest = searchParams.get("guest") === "true";
+    const orderId = searchParams.get("orderId") || searchParams.get("orderRef");
+    const email = searchParams.get("email");
+    const customerName = searchParams.get("customerName") || searchParams.get("name");
+    const topic = searchParams.get("topic");
+
+    if (isGuest) {
+      setIsGuestShopper(true);
+    }
+
+    const prefilledData: Record<string, string> = {};
+    if (customerName) prefilledData.name = customerName;
+    if (email) prefilledData.email = email;
+    if (orderId) {
+      prefilledData.accountOrOrderId = orderId;
+      prefilledData.workOrderNumber = orderId;
+    }
+    if (topic) {
+      if (topic === "general_inquiry") {
+        prefilledData.enquiryType = "Store Menu, Hours & General Inquiries";
+      } else if (topic === "returns" || topic === "refunds") {
+        prefilledData.issueType = "Billing, Invoices & Refund Request";
+        prefilledData.enquiryType = "Returns, Refunds & Policies";
+      } else if (topic === "orders" || topic === "delivery") {
+        prefilledData.issueType = "Order Status, Delivery & Tracking";
+        prefilledData.enquiryType = "Order Status, Delivery & Tracking";
+      }
+    }
+
+    if (Object.keys(prefilledData).length > 0) {
+      setFormData(prefilledData);
+    }
+
+    const effectiveStream: ChatStreamType | null =
+      urlStream && (urlStream === "enquiries" || urlStream === "customers" || urlStream === "contractors")
+        ? urlStream
+        : isGuest
+        ? "enquiries"
+        : null;
+
+    if (effectiveStream) {
+      setSelectedStream(effectiveStream);
+      setActiveStep("intake_form");
+      setIsOpen(true);
+    } else if (isGuest || orderId || topic) {
+      setIsOpen(true);
+    }
+
     if (!readStoredChatSessionId(window.sessionStorage, tenantSessionKey)) return;
 
     let cancelled = false;
@@ -375,6 +428,8 @@ export function SupportChatWidget({
                 <p className="text-[10px] font-mono text-[#6B7C8D] truncate">
                   {activeStep === "chat"
                     ? activeSession?.assignedName
+                    : isGuestShopper
+                    ? "Storefront Shopper & Guest Helpdesk"
                     : "Intelligent Triage & Live Omnichannel"}
                 </p>
               </div>

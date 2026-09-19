@@ -24,6 +24,31 @@ export class ToolPlanner {
       });
     }
 
+    if (
+      lower.includes("order") ||
+      lower.includes("track") ||
+      lower.includes("delivery") ||
+      lower.includes("package") ||
+      lower.includes("where is") ||
+      lower.includes("status") ||
+      lower.includes("lookup")
+    ) {
+      plannedTools.push({
+        name: "order_lookup",
+        arguments: {
+          tenantId: context.tenantId,
+          orderId:
+            (context.intakeData?.accountOrOrderId as string) ||
+            (context.intakeData?.orderId as string) ||
+            (context.intakeData?.workOrderNumber as string) ||
+            undefined,
+          email: context.customer.email || (context.intakeData?.email as string) || undefined,
+          customerName: context.customer.name || (context.intakeData?.name as string) || undefined,
+          query: lastMsg,
+        },
+      });
+    }
+
     if (lower.includes("pin") || lower.includes("lockbox") || lower.includes("gate code") || lower.includes("site access")) {
       plannedTools.push({
         name: "site_access_pin",
@@ -90,6 +115,8 @@ export class ToolPlanner {
         operation:
           tool.name === "order_refund"
             ? "orderv8.refund"
+            : tool.name === "order_lookup"
+            ? "orderv8.order_lookup"
             : tool.name === "site_access_pin"
             ? "contractor.site_pin"
             : tool.name,

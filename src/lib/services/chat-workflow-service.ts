@@ -119,10 +119,10 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
       {
         id: "company",
         name: "company",
-        label: "Company / Organization",
+        label: "Company / Organization (Optional)",
         type: "text",
-        placeholder: "Acme Logistics Inc.",
-        required: true,
+        placeholder: "Acme Logistics Inc. (or Shopper)",
+        required: false,
       },
       {
         id: "enquiryType",
@@ -131,11 +131,14 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
         type: "select",
         required: true,
         options: [
+          "Store Menu, Hours & General Inquiries",
+          "Order Status, Delivery & Tracking",
+          "Returns, Refunds & Policies",
           "Platform Demo & Architecture Deep-Dive",
           "Pricing & Enterprise Volume Licensing",
           "Custom API & Telephony Integrations",
           "Security, HIPAA & SOC-2 Compliance",
-          "Other Technical Question",
+          "Other Question",
         ],
       },
       {
@@ -192,10 +195,12 @@ export const DEFAULT_CHAT_WORKFLOWS: Record<ChatStreamType, ChatWorkflowConfig> 
         required: true,
         options: [
           "Billing, Invoices & Refund Request",
+          "Order Status, Delivery & Tracking",
           "Technical Outage / Bug Report",
           "Account Access & RBAC Permissions",
           "Agent Autonomy & Policy Tuning",
           "Data Ingestion & S3 Vault Help",
+          "General Customer Inquiry",
         ],
       },
       {

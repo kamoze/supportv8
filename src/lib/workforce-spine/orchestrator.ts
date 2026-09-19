@@ -94,6 +94,13 @@ export class WorkforceSpine {
           payload: request.payload,
         });
         executionOutput = forgeRes.data || { status: "refund_processed" };
+      } else if (request.operation === "orderv8.order_lookup" || request.operation === "orderv8.order_search") {
+        const forgeRes = await ForgeSymphonyClient.dispatchAction({
+          tenantId: request.tenantId,
+          operation: "orderv8.order_lookup",
+          payload: request.payload,
+        });
+        executionOutput = forgeRes.data || { status: "orders_retrieved" };
       } else if (request.operation === "contractor.site_pin" || request.operation === "site_access_pin") {
         const pin = Math.floor(100000 + Math.random() * 900000).toString();
         executionOutput = { pin, gateController: "ONLINE_SYNCED", status: "pin_issued" };

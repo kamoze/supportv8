@@ -11,6 +11,7 @@ import {
   Award,
   BarChart3,
   Bot,
+  Box,
   Brain,
   Briefcase,
   Building2,
@@ -279,6 +280,7 @@ export default function SupportV8Dashboard() {
 
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [studioSubTab, setStudioSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps">("workflows");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const mobileRail = useFamilyDialog<HTMLElement>(isMobileSidebarOpen, () => setIsMobileSidebarOpen(false));
@@ -5951,7 +5953,7 @@ export default function SupportV8Dashboard() {
                   },
                   {
                     id: "catalog",
-                    label: "Available to Hire",
+                    label: "Onboard via Marketplace",
                     count: workforce.filter((w) => w.level === "ai_employee" && w.hired === false).length,
                   },
                 ].map((f) => (
@@ -6113,7 +6115,7 @@ export default function SupportV8Dashboard() {
                             <button
                               type="button"
                               onClick={() => handleOpenAssignWorkModal(emp)}
-                              className="btn btn-primary py-1.5 px-3 text-xs font-bold flex-1 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                              className="btn btn-primary py-1.5 px-2.5 text-xs font-bold flex-1 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                             >
                               <Briefcase className="w-3.5 h-3.5" />
                               <span>Assign Work</span>
@@ -6125,10 +6127,23 @@ export default function SupportV8Dashboard() {
                                 setSelectedEmployeeId(emp.id);
                                 setIsChatOpen(true);
                               }}
-                              className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                              className="btn btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1.5 cursor-pointer"
                             >
                               <MessageSquare className="w-3.5 h-3.5 text-[#2ED8B6]" />
                               <span>Chat</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudioSubTab("workflows");
+                                setActiveTab("studio");
+                              }}
+                              className="btn btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
+                              title="Tune workflows and autonomy policies in Studio"
+                            >
+                              <Cpu className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                              <span>Studio</span>
                             </button>
                           </div>
                         </div>
@@ -6235,77 +6250,56 @@ export default function SupportV8Dashboard() {
               </div>
             )}
 
-            {/* SECTION 3: Marketplace & Available Roles to Hire */}
+            {/* SECTION 3: ServiceV8 Architecture Handoff - Onboard in Marketplace, Manage in Studio */}
             {(workforceFilter === "all" || workforceFilter === "catalog") && (
-              <div className="space-y-3.5 pt-2">
-                <div className="flex items-center justify-between">
+              <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border border-[var(--line)] rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-sm">
+                <div className="space-y-1.5 max-w-2xl">
                   <div className="flex items-center gap-2">
-                    <Plus className="w-4 h-4 text-[#4CC38A]" />
-                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                      Available AI Employees in Catalog (Hire to Assign Work)
-                    </h3>
+                    <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                      <ShoppingBag className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                        Need to hire AI employees or onboard new packages?
+                      </h4>
+                      <span className="text-[10px] font-mono text-[#2ED8B6]">SERVICEV8 STANDARD: ONBOARD IN MARKETPLACE • MANAGE IN STUDIO</span>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-mono text-[#6B7C8D]">
-                    1-Click Provisioning to Active Roster
-                  </span>
+                  <p className="text-xs text-[#B4C2D0] leading-relaxed">
+                    Workforce operates active hired employees and sub-agents. Per ServiceV8 architecture, all AI employee hiring, capability packages, and connectors are onboarded from the <strong>Marketplace</strong> and orchestrated in <strong>Autonomous Studio</strong>.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {workforce
-                    .filter((w) => w.level === "ai_employee" && w.hired === false)
-                    .map((emp) => (
-                      <div
-                        key={emp.id}
-                        className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#4CC38A]/40 transition-all shadow-md flex flex-col justify-between"
-                      >
-                        <div className="space-y-3.5">
-                          <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={emp.avatarUrl || "/avatars/beaver-sophia.jpg"}
-                                alt={emp.name}
-                                className="w-12 h-12 rounded-2xl object-cover border-2 border-[var(--line-2)] shadow-md shrink-0"
-                              />
-                              <div>
-                                <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight">
-                                  {emp.name}
-                                </h4>
-                                <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
-                                  {emp.role}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="pill text-[9px] font-mono uppercase shrink-0">
-                              AVAILABLE TO HIRE
-                            </span>
-                          </div>
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("studio_marketplace")}
+                    className="btn btn-primary text-xs py-2 px-4 font-bold flex items-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Onboard in Marketplace</span>
+                  </button>
 
-                          <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">
-                            {emp.description}
-                          </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("market_workforce")}
+                    className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Box className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>Installed Products</span>
+                  </button>
 
-                          <div className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                            <span>Autonomy: <strong className="text-[#2ED8B6] uppercase">{emp.autonomyLevel}</strong></span>
-                            <span>Target CSAT: <strong className="text-[#EAF1F8]">{emp.csat}%</strong></span>
-                            <span>Est VARR: <strong className="text-[#4CC38A]">{emp.varr}%</strong></span>
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between">
-                          <span className="text-[10px] font-mono text-[#6B7C8D]">
-                            Hiring assigns initial credit budget &amp; unlocks task dispatch
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleHireWorkforceEmployee(emp.id)}
-                            className="btn btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          >
-                            <Zap className="w-3.5 h-3.5" />
-                            <span>Hire AI Employee</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudioSubTab("workflows");
+                      setActiveTab("studio");
+                    }}
+                    className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                    <span>Manage in Studio</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -6977,7 +6971,12 @@ export default function SupportV8Dashboard() {
         {/* TAB: AUTONOMOUS STUDIO (WORKFLOWS, AUTOMATIONS, SCENARIO TEMPLATES & SIMULATOR) */}
         {/* ========================================================================= */}
         {activeTab === "studio" && (
-          <AutonomousStudioView onNotify={notify} />
+          <AutonomousStudioView
+            onNotify={notify}
+            initialSubTab={studioSubTab}
+            onNavigateToMarketplace={() => setActiveTab("studio_marketplace")}
+            onNavigateToInstalled={() => setActiveTab("market_workforce")}
+          />
         )}
 
         {/* ========================================================================= */}
@@ -7305,6 +7304,12 @@ export default function SupportV8Dashboard() {
             tenantId={currentTenantSlug}
             tenantName={currentTenantSlug === "acme" ? "Acme Corp" : currentTenantSlug}
             onNotify={notify}
+            onNavigateToStudio={(subTab) => {
+              if (subTab) setStudioSubTab(subTab as any);
+              setActiveTab("studio");
+            }}
+            onNavigateToInstalled={() => setActiveTab("market_workforce")}
+            onNavigateToConnectors={() => setActiveTab("market_connectors")}
           />
         )}
 
@@ -7318,6 +7323,11 @@ export default function SupportV8Dashboard() {
             onToggleConnector={handleToggleConnector}
             onOpenConfig={(connector) => notify(`Configuring ${connector.name} connector settings`, "info")}
             onNotify={notify}
+            onNavigateToStudio={(subTab) => {
+              if (subTab) setStudioSubTab(subTab as any);
+              setActiveTab("studio");
+            }}
+            onNavigateToInstalled={() => setActiveTab("market_workforce")}
           />
         )}
 
@@ -7415,12 +7425,18 @@ export default function SupportV8Dashboard() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: MARKETPLACE WORKFORCE */}
+        {/* TAB: MARKETPLACE WORKFORCE / INSTALLED PRODUCTS */}
         {/* ========================================================================= */}
         {activeTab === "market_workforce" && (
           <MarketplaceWorkforceView
             workforce={marketplaceWorkforce}
             onHireAgent={handleHireAgent}
+            onNavigateToStudio={(subTab) => {
+              if (subTab) setStudioSubTab(subTab as any);
+              setActiveTab("studio");
+            }}
+            onNavigateToMarketplace={() => setActiveTab("studio_marketplace")}
+            onNavigateToWorkforce={() => setActiveTab("workforce")}
           />
         )}
 

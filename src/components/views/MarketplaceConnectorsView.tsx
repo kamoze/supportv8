@@ -20,6 +20,7 @@ import {
   Server,
   Globe,
   Radio,
+  Cpu,
 } from "@/components/ui/FlatIcon";
 import type { MarketplaceConnector } from "@/lib/types/marketplace-types";
 
@@ -29,6 +30,8 @@ interface MarketplaceConnectorsViewProps {
   onToggleConnector: (id: string, isSubscribed: boolean) => void;
   onOpenConfig: (connector: MarketplaceConnector) => void;
   onNotify?: (text: string, type: "success" | "error" | "info") => void;
+  onNavigateToStudio?: (subTab?: string) => void;
+  onNavigateToInstalled?: () => void;
 }
 
 export function MarketplaceConnectorsView({
@@ -37,6 +40,8 @@ export function MarketplaceConnectorsView({
   onToggleConnector,
   onOpenConfig,
   onNotify,
+  onNavigateToStudio,
+  onNavigateToInstalled,
 }: MarketplaceConnectorsViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<"connectors" | "verticals" | "dispatcher">("connectors");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -172,6 +177,18 @@ export function MarketplaceConnectorsView({
             <span>API Dispatcher</span>
           </button>
         </div>
+
+        {onNavigateToStudio && (
+          <button
+            type="button"
+            onClick={() => onNavigateToStudio("simulator")}
+            className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer text-[#2ED8B6] border-[#2ED8B6]/30 hover:bg-[#2ED8B6]/10 shrink-0"
+            title="Configure and simulate connector triggers in Autonomous Studio"
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Manage Triggers in Studio</span>
+          </button>
+        )}
       </div>
 
       {/* ========================================================================= */}

@@ -29,6 +29,7 @@ import {
   Check,
   FolderPlus,
   BookOpen,
+  Zap,
 } from "@/components/ui/FlatIcon";
 import type {
   KnowledgeArticle,
@@ -38,6 +39,7 @@ import type {
   KnowledgeDocumentChunk,
   KnowledgeWebSource,
 } from "@/lib/types";
+import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import { KnowledgeGraphCanvas } from "./KnowledgeGraphCanvas";
 
 interface KnowledgeSuiteViewProps {
@@ -51,6 +53,10 @@ interface KnowledgeSuiteViewProps {
   onPublishProposal: (proposalId: string) => void;
   onSyncKv8: () => void;
   onNotify: (text: string, type?: "success" | "error" | "info") => void;
+  routingMode?: "forgegw" | "byom";
+  embeddingProvider?: "forgegw" | "openai" | "voyage" | "cohere" | "fastembed_local" | "custom_vector_endpoint" | string;
+  embeddingModel?: string;
+  onUpdateSettings?: (updates: Partial<TenantSettingConfig>) => void;
 }
 
 export function KnowledgeSuiteView({
@@ -58,18 +64,35 @@ export function KnowledgeSuiteView({
   onPublishProposal,
   onSyncKv8,
   onNotify,
+  routingMode,
+  embeddingProvider,
+  embeddingModel,
+  onUpdateSettings,
 }: KnowledgeSuiteViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<"ingest" | "curation" | "rag_editor" | "deficit_mapper" | "graph" | "topology_settings">("ingest");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  const isForgeGwActive = routingMode === "forgegw" || embeddingProvider === "forgegw";
+
   // Vector Grounding Field Values State
-  const [vectorModel, setVectorModel] = useState("text-embedding-3-small");
+  const [vectorModel, setVectorModel] = useState<string>(
+    embeddingModel || (isForgeGwActive ? "forge-embed-text-1536" : "text-embedding-3-small")
+  );
   const [vectorChunkSize, setVectorChunkSize] = useState(512);
   const [vectorChunkOverlap, setVectorChunkOverlap] = useState(64);
   const [vectorCosineThreshold, setVectorCosineThreshold] = useState(0.80);
   const [vectorTopK, setVectorTopK] = useState(5);
   const [vectorSyncFrequency, setVectorSyncFrequency] = useState("60");
   const [vectorRetentionTtl, setVectorRetentionTtl] = useState("365");
+
+  // Hook up Knowledge Suite embeddings to ForgeGW model when ForgeGW LLM is active
+  useEffect(() => {
+    if (isForgeGwActive) {
+      setVectorModel(embeddingModel && embeddingModel.includes("forge") ? embeddingModel : "forge-embed-text-1536");
+    } else if (embeddingModel) {
+      setVectorModel(embeddingModel);
+    }
+  }, [isForgeGwActive, embeddingModel]);
 
   // Direct Document Upload States
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -260,7 +283,10 @@ export function KnowledgeSuiteView({
       if (json.success && json.data) {
         const newDoc: KnowledgeDocument = json.data.document;
         setDocuments((prev) => [newDoc, ...prev.filter((d) => d.id !== newDoc.id)]);
-        onNotify(`Document '${newDoc.filename}' successfully uploaded to S3 and vectorized into ${newDoc.chunkCount} pgvector chunks!`, "success");
+        onNotify(
+          `Document '${newDoc.filename}' successfully uploaded to S3 and vectorized into ${newDoc.chunkCount} ${vectorModel === "forge-embed-text-1536" || isForgeGwActive ? "ForgeGW " : ""}pgvector chunks!`,
+          "success"
+        );
         setUploadFile(null);
         setUploadTitle("");
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -597,7 +623,11 @@ export function KnowledgeSuiteView({
                   </p>
                 </div>
               </div>
-              <span className="pill ok text-[10px] font-mono">KNOWLEDGEV8 INGEST ENGINE</span>
+              <span className="pill ok text-[10px] font-mono">
+                {isForgeGwActive || vectorModel === "forge-embed-text-1536"
+                  ? "FORGEGW MANAGED RAG PIPELINE"
+                  : "KNOWLEDGEV8 INGEST ENGINE"}
+              </span>
             </div>
 
             <form onSubmit={handleDirectUpload} className="space-y-4">
@@ -667,7 +697,7 @@ export function KnowledgeSuiteView({
                       Click to browse or drag &amp; drop document files here
                     </div>
                     <div className="text-[11px] text-[#6B7C8D] font-mono">
-                      PDF, DOCX, Markdown, CSV, JSON, TXT &bull; Max 25MB per file &bull; 1536-dim pgvector
+                      PDF, DOCX, Markdown, CSV, JSON, TXT &bull; Max 25MB per file &bull; {isForgeGwActive || vectorModel === "forge-embed-text-1536" ? "ForgeGW 1536-dim pgvector" : "1536-dim pgvector"}
                     </div>
                   </div>
                 )}
@@ -1237,7 +1267,11 @@ export function KnowledgeSuiteView({
                   Inspect and edit live vector retrieval chunks, adjust similarity weights, and re-compute 1536-dim embeddings.
                 </p>
               </div>
-              <span className="pill ok text-[10px] font-mono">OPENAI ADA-002 (1536-DIM)</span>
+              <span className="pill ok text-[10px] font-mono">
+                {vectorModel === "forge-embed-text-1536" || isForgeGwActive
+                  ? "FORGEGW MANAGED (1536-DIM)"
+                  : `${vectorModel.toUpperCase()} (1536-DIM)`}
+              </span>
             </div>
 
             {/* Document Selector */}
@@ -1768,7 +1802,19 @@ export function KnowledgeSuiteView({
             </div>
             <button
               type="button"
-              onClick={() => onNotify("Vector grounding topology parameters saved to tenant configuration.", "success")}
+              onClick={() => {
+                if (onUpdateSettings) {
+                  onUpdateSettings({
+                    embeddingModel: vectorModel,
+                    embeddingChunkSize: vectorChunkSize,
+                    embeddingChunkOverlap: vectorChunkOverlap,
+                    ...(vectorModel === "forge-embed-text-1536"
+                      ? { embeddingProvider: "forgegw", embeddingDimensions: 1536 }
+                      : {}),
+                  });
+                }
+                onNotify("Vector grounding topology parameters saved to tenant configuration.", "success");
+              }}
               className="btn btn-primary text-xs font-bold px-4 py-2 flex items-center gap-1.5 cursor-pointer shadow-md"
             >
               <Check className="w-3.5 h-3.5" />
@@ -1776,16 +1822,36 @@ export function KnowledgeSuiteView({
             </button>
           </div>
 
+          {isForgeGwActive && (
+            <div className="p-3.5 rounded-2xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 flex items-center justify-between text-xs font-mono text-[#EAF1F8]">
+              <div className="flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                <span>
+                  <strong>ForgeGW Managed Embeddings Active:</strong> Knowledge Suite vectors are hooked up to ForgeGW model (<code className="text-[#2ED8B6]">forge-embed-text-1536</code>) with pooled credit billing ($0.0001/chunk) and zero external API keys.
+                </span>
+              </div>
+              <span className="pill ok text-[9px] py-0.5 px-2 font-mono shrink-0">FORGEGW ACTIVE</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[#B4C2D0] block font-bold">Vector Embeddings Model</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[#B4C2D0] block font-bold">Vector Embeddings Model</label>
+                  {isForgeGwActive && (
+                    <span className="text-[10px] text-[#2ED8B6] font-mono flex items-center gap-1">
+                      <Zap className="w-3 h-3" /> Auto-linked to ForgeGW LLM
+                    </span>
+                  )}
+                </div>
                 <select
                   value={vectorModel}
                   onChange={(e) => setVectorModel(e.target.value)}
                   className="w-full bg-[#141C26] border border-[var(--line-2)] rounded-xl px-3 py-2.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 >
-                  <option value="text-embedding-3-small">OpenAI text-embedding-3-small (1536 dims - Default)</option>
+                  <option value="forge-embed-text-1536">ForgeGW Managed (forge-embed-text-1536 - 1536 dims)</option>
+                  <option value="text-embedding-3-small">OpenAI text-embedding-3-small (1536 dims - BYOM)</option>
                   <option value="text-embedding-3-large">OpenAI text-embedding-3-large (3072 dims - High Accuracy)</option>
                   <option value="pgvector-cosine">pgvector Native Cosine Distance (1536 dims)</option>
                 </select>
@@ -1867,7 +1933,11 @@ export function KnowledgeSuiteView({
                   <span>Vector Index Status:</span>
                   <span>ONLINE (HNSW)</span>
                 </div>
-                <p className="text-[#6B7C8D]">PostgreSQL pgvector cluster running with 1,536-dimensional indexing across active tenant namespaces.</p>
+                <p className="text-[#6B7C8D]">
+                  {vectorModel === "forge-embed-text-1536" || isForgeGwActive
+                    ? "ServiceV8 ForgeGW Managed embeddings pipeline (1,536 dimensions) running with pgvector HNSW indexing across active tenant namespaces."
+                    : "PostgreSQL pgvector cluster running with 1,536-dimensional indexing across active tenant namespaces."}
+                </p>
               </div>
             </div>
           </div>

@@ -72,6 +72,7 @@ export interface TenantSettingConfig {
   workspaceName: string;
   workspaceSlug: string;
   operatingMode: "observe" | "copilot" | "autonomous";
+  routingMode?: "forgegw" | "byom";
   keycloakRealm: string;
   postgresRlsEnabled: boolean;
   redisTtlSeconds: number;

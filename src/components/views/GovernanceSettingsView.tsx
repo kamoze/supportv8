@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Settings,
   Shield,
@@ -151,7 +151,7 @@ export function GovernanceSettingsView({
 
   // Primary Active Routing Mode: ForgeGW Managed vs Enterprise BYOM
   const [routingMode, setRoutingMode] = useState<"forgegw" | "byom">(
-    settings.byomApiKey && settings.byomApiKey.startsWith("sk-ant-api") ? "forgegw" : "forgegw"
+    settings.routingMode || "forgegw"
   );
 
   // General & Security
@@ -199,6 +199,21 @@ export function GovernanceSettingsView({
   const [testingEmbeddings, setTestingEmbeddings] = useState<boolean>(false);
   const [embeddingStatusMsg, setEmbeddingStatusMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (settings.routingMode) {
+      setRoutingMode(settings.routingMode);
+    }
+    if (settings.embeddingProvider) {
+      setEmbeddingProvider(settings.embeddingProvider as any);
+    }
+    if (settings.embeddingModel) {
+      setEmbeddingModel(settings.embeddingModel);
+    }
+    if (settings.embeddingDimensions) {
+      setEmbeddingDimensions(settings.embeddingDimensions);
+    }
+  }, [settings.routingMode, settings.embeddingProvider, settings.embeddingModel, settings.embeddingDimensions]);
+
   // ForgeGW (Action Gateway)
   const [forgeGwEndpoint, setForgeGwEndpoint] = useState<string>(
     settings.forgeGwEndpoint?.includes("internal")
@@ -235,7 +250,11 @@ export function GovernanceSettingsView({
     setEmbeddingStatusMsg(null);
     setTimeout(() => {
       setTestingEmbeddings(false);
-      setEmbeddingStatusMsg(`Embedding vectorizer online: ${embeddingModel} (${embeddingDimensions}-dim) • Generated test vector`);
+      if (embeddingProvider === "forgegw") {
+        setEmbeddingStatusMsg(`ForgeGW Managed Vector Pipeline online: ${embeddingModel} (${embeddingDimensions}-dim) • Zero-key pooled credit compute verified • Generated test vector`);
+      } else {
+        setEmbeddingStatusMsg(`Embedding vectorizer online: ${embeddingModel} (${embeddingDimensions}-dim) • Generated test vector`);
+      }
     }, 650);
   };
 
@@ -257,6 +276,7 @@ export function GovernanceSettingsView({
 
   const handleSaveAll = () => {
     onUpdateSettings({
+      routingMode,
       workspaceName,
       webhookUrl,
       operatingMode,
@@ -299,18 +319,18 @@ export function GovernanceSettingsView({
             </span>
             <h1 className="text-lg font-bold text-[#EAF1F8]">Governance &amp; AI Infrastructure Settings</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Configure BYOM model endpoints, vector embedding dimensions, ForgeGW security keys, and tenant RBAC.
+          <p className="text-xs text-[#8E9AA8]">
+            Configure multi-tenant boundary isolation, Bring-Your-Own-Model (BYOM) credentials, ForgeGW execution policy, and AI chat guardrails.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleSaveAll}
-          className="btn btn-primary py-2.5 px-6 text-xs font-bold shadow-md cursor-pointer flex items-center gap-2"
+          className="btn btn-primary px-5 py-2.5 text-xs font-bold flex items-center gap-2 shadow-lg cursor-pointer self-start md:self-auto shrink-0"
         >
           <CheckCircle2 className="w-4 h-4" />
-          <span>Save Configuration</span>
+          <span>Save All Settings</span>
         </button>
       </div>
 
@@ -332,7 +352,16 @@ export function GovernanceSettingsView({
             type="button"
             onClick={() => {
               setRoutingMode("forgegw");
-              onNotify?.("Switched primary routing to ForgeGW Managed Compute (Pooled Credits)", "success");
+              setEmbeddingProvider("forgegw");
+              setEmbeddingModel("forge-embed-text-1536");
+              setEmbeddingDimensions(1536);
+              onUpdateSettings({
+                routingMode: "forgegw",
+                embeddingProvider: "forgegw",
+                embeddingModel: "forge-embed-text-1536",
+                embeddingDimensions: 1536,
+              });
+              onNotify?.("Switched primary routing to ForgeGW Managed Compute & Embeddings (forge-embed-text-1536)", "success");
             }}
             className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
               routingMode === "forgegw"
@@ -349,7 +378,7 @@ export function GovernanceSettingsView({
                 {routingMode === "forgegw" && <span className="pill ok text-[9px] py-0 px-1 font-mono">CURRENT</span>}
               </div>
               <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-snug">
-                Account-linked spendable credit pool ($0.003/action). Zero API keys required. Managed vector embeddings &amp; SLA guarantee.
+                Account-linked spendable credit pool ($0.003/action). Zero API keys required. Managed vector embeddings (forge-embed-text-1536) &amp; SLA guarantee.
               </p>
             </div>
           </button>
@@ -358,6 +387,9 @@ export function GovernanceSettingsView({
             type="button"
             onClick={() => {
               setRoutingMode("byom");
+              onUpdateSettings({
+                routingMode: "byom",
+              });
               onNotify?.("Switched primary routing to Enterprise BYOM (Bring Your Own Key)", "info");
             }}
             className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
@@ -441,6 +473,9 @@ export function GovernanceSettingsView({
                 type="button"
                 onClick={() => {
                   setRoutingMode("byom");
+                  onUpdateSettings({
+                    routingMode: "byom",
+                  });
                   onNotify?.("Switched primary routing to Enterprise BYOM", "info");
                 }}
                 className="btn btn-secondary py-1 px-3 text-[11px] font-bold text-[#2ED8B6] hover:border-[#2ED8B6] shrink-0 cursor-pointer"
@@ -783,6 +818,34 @@ export function GovernanceSettingsView({
               {routingMode === "forgegw" ? "FORGEGW MANAGED ACTIVE" : "STANDBY (BYOM Active)"}
             </span>
           </div>
+
+          {routingMode !== "forgegw" && (
+            <div className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 flex items-center justify-between text-xs font-mono text-[#EAF1F8]">
+              <div className="flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                <span>Enterprise BYOM is currently active. Switch to ForgeGW Managed Compute &amp; Embeddings to utilize pooled action credits.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setRoutingMode("forgegw");
+                  setEmbeddingProvider("forgegw");
+                  setEmbeddingModel("forge-embed-text-1536");
+                  setEmbeddingDimensions(1536);
+                  onUpdateSettings({
+                    routingMode: "forgegw",
+                    embeddingProvider: "forgegw",
+                    embeddingModel: "forge-embed-text-1536",
+                    embeddingDimensions: 1536,
+                  });
+                  onNotify?.("Switched primary routing to ForgeGW Managed Compute & Embeddings (forge-embed-text-1536)", "success");
+                }}
+                className="btn btn-secondary py-1 px-3 text-[11px] font-bold text-[#2ED8B6] hover:border-[#2ED8B6] shrink-0 cursor-pointer"
+              >
+                Set ForgeGW Active
+              </button>
+            </div>
+          )}
 
           <div className="space-y-4 text-xs">
             {/* ForgeGW URL */}

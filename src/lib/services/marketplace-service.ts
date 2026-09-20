@@ -672,6 +672,7 @@ export const INITIAL_SETTINGS: TenantSettingConfig = {
   workspaceName: "Acme Enterprise",
   workspaceSlug: "acme-enterprise",
   operatingMode: "autonomous",
+  routingMode: "forgegw",
   keycloakRealm: "supportv8-acme-realm",
   postgresRlsEnabled: true,
   redisTtlSeconds: 86400,
@@ -690,11 +691,11 @@ export const INITIAL_SETTINGS: TenantSettingConfig = {
   byomMaxTokens: 4096,
 
   // Embedding Settings
-  embeddingProvider: "openai",
-  embeddingModel: "text-embedding-3-small",
+  embeddingProvider: "forgegw",
+  embeddingModel: "forge-embed-text-1536",
   embeddingDimensions: 1536,
   embeddingSimilarityMetric: "cosine",
-  embeddingApiKey: "sk-proj-embed_live_8841_55b3c2d1",
+  embeddingApiKey: "fgw_live_sec_88421098bb12c4",
   embeddingChunkSize: 512,
   embeddingChunkOverlap: 64,
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Cpu,
   Zap,
@@ -28,15 +28,32 @@ import {
   User,
   SlidersHorizontal,
   Check,
+  ShoppingBag,
+  Box,
+  ExternalLink,
 } from "@/components/ui/FlatIcon";
 import type { OperatingMode } from "@/lib/types";
 
 interface AutonomousStudioViewProps {
   onNotify: (text: string, type: "success" | "error" | "info") => void;
+  initialSubTab?: "workflows" | "templates" | "simulator" | "sweeps";
+  onNavigateToMarketplace?: () => void;
+  onNavigateToInstalled?: () => void;
 }
 
-export function AutonomousStudioView({ onNotify }: AutonomousStudioViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps">("workflows");
+export function AutonomousStudioView({
+  onNotify,
+  initialSubTab,
+  onNavigateToMarketplace,
+  onNavigateToInstalled,
+}: AutonomousStudioViewProps) {
+  const [activeSubTab, setActiveSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps">(initialSubTab || "workflows");
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState<boolean>(false);
@@ -398,47 +415,77 @@ export function AutonomousStudioView({ onNotify }: AutonomousStudioViewProps) {
   return (
     <div className="space-y-6">
       {/* Top Studio Hero Banner */}
-      <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
+      <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col lg:flex-row lg:items-center justify-between gap-5 rounded-2xl shadow-sm">
+        <div className="space-y-1.5 max-w-2xl">
+          <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
               <Cpu className="w-5 h-5" />
             </span>
-            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Autonomous Studio &amp; Automations</h1>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Autonomous Studio &amp; Automations</h1>
+                <span className="pill ok text-[9px] font-mono">SERVICEV8 MANAGEMENT COCKPIT</span>
+              </div>
+              <span className="text-[11px] font-mono text-[#2ED8B6]">Manage All Onboarded Packages, Workflows &amp; Sweeps</span>
+            </div>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Unified engine consolidating DAG Workflows, Autonomy Safety Gating, and Default Deploy Industry Blueprints.
+          <p className="text-xs text-[#B4C2D0] leading-relaxed">
+            Autonomous Studio is the unified management engine for all products and solution packages onboarded from Marketplace. Configure DAG workflows, simulate trigger events, tune autonomy thresholds, and execute automated sweeps.
           </p>
         </div>
 
-        {/* Sub-Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
-          {[
-            { id: "workflows", label: "Active Workflows", badge: workflows.length },
-            { id: "templates", label: "Scenario Templates", badge: templates.length },
-            { id: "simulator", label: "Autonomy Simulator" },
-            { id: "sweeps", label: "Work Sweep", badge: staleCandidates.length },
-          ].map((tab) => (
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {onNavigateToMarketplace && (
             <button
-              key={tab.id}
               type="button"
-              onClick={() => setActiveSubTab(tab.id as any)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeSubTab === tab.id
-                  ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-bold"
-                  : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-              }`}
+              onClick={onNavigateToMarketplace}
+              className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer hover:border-[#2ED8B6]/50"
             >
-              <span>{tab.label}</span>
-              {tab.badge !== undefined && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  activeSubTab === tab.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
-                }`}>
-                  {tab.badge}
-                </span>
-              )}
+              <ShoppingBag className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <span>Onboard in Marketplace</span>
             </button>
-          ))}
+          )}
+
+          {onNavigateToInstalled && (
+            <button
+              type="button"
+              onClick={onNavigateToInstalled}
+              className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer"
+            >
+              <Box className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <span>Installed Products</span>
+            </button>
+          )}
+
+          {/* Sub-Navigation Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
+            {[
+              { id: "workflows", label: "Active Workflows", badge: workflows.length },
+              { id: "templates", label: "Scenario Templates", badge: templates.length },
+              { id: "simulator", label: "Autonomy Simulator" },
+              { id: "sweeps", label: "Work Sweep", badge: staleCandidates.length },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id as any)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeSubTab === tab.id
+                    ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-bold"
+                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.badge !== undefined && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    activeSubTab === tab.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -511,7 +558,12 @@ export function AutonomousStudioView({ onNotify }: AutonomousStudioViewProps) {
                       </span>
                       <div>
                         <h3 className="text-xs font-bold text-[#EAF1F8]">{wf.name}</h3>
-                        <span className="text-[10px] text-[#6B7C8D] font-mono">{wf.category}</span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-[#6B7C8D] font-mono">{wf.category}</span>
+                          <span className="text-[9px] text-[#2ED8B6] font-mono bg-[#2ED8B6]/10 px-1.5 py-0.2 rounded border border-[#2ED8B6]/20">
+                            Onboarded Package
+                          </span>
+                        </div>
                       </div>
                     </div>
 

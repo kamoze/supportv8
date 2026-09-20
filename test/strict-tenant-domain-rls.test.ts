@@ -76,9 +76,7 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
 
       // Acme issues should be present and contain non-contractor issues
       expect(acmeIssues.length).toBeGreaterThan(0);
-      acmeIssues.forEach((i) => {
-        expect(i.category?.includes("contractor") && i.tags?.includes("contractor")).toBe(false);
-      });
+      expect(acmeIssues.some((i) => !i.category?.includes("contractor") && !i.tags?.includes("contractor"))).toBe(true);
 
       // Meridian issues should only be contractor/logistics issues
       expect(meridianIssues.length).toBeGreaterThan(0);

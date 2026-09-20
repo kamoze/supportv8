@@ -605,14 +605,14 @@ export function AsunPalaceContextPanel({
                   <div className="space-y-4 font-mono">
                     {/* Search & Category Filters */}
                     <div className="space-y-2">
-                      <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-3 text-[#6B7C8D]" />
+                      <div className="relative flex items-center">
+                        <Search className="w-4 h-4 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search dishes, ingredients, allergens (e.g. Asun, peanut, habanero)..."
-                          className="w-full pl-9 pr-4 py-2.5 bg-[#080C12] border border-[var(--line)] rounded-xl text-xs font-mono text-[#EAF1F8] placeholder-[#6B7C8D] focus:outline-none focus:border-[#F5A623]"
+                          className="w-full !pl-10 pr-4 py-2.5 bg-[#080C12] border border-[var(--line)] rounded-xl text-xs font-mono text-[#EAF1F8] placeholder-[#6B7C8D] focus:outline-none focus:border-[#F5A623]"
                         />
                       </div>
 

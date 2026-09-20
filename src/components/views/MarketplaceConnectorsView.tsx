@@ -216,14 +216,14 @@ export function MarketplaceConnectorsView({
             </div>
 
             {/* Search Box */}
-            <div className="relative w-full md:w-64">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-[#6B7C8D]" />
+            <div className="relative w-full md:w-64 flex items-center">
+              <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search connectors..."
-                className="w-full bg-[#18222E] text-[#EAF1F8] pl-8 pr-3 py-2 rounded-xl border border-[var(--line)] text-xs focus:outline-none focus:border-[#2ED8B6]"
+                className="w-full bg-[#18222E] text-[#EAF1F8] !pl-9 pr-3 py-2 rounded-xl border border-[var(--line)] text-xs focus:outline-none focus:border-[#2ED8B6]"
               />
             </div>
           </div>

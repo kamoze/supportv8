@@ -545,14 +545,14 @@ export function PoliciesAndRulesView({
           {/* Filter Bar */}
           <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-3">
             <div className="flex flex-col md:flex-row items-center gap-3">
-              <div className="relative flex-1 w-full">
-                <Search className="w-4 h-4 text-[#6B7C8D] absolute left-3 top-2.5" />
+              <div className="relative flex-1 w-full flex items-center">
+                <Search className="w-4 h-4 text-[#6B7C8D] absolute left-3 pointer-events-none z-10" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search rules by name, condition, or action..."
-                  className="w-full bg-[#18222E] text-[#EAF1F8] pl-9 pr-4 py-2 rounded-lg border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] font-mono"
+                  className="w-full bg-[#18222E] text-[#EAF1F8] !pl-10 pr-4 py-2 rounded-lg border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] font-mono"
                 />
               </div>
 

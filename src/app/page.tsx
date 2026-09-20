@@ -5380,14 +5380,14 @@ export default function SupportV8Dashboard() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-72">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+                <div className="relative flex-1 sm:w-72 flex items-center">
+                  <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
                   <input
                     type="text"
                     value={issueSearch}
                     onChange={(e) => setIssueSearch(e.target.value)}
                     placeholder="Search issues, tags, customers..."
-                    className="w-full bg-[#18222E] text-xs text-[#EAF1F8] pl-8 pr-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
+                    className="w-full bg-[#18222E] text-xs text-[#EAF1F8] !pl-9 pr-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
                   />
                 </div>
 

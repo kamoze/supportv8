@@ -973,14 +973,14 @@ export function KnowledgeSuiteView({
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+              <div className="relative w-full sm:w-64 flex items-center">
+                <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter documents & tags..."
-                  className="w-full bg-[#18222E] pl-8 pr-3 py-1.5 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
+                  className="w-full bg-[#18222E] !pl-9 pr-3 py-1.5 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
                 />
               </div>
             </div>
@@ -1123,14 +1123,14 @@ export function KnowledgeSuiteView({
             {/* Search & Tag Filter Bar */}
             <div className="space-y-3 pt-1">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+                <div className="relative flex-1 flex items-center">
+                  <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
                   <input
                     type="text"
                     value={curationSearchQuery}
                     onChange={(e) => setCurationSearchQuery(e.target.value)}
                     placeholder="Search curated documents, summaries, filenames, or tags..."
-                    className="w-full bg-[#18222E] pl-8 pr-8 py-2 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
+                    className="w-full bg-[#18222E] !pl-9 pr-8 py-2 rounded-xl border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
                   />
                   {curationSearchQuery && (
                     <button
@@ -1366,14 +1366,14 @@ export function KnowledgeSuiteView({
 
                 {/* Vector Chunk Semantic Search Bar */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#141C26] border border-[var(--line)]">
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+                  <div className="relative flex-1 flex items-center">
+                    <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
                     <input
                       type="text"
                       value={ragSearchQuery}
                       onChange={(e) => setRagSearchQuery(e.target.value)}
                       placeholder="Search vector chunks by semantic text, header, or keyword..."
-                      className="w-full bg-[#18222E] pl-8 pr-8 py-1.5 rounded-lg border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
+                      className="w-full bg-[#18222E] !pl-9 pr-8 py-1.5 rounded-lg border border-[var(--line-2)] text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6] font-mono"
                     />
                     {ragSearchQuery && (
                       <button

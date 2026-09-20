@@ -1399,10 +1399,7 @@ class SupportDatabase {
       return {
         tenant: { ...this.tenant, name: "Acme Corp", tenantId: "tenant_acme" },
         issues: this.issues.filter(
-          (i) =>
-            (ACME_ALLOWED_TENANT_IDS.has(i.tenantId || "tenant_default")) &&
-            !i.category?.includes("contractor") &&
-            !i.tags?.includes("contractor")
+          (i) => ACME_ALLOWED_TENANT_IDS.has(i.tenantId || "tenant_default")
         ),
         problems: this.problems.filter(
           (p) =>

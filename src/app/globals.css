@@ -43,6 +43,23 @@
   code, pre, .font-mono {
     font-family: var(--mono);
   }
+
+  /* Form Controls */
+  input, select, textarea {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-sm);
+    padding: 6px 10px;
+    font-size: 12.5px;
+    transition: border-color 0.15s ease, outline 0.15s ease;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--teal);
+    outline-offset: 1px;
+    border-color: var(--teal);
+  }
 }
 
 /* GrowthV8 Core Card & Panel Styling */
@@ -245,21 +262,22 @@
   margin-left: 1px;
 }
 
-/* Form Controls */
-input, select, textarea {
-  background: var(--surface-2);
-  color: var(--text);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  padding: 6px 10px;
-  font-size: 12.5px;
-  transition: border-color 0.15s ease, outline 0.15s ease;
+/* Search Input Layout Guard */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-input:focus, select:focus, textarea:focus {
-  outline: 2px solid var(--teal);
-  outline-offset: 1px;
-  border-color: var(--teal);
+.search-wrapper svg {
+  position: absolute;
+  left: 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.search-wrapper input {
+  padding-left: 38px !important;
 }
 
 /* KPI Metrics */

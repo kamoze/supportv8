@@ -601,6 +601,19 @@ function LegacyFocusedWorkspaceView({
   const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
   const isContractor = selectedIssue?.entityType === "contractor" || selectedIssue?.category?.includes("contractor") || Boolean(selectedIssue?.contractor);
 
+  // Guaranteed contractor resolution for any field ops/contractor ticket
+  const contractorDetails = selectedIssue?.contractor || (isContractor ? {
+    company: (selectedIssue?.customerName && selectedIssue.customerName !== "Customer" ? selectedIssue.customerName : "Apex Field Solutions"),
+    contactName: selectedIssue?.assignedTo || selectedIssue?.customerName || "David O'Connor",
+    phone: "+1 (555) 234-8901",
+    trade: selectedIssue?.product && selectedIssue.product !== "General" ? selectedIssue.product : "Electrical & Facilities SRE",
+    workOrderId: selectedIssue?.externalId || "WO-88419",
+    siteLocation: "Site B - Facility Electrical Room 102",
+    dispatchStatus: "en_route" as const,
+    eta: "15 mins",
+    accessCode: "LOCK-7729-PIN",
+  } : undefined);
+
   // Technician Workflow State Machine
   const [techStatus, setTechStatus] = useState<"assigned" | "accepted" | "en_route" | "in_progress" | "completed" | "released">("assigned");
 
@@ -779,7 +792,7 @@ function LegacyFocusedWorkspaceView({
               ? "voice"
               : "chat";
       setCommChannel(preferredChannel);
-      if (selectedIssue.contractor) {
+      if (contractorDetails) {
         setTechStatus("assigned");
       }
     }
@@ -792,7 +805,7 @@ function LegacyFocusedWorkspaceView({
       issue.entityType === "contractor" ||
       issue.category?.includes("contractor") ||
       Boolean(issue.contractor);
-    const contractor = issue.contractor;
+    const contractor = issue.contractor || (isContractorTicket ? contractorDetails : undefined);
     const customer = issue.customerName || "Customer";
     const firstName = customer.split(" ")[0];
     const rawSummary = issue.summary || "";
@@ -1245,7 +1258,7 @@ function LegacyFocusedWorkspaceView({
     }
     onNotify(
       `Dispatched reply via ${commChannel.toUpperCase()} to ${
-        isContractor && selectedIssue.contractor ? selectedIssue.contractor.contactName : selectedIssue.customerName
+        isContractor && contractorDetails ? contractorDetails.contactName : selectedIssue.customerName
       }`,
       "success"
     );
@@ -1260,14 +1273,14 @@ function LegacyFocusedWorkspaceView({
   };
 
   const handleSendSitePass = () => {
-    if (!selectedIssue?.contractor) return;
+    if (!contractorDetails) return;
     const now = new Date().toLocaleTimeString();
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
       timestamp: now,
       actor: "Operator",
       actorType: "human_operator",
-      action: `Dispatched Electronic Lockbox PIN (${selectedIssue.contractor.accessCode || "LOCK-8841"}) to ${selectedIssue.contractor.contactName}`,
+      action: `Dispatched Electronic Lockbox PIN (${contractorDetails.accessCode || "LOCK-8841"}) to ${contractorDetails.contactName}`,
     };
     const updated: Issue = {
       ...selectedIssue,
@@ -1277,7 +1290,7 @@ function LegacyFocusedWorkspaceView({
       onUpdateIssue(updated);
     }
     onNotify(
-      `Dispatched Electronic Lockbox PIN (${selectedIssue.contractor.accessCode || "LOCK-8841"}) & GPS to ${selectedIssue.contractor.contactName}`,
+      `Dispatched Electronic Lockbox PIN (${contractorDetails.accessCode || "LOCK-8841"}) & GPS to ${contractorDetails.contactName}`,
       "success"
     );
   };
@@ -1460,20 +1473,21 @@ function LegacyFocusedWorkspaceView({
           </button>
 
           {/* Action Insights Trigger */}
-          {insights.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowInsightsDrawer(!showInsightsDrawer)}
-              className={`px-3 py-2 rounded-xl text-xs font-mono border flex items-center gap-1.5 transition-all cursor-pointer ${
-                showInsightsDrawer
-                  ? "bg-[#F5A623] text-[#04201C] font-bold border-[#F5A623]"
-                  : "bg-[#141C26] text-[#F5A623] border-[#F5A623]/40 hover:bg-[#F5A623]/15"
-              }`}
-            >
-              <Wand2 className="w-3.5 h-3.5" />
-              <span>Insights ({insights.length})</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowInsightsDrawer(!showInsightsDrawer)}
+            className={`px-3 py-2 rounded-xl text-xs font-mono border flex items-center gap-1.5 transition-all cursor-pointer ${
+              showInsightsDrawer
+                ? "bg-[#F5A623] text-[#04201C] font-bold border-[#F5A623]"
+                : insights.length > 0
+                ? "bg-[#141C26] text-[#F5A623] border-[#F5A623]/40 hover:bg-[#F5A623]/15"
+                : "bg-[#141C26] text-[#8E9AA8] border-[var(--line-2)] hover:text-[#EAF1F8]"
+            }`}
+            title="Toggle Action Insights & Real-Time Issue Telemetry"
+          >
+            <Wand2 className={`w-3.5 h-3.5 ${insights.length > 0 ? "text-[#F5A623]" : "text-[#8E9AA8]"}`} />
+            <span>Insights ({insights.length})</span>
+          </button>
 
         </>}
       />
@@ -1583,14 +1597,14 @@ function LegacyFocusedWorkspaceView({
               </button>
             </div>
 
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[#6B7C8D]" />
+            <div className="relative flex items-center">
+              <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search ticket #, customer, tech..."
-                className="w-full bg-[#141C26] text-xs text-[#EAF1F8] pl-8 pr-3 py-1.5 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                className="w-full bg-[#141C26] text-xs text-[#EAF1F8] !pl-9 pr-3 py-1.5 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
               />
             </div>
 
@@ -1604,7 +1618,20 @@ function LegacyFocusedWorkspaceView({
                 <button
                   key={f.id}
                   type="button"
-                  onClick={() => setFilterType(f.id as any)}
+                  onClick={() => {
+                    const newFilter = f.id as any;
+                    setFilterType(newFilter);
+                    const matching = issues.filter((i) => {
+                      const isCtr = i.entityType === "contractor" || i.category?.includes("contractor") || Boolean(i.contractor);
+                      if (newFilter === "customers") return !isCtr;
+                      if (newFilter === "contractors") return isCtr;
+                      if (newFilter === "urgent") return i.priority === "urgent" || i.priority === "high";
+                      return true;
+                    });
+                    if (matching.length > 0 && !matching.some(i => i.id === selectedIssueId)) {
+                      setSelectedIssueId(matching[0].id);
+                    }
+                  }}
                   className={`py-1 rounded-lg text-center transition-all cursor-pointer ${
                     filterType === f.id
                       ? "bg-[#2ED8B6] text-[#04201C] font-bold"
@@ -1997,7 +2024,7 @@ function LegacyFocusedWorkspaceView({
                 </div>
 
                 {/* Mobile-Optimized Field Ops & Lockbox Command Card */}
-                {isContractor && selectedIssue.contractor && (
+                {isContractor && contractorDetails && (
                   <div className="space-y-2.5 pt-1">
                     {/* Electronic Lockbox PIN Card */}
                     <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#182333] to-[#121A24] border border-[#F5A623]/50 space-y-2.5 shadow-lg shadow-black/40">
@@ -2015,13 +2042,13 @@ function LegacyFocusedWorkspaceView({
                         <div className="space-y-0.5">
                           <span className="text-[9px] font-mono text-[#8E9AA8] uppercase">Security Access Code</span>
                           <div className="text-xl sm:text-2xl font-mono font-extrabold text-[#EAF1F8] tracking-widest">
-                            {selectedIssue.contractor.accessCode || "LOCK-8841"}
+                            {contractorDetails.accessCode || "LOCK-8841"}
                           </div>
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => handleCopyPin(selectedIssue.contractor?.accessCode || "LOCK-8841")}
+                          onClick={() => handleCopyPin(contractorDetails.accessCode || "LOCK-8841")}
                           className={`px-3 py-2 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                             copiedPin
                               ? "bg-[#2ED8B6] text-[#04201C] shadow-md shadow-[#2ED8B6]/30"
@@ -2039,13 +2066,13 @@ function LegacyFocusedWorkspaceView({
                           <MapPin className="w-3 h-3 text-[#F5A623]" />
                           <span>Job Site Location</span>
                         </span>
-                        <p className="font-semibold text-[#EAF1F8]">{selectedIssue.contractor.siteLocation}</p>
+                        <p className="font-semibold text-[#EAF1F8]">{contractorDetails.siteLocation}</p>
                       </div>
 
                       {/* Mobile Field Quick Action Buttons (Call, Maps, SMS) */}
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <a
-                          href={`https://maps.google.com/?q=${encodeURIComponent(selectedIssue.contractor.siteLocation)}`}
+                          href={`https://maps.google.com/?q=${encodeURIComponent(contractorDetails.siteLocation)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-2.5 rounded-xl bg-[#141C26] hover:bg-[#1A2534] border border-[var(--line-2)] text-xs font-mono font-bold text-[#4D9FFF] flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95"
@@ -2094,7 +2121,7 @@ function LegacyFocusedWorkspaceView({
                           type="button"
                           onClick={() => {
                             setTechStatus("en_route");
-                            onNotify(`Technician marked En Route for ${selectedIssue.contractor?.siteLocation}`, "info");
+                            onNotify(`Technician marked En Route for ${contractorDetails.siteLocation}`, "info");
                           }}
                           className={`py-2 rounded-xl text-[11px] font-bold text-center cursor-pointer transition-all active:scale-95 ${
                             techStatus === "en_route" ? "bg-[#F5A623] text-[#04201C] shadow-md shadow-[#F5A623]/20" : "bg-[#18222E] text-[#B4C2D0] hover:bg-[#1E2B3A]"
@@ -2348,9 +2375,11 @@ function LegacyFocusedWorkspaceView({
                 <button
                   type="button"
                   onClick={() => setForceStandardComposer(true)}
-                  className="text-[10px] font-mono text-[#6B7C8D] hover:text-[#EAF1F8] underline cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[11px] font-mono text-[#2ED8B6] hover:text-[#57E5C8] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                  title="Switch to Standard Resolution Station (Tone selection, Auto-Resolve, Escalate)"
                 >
-                  Standard Composer
+                  <Sliders className="w-3 h-3" />
+                  <span>Standard Composer</span>
                 </button>
               </div>
 
@@ -2525,9 +2554,11 @@ function LegacyFocusedWorkspaceView({
                     <button
                       type="button"
                       onClick={() => setForceStandardComposer(false)}
-                      className="text-[10px] font-mono text-[#2ED8B6] hover:underline cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[11px] font-mono text-[#2ED8B6] hover:text-[#57E5C8] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                      title="Switch back to real-time Live Chat takeover console"
                     >
-                      ← Back to Live Chat
+                      <MessageSquare className="w-3 h-3" />
+                      <span>Back to Live Chat</span>
                     </button>
                   )}
                 </div>
@@ -2634,7 +2665,7 @@ function LegacyFocusedWorkspaceView({
       {/* ========================================================================= */}
       {/* ACTION INSIGHTS DRAWER (Increased floating height & prominence) */}
       {/* ========================================================================= */}
-      {showInsightsDrawer && insights.length > 0 && (
+      {showInsightsDrawer && (
         <div className="bg-[#0E1520] border-t border-[#F5A623]/50 p-4 shrink-0 space-y-3 transition-all max-h-[360px] overflow-y-auto z-40 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs">
@@ -2653,67 +2684,77 @@ function LegacyFocusedWorkspaceView({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {insights.map((ins) => (
-              <div
-                key={ins.id}
-                className="p-3.5 rounded-2xl bg-[#141C28] border border-[var(--line)] hover:border-[#F5A623]/50 space-y-2 text-xs transition-colors flex flex-col justify-between"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-bold text-[#EAF1F8] text-xs leading-snug">
-                      {ins.title}
-                    </h4>
-                    <span className="text-[10px] text-[#4CC38A] font-mono shrink-0">
-                      {(ins.confidence * 100).toFixed(0)}%
-                    </span>
+          {insights.length === 0 ? (
+            <div className="p-8 text-center space-y-2 rounded-2xl border border-[var(--line)] bg-[#121A24]">
+              <Wand2 className="w-8 h-8 text-[#F5A623] mx-auto opacity-60" />
+              <h4 className="text-xs font-bold text-[#EAF1F8]">No Automated Insights Discovered Yet</h4>
+              <p className="text-[11px] text-[#8E9AA8] max-w-md mx-auto leading-relaxed">
+                SupportV8 continuously scans incoming tickets and issue trends across all channels. When widespread anomalies or high-impact failure clusters are detected, AI actionable recommendations will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {insights.map((ins) => (
+                <div
+                  key={ins.id}
+                  className="p-3.5 rounded-2xl bg-[#141C28] border border-[var(--line)] hover:border-[#F5A623]/50 space-y-2 text-xs transition-colors flex flex-col justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-bold text-[#EAF1F8] text-xs leading-snug">
+                        {ins.title}
+                      </h4>
+                      <span className="text-[10px] text-[#4CC38A] font-mono shrink-0">
+                        {(ins.confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#8E9AA8] line-clamp-2">
+                      {ins.finding}
+                    </p>
+                    <div className="p-2 rounded-xl bg-[#1A2432] text-[10px] text-[#EAF1F8]">
+                      <span className="text-[#F5A623] font-bold">Recommended: </span>
+                      <span>{ins.recommendation}</span>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#8E9AA8] line-clamp-2">
-                    {ins.finding}
-                  </p>
-                  <div className="p-2 rounded-xl bg-[#1A2432] text-[10px] text-[#EAF1F8]">
-                    <span className="text-[#F5A623] font-bold">Recommended: </span>
-                    <span>{ins.recommendation}</span>
-                  </div>
-                </div>
 
-                <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery(ins.affectedSegment || ins.title.split(" ")[0]);
-                      onNotify(`Filtered queue to: ${ins.title}`, "info");
-                    }}
-                    className="text-[10px] text-[#4D9FFF] hover:underline cursor-pointer flex items-center gap-0.5 font-mono"
-                  >
-                    <span>Filter Queue</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
+                  <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery(ins.affectedSegment || ins.title.split(" ")[0]);
+                        onNotify(`Filtered queue to: ${ins.title}`, "info");
+                      }}
+                      className="text-[10px] text-[#4D9FFF] hover:underline cursor-pointer flex items-center gap-0.5 font-mono"
+                    >
+                      <span>Filter Queue</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
 
-                  <button
-                    type="button"
-                    disabled={executingInsightId === ins.id}
-                    onClick={async () => {
-                      setExecutingInsightId(ins.id);
-                      try {
-                        if (onExecuteInsight) {
-                          await onExecuteInsight(ins.id);
-                        } else {
-                          onNotify(`Executed '${ins.title}'`, "success");
+                    <button
+                      type="button"
+                      disabled={executingInsightId === ins.id}
+                      onClick={async () => {
+                        setExecutingInsightId(ins.id);
+                        try {
+                          if (onExecuteInsight) {
+                            await onExecuteInsight(ins.id);
+                          } else {
+                            onNotify(`Executed '${ins.title}'`, "success");
+                          }
+                        } finally {
+                          setExecutingInsightId(null);
                         }
-                      } finally {
-                        setExecutingInsightId(null);
-                      }
-                    }}
-                    className="btn btn-primary py-1 px-3 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-md shadow-[#2ED8B6]/20"
-                  >
-                    <Zap className="w-3 h-3" />
-                    <span>{executingInsightId === ins.id ? "Executing..." : "Execute"}</span>
-                  </button>
+                      }}
+                      className="btn btn-primary py-1 px-3 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-md shadow-[#2ED8B6]/20"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>{executingInsightId === ins.id ? "Executing..." : "Execute"}</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
         </>

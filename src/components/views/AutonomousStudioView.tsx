@@ -491,14 +491,14 @@ export function AutonomousStudioView({
 
       {/* Global Studio Filter & Search Toolbar */}
       <div className="card p-4 rounded-2xl bg-[#121A24] border-[var(--line)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-lg">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-[#6B7C8D]" />
+        <div className="relative flex-1 max-w-lg flex items-center">
+          <Search className="w-4 h-4 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search automations, triggers, actions, categories..."
-            className="w-full bg-[#18222E] text-xs text-[#EAF1F8] pl-9 pr-8 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
+            className="w-full bg-[#18222E] text-xs text-[#EAF1F8] !pl-10 pr-8 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
           />
           {searchQuery && (
             <button

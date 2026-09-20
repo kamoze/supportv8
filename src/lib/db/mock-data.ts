@@ -177,6 +177,31 @@ export const INITIAL_PROBLEMS: Problem[] = [
     verificationState: "unverified",
     sourceSystems: ["twilio_voice", "zendesk"],
   },
+  {
+    id: "PRB-221",
+    tenantId: "tenant_meridian",
+    title: "Contractor Smart Lockbox BLE Dispatch Sync Failures",
+    summary: "Field technicians reporting smart lockboxes failing Bluetooth Low Energy handshake during dispatch work order check-ins.",
+    suspectedCause: "Firmware v3.2.1 BLE timeout threshold exceeded on mobile dispatch agents in northeast logistics facilities.",
+    status: "active",
+    confidence: 0.95,
+    impact: "critical",
+    affectedCustomerCount: 42,
+    affectedEnterpriseCount: 3,
+    linkedIssueIds: ["ISS-1006"],
+    estimatedRevenueExposure: 64000,
+    firstSeen: "2026-08-26T03:30:00Z",
+    lastSeen: "2026-08-26T04:50:00Z",
+    trend: "increasing",
+    owner: "Alex — Contractor & Dispatch Lead",
+    recommendedActions: [
+      "Issue emergency offline master PINs to active field contractors",
+      "Switch mobile dispatch app to secondary cloud relay unlock protocol",
+    ],
+    communicationsCount: 1,
+    verificationState: "in_progress",
+    sourceSystems: ["zendesk", "chat"],
+  },
 ];
 
 export const INITIAL_ISSUES: Issue[] = [
@@ -1379,7 +1404,12 @@ class SupportDatabase {
             !i.category?.includes("contractor") &&
             !i.tags?.includes("contractor")
         ),
-        problems: this.problems,
+        problems: this.problems.filter(
+          (p) =>
+            !p.title.toLowerCase().includes("lockbox") &&
+            !p.title.toLowerCase().includes("dispatch") &&
+            !p.title.toLowerCase().includes("contractor")
+        ),
         insights: this.insights,
         sources: this.sources,
         documents: this.documents,

@@ -113,6 +113,25 @@ export class ProblemService {
     }
     return problem;
   }
+
+  public seedDemoProblems(tenantSlug?: string): Problem[] {
+    const clean = (tenantSlug || "acme").toLowerCase().trim();
+    if (clean === "meridian") {
+      return db.problems.filter(
+        (p) =>
+          p.title.toLowerCase().includes("lockbox") ||
+          p.title.toLowerCase().includes("dispatch") ||
+          p.title.toLowerCase().includes("contractor")
+      );
+    }
+
+    return db.problems.filter(
+      (p) =>
+        !p.title.toLowerCase().includes("lockbox") &&
+        !p.title.toLowerCase().includes("dispatch") &&
+        !p.title.toLowerCase().includes("contractor")
+    );
+  }
 }
 
 export const problemService = new ProblemService();

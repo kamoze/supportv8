@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || undefined;
     const body = await req.json();
     const { action, problemId, issueId, issueIds, title, suspectedCause, status } = body;
 
@@ -26,9 +28,12 @@ export async function POST(req: NextRequest) {
     } else if (action === "unlink") {
       const problem = problemService.unlinkIssue(problemId, issueId);
       return NextResponse.json({ success: true, data: problem });
-    } else if (action === "update_status") {
+    } else if (action === "update_status" || (problemId && status)) {
       const problem = problemService.updateStatus(problemId, status);
       return NextResponse.json({ success: true, data: problem });
+    } else if (action === "simulate" || action === "seed") {
+      const problems = problemService.seedDemoProblems(tenant);
+      return NextResponse.json({ success: true, data: problems });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });

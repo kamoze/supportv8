@@ -7284,6 +7284,10 @@ export default function SupportV8Dashboard() {
             onPublishProposal={handlePublishKnowledge}
             onSyncKv8={fetchData}
             onNotify={notify}
+            routingMode={tenantSettings.routingMode || "forgegw"}
+            embeddingProvider={tenantSettings.embeddingProvider || "forgegw"}
+            embeddingModel={tenantSettings.embeddingModel || "forge-embed-text-1536"}
+            onUpdateSettings={handleUpdateSettings}
           />
         )}
 

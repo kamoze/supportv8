@@ -44,7 +44,7 @@ export const INITIAL_SOURCES: SourceConnector[] = [
     type: "zendesk",
     status: "connected",
     lastSync: "2 mins ago",
-    eventCountToday: 1420,
+    eventCountToday: 5,
     credentialsConfigured: true,
     endpointUrl: "https://acme.zendesk.com/api/v2",
     capabilities: {
@@ -59,7 +59,7 @@ export const INITIAL_SOURCES: SourceConnector[] = [
     type: "intercom",
     status: "connected",
     lastSync: "Just now",
-    eventCountToday: 890,
+    eventCountToday: 2,
     credentialsConfigured: true,
     endpointUrl: "https://api.intercom.io/conversations",
     capabilities: {
@@ -74,7 +74,7 @@ export const INITIAL_SOURCES: SourceConnector[] = [
     type: "twilio_voice",
     status: "connected",
     lastSync: "5 mins ago",
-    eventCountToday: 310,
+    eventCountToday: 2,
     credentialsConfigured: true,
     endpointUrl: "wss://stream.twilio.com/v1/voice",
     capabilities: {
@@ -89,13 +89,28 @@ export const INITIAL_SOURCES: SourceConnector[] = [
     type: "knowledgev8",
     status: "connected",
     lastSync: "1 hour ago",
-    eventCountToday: 54,
+    eventCountToday: 0,
     credentialsConfigured: true,
     endpointUrl: "https://knowledge.servicev8.internal/api",
     capabilities: {
       read: ["search_articles", "fetch_content", "analytics"],
       realtime: ["article.updated"],
       write: ["publish_article", "create_draft", "deprecate_article"],
+    },
+  },
+  {
+    id: "src_stripe_01",
+    name: "Stripe Billing & Payments Gateway",
+    type: "stripe",
+    status: "connected",
+    lastSync: "Just now",
+    eventCountToday: 0,
+    credentialsConfigured: true,
+    endpointUrl: "https://api.stripe.com/v1",
+    capabilities: {
+      read: ["charges", "invoices", "customers", "subscriptions", "disputes"],
+      realtime: ["charge.failed", "payment_intent.payment_failed", "charge.dispute.created", "customer.subscription.deleted"],
+      write: ["create_refund", "void_invoice", "update_subscription"],
     },
   },
 ];
@@ -1205,7 +1220,7 @@ class SupportDatabase {
     const positiveIssues = this.issues.filter(
       (i) => (i.sentimentScore ?? 0) >= -0.3 && i.sentiment !== "angry" && i.sentiment !== "urgent"
     ).length;
-    const csat = totalIssues > 0 ? parseFloat(((positiveIssues / totalIssues) * 100).toFixed(1)) : 91.5;
+    const csat = totalIssues > 0 ? parseFloat(((positiveIssues / totalIssues) * 100).toFixed(1)) : 0;
 
     // CSAT Change: Difference between most recent 5 issues vs total baseline
     const recentIssues = this.issues.slice(-5);
@@ -1214,19 +1229,18 @@ class SupportDatabase {
     const csatDelta = recentCsat - csat;
     const csatChange = parseFloat((csatDelta >= 0 ? Math.min(csatDelta, 4.5) : Math.max(csatDelta, -4.5)).toFixed(1));
 
-    // 3. Issue Volume: Aggregated ingress event counts across connected channels
-    const totalChannelEvents = this.sources.reduce((sum, s) => sum + (s.eventCountToday || 0), 0);
-    const issueVolume = totalChannelEvents > 0 ? totalChannelEvents : totalIssues * 115;
-    const issueVolumeChange = 14.8;
+    // 3. Issue Volume: Exact count of customer issues tracked
+    const issueVolume = totalIssues;
+    const issueVolumeChange = 0;
 
     // 4. North Star VARR (Verified Autonomous Resolution Rate):
-    // Real ratio of issues that are autonomously resolved or high confidence (>= 0.85) without human intervention
+    // Real ratio of issues that are autonomously resolved without human intervention
     const autonomousResolvedCount = this.issues.filter(
       (i) =>
         i.tags.includes("autonomous_resolved") ||
         (i.confidence >= 0.85 && (i.sourceStatus === "closed" || i.resolutionRiskScore < 0.25))
     ).length;
-    const varrRate = totalIssues > 0 ? parseFloat(((autonomousResolvedCount / totalIssues) * 100).toFixed(1)) : 75.0;
+    const varrRate = totalIssues > 0 ? parseFloat(((autonomousResolvedCount / totalIssues) * 100).toFixed(1)) : 0;
 
     // 5. Needs Attention: Dynamically derived from active problems, unreviewed insights, and open knowledge gaps
     const needsAttention: OverviewMetrics["needsAttention"] = [];

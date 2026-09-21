@@ -3857,8 +3857,7 @@ export default function SupportV8Dashboard() {
                                 </button>
                               </td>
                             </tr>
-                          ))
-                        )}
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -4488,8 +4487,7 @@ export default function SupportV8Dashboard() {
                                       </div>
                                     </td>
                                   </tr>
-                                ))
-                              )}
+                                ))}
                               </tbody>
                             </table>
                           </div>
@@ -4671,8 +4669,7 @@ export default function SupportV8Dashboard() {
 
                           <p className="text-xs text-[#B4C2D0] leading-relaxed">{card.evaluatorNotes}</p>
                         </div>
-                      ))
-                    )}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -4751,8 +4748,7 @@ export default function SupportV8Dashboard() {
                               />
                             </div>
                           </div>
-                        ))
-                      )}
+                        ))}
                       </div>
                     </div>
 
@@ -4772,8 +4768,7 @@ export default function SupportV8Dashboard() {
                               <span>{art.resolutionCount} Resolutions</span>
                             </div>
                           </div>
-                        ))
-                      )}
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -4826,8 +4821,7 @@ export default function SupportV8Dashboard() {
                             <strong className="text-[#EAF1F8]">Operational Fix:</strong> {c.suggestedOperationalFix}
                           </div>
                         </div>
-                      ))
-                    )}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -4911,8 +4905,7 @@ export default function SupportV8Dashboard() {
                             </div>
                           </div>
                         </div>
-                      ))
-                    )}
+                      ))}
                     </div>
                   </div>
 
@@ -4952,8 +4945,7 @@ export default function SupportV8Dashboard() {
                                 </span>
                               </td>
                             </tr>
-                          ))
-                        )}
+                          ))}
                         </tbody>
                       </table>
                     </div>

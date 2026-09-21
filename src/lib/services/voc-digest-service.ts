@@ -118,21 +118,6 @@ export class VocDigestService {
       };
     }
 
-    if (clean === "acme") {
-      const neg = this.vocClusters.find((c) => c.category === "negative_discontent");
-      const pos = this.vocClusters.find((c) => c.category === "positive_delight");
-      return {
-        overallCsat: 91.4,
-        customerEffortScore: 4.6,
-        netPromoterScore: 54,
-        topDiscontentDriver: neg?.topic || "Checkout latency",
-        topDelightDriver: pos?.topic || "Instant AI resolution",
-        csatDistribution: this.csatDistribution,
-        topDelightArticles: this.topArticles,
-        clusters: this.vocClusters,
-      };
-    }
-
     const tenantData = db.getTenantData(clean);
     const issues = tenantData.issues;
     if (issues.length === 0) {

@@ -15,7 +15,10 @@ function creditError(error: unknown) {
 export async function GET(req: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
-    const credits = marketplaceService.getCredits(tenant.tenantSlug);
+    if (tenant.runtimeLinked && tenant.accountId) {
+      await marketplaceService.syncForgeAccountPool(tenant.accountId).catch(() => null);
+    }
+    const credits = marketplaceService.getCredits(tenant.tenantSlug, tenant);
     return NextResponse.json({
       success: true,
       data: {
@@ -32,11 +35,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    if (tenant.runtimeLinked && tenant.accountId) {
+      await marketplaceService.syncForgeAccountPool(tenant.accountId).catch(() => null);
+    }
     const body = await req.json();
     const { action, amount, reason } = body;
 
     if (action === "deduct") {
-      const result = marketplaceService.deductCredits(amount || 0, reason || "API credit deduction", tenant.tenantSlug);
+      const result = marketplaceService.deductCredits(amount || 0, reason || "API credit deduction", tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
         message: `Deducted ${result.deducted} ForgeGW Credits. Balance: ${result.remaining}`,
@@ -45,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "add" || action === "topup") {
-      const result = marketplaceService.addCredits(amount || 0, reason || "API credit top-up", tenant.tenantSlug);
+      const result = marketplaceService.addCredits(amount || 0, reason || "API credit top-up", tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
         message: `Added ${result.added} ForgeGW Credits. Balance: ${result.remaining}`,
@@ -54,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "set") {
-      const updated = marketplaceService.setCredits(amount || 0, tenant.tenantSlug);
+      const updated = marketplaceService.setCredits(amount || 0, tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
         message: `Set ForgeGW Credits balance to ${updated}`,

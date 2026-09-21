@@ -18,10 +18,13 @@ function marketplaceError(error: unknown) {
 export async function GET(req: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
+    if (tenant.runtimeLinked && tenant.accountId) {
+      await marketplaceService.syncForgeAccountPool(tenant.accountId).catch(() => null);
+    }
     return NextResponse.json({
       success: true,
       data: {
-        credits: marketplaceService.getCredits(tenant.tenantSlug),
+        credits: marketplaceService.getCredits(tenant.tenantSlug, tenant),
         connectors: marketplaceService.getConnectors(tenant.tenantSlug),
         workforce: marketplaceService.getWorkforceCatalog(tenant.tenantSlug),
         plans: marketplaceService.getPlans(tenant.tenantSlug),
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "deduct_credits") {
       const { amount, reason } = body;
-      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction", tenant.tenantSlug);
+      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction", tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
         message: `Deducted ${result.deducted} credits. Balance: ${result.remaining}`,
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "add_credits" || action === "purchase_credits") {
       const { amount, reason } = body;
-      const result = marketplaceService.addCredits(amount || 0, reason || "Credit purchase", tenant.tenantSlug);
+      const result = marketplaceService.addCredits(amount || 0, reason || "Credit purchase", tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
         message: `Added ${result.added} credits. Balance: ${result.remaining}`,

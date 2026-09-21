@@ -747,6 +747,9 @@ export class MarketplaceService {
     credits: number;
   }>();
 
+  private readonly accountPools = new Map<string, number>();
+  private readonly runtimeTenants = new Map<string, { accountId?: string; workspaceId?: string }>();
+
   private clone<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
   }
@@ -800,17 +803,134 @@ export class MarketplaceService {
     return state;
   }
 
-  public getCredits(tenantSlug = "acme"): number {
+  public getCommonPoolCredits(): number {
+    const raw = process.env.SUPPORTV8_COMMON_POOL_CREDITS || process.env.COMMON_POOL_CREDITS;
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 5000;
+  }
+
+  public registerRuntimeTenant(domainOrSlug: string, accountId?: string, workspaceId?: string): void {
+    const cleanDomain = domainOrSlug.trim().toLowerCase();
+    this.runtimeTenants.set(cleanDomain, { accountId, workspaceId });
+    if (workspaceId) {
+      this.runtimeTenants.set(workspaceId.trim().toLowerCase(), { accountId, workspaceId });
+    }
+    if (accountId && !this.accountPools.has(accountId)) {
+      this.accountPools.set(accountId, this.getCommonPoolCredits());
+    }
+  }
+
+  public isRuntimeTenant(
+    tenantSlug?: string,
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): boolean {
+    if (context?.runtimeLinked || context?.accountId) return true;
+    if (!tenantSlug) return false;
+    const clean = tenantSlug.trim().toLowerCase();
+    return clean.startsWith("tenant_rt_") || this.runtimeTenants.has(clean);
+  }
+
+  public resolveAccountId(
+    tenantSlug?: string,
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): string | undefined {
+    if (context?.accountId) {
+      if (tenantSlug) {
+        this.registerRuntimeTenant(tenantSlug, context.accountId);
+      }
+      return context.accountId;
+    }
+    if (!tenantSlug) return undefined;
+    const clean = tenantSlug.trim().toLowerCase();
+    return this.runtimeTenants.get(clean)?.accountId;
+  }
+
+  public async syncForgeAccountPool(accountId: string, fetchImpl: typeof fetch = fetch): Promise<number | null> {
+    const baseUrl = (process.env.FORGE_GATEWAY_URL || process.env.FORGE_URL || "").trim();
+    const token = (
+      process.env.FORGE_GATEWAY_MODEL_TOKEN ||
+      process.env.FORGE_GATEWAY_TOKEN ||
+      process.env.SERVICEV8_GATEWAY_TOKEN ||
+      ""
+    ).trim();
+    if (!baseUrl) return null;
+
+    try {
+      const url = new URL(`/v1/admin/tenants/${encodeURIComponent(accountId)}/subscription`, baseUrl);
+      const res = await fetchImpl(url, {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/json",
+        },
+      });
+      if (!res.ok) return null;
+      const body = (await res.json().catch(() => null)) as {
+        credits?: { available?: unknown; serviceActive?: unknown };
+      } | null;
+      if (body && typeof body.credits?.available === "number" && Number.isFinite(body.credits.available)) {
+        this.accountPools.set(accountId, body.credits.available);
+        return body.credits.available;
+      }
+    } catch {
+      // Fail-soft: retain current pool balance
+    }
+    return null;
+  }
+
+  public getCredits(
+    tenantSlug = "acme",
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): number {
+    if (this.isRuntimeTenant(tenantSlug, context)) {
+      const accountId = this.resolveAccountId(tenantSlug, context);
+      if (accountId) {
+        if (!this.accountPools.has(accountId)) {
+          this.accountPools.set(accountId, this.getCommonPoolCredits());
+        }
+        return this.accountPools.get(accountId)!;
+      }
+      return this.getCommonPoolCredits();
+    }
     return this.stateFor(tenantSlug).credits;
   }
 
-  public setCredits(amount: number, tenantSlug = "acme"): number {
+  public setCredits(
+    amount: number,
+    tenantSlug = "acme",
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): number {
+    const updated = Math.max(0, amount);
+    if (this.isRuntimeTenant(tenantSlug, context)) {
+      const accountId = this.resolveAccountId(tenantSlug, context);
+      if (accountId) {
+        this.accountPools.set(accountId, updated);
+      }
+      return updated;
+    }
     const state = this.stateFor(tenantSlug);
-    state.credits = Math.max(0, amount);
+    state.credits = updated;
     return state.credits;
   }
 
-  public deductCredits(amount: number, reason: string, tenantSlug = "acme"): { remaining: number; deducted: number; reason: string } {
+  public deductCredits(
+    amount: number,
+    reason: string,
+    tenantSlug = "acme",
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): { remaining: number; deducted: number; reason: string } {
+    if (this.isRuntimeTenant(tenantSlug, context)) {
+      const accountId = this.resolveAccountId(tenantSlug, context);
+      const current = accountId
+        ? (this.accountPools.get(accountId) ?? this.getCommonPoolCredits())
+        : this.getCommonPoolCredits();
+      const deducted = Math.min(current, Math.max(0, amount));
+      const remaining = Math.max(0, current - deducted);
+      if (accountId) {
+        this.accountPools.set(accountId, remaining);
+      }
+      return { remaining, deducted, reason };
+    }
     const state = this.stateFor(tenantSlug);
     const deducted = Math.min(state.credits, Math.max(0, amount));
     state.credits = Math.max(0, state.credits - deducted);
@@ -821,7 +941,24 @@ export class MarketplaceService {
     };
   }
 
-  public addCredits(amount: number, reason: string, tenantSlug = "acme"): { remaining: number; added: number; reason: string } {
+  public addCredits(
+    amount: number,
+    reason: string,
+    tenantSlug = "acme",
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): { remaining: number; added: number; reason: string } {
+    if (this.isRuntimeTenant(tenantSlug, context)) {
+      const accountId = this.resolveAccountId(tenantSlug, context);
+      const current = accountId
+        ? (this.accountPools.get(accountId) ?? this.getCommonPoolCredits())
+        : this.getCommonPoolCredits();
+      const added = Math.max(0, amount);
+      const remaining = current + added;
+      if (accountId) {
+        this.accountPools.set(accountId, remaining);
+      }
+      return { remaining, added, reason };
+    }
     const state = this.stateFor(tenantSlug);
     const added = Math.max(0, amount);
     state.credits += added;

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { pgClient, type PostgresClient } from "@/lib/db/pg-client";
+import { marketplaceService } from "@/lib/services/marketplace-service";
 
 export type RuntimeSupportWorkspaceInput = {
   accountId: string;
@@ -84,6 +85,7 @@ export class RuntimeSupportWorkspaceStore {
           ))[0];
           if (!owner || owner.domain !== reserved.native_domain || owner.servicev8_account_id !== input.accountId) throw new WorkspaceReservationConflictError();
           await ensureRegistrationJob(db,input,reserved.native_tenant_id);
+          marketplaceService.registerRuntimeTenant(reserved.native_domain, input.accountId, reserved.native_tenant_id);
           return { status: "workspace_created", workspaceId: reserved.native_tenant_id, domain: reserved.native_domain };
         }
         const inserted = await db.query<{id:string}>(`INSERT INTO supportv8.tenants(id,domain,name,operating_mode,servicev8_account_id)
@@ -93,6 +95,7 @@ export class RuntimeSupportWorkspaceStore {
           WHERE installation_id=$1 AND state='reserved' RETURNING native_tenant_id,native_domain,state`, [input.installationId]))[0];
         if (!completed) throw new WorkspaceReservationConflictError();
         await ensureRegistrationJob(db,input,completed.native_tenant_id);
+        marketplaceService.registerRuntimeTenant(completed.native_domain, input.accountId, completed.native_tenant_id);
         return { status: "workspace_created", workspaceId: completed.native_tenant_id, domain: completed.native_domain };
       });
     } catch (error) {

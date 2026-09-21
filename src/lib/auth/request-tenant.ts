@@ -7,6 +7,8 @@ import {
   type VerifiedSupportToken,
 } from "./keycloak";
 
+import { marketplaceService } from "../services/marketplace-service";
+
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const PUBLIC_ROOT_HOSTS = new Set([
   "support.servicev8.com",
@@ -34,6 +36,7 @@ export interface RequestTenantContext {
   displayName?: string;
   roles: string[];
   runtimeLinked?: boolean;
+  accountId?: string;
 }
 
 const RESTRICTED_DEMO_MUTATION_PATHS = new Set([
@@ -134,8 +137,17 @@ export async function resolveRequestTenant(
     if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout" && !isCustomerChatIntake))) {
       throw new RequestAuthError("This workspace role is read only", 403);
     }
-    return {runtimeLinked:true,tenantId:session.workspaceId,tenantSlug:session.tenantDomain,authenticated:true,userId:session.sub,username:authorized.access.email,
-      roles:role === "support:manage" ? ["support_cx_lead"] : ["support_operator", "support_observer"]};
+    marketplaceService.registerRuntimeTenant(session.tenantDomain, session.accountId, session.workspaceId);
+    return {
+      runtimeLinked: true,
+      accountId: session.accountId,
+      tenantId: session.workspaceId,
+      tenantSlug: session.tenantDomain,
+      authenticated: true,
+      userId: session.sub,
+      username: authorized.access.email,
+      roles: role === "support:manage" ? ["support_cx_lead"] : ["support_operator", "support_observer"],
+    };
   }
   const token = bearerToken(request);
 

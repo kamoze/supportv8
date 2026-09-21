@@ -21,6 +21,8 @@ export interface VerticalHealthStatus {
   lastPingAt: string;
 }
 
+import { marketplaceService } from "../services/marketplace-service";
+
 export interface VerticalDispatchResult<T = unknown> {
   vertical: VerticalTarget;
   operation: string;
@@ -28,6 +30,7 @@ export interface VerticalDispatchResult<T = unknown> {
   data: T;
   latencyMs: number;
   timestamp: string;
+  creditsRemaining?: number;
 }
 
 export class VerticalClientsService {
@@ -118,9 +121,12 @@ export class VerticalClientsService {
     vertical: VerticalTarget;
     operation: string;
     payload: Record<string, unknown>;
+    tenantSlug?: string;
+    accountId?: string;
+    creditsCost?: number;
   }): Promise<VerticalDispatchResult<T>> {
     const start = Date.now();
-    const { vertical, operation, payload } = params;
+    const { vertical, operation, payload, tenantSlug, accountId, creditsCost } = params;
 
     let data: unknown = null;
 
@@ -224,6 +230,17 @@ export class VerticalClientsService {
         data = { executed: true, operation, payload };
     }
 
+    let creditsRemaining: number | undefined;
+    if (creditsCost && creditsCost > 0 && (accountId || tenantSlug)) {
+      const deduction = marketplaceService.deductCredits(
+        creditsCost,
+        `Cross-vertical operation: ${operation} on ${vertical}`,
+        tenantSlug || "acme",
+        accountId ? { accountId, sourceVertical: vertical, boundApp: vertical } : { sourceVertical: vertical }
+      );
+      creditsRemaining = deduction.remaining;
+    }
+
     const latencyMs = Date.now() - start + Math.floor(Math.random() * 15 + 10);
 
     return {
@@ -233,6 +250,7 @@ export class VerticalClientsService {
       data: data as T,
       latencyMs,
       timestamp: new Date().toISOString(),
+      creditsRemaining,
     };
   }
 }

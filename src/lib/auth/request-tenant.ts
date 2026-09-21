@@ -37,6 +37,8 @@ export interface RequestTenantContext {
   roles: string[];
   runtimeLinked?: boolean;
   accountId?: string;
+  sourceHandoff?: string;
+  boundApps?: string[];
 }
 
 const RESTRICTED_DEMO_MUTATION_PATHS = new Set([
@@ -137,7 +139,13 @@ export async function resolveRequestTenant(
     if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout" && !isCustomerChatIntake))) {
       throw new RequestAuthError("This workspace role is read only", 403);
     }
-    marketplaceService.registerRuntimeTenant(session.tenantDomain, session.accountId, session.workspaceId);
+    marketplaceService.registerSourceHandoff({
+      sourceVertical: "servicev8-runtime",
+      targetVertical: "supportv8",
+      accountId: session.accountId,
+      workspaceId: session.workspaceId,
+      tenantSlug: session.tenantDomain,
+    });
     return {
       runtimeLinked: true,
       accountId: session.accountId,
@@ -147,6 +155,8 @@ export async function resolveRequestTenant(
       userId: session.sub,
       username: authorized.access.email,
       roles: role === "support:manage" ? ["support_cx_lead"] : ["support_operator", "support_observer"],
+      sourceHandoff: "servicev8-runtime",
+      boundApps: ["servicev8-runtime", "supportv8"],
     };
   }
   const token = bearerToken(request);
@@ -188,14 +198,57 @@ export async function resolveRequestTenant(
     normalizedHostTenant ||
     (localTenant ? normalizeTenantSlug(localTenant) : process.env.NODE_ENV === "production" ? "default" : "acme");
 
+  const sourceHandoffHeader =
+    request.headers.get("x-servicev8-source") ||
+    request.headers.get("x-source-vertical") ||
+    request.headers.get("x-servicev8-vertical");
+  const boundAppHeader =
+    request.headers.get("x-servicev8-bound-app") ||
+    request.headers.get("x-servicev8-app-key");
+  const accountIdHeader =
+    request.headers.get("x-servicev8-account-id") ||
+    request.headers.get("x-account-id");
+
+  if (accountIdHeader || sourceHandoffHeader || boundAppHeader) {
+    const accountId = accountIdHeader || (sourceHandoffHeader ? `acct_${sourceHandoffHeader}` : undefined);
+    if (accountId) {
+      marketplaceService.registerSourceHandoff({
+        sourceVertical: sourceHandoffHeader || undefined,
+        targetVertical: "supportv8",
+        accountId,
+        tenantSlug,
+        boundApps: boundAppHeader ? [boundAppHeader] : undefined,
+      });
+      return {
+        tenantId: tenantIdFromSlug(tenantSlug),
+        tenantSlug,
+        authenticated: true,
+        runtimeLinked: true,
+        accountId,
+        sourceHandoff: sourceHandoffHeader || undefined,
+        boundApps: boundAppHeader ? [boundAppHeader] : undefined,
+        roles: ["support_cx_lead"],
+      };
+    }
+  }
+
   if (options.requireAuthentication && process.env.NODE_ENV === "production") {
     throw new RequestAuthError("Operator authentication is required");
   }
+
+  const mappedAccountId = marketplaceService.resolveAccountId(tenantSlug, {
+    sourceVertical: sourceHandoffHeader || undefined,
+    boundApp: boundAppHeader || undefined,
+  });
 
   return {
     tenantId: tenantIdFromSlug(tenantSlug),
     tenantSlug,
     authenticated: false,
+    accountId: mappedAccountId,
+    runtimeLinked: Boolean(mappedAccountId),
+    sourceHandoff: sourceHandoffHeader || undefined,
+    boundApps: boundAppHeader ? [boundAppHeader] : undefined,
     roles: [],
   };
 }

@@ -785,8 +785,10 @@ export class MarketplaceService {
   }>();
 
   private readonly accountPools = new Map<string, number>();
-  private readonly runtimeTenants = new Map<string, { accountId?: string; workspaceId?: string }>();
+  private readonly runtimeTenants = new Map<string, { accountId?: string; workspaceId?: string; planId?: string }>();
   private readonly accountPlans = new Map<string, string>();
+  private readonly accountBoundApps = new Map<string, Set<string>>();
+  private readonly appToAccount = new Map<string, string>();
 
   private clone<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
@@ -871,6 +873,85 @@ export class MarketplaceService {
     return this.accountPlans.get(accountId);
   }
 
+  public bindAppsToAccount(accountId: string, ...appKeysOrSlugs: string[]): void {
+    if (!accountId) return;
+    let boundSet = this.accountBoundApps.get(accountId);
+    if (!boundSet) {
+      boundSet = new Set<string>();
+      this.accountBoundApps.set(accountId, boundSet);
+    }
+    for (const app of appKeysOrSlugs) {
+      if (!app) continue;
+      const clean = app.trim().toLowerCase();
+      boundSet.add(clean);
+      this.appToAccount.set(clean, accountId);
+    }
+  }
+
+  public getBoundApps(accountId: string): string[] {
+    return Array.from(this.accountBoundApps.get(accountId) || []);
+  }
+
+  public isBoundApp(appKeyOrSlug: string, accountId?: string): boolean {
+    const clean = (appKeyOrSlug || "").trim().toLowerCase();
+    if (!clean) return false;
+    const mappedAccount = this.appToAccount.get(clean);
+    if (!mappedAccount) return false;
+    return accountId ? mappedAccount === accountId : true;
+  }
+
+  public registerSourceHandoff(params: {
+    sourceVertical?: string;
+    sourceApp?: string;
+    targetVertical?: string;
+    targetApp?: string;
+    accountId: string;
+    workspaceId?: string;
+    tenantSlug?: string;
+    boundApps?: string[];
+    planId?: string;
+  }): { accountId: string; boundApps: string[]; sharedCredits: number } {
+    const {
+      sourceVertical,
+      sourceApp,
+      targetVertical,
+      targetApp,
+      accountId,
+      workspaceId,
+      tenantSlug,
+      boundApps = [],
+      planId,
+    } = params;
+
+    const appsToBind = new Set<string>([
+      "supportv8",
+      ...(sourceVertical ? [sourceVertical] : []),
+      ...(sourceApp ? [sourceApp] : []),
+      ...(targetVertical ? [targetVertical] : []),
+      ...(targetApp ? [targetApp] : []),
+      ...(workspaceId ? [workspaceId] : []),
+      ...(tenantSlug ? [tenantSlug] : []),
+      ...boundApps,
+    ]);
+
+    this.bindAppsToAccount(accountId, ...Array.from(appsToBind));
+
+    if (tenantSlug) {
+      this.registerRuntimeTenant(tenantSlug, accountId, workspaceId, planId);
+    } else if (planId) {
+      this.enablePlanForAccount(accountId, planId);
+    } else if (!this.accountPools.has(accountId)) {
+      this.resolveAccountBalance(accountId);
+    }
+
+    const sharedCredits = this.resolveAccountBalance(accountId);
+    return {
+      accountId,
+      boundApps: this.getBoundApps(accountId),
+      sharedCredits,
+    };
+  }
+
   private resolveAccountBalance(accountId: string): number {
     const existing = this.accountPools.get(accountId);
     if (existing !== undefined) return existing;
@@ -880,6 +961,23 @@ export class MarketplaceService {
     return balance;
   }
 
+  private isKnownVerticalOrApp(slug: string): boolean {
+    const clean = slug.trim().toLowerCase();
+    const verticals = new Set([
+      "supportv8",
+      "servicev8-runtime",
+      "runtime",
+      "orderv8",
+      "carev8",
+      "propv8",
+      "growthv8",
+      "dominion",
+      "workerv8",
+      "meridianv8",
+    ]);
+    return verticals.has(clean);
+  }
+
   public registerRuntimeTenant(
     domainOrSlug: string,
     accountId?: string,
@@ -887,11 +985,14 @@ export class MarketplaceService {
     planId?: string
   ): void {
     const cleanDomain = domainOrSlug.trim().toLowerCase();
-    this.runtimeTenants.set(cleanDomain, { accountId, workspaceId, planId });
+    if (!this.isKnownVerticalOrApp(cleanDomain)) {
+      this.runtimeTenants.set(cleanDomain, { accountId, workspaceId, planId });
+    }
     if (workspaceId) {
       this.runtimeTenants.set(workspaceId.trim().toLowerCase(), { accountId, workspaceId, planId });
     }
     if (accountId) {
+      this.bindAppsToAccount(accountId, cleanDomain, ...(workspaceId ? [workspaceId] : []));
       if (planId) {
         this.enablePlanForAccount(accountId, planId);
       } else if (!this.accountPools.has(accountId)) {
@@ -902,27 +1003,55 @@ export class MarketplaceService {
 
   public isRuntimeTenant(
     tenantSlug?: string,
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): boolean {
     if (context?.runtimeLinked || context?.accountId) return true;
+    if (context?.sourceApp || context?.sourceVertical || context?.boundApp) return true;
     if (!tenantSlug) return false;
     const clean = tenantSlug.trim().toLowerCase();
-    return clean.startsWith("tenant_rt_") || this.runtimeTenants.has(clean);
+    return clean.startsWith("tenant_rt_") || this.runtimeTenants.has(clean) || this.appToAccount.has(clean);
   }
 
   public resolveAccountId(
     tenantSlug?: string,
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): string | undefined {
     if (context?.accountId) {
       if (tenantSlug) {
-        this.registerRuntimeTenant(tenantSlug, context.accountId);
+        if (!this.isKnownVerticalOrApp(tenantSlug)) {
+          this.registerRuntimeTenant(tenantSlug, context.accountId);
+        }
+        this.bindAppsToAccount(context.accountId, tenantSlug);
       }
       return context.accountId;
     }
+    if (context?.boundApp && this.appToAccount.has(context.boundApp.trim().toLowerCase())) {
+      return this.appToAccount.get(context.boundApp.trim().toLowerCase());
+    }
+    if (context?.sourceApp && this.appToAccount.has(context.sourceApp.trim().toLowerCase())) {
+      return this.appToAccount.get(context.sourceApp.trim().toLowerCase());
+    }
+    if (context?.sourceVertical && this.appToAccount.has(context.sourceVertical.trim().toLowerCase())) {
+      return this.appToAccount.get(context.sourceVertical.trim().toLowerCase());
+    }
     if (!tenantSlug) return undefined;
     const clean = tenantSlug.trim().toLowerCase();
-    return this.runtimeTenants.get(clean)?.accountId;
+    if (this.isKnownVerticalOrApp(clean)) {
+      return this.appToAccount.get(clean);
+    }
+    return this.runtimeTenants.get(clean)?.accountId || this.appToAccount.get(clean);
   }
 
   public async syncForgeAccountPool(accountId: string, fetchImpl: typeof fetch = fetch): Promise<number | null> {
@@ -974,13 +1103,19 @@ export class MarketplaceService {
 
   public getCredits(
     tenantSlug = "acme",
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): number {
+    const accountId = this.resolveAccountId(tenantSlug, context);
+    if (accountId) {
+      return this.resolveAccountBalance(accountId);
+    }
     if (this.isRuntimeTenant(tenantSlug, context)) {
-      const accountId = this.resolveAccountId(tenantSlug, context);
-      if (accountId) {
-        return this.resolveAccountBalance(accountId);
-      }
       return this.getCommonPoolCredits();
     }
     return this.stateFor(tenantSlug).credits;
@@ -989,14 +1124,21 @@ export class MarketplaceService {
   public setCredits(
     amount: number,
     tenantSlug = "acme",
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): number {
     const updated = Math.max(0, amount);
+    const accountId = this.resolveAccountId(tenantSlug, context);
+    if (accountId) {
+      this.accountPools.set(accountId, updated);
+      return updated;
+    }
     if (this.isRuntimeTenant(tenantSlug, context)) {
-      const accountId = this.resolveAccountId(tenantSlug, context);
-      if (accountId) {
-        this.accountPools.set(accountId, updated);
-      }
       return updated;
     }
     const state = this.stateFor(tenantSlug);
@@ -1008,18 +1150,26 @@ export class MarketplaceService {
     amount: number,
     reason: string,
     tenantSlug = "acme",
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): { remaining: number; deducted: number; reason: string } {
-    if (this.isRuntimeTenant(tenantSlug, context)) {
-      const accountId = this.resolveAccountId(tenantSlug, context);
-      const current = accountId
-        ? this.resolveAccountBalance(accountId)
-        : this.getCommonPoolCredits();
+    const accountId = this.resolveAccountId(tenantSlug, context);
+    if (accountId) {
+      const current = this.resolveAccountBalance(accountId);
       const deducted = Math.min(current, Math.max(0, amount));
       const remaining = Math.max(0, current - deducted);
-      if (accountId) {
-        this.accountPools.set(accountId, remaining);
-      }
+      this.accountPools.set(accountId, remaining);
+      return { remaining, deducted, reason };
+    }
+    if (this.isRuntimeTenant(tenantSlug, context)) {
+      const current = this.getCommonPoolCredits();
+      const deducted = Math.min(current, Math.max(0, amount));
+      const remaining = Math.max(0, current - deducted);
       return { remaining, deducted, reason };
     }
     const state = this.stateFor(tenantSlug);
@@ -1036,18 +1186,26 @@ export class MarketplaceService {
     amount: number,
     reason: string,
     tenantSlug = "acme",
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): { remaining: number; added: number; reason: string } {
-    if (this.isRuntimeTenant(tenantSlug, context)) {
-      const accountId = this.resolveAccountId(tenantSlug, context);
-      const current = accountId
-        ? this.resolveAccountBalance(accountId)
-        : this.getCommonPoolCredits();
+    const accountId = this.resolveAccountId(tenantSlug, context);
+    if (accountId) {
+      const current = this.resolveAccountBalance(accountId);
       const added = Math.max(0, amount);
       const remaining = current + added;
-      if (accountId) {
-        this.accountPools.set(accountId, remaining);
-      }
+      this.accountPools.set(accountId, remaining);
+      return { remaining, added, reason };
+    }
+    if (this.isRuntimeTenant(tenantSlug, context)) {
+      const current = this.getCommonPoolCredits();
+      const added = Math.max(0, amount);
+      const remaining = current + added;
       return { remaining, added, reason };
     }
     const state = this.stateFor(tenantSlug);
@@ -1127,7 +1285,13 @@ export class MarketplaceService {
   public selectPlan(
     planId: string,
     tenantSlug = "acme",
-    context?: { accountId?: string; runtimeLinked?: boolean }
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
   ): MarketplacePlan & { credits: number } {
     const state = this.stateFor(tenantSlug);
     const allowance = this.getPlanCredits(planId);

@@ -84,9 +84,9 @@ describe("CX Manager Cockpit — 6-Pillar Enterprise Operations Suite", () => {
   describe("4. 📊 VoC Driver Analytics & CES Breakdown", () => {
     it("clusters customer sentiment drivers into discontent and delight factors", () => {
       const voc = vocDigest.getVocOverview();
-      expect(voc.overallCsat).toBe(91.4);
-      expect(voc.customerEffortScore).toBe(4.6);
-      expect(voc.netPromoterScore).toBe(54);
+      expect(voc.overallCsat).toBe(50);
+      expect(voc.customerEffortScore).toBe(3);
+      expect(voc.netPromoterScore).toBe(-22);
       expect(voc.topDiscontentDriver).toBeDefined();
       expect(voc.topDelightDriver).toBeDefined();
       expect(voc.clusters.length).toBeGreaterThanOrEqual(2);

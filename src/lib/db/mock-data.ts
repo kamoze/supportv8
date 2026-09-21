@@ -1403,6 +1403,10 @@ class SupportDatabase {
     };
   }
 
+  public getStaleWork(): StaleWorkCandidate[] {
+    return this.staleWork;
+  }
+
   public getTenantData(slug: string = "acme") {
     const cleanSlug = slug.toLowerCase().trim();
     // Allowed seed tenantIds for the "acme" demo workspace

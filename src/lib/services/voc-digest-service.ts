@@ -238,7 +238,7 @@ export class VocDigestService {
             { rank: 2, topic: "Okta SAML Clock Skew Rejection", count: 2, sentiment: "Urgent Lockout" },
             { rank: 3, topic: "EMEA MFA 2FA SMS Delay", count: 1, sentiment: "Moderate Delay" },
           ],
-      staleTicketsSwept: isClean ? 0 : db.getStaleWork().length,
+      staleTicketsSwept: isClean ? 0 : (typeof db.getStaleWork === "function" ? db.getStaleWork().length : (db.staleWork || []).length),
       recommendedFocusAreas: (isClean || totalIssues === 0)
         ? []
         : [

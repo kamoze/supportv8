@@ -45,6 +45,7 @@ export interface MarketplacePlan {
   priceAnnual: number;
   priceDisplay?: string;
   creditsDisplay?: string;
+  creditsAllowance?: number;
   description?: string;
   actionLabel?: string;
   actionNote?: string;

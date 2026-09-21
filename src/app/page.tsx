@@ -1616,7 +1616,11 @@ export default function SupportV8Dashboard() {
 
       if (res.success) {
         setPlans((prev) => prev.map((p) => ({ ...p, isCurrent: p.id === planId })));
+        if (typeof res.data?.credits === "number") {
+          setForgeGwCredits(res.data.credits);
+        }
         notify(res.message, "success");
+        fetchData();
       }
     } catch (err) {
       notify("Failed to switch plan", "error");

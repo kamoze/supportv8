@@ -22,7 +22,7 @@ describe("Runtime Handoff Common Pool Credits", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns common pool credits (5000) instead of 0 when accessed via runtime handoff session", async () => {
+  it("returns 0 credits when runtime handoff session has no enabled plan, and reflects plan credits once enabled or selected", async () => {
     const accountId = `acct_pool_${Date.now()}`;
     const tenantDomain = `rt-support-${Date.now()}`;
     const workspaceId = `tenant_rt_${"a".repeat(48)}`;
@@ -38,7 +38,7 @@ describe("Runtime Handoff Common Pool Credits", () => {
       role: "support:manage",
     });
 
-    // Test GET /api/credits
+    // Test GET /api/credits without an enabled plan -> strictly 0
     const creditsReq = new NextRequest(`https://${tenantDomain}.support.servicev8.com/api/credits`, {
       headers: {
         cookie: "__Host-sv8_runtime_support=test",
@@ -49,9 +49,9 @@ describe("Runtime Handoff Common Pool Credits", () => {
     const creditsData = await creditsRes.json();
 
     expect(creditsData.success).toBe(true);
-    expect(creditsData.data.credits).toBe(5000);
+    expect(creditsData.data.credits).toBe(0);
 
-    // Test GET /api/marketplace
+    // Test GET /api/marketplace without an enabled plan -> strictly 0
     const marketReq = new NextRequest(`https://${tenantDomain}.support.servicev8.com/api/marketplace`, {
       headers: {
         cookie: "__Host-sv8_runtime_support=test",
@@ -62,7 +62,18 @@ describe("Runtime Handoff Common Pool Credits", () => {
     const marketData = await marketRes.json();
 
     expect(marketData.success).toBe(true);
-    expect(marketData.data.credits).toBe(5000);
+    expect(marketData.data.credits).toBe(0);
+
+    // Now enable/purchase a plan (e.g. Starter tier -> 5000 credits)
+    marketplaceService.enablePlanForAccount(accountId, "plan_starter");
+
+    const creditsResAfter = await getCredits(creditsReq);
+    const creditsDataAfter = await creditsResAfter.json();
+    expect(creditsDataAfter.data.credits).toBe(5000);
+
+    const marketResAfter = await getMarketplace(marketReq);
+    const marketDataAfter = await marketResAfter.json();
+    expect(marketDataAfter.data.credits).toBe(5000);
   });
 
   it("shares credit pool between multiple workspaces deployed under the same account", async () => {
@@ -71,6 +82,8 @@ describe("Runtime Handoff Common Pool Credits", () => {
     const domainB = `rt-ws-b-${Date.now()}`;
     const wsA = `tenant_rt_${"1".repeat(48)}`;
     const wsB = `tenant_rt_${"2".repeat(48)}`;
+
+    marketplaceService.enablePlanForAccount(accountId, "plan_starter");
 
     // Set auth to workspace A
     auth.mockResolvedValue({
@@ -187,10 +200,60 @@ describe("Runtime Handoff Common Pool Credits", () => {
     vi.unstubAllGlobals();
   });
 
-  it("fails soft when Forge Gateway is unreachable and falls back to common pool", async () => {
+  it("derives credit balance from active plan tier during Forge Gateway sync, and zeros out on inactive subscription", async () => {
+    const accountId = `acct_tier_sync_${Date.now()}`;
+    const domain = `rt-tier-sync-${Date.now()}`;
+    const ws = `tenant_rt_${"6".repeat(48)}`;
+
+    auth.mockResolvedValue({
+      access: { email: "growth-user@example.test" },
+      session: { workspaceId: ws, tenantDomain: domain, accountId, sub: "user-growth" },
+      role: "support:manage",
+    });
+
+    vi.stubEnv("FORGE_GATEWAY_URL", "https://forge.test");
+    vi.stubEnv("FORGE_GATEWAY_TOKEN", "test-token");
+
+    // 1. Sync with active "growth" tier without an explicit credits.available -> should derive 27,500
+    let fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        subscription: { status: "active", tier: "growth" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const req = new NextRequest(`https://${domain}.support.servicev8.com/api/credits`, {
+      headers: { cookie: "__Host-sv8_runtime_support=test", host: `${domain}.support.servicev8.com` },
+    });
+    let res = await getCredits(req);
+    let data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.data.credits).toBe(27500);
+
+    // 2. Subscription becomes inactive -> balance drops to 0
+    fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        subscription: { status: "inactive" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    res = await getCredits(req);
+    data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.data.credits).toBe(0);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails soft when Forge Gateway is unreachable and falls back to account's enabled plan or 0", async () => {
     const accountId = `acct_forge_down_${Date.now()}`;
     const domain = `rt-forge-down-${Date.now()}`;
     const ws = `tenant_rt_${"7".repeat(48)}`;
+
+    marketplaceService.enablePlanForAccount(accountId, "plan_starter");
 
     auth.mockResolvedValue({
       access: { email: "user@example.test" },
@@ -224,6 +287,10 @@ describe("Runtime Handoff Common Pool Credits", () => {
 
     expect(marketplaceService.isRuntimeTenant(domain)).toBe(true);
     expect(marketplaceService.isRuntimeTenant(workspaceId)).toBe(true);
+    expect(marketplaceService.getCredits(domain)).toBe(0);
+    expect(marketplaceService.getCredits(workspaceId)).toBe(0);
+
+    marketplaceService.enablePlanForAccount(accountId, "plan_starter");
     expect(marketplaceService.getCredits(domain)).toBe(5000);
     expect(marketplaceService.getCredits(workspaceId)).toBe(5000);
 

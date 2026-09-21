@@ -520,6 +520,19 @@ export const INITIAL_WORKFORCE_CATALOG: MarketplaceWorkforceItem[] = [
   },
 ];
 
+export const PLAN_CREDIT_ALLOWANCES: Record<string, number> = {
+  plan_trial: 2000,
+  trial: 2000,
+  plan_starter: 5000,
+  starter: 5000,
+  plan_growth: 27500,
+  growth: 27500,
+  plan_scale: 115000,
+  scale: 115000,
+  plan_enterprise: 0,
+  enterprise: 0,
+};
+
 export const INITIAL_PLANS: MarketplacePlan[] = [
   {
     id: "plan_trial",
@@ -529,6 +542,7 @@ export const INITIAL_PLANS: MarketplacePlan[] = [
     priceAnnual: 0,
     priceDisplay: "$0",
     creditsDisplay: "2,000 credits/month",
+    creditsAllowance: 2000,
     description: "A first look at managed AI on this account.",
     actionLabel: "Not self-serve",
     actionNote: "Trials aren't started from this page — talk to ServiceV8 to arrange one.",
@@ -552,6 +566,7 @@ export const INITIAL_PLANS: MarketplacePlan[] = [
     priceAnnual: 20,
     priceDisplay: "$25/mo",
     creditsDisplay: "5,000 credits/month",
+    creditsAllowance: 5000,
     description: "For a single site getting started with managed AI.",
     actionLabel: "Current plan",
     actionNote: "This is the package this account is on.",
@@ -576,6 +591,7 @@ export const INITIAL_PLANS: MarketplacePlan[] = [
     priceAnnual: 80,
     priceDisplay: "$100/mo",
     creditsDisplay: "27,500 credits/month",
+    creditsAllowance: 27500,
     description: "For teams running customization and workflows day to day.",
     actionLabel: "CHOOSE PLAN",
     isCurrent: false,
@@ -600,6 +616,7 @@ export const INITIAL_PLANS: MarketplacePlan[] = [
     priceAnnual: 280,
     priceDisplay: "$350/mo",
     creditsDisplay: "115,000 credits/month",
+    creditsAllowance: 115000,
     description: "For higher-volume estates running frequent builds and agents.",
     actionLabel: "CHOOSE PLAN",
     isCurrent: false,
@@ -625,6 +642,7 @@ export const INITIAL_PLANS: MarketplacePlan[] = [
     priceAnnual: 0,
     priceDisplay: "Contact sales",
     creditsDisplay: "Allowance agreed with sales",
+    creditsAllowance: 0,
     description: "Custom allowance, invoicing and terms.",
     actionLabel: "CONTACT SALES",
     isCurrent: false,
@@ -768,6 +786,7 @@ export class MarketplaceService {
 
   private readonly accountPools = new Map<string, number>();
   private readonly runtimeTenants = new Map<string, { accountId?: string; workspaceId?: string }>();
+  private readonly accountPlans = new Map<string, string>();
 
   private clone<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
@@ -822,20 +841,62 @@ export class MarketplaceService {
     return state;
   }
 
-  public getCommonPoolCredits(): number {
-    const raw = process.env.SUPPORTV8_COMMON_POOL_CREDITS || process.env.COMMON_POOL_CREDITS;
-    const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 5000;
+  public getPlanCredits(planIdOrTier: string): number {
+    const clean = planIdOrTier.trim().toLowerCase();
+    if (clean in PLAN_CREDIT_ALLOWANCES) {
+      return PLAN_CREDIT_ALLOWANCES[clean];
+    }
+    const plans = this.getPlans();
+    const match = plans.find((p) => p.id.toLowerCase() === clean || p.name.toLowerCase() === clean);
+    return match?.creditsAllowance ?? 0;
   }
 
-  public registerRuntimeTenant(domainOrSlug: string, accountId?: string, workspaceId?: string): void {
-    const cleanDomain = domainOrSlug.trim().toLowerCase();
-    this.runtimeTenants.set(cleanDomain, { accountId, workspaceId });
-    if (workspaceId) {
-      this.runtimeTenants.set(workspaceId.trim().toLowerCase(), { accountId, workspaceId });
+  public getCommonPoolCredits(planIdOrTier?: string): number {
+    if (planIdOrTier) {
+      return this.getPlanCredits(planIdOrTier);
     }
-    if (accountId && !this.accountPools.has(accountId)) {
-      this.accountPools.set(accountId, this.getCommonPoolCredits());
+    const raw = process.env.SUPPORTV8_COMMON_POOL_CREDITS || process.env.COMMON_POOL_CREDITS;
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
+  public enablePlanForAccount(accountId: string, planId: string): { planId: string; credits: number } {
+    const allowance = this.getPlanCredits(planId);
+    this.accountPlans.set(accountId, planId);
+    this.accountPools.set(accountId, allowance);
+    return { planId, credits: allowance };
+  }
+
+  public getAccountPlan(accountId: string): string | undefined {
+    return this.accountPlans.get(accountId);
+  }
+
+  private resolveAccountBalance(accountId: string): number {
+    const existing = this.accountPools.get(accountId);
+    if (existing !== undefined) return existing;
+    const plan = this.accountPlans.get(accountId);
+    const balance = plan ? this.getPlanCredits(plan) : this.getCommonPoolCredits();
+    this.accountPools.set(accountId, balance);
+    return balance;
+  }
+
+  public registerRuntimeTenant(
+    domainOrSlug: string,
+    accountId?: string,
+    workspaceId?: string,
+    planId?: string
+  ): void {
+    const cleanDomain = domainOrSlug.trim().toLowerCase();
+    this.runtimeTenants.set(cleanDomain, { accountId, workspaceId, planId });
+    if (workspaceId) {
+      this.runtimeTenants.set(workspaceId.trim().toLowerCase(), { accountId, workspaceId, planId });
+    }
+    if (accountId) {
+      if (planId) {
+        this.enablePlanForAccount(accountId, planId);
+      } else if (!this.accountPools.has(accountId)) {
+        this.resolveAccountBalance(accountId);
+      }
     }
   }
 
@@ -885,11 +946,25 @@ export class MarketplaceService {
       });
       if (!res.ok) return null;
       const body = (await res.json().catch(() => null)) as {
+        subscription?: { status?: string; tier?: string; plan?: string } | null;
         credits?: { available?: unknown; serviceActive?: unknown };
       } | null;
-      if (body && typeof body.credits?.available === "number" && Number.isFinite(body.credits.available)) {
-        this.accountPools.set(accountId, body.credits.available);
-        return body.credits.available;
+      if (body) {
+        const planTier = body.subscription?.tier || body.subscription?.plan;
+        if (planTier && body.subscription?.status === "active") {
+          this.accountPlans.set(accountId, planTier);
+        }
+        if (typeof body.credits?.available === "number" && Number.isFinite(body.credits.available)) {
+          this.accountPools.set(accountId, body.credits.available);
+          return body.credits.available;
+        } else if (planTier && body.subscription?.status === "active") {
+          const planCredits = this.getPlanCredits(planTier);
+          this.accountPools.set(accountId, planCredits);
+          return planCredits;
+        } else if (body.subscription === null || body.subscription?.status === "inactive") {
+          this.accountPools.set(accountId, 0);
+          return 0;
+        }
       }
     } catch {
       // Fail-soft: retain current pool balance
@@ -904,10 +979,7 @@ export class MarketplaceService {
     if (this.isRuntimeTenant(tenantSlug, context)) {
       const accountId = this.resolveAccountId(tenantSlug, context);
       if (accountId) {
-        if (!this.accountPools.has(accountId)) {
-          this.accountPools.set(accountId, this.getCommonPoolCredits());
-        }
-        return this.accountPools.get(accountId)!;
+        return this.resolveAccountBalance(accountId);
       }
       return this.getCommonPoolCredits();
     }
@@ -941,7 +1013,7 @@ export class MarketplaceService {
     if (this.isRuntimeTenant(tenantSlug, context)) {
       const accountId = this.resolveAccountId(tenantSlug, context);
       const current = accountId
-        ? (this.accountPools.get(accountId) ?? this.getCommonPoolCredits())
+        ? this.resolveAccountBalance(accountId)
         : this.getCommonPoolCredits();
       const deducted = Math.min(current, Math.max(0, amount));
       const remaining = Math.max(0, current - deducted);
@@ -969,7 +1041,7 @@ export class MarketplaceService {
     if (this.isRuntimeTenant(tenantSlug, context)) {
       const accountId = this.resolveAccountId(tenantSlug, context);
       const current = accountId
-        ? (this.accountPools.get(accountId) ?? this.getCommonPoolCredits())
+        ? this.resolveAccountBalance(accountId)
         : this.getCommonPoolCredits();
       const added = Math.max(0, amount);
       const remaining = current + added;
@@ -1052,14 +1124,31 @@ export class MarketplaceService {
     return { ...item };
   }
 
-  public selectPlan(planId: string, tenantSlug = "acme"): MarketplacePlan {
-    const plans = this.stateFor(tenantSlug).plans;
-    plans.forEach((p) => {
+  public selectPlan(
+    planId: string,
+    tenantSlug = "acme",
+    context?: { accountId?: string; runtimeLinked?: boolean }
+  ): MarketplacePlan & { credits: number } {
+    const state = this.stateFor(tenantSlug);
+    const allowance = this.getPlanCredits(planId);
+
+    state.plans.forEach((p) => {
       p.isCurrent = p.id === planId;
     });
-    const current = plans.find((p) => p.isCurrent);
+    const current = state.plans.find((p) => p.isCurrent);
     if (!current) throw new Error(`Plan ${planId} not found`);
-    return { ...current };
+
+    const accountId = this.resolveAccountId(tenantSlug, context);
+    if (accountId) {
+      this.enablePlanForAccount(accountId, planId);
+    } else {
+      if (state.credits === 0) {
+        state.credits = allowance;
+      }
+    }
+
+    const effectiveCredits = this.getCredits(tenantSlug, context);
+    return { ...current, credits: effectiveCredits };
   }
 
   public inviteMember(name: string, email: string, role: TenantMember["role"], tenantSlug = "acme"): TenantMember {

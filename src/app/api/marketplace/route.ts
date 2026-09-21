@@ -93,11 +93,15 @@ export async function POST(req: NextRequest) {
 
     if (action === "select_plan") {
       const { planId } = body;
-      const plan = marketplaceService.selectPlan(planId, tenant.tenantSlug);
+      const plan = marketplaceService.selectPlan(planId, tenant.tenantSlug, tenant);
+      const currentCredits = marketplaceService.getCredits(tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
         message: `Tenant subscription upgraded to ${plan.name} Tier!`,
-        data: plan,
+        data: {
+          ...plan,
+          credits: currentCredits,
+        },
       });
     }
 

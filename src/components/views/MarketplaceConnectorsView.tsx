@@ -55,6 +55,54 @@ export function MarketplaceConnectorsView({
   const [verticalDispatchLoading, setVerticalDispatchLoading] = useState<boolean>(false);
   const [verticalDispatchResult, setVerticalDispatchResult] = useState<any | null>(null);
 
+  // Stripe Connector Integration States
+  const [stripeTesting, setStripeTesting] = useState<boolean>(false);
+  const [stripeSimulating, setStripeSimulating] = useState<boolean>(false);
+  const [stripeSimulateType, setStripeSimulateType] = useState<string>("charge.failed");
+
+  const handleTestStripe = async () => {
+    setStripeTesting(true);
+    try {
+      const res = await fetch("/api/connectors/stripe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test_connection" }),
+      }).then((r) => r.json());
+      if (res.success) {
+        if (onNotify) onNotify(res.message || "Stripe connection verified successfully!", "success");
+      } else {
+        if (onNotify) onNotify(res.error || "Stripe connection failed", "error");
+      }
+    } catch {
+      if (onNotify) onNotify("Failed to reach Stripe connector API", "error");
+    } finally {
+      setStripeTesting(false);
+    }
+  };
+
+  const handleSimulateStripe = async () => {
+    setStripeSimulating(true);
+    try {
+      const res = await fetch("/api/connectors/stripe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "simulate_event",
+          payload: { type: stripeSimulateType },
+        }),
+      }).then((r) => r.json());
+      if (res.success) {
+        if (onNotify) onNotify(res.message || `Simulated ${stripeSimulateType} event successfully!`, "success");
+      } else {
+        if (onNotify) onNotify(res.error || "Failed to simulate Stripe event", "error");
+      }
+    } catch {
+      if (onNotify) onNotify("Failed to trigger webhook simulation", "error");
+    } finally {
+      setStripeSimulating(false);
+    }
+  };
+
   const defaultVerticals = [
     { vertical: "orderv8", name: "OrderV8 (Commerce & Refunds)", endpointUrl: "http://orderv8.servicev8.internal:3000", latencyMs: 38, supportedOperations: ["order.lookup", "order.refund", "invoice.generate"] },
     { vertical: "carev8", name: "CareV8 (Healthcare & Patients)", endpointUrl: "http://carev8.servicev8.internal:3000", latencyMs: 44, supportedOperations: ["patient.lookup", "appointment.list", "chart.summary"] },
@@ -525,7 +573,119 @@ export function MarketplaceConnectorsView({
             </div>
 
             <div className="space-y-3.5">
-              {selectedConnectorConfig.id.includes("s3") || selectedConnectorConfig.name.includes("S3") ? (
+              {selectedConnectorConfig.id === "conn_stripe" ? (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-xl bg-[#141C26] border border-[#2ED8B6]/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#2ED8B6] flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Live Webhook Ingress Endpoint
+                      </span>
+                      <span className="pill ok text-[9px]">TLS Verified</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${typeof window !== "undefined" ? window.location.origin : "https://app.supportv8.internal"}/api/webhooks/stripe`}
+                        className="w-full bg-[#0B1017] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-[11px] text-[#EAF1F8] font-mono select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const url = `${window.location.origin}/api/webhooks/stripe`;
+                          navigator.clipboard?.writeText(url);
+                          if (onNotify) onNotify("Copied Stripe webhook endpoint URL to clipboard!", "success");
+                        }}
+                        className="btn btn-secondary text-[11px] px-2.5 py-1.5 cursor-pointer shrink-0"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-[#6B7C8D]">
+                      Paste this URL into your <strong>Stripe Dashboard &gt; Developers &gt; Webhooks</strong>. Events handled: <code className="text-[#B4C2D0]">charge.failed</code>, <code className="text-[#B4C2D0]">payment_intent.payment_failed</code>, <code className="text-[#B4C2D0]">charge.dispute.created</code>, <code className="text-[#B4C2D0]">customer.subscription.deleted</code>.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#B4C2D0] block">Stripe Publishable Key</label>
+                      <input
+                        type="text"
+                        defaultValue="pk_test_••••••••••••"
+                        placeholder="pk_test_51..."
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#B4C2D0] block">Stripe Secret API Key</label>
+                      <input
+                        type="password"
+                        defaultValue="sk_test_••••••••••••"
+                        placeholder="sk_test_51..."
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#B4C2D0] block">Webhook Signing Secret</label>
+                      <input
+                        type="password"
+                        defaultValue="whsec_••••••••••••"
+                        placeholder="whsec_..."
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#B4C2D0] block">Autonomous Refund Limit ($)</label>
+                      <input
+                        type="text"
+                        defaultValue="50.00"
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stripe Testing & Simulation Bar */}
+                  <div className="p-3 rounded-xl bg-[#0B1017] border border-[var(--line)] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#EAF1F8] uppercase tracking-wide">Live Diagnostics &amp; Webhook Simulation</span>
+                      <button
+                        type="button"
+                        onClick={handleTestStripe}
+                        disabled={stripeTesting}
+                        className="text-xs text-[#2ED8B6] hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${stripeTesting ? "animate-spin" : ""}`} />
+                        <span>{stripeTesting ? "Testing..." : "Test Connection"}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <select
+                        value={stripeSimulateType}
+                        onChange={(e) => setStripeSimulateType(e.target.value)}
+                        className="bg-[#18222E] text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line-2)] text-[11px] focus:outline-none cursor-pointer flex-1"
+                      >
+                        <option value="charge.failed">Simulate charge.failed ($49.00)</option>
+                        <option value="charge.dispute.created">Simulate charge.dispute.created ($129.00)</option>
+                        <option value="customer.subscription.deleted">Simulate customer.subscription.deleted ($79.00/mo)</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleSimulateStripe}
+                        disabled={stripeSimulating}
+                        className="btn btn-secondary text-[11px] py-1.5 px-3 flex items-center gap-1 text-[#4D9FFF] border-[#4D9FFF]/30 hover:bg-[#4D9FFF]/10 cursor-pointer shrink-0 disabled:opacity-50"
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span>{stripeSimulating ? "Simulating..." : "Send Test Event"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedConnectorConfig.id.includes("s3") || selectedConnectorConfig.name.includes("S3") ? (
                 <>
                   <div className="space-y-1">
                     <label className="text-[11px] text-[#B4C2D0] block">AWS S3 Bucket Name / Domain</label>

@@ -128,7 +128,7 @@ export function GlobalLandingView({
           <h1>One desk.<br />Every path to resolution.</h1>
           <p>Bring customer issues, field work and recurring problems into a shared work desk. Keep human decisions, AI assistance and governed actions in context.</p>
           <div className="family-hero-actions">
-            <button type="button" onClick={onOpenSignup} className="btn btn-primary">Get Started Free <ArrowRight size={16} /></button>
+            <button type="button" onClick={onOpenSignup} className="btn btn-primary">Get Started <ArrowRight size={16} /></button>
             <button type="button" onClick={() => handleLaunchDemo("acme")} className="btn btn-secondary">Explore the work desk <ArrowRight size={16} /></button>
             <a href="#capabilities">See how it works</a>
           </div>
@@ -558,7 +558,7 @@ export function GlobalLandingView({
               onClick={onOpenSignup}
               className="btn btn-primary px-8 py-3.5 rounded-2xl text-sm font-bold shadow-xl shadow-[#2ED8B6]/30 flex items-center gap-2 cursor-pointer"
             >
-              <span>Get Started Free</span>
+              <span>Get Started</span>
               <ChevronRight className="w-4 h-4" />
             </button>
 

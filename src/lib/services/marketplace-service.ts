@@ -521,8 +521,6 @@ export const INITIAL_WORKFORCE_CATALOG: MarketplaceWorkforceItem[] = [
 ];
 
 export const PLAN_CREDIT_ALLOWANCES: Record<string, number> = {
-  plan_trial: 2000,
-  trial: 2000,
   plan_starter: 5000,
   starter: 5000,
   plan_growth: 27500,
@@ -531,33 +529,12 @@ export const PLAN_CREDIT_ALLOWANCES: Record<string, number> = {
   scale: 115000,
   plan_enterprise: 0,
   enterprise: 0,
+  // There are no trial credits. Defensive fallback ensures trial lookups resolve to 0.
+  plan_trial: 0,
+  trial: 0,
 };
 
 export const INITIAL_PLANS: MarketplacePlan[] = [
-  {
-    id: "plan_trial",
-    name: "Trial",
-    badge: "No card required",
-    priceMonthly: 0,
-    priceAnnual: 0,
-    priceDisplay: "$0",
-    creditsDisplay: "2,000 credits/month",
-    creditsAllowance: 2000,
-    description: "A first look at managed AI on this account.",
-    actionLabel: "Not self-serve",
-    actionNote: "Trials aren't started from this page — talk to ServiceV8 to arrange one.",
-    isCurrent: false,
-    isSelfServe: false,
-    features: [
-      "2,000 credits / month allowance",
-      "1 Managed AI Employee seat",
-      "Single-channel chat widget intake",
-      "Community knowledge RAG access",
-    ],
-    slaCommitment: "Standard Community SLA",
-    computeUnits: "2,000 Credits / mo",
-    aiEmployeeSeats: 1,
-  },
   {
     id: "plan_starter",
     name: "Starter",

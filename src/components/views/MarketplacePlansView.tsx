@@ -74,7 +74,7 @@ export function MarketplacePlansView({
       </div>
 
       {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {plans.map((plan) => {
           const price = billingCycle === "annual" ? plan.priceAnnual : plan.priceMonthly;
           const isCurrent = plan.isCurrent;
@@ -140,20 +140,7 @@ export function MarketplacePlansView({
 
               {/* Action Button & Note */}
               <div className="pt-3 border-t border-[var(--line)]">
-                {plan.id === "plan_trial" ? (
-                  <div>
-                    <button
-                      type="button"
-                      disabled
-                      className="btn w-full py-2.5 text-xs font-bold border border-[var(--line)] bg-[#141C26] text-[#8E9AA8] cursor-not-allowed"
-                    >
-                      Not self-serve
-                    </button>
-                    <p className="text-[10px] text-[#8E9AA8] text-center mt-2 leading-tight">
-                      Trials aren&apos;t started from this page — talk to ServiceV8 to arrange one.
-                    </p>
-                  </div>
-                ) : isCurrent ? (
+                {isCurrent ? (
                   <div>
                     <button
                       type="button"

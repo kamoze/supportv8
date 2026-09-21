@@ -57,9 +57,10 @@ describe("Marketplace & Governance Suite", () => {
     expect(hired.avatarUrl).toContain("beaver-eleanor.jpg");
   });
 
-  it("should switch subscription tiers between Trial, Starter, Growth, Scale, and Enterprise", () => {
+  it("should switch subscription tiers between Starter, Growth, Scale, and Enterprise", () => {
     const plans = marketplaceService.getPlans();
-    expect(plans.length).toBe(5);
+    expect(plans.length).toBe(4);
+    expect(plans.some((p) => p.id === "plan_trial")).toBe(false);
 
     const growth = marketplaceService.selectPlan("plan_growth");
     expect(growth.isCurrent).toBe(true);
@@ -68,6 +69,17 @@ describe("Marketplace & Governance Suite", () => {
     const allPlans = marketplaceService.getPlans();
     const starter = allPlans.find((p) => p.id === "plan_starter");
     expect(starter?.isCurrent).toBe(false);
+  });
+
+  it("ensures there are no trial credits and trial tier does not exist in plans", () => {
+    const plans = marketplaceService.getPlans();
+    expect(plans.find((p) => p.id === "plan_trial")).toBeUndefined();
+    expect(marketplaceService.getPlanCredits("plan_trial")).toBe(0);
+    expect(marketplaceService.getPlanCredits("trial")).toBe(0);
+
+    const tenant = `no-trial-${Date.now()}`;
+    expect(() => marketplaceService.selectPlan("plan_trial", tenant)).toThrowError(/not found/i);
+    expect(marketplaceService.getCredits(tenant)).toBe(0);
   });
 
   it("should invite and register tenant team members with RBAC roles", () => {

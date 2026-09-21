@@ -781,7 +781,7 @@ export function GovernanceSettingsView({
                     <span>{embeddingStatusMsg}</span>
                   </span>
                 ) : (
-                  <span className="text-[#6B7C8D]">Test vectorization creates a live {embeddingDimensions}-dim embedding trial.</span>
+                  <span className="text-[#6B7C8D]">Test vectorization creates a live {embeddingDimensions}-dim embedding test.</span>
                 )}
               </div>
 

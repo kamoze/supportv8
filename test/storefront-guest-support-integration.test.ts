@@ -73,10 +73,11 @@ describe("Tenant Isolation: Corporate Default vs Asun Palace Storefront", () => 
       tenantId: "acme",
       sessionId: "sess_corp",
       stream: "customers",
-      customer: { id: "c1", name: "Corp Exec", email: "exec@acme.com", sentimentScore: 0.9, vipStatus: true },
+      customer: { name: "Corp Exec", email: "exec@acme.com", sentimentScore: 0.9 },
       conversationHistory: [
-        { id: "m1", sender: "customer", content: "Can you check on my order delivery status?", timestamp: new Date().toISOString() },
+        { role: "user", content: "Can you check on my order delivery status?" },
       ],
+      retrievedCitations: [],
     };
 
     // Corporate context should NOT plan order_lookup
@@ -87,11 +88,12 @@ describe("Tenant Isolation: Corporate Default vs Asun Palace Storefront", () => 
       tenantId: "apalace",
       sessionId: "sess_store",
       stream: "customers",
-      customer: { id: "c2", name: "Valued Shopper", email: "shopper@example.com", sentimentScore: 0.8, vipStatus: false },
+      customer: { name: "Valued Shopper", email: "shopper@example.com", sentimentScore: 0.8 },
       intakeData: { accountOrOrderId: "ORD-99182" },
       conversationHistory: [
-        { id: "m2", sender: "customer", content: "Can you check the delivery status of my food order please?", timestamp: new Date().toISOString() },
+        { role: "user", content: "Can you check the delivery status of my food order please?" },
       ],
+      retrievedCitations: [],
     };
 
     // Asun Palace context DOES plan order_lookup

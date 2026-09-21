@@ -2531,7 +2531,7 @@ export default function SupportV8Dashboard() {
 
           // Live CSAT calculation
           const positiveIssueCount = issues.filter(
-            (i) => (i.sentimentScore ?? 0) >= -0.3 && i.sentiment !== "angry" && i.sentiment !== "urgent"
+            (i) => (i.sentimentScore ?? 0) >= -0.3 && i.sentiment !== "frustrated"
           ).length;
           const liveCsat = overview.csat > 0
             ? overview.csat
@@ -2539,7 +2539,7 @@ export default function SupportV8Dashboard() {
             ? qaData.overallQaAverage
             : issues.length > 0
             ? parseFloat(((positiveIssueCount / issues.length) * 100).toFixed(1))
-            : 92.4;
+            : 0;
 
           // Live Ingress Volume
           const totalIngressEvents = sources.reduce((sum, s) => sum + (s.eventCountToday || 0), 0);
@@ -2547,9 +2547,7 @@ export default function SupportV8Dashboard() {
             ? overview.issueVolume
             : totalIngressEvents > 0
             ? totalIngressEvents
-            : issues.length > 0
-            ? issues.length * 115
-            : 2674;
+            : issues.length;
 
           // Live VARR & Resolution Tiers
           const autonomousResolvedCount = issues.filter(
@@ -2562,14 +2560,14 @@ export default function SupportV8Dashboard() {
             ? overview.varrRate
             : issues.length > 0
             ? parseFloat(((autonomousResolvedCount / issues.length) * 100).toFixed(1))
-            : 76.5;
+            : 0;
 
           const copilotAssistedCount = issues.filter(
             (i) => (i.confidence ?? 0) >= 0.5 && (i.confidence ?? 0) < 0.85 && i.status !== "resolved"
           ).length;
           const copilotRate = issues.length > 0
             ? parseFloat(((copilotAssistedCount / issues.length) * 100).toFixed(1))
-            : 16.8;
+            : 0;
           const humanEscalatedRate = Math.max(0, parseFloat((100 - liveVarr - copilotRate).toFixed(1)));
 
           // Live Business Exposure
@@ -2577,12 +2575,12 @@ export default function SupportV8Dashboard() {
             ? overview.businessExposure
             : activeProblemsList.reduce((s, p) => s + (p.estimatedRevenueExposure || 0), 0) ||
               customerHealthData?.totalArrAtRisk ||
-              48500;
+              0;
 
           // Sentiment Breakdown
           const sentimentPositiveCount = issues.filter((i) => (i.sentimentScore ?? 0) > 0.2 || i.sentiment === "positive" || i.sentiment === "happy").length;
           const sentimentNeutralCount = issues.filter((i) => ((i.sentimentScore ?? 0) >= -0.2 && (i.sentimentScore ?? 0) <= 0.2) || i.sentiment === "neutral").length;
-          const sentimentFrustratedCount = issues.filter((i) => (i.sentimentScore ?? 0) < -0.2 || i.sentiment === "urgent" || i.sentiment === "angry" || i.sentiment === "negative").length;
+          const sentimentFrustratedCount = issues.filter((i) => (i.sentimentScore ?? 0) < -0.2 || i.sentiment === "frustrated").length;
           const totalSentimentIssues = issues.length || (sentimentPositiveCount + sentimentNeutralCount + sentimentFrustratedCount) || 1;
           const positivePct = issues.length > 0 ? Math.round((sentimentPositiveCount / totalSentimentIssues) * 100) : 0;
           const neutralPct = issues.length > 0 ? Math.round((sentimentNeutralCount / totalSentimentIssues) * 100) : 0;
@@ -2595,160 +2593,71 @@ export default function SupportV8Dashboard() {
           // Action Required Items
           const displayNeedsAttention = (overview.needsAttention && overview.needsAttention.length > 0)
             ? overview.needsAttention
-            : [
-                {
-                  id: "na_prob_1",
-                  severity: "critical",
-                  title: "SAML 2.0 Identity & SCIM Synchronization Surge",
-                  description: "46 enterprise customers affected across Okta and Google Workspace. Estimated $48K revenue exposure.",
-                  impactText: "CRITICAL REVENUE AT RISK ($48K)",
-                  actionText: "Investigate Problem",
-                  targetTab: "problems",
-                },
-                {
-                  id: "na_prob_2",
-                  severity: "warning",
-                  title: "Payment Gateway 504 Gateway Timeouts",
-                  description: "Safari iOS checkout failures detected on checkout flow. Autonomous mitigation active.",
-                  impactText: "ELEVATED CART ABANDONMENT",
-                  actionText: "Review Problem",
-                  targetTab: "problems",
-                },
-                {
-                  id: "na_gap_1",
-                  severity: "knowledge",
-                  title: "Surge in FIDO2 Hardware Key Inquiries",
-                  description: "28 recurring tickets opened today. Proposed Knowledge Article ready for one-click publishing.",
-                  impactText: "KNOWLEDGE GAP DETECTED",
-                  actionText: "Review KB Proposal",
-                  targetTab: "knowledge",
-                },
-              ];
+            : [];
 
-          // Channel Ingress Distribution Data
-          const channelSources = [
-            {
-              id: "email",
-              name: "Zendesk & Email Ingress",
-              protocol: "Email / IMAP",
-              volume: sources.find((s) => s.type === "zendesk")?.eventCountToday || 1420,
-              share: "48.2%",
-              sla: "99.2%",
-              status: "Streaming",
-              icon: MessageSquare,
-              badgeColor: "ok",
-            },
-            {
-              id: "chat",
-              name: "Intercom & Web Chat SDK",
-              protocol: "Realtime WebSocket",
-              volume: sources.find((s) => s.type === "intercom")?.eventCountToday || 890,
-              share: "30.4%",
-              sla: "98.6%",
-              status: "Streaming",
-              icon: MessagesSquare,
-              badgeColor: "ok",
-            },
-            {
-              id: "voice",
-              name: "Twilio Voice Contact Center",
-              protocol: "WebRTC / SIP Trunk",
-              volume: sources.find((s) => s.type === "twilio_voice")?.eventCountToday || 310,
-              share: "10.6%",
-              sla: "96.8%",
-              status: "Active",
-              icon: PhoneCall,
-              badgeColor: "route",
-            },
-            {
-              id: "whatsapp",
-              name: "WhatsApp Business API",
-              protocol: "Meta Cloud Webhook",
-              volume: 245,
-              share: "7.6%",
-              sla: "98.0%",
-              status: "Active",
-              icon: Radio,
-              badgeColor: "ok",
-            },
-            {
-              id: "portal",
-              name: "Customer Portal & Self-Serve KB",
-              protocol: "Vector RAG Sync",
-              volume: sources.find((s) => s.type === "knowledgev8")?.eventCountToday || 115,
-              share: "3.2%",
-              sla: "100%",
-              status: "Synchronized",
-              icon: Globe,
-              badgeColor: "ok",
-            },
-          ];
+          // Channel Ingress Distribution Data (dynamically mapped from connected sources)
+          const totalChannelEvents = sources.reduce((sum, s) => sum + (s.eventCountToday || 0), 0);
+          const channelSources = sources.map((s) => {
+            const vol = s.eventCountToday || 0;
+            const share = totalChannelEvents > 0 ? `${((vol / totalChannelEvents) * 100).toFixed(1)}%` : "0.0%";
+            return {
+              id: s.id,
+              name: s.name,
+              protocol: s.type === "zendesk" ? "Email / IMAP" : s.type === "intercom" ? "Realtime WebSocket" : s.type === "twilio_voice" ? "WebRTC / SIP Trunk" : s.type === "stripe" ? "Stripe Webhooks" : "Vector RAG Sync",
+              volume: vol,
+              share,
+              sla: s.status === "connected" ? "99.2%" : "0%",
+              status: s.status === "connected" ? "Streaming" : "Disconnected",
+              icon: s.type === "twilio_voice" ? PhoneCall : s.type === "intercom" ? MessagesSquare : s.type === "knowledgev8" ? Globe : MessageSquare,
+              badgeColor: s.status === "connected" ? "ok" : "warn",
+            };
+          });
 
-          // AI Workforce Employees
-          const activeWorkforce = [
-            {
-              id: "emp_sophia",
-              name: "Sophia",
-              title: "Lead Customer Support AI",
-              tier: "Tier 1 Full Autonomy",
-              specialty: "Checkout, Auth & Billing Inquiries",
-              handled: 342,
-              accuracy: 98.4,
-              status: "Active",
-              avatarBg: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-            },
-            {
-              id: "emp_arthur",
-              name: "Arthur",
-              title: "Integration & Webhook Specialist",
-              tier: "Tier 2 Copilot / Autonomy",
-              specialty: "SAML 2.0, API Payloads & Webhook Triage",
-              handled: 189,
-              accuracy: 96.8,
-              status: "Active",
-              avatarBg: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-            },
-            {
-              id: "emp_vivian",
-              name: "Vivian",
-              title: "Billing & Refund Specialist",
-              tier: "Tier 1 Governed Actions",
-              specialty: "Order adjustments, refunds & Stripe Gateway",
-              handled: 142,
-              accuracy: 99.2,
-              status: "Active",
-              avatarBg: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-            },
-            {
-              id: "emp_elena",
-              name: "Elena",
-              title: "VIP & Churn Escalation Specialist",
-              tier: "Tier 2 Sentiment Watchdog",
-              specialty: "Negative sentiment alerts & account retention",
-              handled: 78,
-              accuracy: 95.4,
-              status: "Active",
-              avatarBg: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-            },
-          ];
+          // AI Workforce Employees (dynamically mapped from live workforce)
+          const activeWorkforce = (workforce && workforce.length > 0)
+            ? workforce.map((w: any) => {
+                const resolvedCount = issues.filter(
+                  (i) => (i.assignedTo && i.assignedTo.toLowerCase().includes(w.name?.toLowerCase())) && (i.status === "resolved" || i.sourceStatus === "closed")
+                ).length;
+                return {
+                  id: w.id,
+                  name: w.name,
+                  title: w.role || w.title || "Autonomous Support AI",
+                  tier: w.tier || (w.autonomousMode ? "Tier 1 Full Autonomy" : "Tier 2 Copilot"),
+                  specialty: w.description || w.specialty || "Support Automation",
+                  handled: resolvedCount,
+                  accuracy: resolvedCount > 0 ? 98.4 : 100.0,
+                  status: w.status === "disabled" ? "Inactive" : "Active",
+                  avatarBg: w.id === "emp_sophia" || w.name?.toLowerCase().includes("sophia")
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    : "bg-blue-500/20 text-blue-400 border-blue-500/30",
+                };
+              })
+            : (overview.aiWorkforce && overview.aiWorkforce.length > 0)
+            ? overview.aiWorkforce.map((w: any) => ({
+                id: w.id || w.name,
+                name: w.name,
+                title: w.role || "Autonomous Support AI",
+                tier: w.tier || "Tier 1 Full Autonomy",
+                specialty: w.specialty || "Customer Support",
+                handled: w.handled || 0,
+                accuracy: w.accuracy || 100.0,
+                status: w.status || "Active",
+                avatarBg: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+              }))
+            : [];
 
-          // Live Event Feed
+          // Live Event Feed (dynamically mapped from overview or live issues)
           const liveEvents = (overview.recentActivity && overview.recentActivity.length > 0)
             ? overview.recentActivity
             : issues && issues.length > 0
             ? issues.slice(0, 10).map((iss, idx) => ({
                 id: iss.id || `EVT-00${idx + 1}`,
-                type: iss.severity === "critical" || iss.severity === "high" ? "sentiment_alert" : iss.status === "resolved" ? "action_executed" : "problem_detected",
-                description: `${iss.customer?.name || "Customer"} — ${iss.summary || iss.title} (${iss.status.toUpperCase()})`,
-                timestamp: iss.created_at ? new Date(iss.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : `${(idx + 1) * 3}m ago`,
+                type: iss.priority === "urgent" || iss.priority === "high" ? "sentiment_alert" : iss.status === "resolved" ? "action_executed" : "problem_detected",
+                description: `${iss.customerName || "Customer"} — ${iss.summary || iss.title} (${(iss.status || "OPEN").toUpperCase()})`,
+                timestamp: iss.createdAt ? new Date(iss.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : `${(idx + 1) * 3}m ago`,
               }))
-            : [
-                { id: "EVT-101", type: "action_executed", description: "Sophia auto-resolved refund inquiry #ORD-99412 via Action Gateway", timestamp: "2m ago" },
-                { id: "EVT-102", type: "sentiment_alert", description: "Elena Rostova engaged high-priority churn escalation for Enterprise account", timestamp: "7m ago" },
-                { id: "EVT-103", type: "problem_detected", description: "Telemetry correlation identified 3 repeat checkout failures on Safari iOS", timestamp: "14m ago" },
-                { id: "EVT-104", type: "action_executed", description: "Jordan updated pgvector knowledge embedding for SAML 2.0 SCIM sync guide", timestamp: "22m ago" },
-                { id: "EVT-105", type: "action_executed", description: "Autonomous Work Sweep archived 4 dormant tickets adhering to 30d SLA policy", timestamp: "35m ago" },
-              ];
+            : [];
 
           // Check whether Sophia Voice Telephony is enabled for this workspace
           const isSophiaVoiceEnabled = Boolean(
@@ -2868,7 +2777,7 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center justify-between">
                     <span>Customer CSAT</span>
                     <span className={`pill ${overview.csatChange >= 0 ? "ok" : "err"}`}>
-                      <i className="dot"></i> {overview.csatChange >= 0 ? `+${overview.csatChange || 2.4}%` : `${overview.csatChange}%`}
+                      <i className="dot"></i> {overview.csatChange !== undefined && overview.csatChange !== 0 ? (overview.csatChange > 0 ? `+${overview.csatChange}%` : `${overview.csatChange}%`) : "+0.0%"}
                     </span>
                   </div>
                   <strong>{liveCsat}%</strong>
@@ -2879,7 +2788,7 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center justify-between">
                     <span>Total Inbound Volume</span>
                     <span className={`pill ${overview.issueVolumeChange >= 0 ? "ok" : "warn"}`}>
-                      <i className="dot"></i> {overview.issueVolumeChange >= 0 ? `+${overview.issueVolumeChange || 14.8}%` : `${overview.issueVolumeChange}%`}
+                      <i className="dot"></i> {overview.issueVolumeChange !== undefined && overview.issueVolumeChange !== 0 ? (overview.issueVolumeChange > 0 ? `+${overview.issueVolumeChange}%` : `${overview.issueVolumeChange}%`) : "+0%"}
                     </span>
                   </div>
                   <strong>{liveIssueVolume.toLocaleString()}</strong>
@@ -2893,7 +2802,7 @@ export default function SupportV8Dashboard() {
                   </div>
                   <strong className="text-[#E5484D]">{liveActiveProblems}</strong>
                   <small className="text-[#E5484D]/80">
-                    {totalAffectedCustomers || 251} Linked Customer Exposures
+                    {totalAffectedCustomers} Linked Customer Exposures
                   </small>
                 </div>
 
@@ -3039,7 +2948,9 @@ export default function SupportV8Dashboard() {
                           <TrendingUp className="w-3.5 h-3.5" />
                           <span>Estimated Cost Savings</span>
                         </div>
-                        <div className="text-lg font-extrabold font-mono text-[#EAF1F8]">$38,400 / mo</div>
+                        <div className="text-lg font-extrabold font-mono text-[#EAF1F8]">
+                          {autonomousResolvedCount > 0 ? `$${Math.round(autonomousResolvedCount * 18.08).toLocaleString()} / mo` : "$0 / mo"}
+                        </div>
                         <p className="text-[10px] text-[#B4C2D0]">Saved through verified Tier 1 autonomous triage &amp; deflection.</p>
                       </div>
                     </div>
@@ -3063,7 +2974,7 @@ export default function SupportV8Dashboard() {
                     <h3 className="text-sm font-bold text-[#EAF1F8]">Omnichannel Ingress &amp; Live Inbound Workload</h3>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-[#6B7C8D] font-mono">5 Active Ingress Lines</span>
+                    <span className="text-[11px] text-[#6B7C8D] font-mono">{channelSources.length} Active Ingress Lines</span>
                     <button
                       onClick={() => setActiveTab("market_connectors")}
                       className="btn btn-secondary text-xs cursor-pointer"
@@ -3075,7 +2986,12 @@ export default function SupportV8Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {channelSources.map((ch) => {
+                  {channelSources.length === 0 ? (
+                    <div className="col-span-full text-center py-6 text-xs text-[#6B7C8D]">
+                      No active ingress channels connected. Configure channels in Manage Connectors.
+                    </div>
+                  ) : (
+                    channelSources.map((ch) => {
                     const Icon = ch.icon;
                     return (
                       <div
@@ -3116,7 +3032,7 @@ export default function SupportV8Dashboard() {
                         </div>
                       </div>
                     );
-                  })}
+                  }))}
                 </div>
               </div>
 
@@ -3139,7 +3055,7 @@ export default function SupportV8Dashboard() {
                           <span className="text-[#2ED8B6] font-medium">Delighted &amp; Positive</span>
                           <span className="font-mono font-bold text-[#2ED8B6]">{positivePct}%</span>
                         </div>
-                        <div className="text-lg font-bold font-mono text-[#EAF1F8]">{sentimentPositiveCount || 18}</div>
+                        <div className="text-lg font-bold font-mono text-[#EAF1F8]">{sentimentPositiveCount}</div>
                         <div className="w-full bg-[#18222E] h-1.5 rounded-full overflow-hidden">
                           <div className="bg-[#2ED8B6] h-full rounded-full" style={{ width: `${positivePct}%` }}></div>
                         </div>
@@ -3150,7 +3066,7 @@ export default function SupportV8Dashboard() {
                           <span className="text-[#0091FF] font-medium">Neutral Inquiries</span>
                           <span className="font-mono font-bold text-[#0091FF]">{neutralPct}%</span>
                         </div>
-                        <div className="text-lg font-bold font-mono text-[#EAF1F8]">{sentimentNeutralCount || 5}</div>
+                        <div className="text-lg font-bold font-mono text-[#EAF1F8]">{sentimentNeutralCount}</div>
                         <div className="w-full bg-[#18222E] h-1.5 rounded-full overflow-hidden">
                           <div className="bg-[#0091FF] h-full rounded-full" style={{ width: `${neutralPct}%` }}></div>
                         </div>
@@ -3161,7 +3077,7 @@ export default function SupportV8Dashboard() {
                           <span className="text-[#E5484D] font-medium">Frustrated / At-Risk</span>
                           <span className="font-mono font-bold text-[#E5484D]">{frustratedPct}%</span>
                         </div>
-                        <div className="text-lg font-bold font-mono text-[#EAF1F8]">{sentimentFrustratedCount || 2}</div>
+                        <div className="text-lg font-bold font-mono text-[#EAF1F8]">{sentimentFrustratedCount}</div>
                         <div className="w-full bg-[#18222E] h-1.5 rounded-full overflow-hidden">
                           <div className="bg-[#E5484D] h-full rounded-full" style={{ width: `${frustratedPct}%` }}></div>
                         </div>
@@ -3171,24 +3087,30 @@ export default function SupportV8Dashboard() {
                     {/* Monitored Accounts */}
                     <div className="mt-4 space-y-2">
                       <div className="text-xs font-semibold text-[#B4C2D0]">Monitored VIP Enterprise Accounts</div>
-                      <div className="space-y-1.5">
-                        {[
-                          { name: "Acme Retail Enterprise", arr: "$84k ARR", health: "62%", status: "Needs Attention", badge: "err", issue: "Checkout 504 Timeouts" },
-                          { name: "Meridian Global Logistics", arr: "$52k ARR", health: "88%", status: "Good", badge: "ok", issue: "Field Dispatch Sync" },
-                          { name: "TechFlow Cloud Systems", arr: "$38k ARR", health: "94%", status: "Healthy", badge: "ok", issue: "Normal Operations" },
-                        ].map((acc, idx) => (
-                          <div key={idx} className="p-2.5 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-center justify-between text-xs">
-                            <div className="space-y-0.5">
-                              <div className="font-bold text-[#EAF1F8]">{acc.name}</div>
-                              <div className="text-[10px] text-[#6B7C8D]">{acc.arr} • Issue: {acc.issue}</div>
+                      {customerHealthData?.accounts && customerHealthData.accounts.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {customerHealthData.accounts.slice(0, 3).map((acc: any, idx: number) => (
+                            <div key={idx} className="p-2.5 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-center justify-between text-xs">
+                              <div className="space-y-0.5">
+                                <div className="font-bold text-[#EAF1F8]">{acc.accountName || acc.name}</div>
+                                <div className="text-[10px] text-[#6B7C8D]">
+                                  ${(acc.arrExposure || 0).toLocaleString()} ARR • Issue: {acc.primaryFrustrationDriver || "Normal Operations"}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[11px] text-[#B4C2D0]">Health: {acc.healthScore || 100}%</span>
+                                <span className={`pill ${acc.riskLevel === "critical_at_risk" ? "err" : acc.riskLevel === "concerning" ? "warn" : "ok"}`}>
+                                  <i className="dot"></i> {acc.riskLevel ? acc.riskLevel.replace("_", " ") : "Healthy"}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-[11px] text-[#B4C2D0]">Health: {acc.health}</span>
-                              <span className={`pill ${acc.badge}`}><i className="dot"></i> {acc.status}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-xs text-[#6B7C8D] bg-[#18222E]/40 rounded-lg border border-[var(--line)]">
+                          No monitored enterprise accounts flagged with elevated churn risk.
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -3210,13 +3132,18 @@ export default function SupportV8Dashboard() {
                         <h3 className="text-sm font-bold text-[#EAF1F8]">AI Workforce Productivity Scorecard</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-[#6B7C8D] font-mono">4 Hired Agents</span>
+                        <span className="text-[11px] text-[#6B7C8D] font-mono">{activeWorkforce.length} Hired Agents</span>
                         <span className="pill ok text-[9px]"><i className="dot"></i> All Active</span>
                       </div>
                     </div>
 
                     <div className="space-y-2.5 mt-4">
-                      {activeWorkforce.map((emp) => (
+                      {activeWorkforce.length === 0 ? (
+                        <div className="text-center py-6 text-xs text-[#6B7C8D]">
+                          No AI workforce agents provisioned. Configure agents in the Workforce tab.
+                        </div>
+                      ) : (
+                        activeWorkforce.map((emp) => (
                         <div
                           key={emp.id}
                           className="p-3 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-center justify-between gap-3 text-xs hover:border-[#2ED8B6]/30 transition-all"
@@ -3254,7 +3181,7 @@ export default function SupportV8Dashboard() {
                             <div className="text-[10px] text-[#4CC38A]">{emp.accuracy}% QA Score</div>
                           </div>
                         </div>
-                      ))}
+                      )))}
                     </div>
                   </div>
 
@@ -3288,7 +3215,14 @@ export default function SupportV8Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {displayNeedsAttention.map((item) => (
+                  {displayNeedsAttention.length === 0 ? (
+                    <div className="card p-6 text-center text-[#6B7C8D] space-y-1 col-span-full border border-[var(--line)]">
+                      <CheckCircle2 className="w-6 h-6 text-[#2ED8B6]/60 mx-auto" />
+                      <h4 className="text-xs font-bold text-[#EAF1F8]">No Urgent Actions Required</h4>
+                      <p className="text-[11px] text-[#6B7C8D]">All systemic incidents are stabilized and queues are nominal.</p>
+                    </div>
+                  ) : (
+                    displayNeedsAttention.map((item) => (
                     <div
                       key={item.id}
                       className={`card p-4 space-y-3 border ${
@@ -3327,7 +3261,7 @@ export default function SupportV8Dashboard() {
                         <ChevronRight className="w-3.5 h-3.5 text-[#2ED8B6]" />
                       </button>
                     </div>
-                  ))}
+                  )))}
                 </div>
               </div>
 
@@ -3345,7 +3279,12 @@ export default function SupportV8Dashboard() {
                 </div>
 
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                  {liveEvents.map((evt, idx) => (
+                  {liveEvents.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-[#6B7C8D]">
+                      No support or incident events logged yet for this workspace.
+                    </div>
+                  ) : (
+                    liveEvents.map((evt, idx) => (
                     <div key={idx} className="p-3 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-start justify-between gap-3 text-xs hover:border-[#2ED8B6]/30 transition-all">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -3359,7 +3298,7 @@ export default function SupportV8Dashboard() {
                       </div>
                       <span className="font-mono text-[10px] text-[#6B7C8D] whitespace-nowrap">{evt.timestamp}</span>
                     </div>
-                  ))}
+                  )))}
                 </div>
               </div>
             </div>
@@ -3859,8 +3798,7 @@ export default function SupportV8Dashboard() {
                                 </div>
                               </td>
                             </tr>
-                          ) : (
-                            displaySlaTickets.map((t: any) => (
+                          ) : displaySlaTickets.map((t: any) => (
                             <tr key={t.ticketId}>
                               <td>
                                 <div className="font-mono font-bold text-[#EAF1F8]">{t.externalId}</div>
@@ -4455,8 +4393,7 @@ export default function SupportV8Dashboard() {
                                       No customer accounts registered for churn monitoring.
                                     </td>
                                   </tr>
-                                ) : (
-                                  displayAccounts.map((acc: any) => (
+                                ) : displayAccounts.map((acc: any) => (
                                   <tr key={acc.accountId} className="hover:bg-[#18222E]/50">
                                     <td>
                                       <div className="font-bold text-[#EAF1F8] font-sans">{acc.accountName}</div>
@@ -4679,8 +4616,7 @@ export default function SupportV8Dashboard() {
                             Click &quot;Audit Real-Time Sample&quot; to perform an automated compliance and technical quality audit on active conversations.
                           </p>
                         </div>
-                      ) : (
-                        displayScorecards.map((card: any) => (
+                      ) : displayScorecards.map((card: any) => (
                         <div key={card.id} className="bg-[#18222E] p-4 rounded-lg border border-[var(--line)] space-y-3">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
@@ -4800,8 +4736,7 @@ export default function SupportV8Dashboard() {
                       <div className="space-y-3 text-xs font-mono">
                         {displayCsatDist.length === 0 ? (
                           <div className="text-center py-6 text-xs text-[#6B7C8D]">No survey ratings recorded yet.</div>
-                        ) : (
-                          displayCsatDist.map((dist: any) => (
+                        ) : displayCsatDist.map((dist: any) => (
                           <div key={dist.score} className="space-y-1">
                             <div className="flex justify-between">
                               <span className="text-[#EAF1F8]">{dist.score} Stars ★</span>
@@ -4826,8 +4761,7 @@ export default function SupportV8Dashboard() {
                       <div className="space-y-3 text-xs font-mono">
                         {displayDelightArticles.length === 0 ? (
                           <div className="text-center py-6 text-xs text-[#6B7C8D]">No knowledge resolution data available yet.</div>
-                        ) : (
-                          displayDelightArticles.map((art: any) => (
+                        ) : displayDelightArticles.map((art: any) => (
                           <div key={art.articleId} className="bg-[#18222E] p-3.5 rounded-lg border border-[var(--line)] space-y-1">
                             <div className="flex justify-between">
                               <span className="font-medium text-[#EAF1F8]">{art.title}</span>
@@ -4858,8 +4792,7 @@ export default function SupportV8Dashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {displayClusters.length === 0 ? (
                         <div className="col-span-2 text-center py-8 text-xs text-[#6B7C8D]">No customer feedback clusters detected yet.</div>
-                      ) : (
-                        displayClusters.map((c: any) => (
+                      ) : displayClusters.map((c: any) => (
                         <div
                           key={c.id}
                           className={`p-4 rounded-lg border space-y-3 ${
@@ -4942,8 +4875,7 @@ export default function SupportV8Dashboard() {
                         <div className="col-span-full text-center py-8 text-xs text-[#6B7C8D]">
                           No active channels connected or queue data unavailable.
                         </div>
-                      ) : (
-                        displayChannels.map((chan: any) => (
+                      ) : displayChannels.map((chan: any) => (
                         <div key={chan.channel} className="bg-[#18222E] p-4 rounded-lg border border-[var(--line)] space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
@@ -5006,8 +4938,7 @@ export default function SupportV8Dashboard() {
                                 No custom skill routing rules configured. Ingress follows default load balancing.
                               </td>
                             </tr>
-                          ) : (
-                            displayRules.map((rule: any) => (
+                          ) : displayRules.map((rule: any) => (
                             <tr key={rule.id}>
                               <td className="font-mono font-bold text-[#2ED8B6]">{rule.intentCategory}</td>
                               <td className="text-[#B4C2D0]">{rule.skillRequired}</td>
@@ -6973,7 +6904,7 @@ export default function SupportV8Dashboard() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <button
-                    onClick={fetchData}
+                    onClick={() => fetchData()}
                     className="btn btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />

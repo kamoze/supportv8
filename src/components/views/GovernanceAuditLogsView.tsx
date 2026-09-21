@@ -180,8 +180,7 @@ export function GovernanceAuditLogsView({
         <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
           <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Logged Events</span>
           <div className="text-xl font-extrabold font-mono text-[#EAF1F8]">
-            {auditLogs.length.toLocaleString()}{" "}
-            <span className="text-xs font-normal text-[#6B7C8D]">/ 18,420 Mo.</span>
+            {auditLogs.length.toLocaleString()}
           </div>
           <span className="text-[10px] text-[#2ED8B6] font-mono">100% Append-Only Integrity</span>
         </div>
@@ -191,7 +190,17 @@ export function GovernanceAuditLogsView({
           <div className="text-xl font-extrabold font-mono text-[#4CC38A]">
             {auditLogs.filter((l) => l.actorType === "ai_employee").length} Active
           </div>
-          <span className="text-[10px] text-[#4CC38A] font-mono">99.2% Confidence Avg</span>
+          <span className="text-[10px] text-[#4CC38A] font-mono">
+            {auditLogs.filter((l) => l.actorType === "ai_employee" && l.confidence).length > 0
+              ? `${(
+                  (auditLogs
+                    .filter((l) => l.actorType === "ai_employee" && l.confidence)
+                    .reduce((sum, l) => sum + (l.confidence || 0), 0) /
+                    Math.max(1, auditLogs.filter((l) => l.actorType === "ai_employee" && l.confidence).length)) *
+                  100
+                ).toFixed(1)}% Confidence Avg`
+              : "No AI events logged"}
+          </span>
         </div>
 
         <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">

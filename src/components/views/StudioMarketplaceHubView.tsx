@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Flame,
   Check,
+  Plug,
 } from "@/components/ui/FlatIcon";
 import type { MarketplaceWorkforceItem } from "@/lib/types/marketplace-types";
 

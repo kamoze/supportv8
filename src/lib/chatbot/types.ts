@@ -87,7 +87,7 @@ export interface AgentContext {
 }
 
 export interface ToolCallDefinition {
-  name: "knowledge_search" | "order_refund" | "site_access_pin" | "human_escalate" | "schedule_task";
+  name: "knowledge_search" | "order_refund" | "order_lookup" | "site_access_pin" | "human_escalate" | "schedule_task";
   arguments: Record<string, unknown>;
 }
 

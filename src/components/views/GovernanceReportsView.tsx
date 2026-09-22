@@ -22,6 +22,21 @@ export function GovernanceReportsView({
   reports,
   onDownloadCsv,
 }: GovernanceReportsViewProps) {
+  // Derive all KPI values from the most recent report in the reports array.
+  // When reports is empty (e.g. a fresh or customer tenant), every metric shows 0.
+  const latestReport = reports[0] ?? null;
+
+  const slaAttainment = latestReport?.slaAttainmentPct ?? 0;
+  const varrPct =
+    latestReport && latestReport.totalInteractions > 0
+      ? parseFloat(
+          ((latestReport.autonomousResolved / latestReport.totalInteractions) * 100).toFixed(1)
+        )
+      : 0;
+  const aiResolved = latestReport?.autonomousResolved ?? 0;
+  const hallucinationDrift = latestReport?.hallucinationDriftScore ?? 0;
+  const costSavings = latestReport?.costSavedEstimatedUsd ?? 0;
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -48,29 +63,29 @@ export function GovernanceReportsView({
         </button>
       </div>
 
-      {/* Summary KPI Cards */}
+      {/* Summary KPI Cards — all values are derived from the most recent ComplianceAuditReport */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
           <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">SLA Attainment</span>
-          <div className="text-xl font-extrabold font-mono text-[#4CC38A]">98.4%</div>
+          <div className="text-xl font-extrabold font-mono text-[#4CC38A]">{slaAttainment.toFixed(1)}%</div>
           <span className="text-[10px] text-[#4CC38A] font-mono">Target: &gt; 98.0%</span>
         </div>
 
         <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
           <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Autonomous Resolution (VARR)</span>
-          <div className="text-xl font-extrabold font-mono text-[#2ED8B6]">74.8%</div>
-          <span className="text-[10px] text-[#6B7C8D] font-mono">13,780 resolved by AI</span>
+          <div className="text-xl font-extrabold font-mono text-[#2ED8B6]">{varrPct.toFixed(1)}%</div>
+          <span className="text-[10px] text-[#6B7C8D] font-mono">{aiResolved.toLocaleString()} resolved by AI</span>
         </div>
 
         <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
           <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Hallucination Drift Rate</span>
-          <div className="text-xl font-extrabold font-mono text-[#4D9FFF]">0.02%</div>
+          <div className="text-xl font-extrabold font-mono text-[#4D9FFF]">{hallucinationDrift.toFixed(2)}%</div>
           <span className="text-[10px] text-[#4CC38A] font-mono">Audited by Eleanor (AI Compliance)</span>
         </div>
 
         <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
           <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Estimated Cost Savings</span>
-          <div className="text-xl font-extrabold font-mono text-[#EAF1F8]">$58,400</div>
+          <div className="text-xl font-extrabold font-mono text-[#EAF1F8]">${costSavings.toLocaleString()}</div>
           <span className="text-[10px] text-[#2ED8B6] font-mono">Month-to-Date Net ROI</span>
         </div>
       </div>

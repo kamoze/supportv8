@@ -840,6 +840,14 @@ export class MarketplaceService {
     return { planId, credits: allowance };
   }
 
+  public setAccountPlan(accountId: string, planId: string): void {
+    this.accountPlans.set(accountId, planId);
+  }
+
+  public hasAccountPool(accountId: string): boolean {
+    return this.accountPools.has(accountId);
+  }
+
   public getAccountPlan(accountId: string): string | undefined {
     return this.accountPlans.get(accountId);
   }
@@ -881,6 +889,7 @@ export class MarketplaceService {
     tenantSlug?: string;
     boundApps?: string[];
     planId?: string;
+    credits?: number;
   }): { accountId: string; boundApps: string[]; sharedCredits: number } {
     const {
       sourceVertical,
@@ -892,7 +901,16 @@ export class MarketplaceService {
       tenantSlug,
       boundApps = [],
       planId,
+      credits,
     } = params;
+
+    const runtimeVerticals =
+      sourceVertical === "servicev8-runtime" ||
+      sourceVertical === "runtime" ||
+      sourceApp === "runtime" ||
+      sourceApp === "servicev8-runtime"
+        ? ["servicev8-runtime", "runtime"]
+        : [];
 
     const appsToBind = new Set<string>([
       "supportv8",
@@ -902,6 +920,7 @@ export class MarketplaceService {
       ...(targetApp ? [targetApp] : []),
       ...(workspaceId ? [workspaceId] : []),
       ...(tenantSlug ? [tenantSlug] : []),
+      ...runtimeVerticals,
       ...boundApps,
     ]);
 
@@ -910,7 +929,14 @@ export class MarketplaceService {
     if (tenantSlug) {
       this.registerRuntimeTenant(tenantSlug, accountId, workspaceId, planId);
     } else if (planId) {
-      this.enablePlanForAccount(accountId, planId);
+      this.accountPlans.set(accountId, planId);
+      if (!this.accountPools.has(accountId)) {
+        this.accountPools.set(accountId, this.getPlanCredits(planId));
+      }
+    }
+
+    if (credits !== undefined && typeof credits === "number" && Number.isFinite(credits)) {
+      this.accountPools.set(accountId, Math.max(0, credits));
     } else if (!this.accountPools.has(accountId)) {
       this.resolveAccountBalance(accountId);
     }
@@ -965,7 +991,10 @@ export class MarketplaceService {
     if (accountId) {
       this.bindAppsToAccount(accountId, cleanDomain, ...(workspaceId ? [workspaceId] : []));
       if (planId) {
-        this.enablePlanForAccount(accountId, planId);
+        this.accountPlans.set(accountId, planId);
+        if (!this.accountPools.has(accountId)) {
+          this.accountPools.set(accountId, this.getPlanCredits(planId));
+        }
       } else if (!this.accountPools.has(accountId)) {
         this.resolveAccountBalance(accountId);
       }
@@ -1026,42 +1055,79 @@ export class MarketplaceService {
   }
 
   public async syncForgeAccountPool(accountId: string, fetchImpl: typeof fetch = fetch): Promise<number | null> {
-    const baseUrl = (process.env.FORGE_GATEWAY_URL || process.env.FORGE_URL || "").trim();
+    const baseUrl = (
+      process.env.RUNTIME_FORGE_URL ||
+      process.env.FORGE_GATEWAY_URL ||
+      process.env.FORGE_URL ||
+      process.env.SERVICEV8_GATEWAY_URL ||
+      ""
+    ).trim();
     const token = (
+      process.env.RUNTIME_FORGE_BILLING_TOKEN ||
+      process.env.FORGE_BILLING_TOKEN ||
+      process.env.RUNTIME_FORGE_TOKEN ||
       process.env.FORGE_GATEWAY_MODEL_TOKEN ||
       process.env.FORGE_GATEWAY_TOKEN ||
       process.env.SERVICEV8_GATEWAY_TOKEN ||
+      process.env.FORGE_TOKEN ||
+      process.env.RUNTIME_GATEWAY_TOKEN ||
       ""
     ).trim();
     if (!baseUrl) return null;
 
     try {
-      const url = new URL(`/v1/admin/tenants/${encodeURIComponent(accountId)}/subscription`, baseUrl);
-      const res = await fetchImpl(url, {
-        method: "GET",
-        headers: {
-          authorization: `Bearer ${token}`,
-          accept: "application/json",
-        },
-      });
-      if (!res.ok) return null;
-      const body = (await res.json().catch(() => null)) as {
-        subscription?: { status?: string; tier?: string; plan?: string } | null;
-        credits?: { available?: unknown; serviceActive?: unknown };
-      } | null;
+      const endpoints = [
+        `/v1/admin/tenants/${encodeURIComponent(accountId)}/subscription`,
+        `/v1/tenants/${encodeURIComponent(accountId)}/subscription`,
+      ];
+      let res: Response | null = null;
+      for (const endpoint of endpoints) {
+        try {
+          const url = new URL(endpoint, baseUrl);
+          const r = await fetchImpl(url, {
+            method: "GET",
+            headers: {
+              ...(token ? { authorization: `Bearer ${token}` } : {}),
+              accept: "application/json",
+            },
+          });
+          if (r.ok) {
+            res = r;
+            break;
+          }
+        } catch {
+          // try next endpoint
+        }
+      }
+      if (!res || !res.ok) return null;
+      const body = (await res.json().catch(() => null)) as Record<string, any> | null;
       if (body) {
-        const planTier = body.subscription?.tier || body.subscription?.plan;
-        if (planTier && body.subscription?.status === "active") {
+        const sub = body.subscription ?? body;
+        const planTier = sub?.tier || sub?.plan || sub?.planId || body.tier || body.plan || body.planId;
+        const status = sub?.status || body.status;
+        if (planTier && (status === "active" || status === undefined)) {
           this.accountPlans.set(accountId, planTier);
         }
-        if (typeof body.credits?.available === "number" && Number.isFinite(body.credits.available)) {
-          this.accountPools.set(accountId, body.credits.available);
-          return body.credits.available;
-        } else if (planTier && body.subscription?.status === "active") {
+        const rawAvailable =
+          body.credits?.available ??
+          body.credits?.remaining ??
+          body.credits?.balance ??
+          body.credits?.creditBalance ??
+          body.creditsBalance ??
+          body.creditBalance ??
+          body.availableCredits ??
+          body.balance ??
+          (typeof body.credits === "number" ? body.credits : undefined);
+
+        if (typeof rawAvailable === "number" && Number.isFinite(rawAvailable)) {
+          const available = Math.max(0, rawAvailable);
+          this.accountPools.set(accountId, available);
+          return available;
+        } else if (planTier && (status === "active" || status === undefined)) {
           const planCredits = this.getPlanCredits(planTier);
           this.accountPools.set(accountId, planCredits);
           return planCredits;
-        } else if (body.subscription === null || body.subscription?.status === "inactive") {
+        } else if (body.subscription === null || status === "inactive") {
           this.accountPools.set(accountId, 0);
           return 0;
         }
@@ -1197,8 +1263,41 @@ export class MarketplaceService {
     return this.clone(this.stateFor(tenantSlug).workforce);
   }
 
-  public getPlans(tenantSlug = "acme"): MarketplacePlan[] {
-    return this.clone(this.stateFor(tenantSlug).plans);
+  public getPlans(
+    tenantSlug = "acme",
+    context?: {
+      accountId?: string;
+      runtimeLinked?: boolean;
+      sourceApp?: string;
+      sourceVertical?: string;
+      boundApp?: string;
+    }
+  ): MarketplacePlan[] {
+    const plans = this.clone(this.stateFor(tenantSlug).plans);
+    const accountId = this.resolveAccountId(tenantSlug, context);
+    const activePlan =
+      (accountId ? this.accountPlans.get(accountId) : undefined) ||
+      this.runtimeTenants.get(tenantSlug)?.planId;
+
+    if (activePlan) {
+      const cleanPlan = activePlan.trim().toLowerCase();
+      return plans.map((p) => {
+        const isMatch =
+          p.id.toLowerCase() === cleanPlan ||
+          p.name.toLowerCase() === cleanPlan ||
+          (cleanPlan === "starter" && p.id === "plan_starter") ||
+          (cleanPlan === "growth" && p.id === "plan_growth") ||
+          (cleanPlan === "scale" && p.id === "plan_scale") ||
+          (cleanPlan === "enterprise" && p.id === "plan_enterprise");
+        return {
+          ...p,
+          isCurrent: isMatch,
+          badge: isMatch ? "CURRENT PLAN" : (p.badge === "CURRENT PLAN" ? undefined : p.badge),
+          actionLabel: isMatch ? "MANAGE SUBSCRIPTION" : (p.id === "plan_starter" ? "CHOOSE PLAN" : p.actionLabel),
+        };
+      });
+    }
+    return plans;
   }
 
   public getMembers(tenantSlug = "acme"): TenantMember[] {

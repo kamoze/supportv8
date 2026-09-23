@@ -131,7 +131,7 @@ export async function resolveRequestTenant(
   if (hasRuntimeCookie) {
     const authorized = await authorizeRuntimeSupportRequest(request);
     if (!authorized) throw new RequestAuthError("Invalid or revoked workspace session");
-    const {session, role} = authorized;
+    const {session, role, access} = authorized;
     if (normalizedHostTenant && normalizedHostTenant !== session.tenantDomain) throw new RequestAuthError("Workspace host mismatch", 403);
     const path = new URL(request.url).pathname;
     const isCustomerChatIntake =
@@ -139,24 +139,50 @@ export async function resolveRequestTenant(
     if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout" && !isCustomerChatIntake))) {
       throw new RequestAuthError("This workspace role is read only", 403);
     }
+
+    const headerPlanId =
+      request.headers.get("x-servicev8-plan-id") ||
+      request.headers.get("x-plan-id");
+    const headerCreditsRaw =
+      request.headers.get("x-servicev8-credits") ||
+      request.headers.get("x-credits");
+    const headerCredits = headerCreditsRaw ? Number(headerCreditsRaw) : undefined;
+
+    const poolAccountId = access.poolAccountId || session.accountId;
+    const effectivePlanId =
+      access.planId ||
+      headerPlanId ||
+      marketplaceService.getAccountPlan(poolAccountId);
+    const effectiveCredits =
+      access.credits !== undefined
+        ? access.credits
+        : headerCredits !== undefined && Number.isFinite(headerCredits)
+        ? headerCredits
+        : undefined;
+
     marketplaceService.registerSourceHandoff({
       sourceVertical: "servicev8-runtime",
+      sourceApp: "runtime",
       targetVertical: "supportv8",
-      accountId: session.accountId,
+      targetApp: "supportv8",
+      accountId: poolAccountId,
       workspaceId: session.workspaceId,
       tenantSlug: session.tenantDomain,
+      boundApps: ["servicev8-runtime", "runtime", "supportv8"],
+      planId: effectivePlanId,
+      credits: effectiveCredits,
     });
     return {
       runtimeLinked: true,
-      accountId: session.accountId,
+      accountId: poolAccountId,
       tenantId: session.workspaceId,
       tenantSlug: session.tenantDomain,
       authenticated: true,
       userId: session.sub,
-      username: authorized.access.email,
+      username: access.email,
       roles: role === "support:manage" ? ["support_cx_lead"] : ["support_operator", "support_observer"],
       sourceHandoff: "servicev8-runtime",
-      boundApps: ["servicev8-runtime", "supportv8"],
+      boundApps: ["servicev8-runtime", "runtime", "supportv8"],
     };
   }
   const token = bearerToken(request);
@@ -208,16 +234,31 @@ export async function resolveRequestTenant(
   const accountIdHeader =
     request.headers.get("x-servicev8-account-id") ||
     request.headers.get("x-account-id");
+  const planIdHeader =
+    request.headers.get("x-servicev8-plan-id") ||
+    request.headers.get("x-plan-id");
+  const creditsHeaderRaw =
+    request.headers.get("x-servicev8-credits") ||
+    request.headers.get("x-credits");
+  const creditsHeader = creditsHeaderRaw ? Number(creditsHeaderRaw) : undefined;
 
   if (accountIdHeader || sourceHandoffHeader || boundAppHeader) {
     const accountId = accountIdHeader || (sourceHandoffHeader ? `acct_${sourceHandoffHeader}` : undefined);
     if (accountId) {
+      const boundList = [
+        ...(boundAppHeader ? [boundAppHeader] : []),
+        ...(sourceHandoffHeader === "servicev8-runtime" || sourceHandoffHeader === "runtime"
+          ? ["servicev8-runtime", "runtime", "supportv8"]
+          : []),
+      ];
       marketplaceService.registerSourceHandoff({
         sourceVertical: sourceHandoffHeader || undefined,
         targetVertical: "supportv8",
         accountId,
         tenantSlug,
-        boundApps: boundAppHeader ? [boundAppHeader] : undefined,
+        boundApps: boundList.length > 0 ? boundList : undefined,
+        planId: planIdHeader || undefined,
+        credits: creditsHeader !== undefined && Number.isFinite(creditsHeader) ? creditsHeader : undefined,
       });
       return {
         tenantId: tenantIdFromSlug(tenantSlug),
@@ -226,7 +267,7 @@ export async function resolveRequestTenant(
         runtimeLinked: true,
         accountId,
         sourceHandoff: sourceHandoffHeader || undefined,
-        boundApps: boundAppHeader ? [boundAppHeader] : undefined,
+        boundApps: boundList.length > 0 ? boundList : undefined,
         roles: ["support_cx_lead"],
       };
     }

@@ -21,6 +21,12 @@ export type RuntimeSupportHandoffClaims = {
   iat: number;
   exp: number;
   jti: string;
+  planId?: string;
+  plan?: string;
+  tier?: string;
+  credits?: number;
+  boundApps?: string[];
+  poolAccountId?: string;
 };
 const fields = [
   "version",
@@ -39,6 +45,15 @@ const fields = [
   "exp",
   "jti",
 ];
+const optionalFields = [
+  "planId",
+  "plan",
+  "tier",
+  "credits",
+  "boundApps",
+  "poolAccountId",
+];
+const allowedKeys = new Set([...fields, ...optionalFields]);
 const ref = /^[A-Za-z0-9_:@.-]{1,192}$/;
 const reference = (v: unknown): v is string =>
   typeof v === "string" && ref.test(v);
@@ -89,8 +104,8 @@ export function verifyRuntimeSupportHandoffToken(
       header.alg !== "HS256" ||
       header.typ !== "JWT" ||
       !object(body) ||
-      Object.keys(body).length !== fields.length ||
-      !fields.every((k) => Object.hasOwn(body, k))
+      !fields.every((k) => Object.hasOwn(body, k)) ||
+      !Object.keys(body).every((k) => allowedKeys.has(k))
     )
       return null;
     const expected = createHmac("sha256", secret).update(`${h}.${p}`).digest();
@@ -121,7 +136,13 @@ export function verifyRuntimeSupportHandoffToken(
       body.exp <= body.iat ||
       body.exp - body.iat > 60 ||
       typeof body.jti !== "string" ||
-      !uuid.test(body.jti)
+      !uuid.test(body.jti) ||
+      (body.planId !== undefined && (typeof body.planId !== "string" || !reference(body.planId))) ||
+      (body.plan !== undefined && (typeof body.plan !== "string" || !reference(body.plan))) ||
+      (body.tier !== undefined && (typeof body.tier !== "string" || !reference(body.tier))) ||
+      (body.poolAccountId !== undefined && (typeof body.poolAccountId !== "string" || !reference(body.poolAccountId))) ||
+      (body.credits !== undefined && (typeof body.credits !== "number" || !Number.isFinite(body.credits) || body.credits < 0)) ||
+      (body.boundApps !== undefined && (!Array.isArray(body.boundApps) || !body.boundApps.every((a) => typeof a === "string" && reference(a))))
     )
       return null;
     return body as RuntimeSupportHandoffClaims;

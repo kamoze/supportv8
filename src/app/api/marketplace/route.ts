@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         credits: marketplaceService.getCredits(tenant.tenantSlug, tenant),
         connectors: marketplaceService.getConnectors(tenant.tenantSlug),
         workforce: marketplaceService.getWorkforceCatalog(tenant.tenantSlug),
-        plans: marketplaceService.getPlans(tenant.tenantSlug),
+        plans: marketplaceService.getPlans(tenant.tenantSlug, tenant),
         members: [], // The authenticated account roster is served by /api/members.
         settings: marketplaceService.getSettings(tenant.tenantSlug),
         reports: marketplaceService.getReports(tenant.tenantSlug),

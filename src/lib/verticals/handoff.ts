@@ -25,6 +25,7 @@ export interface HandoffPayload {
     | (string & {});
   tenantId: string;
   accountId?: string;
+  poolAccountId?: string;
   boundApps?: string[];
   boundAppId?: string;
   customerRef?: string;
@@ -35,6 +36,7 @@ export interface HandoffPayload {
   authUserId?: string;
   timestamp?: string;
   planId?: string;
+  credits?: number;
 }
 
 export class VerticalHandoffService {
@@ -77,14 +79,16 @@ export class VerticalHandoffService {
     };
 
     let sharedCredits: number | undefined;
-    if (fullPayload.accountId) {
+    const effectiveAccountId = fullPayload.poolAccountId || fullPayload.accountId;
+    if (effectiveAccountId) {
       const reg = marketplaceService.registerSourceHandoff({
         sourceVertical: fullPayload.sourceVertical,
         targetVertical: fullPayload.targetVertical,
-        accountId: fullPayload.accountId,
+        accountId: effectiveAccountId,
         tenantSlug: fullPayload.tenantId,
         boundApps: fullPayload.boundApps,
         planId: fullPayload.planId,
+        credits: fullPayload.credits,
       });
       sharedCredits = reg.sharedCredits;
     }
@@ -139,7 +143,7 @@ export class VerticalHandoffService {
       throw new Error("Invalid or unparseable handoff payload");
     }
 
-    const accountId = payload.accountId || `acct_ho_${payload.tenantId}`;
+    const accountId = payload.poolAccountId || payload.accountId || `acct_ho_${payload.tenantId}`;
     const reg = marketplaceService.registerSourceHandoff({
       sourceVertical: payload.sourceVertical,
       targetVertical: payload.targetVertical,
@@ -147,6 +151,7 @@ export class VerticalHandoffService {
       tenantSlug: payload.tenantId,
       boundApps: payload.boundApps,
       planId: payload.planId,
+      credits: payload.credits,
     });
 
     return {

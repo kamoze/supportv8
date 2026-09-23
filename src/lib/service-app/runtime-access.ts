@@ -13,6 +13,9 @@ export type OperationalSupportAccess = SupportRuntimeScope & {
   capability: SupportCapability;
   email: string;
   domain: string;
+  planId?: string;
+  poolAccountId?: string;
+  credits?: number;
 };
 export type BootstrapSupportAccess = { verified: true };
 
@@ -88,14 +91,23 @@ async function readLocalWorkspace(scope:SupportRuntimeScope,client:PostgresClien
   });}catch{return null;}
 }
 
-function common(scope:SupportRuntimeScope,current:CurrentAuthority,local:LocalWorkspace,now:number):{capability:SupportCapability;email:string;domain:string}|null{
+function common(scope:SupportRuntimeScope,current:CurrentAuthority,local:LocalWorkspace,now:number):{capability:SupportCapability;email:string;domain:string;planId?:string;poolAccountId?:string;credits?:number}|null{
   const {member,projection:p}=current;
   if(member.accountId!==scope.accountId||member.tenantId!==scope.tenantId||member.identitySubject!==scope.subject||member.status!=="active"||typeof member.email!=="string"||!member.email.trim()||typeof member.role!=="string"||typeof member.slug!=="string") return null;
   const capability=roleCapabilities[member.role.toUpperCase()]; if(!capability) return null;
   if(p.accountId!==scope.accountId||p.tenantId!==scope.tenantId||p.verticalId!=="runtime"||p.installationId!==scope.installationId||p.productId!=="servicev8.service-app.supportv8"||p.productVersion!=="1.0.0"||p.productKind!=="service_app"||p.entitlementStatus!=="active"||p.tenantDomain!==member.slug) return null;
   if(p.expiresAt!==undefined&&(typeof p.expiresAt!=="string"||!Number.isFinite(Date.parse(p.expiresAt))||Date.parse(p.expiresAt)<=now)) return null;
   if(local.installationId!==scope.installationId||local.accountId!==scope.accountId||local.tenantId!==scope.tenantId||local.verticalId!=="runtime"||local.workspaceId!==scope.workspaceId||local.domain!==member.slug||local.ownerAccountId!==scope.accountId) return null;
-  return {capability,email:member.email,domain:local.domain};
+
+  const binding = object(p.serviceAppBinding) ? p.serviceAppBinding as Record<string, unknown> : undefined;
+  const poolAccountId = typeof binding?.poolAccountId === "string" ? binding.poolAccountId : undefined;
+  const planAccess = object(p.serviceAppPlanAccess) ? p.serviceAppPlanAccess as Record<string, unknown> : undefined;
+  const rawPlanId = p.planId || p.plan || p.tier || (typeof planAccess?.planId === "string" ? planAccess.planId : undefined) || (planAccess?.state === "included" ? (p.planId || "starter") : undefined);
+  const planId = typeof rawPlanId === "string" ? rawPlanId : undefined;
+  const rawCredits = p.credits ?? p.creditsBalance;
+  const credits = typeof rawCredits === "number" && Number.isFinite(rawCredits) ? rawCredits : undefined;
+
+  return {capability,email:member.email,domain:local.domain,planId,poolAccountId,credits};
 }
 
 async function dependencies(scope:SupportRuntimeScope,deps:Dependencies):Promise<[CurrentAuthority,LocalWorkspace]|null>{

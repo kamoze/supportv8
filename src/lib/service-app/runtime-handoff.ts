@@ -14,6 +14,7 @@ import {
   signRuntimeSupportSession,
   trustedRuntimeTenantHost,
 } from "./runtime-session";
+import { marketplaceService } from "../services/marketplace-service";
 type Deps = {
   handoffSecret?: string;
   sessionSecret?: string;
@@ -102,6 +103,32 @@ export async function handleRuntimeSupportHandoff(
       now(),
     );
     if (!session) return denied();
+
+    const poolAccountId = access.poolAccountId || (claims as any).poolAccountId || claims.accountId;
+    const effectivePlanId = access.planId || (claims as any).planId || (claims as any).plan || (claims as any).tier;
+    const effectiveCredits = access.credits ?? (claims as any).credits;
+    const boundApps = [
+      "servicev8-runtime",
+      "runtime",
+      "supportv8",
+      ...(((claims as any).boundApps as string[]) || []),
+    ];
+
+    marketplaceService.registerSourceHandoff({
+      sourceVertical: "servicev8-runtime",
+      sourceApp: "runtime",
+      targetVertical: "supportv8",
+      targetApp: "supportv8",
+      accountId: poolAccountId,
+      workspaceId: claims.externalWorkspaceId,
+      tenantSlug: claims.tenantDomain,
+      boundApps,
+      planId: effectivePlanId,
+      credits: effectiveCredits,
+    });
+
+    void marketplaceService.syncForgeAccountPool(poolAccountId).catch(() => null);
+
     return new Response(null, {
       status: 303,
       headers: {

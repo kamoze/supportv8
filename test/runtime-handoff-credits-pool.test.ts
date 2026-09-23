@@ -11,6 +11,7 @@ vi.mock("@/lib/service-app/runtime-session", () => ({
 
 import { GET as getCredits, POST as postCredits } from "@/app/api/credits/route";
 import { GET as getMarketplace, POST as postMarketplace } from "@/app/api/marketplace/route";
+import { GET as getWorkspaceSession } from "@/app/api/auth/workspace-session/route";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 
 describe("Runtime Handoff Common Pool Credits", () => {
@@ -74,6 +75,25 @@ describe("Runtime Handoff Common Pool Credits", () => {
     const marketResAfter = await getMarketplace(marketReq);
     const marketDataAfter = await marketResAfter.json();
     expect(marketDataAfter.data.credits).toBe(5000);
+
+    const starterPlan = marketDataAfter.data.plans.find((p: any) => p.id === "plan_starter");
+    expect(starterPlan).toBeDefined();
+    expect(starterPlan.isCurrent).toBe(true);
+    expect(starterPlan.badge).toBe("CURRENT PLAN");
+
+    // Session endpoint also returns inherited pool info
+    const sessionReq = new NextRequest(`https://${tenantDomain}.support.servicev8.com/api/auth/workspace-session`, {
+      headers: {
+        cookie: "__Host-sv8_runtime_support=test",
+        host: `${tenantDomain}.support.servicev8.com`,
+      },
+    });
+    const sessionRes = await getWorkspaceSession(sessionReq);
+    const sessionData = await sessionRes.json();
+    expect(sessionData.success).toBe(true);
+    expect(sessionData.session.accountId).toBe(accountId);
+    expect(sessionData.session.credits).toBe(5000);
+    expect(sessionData.session.plan).toBe("plan_starter");
   });
 
   it("shares credit pool between multiple workspaces deployed under the same account", async () => {
@@ -301,5 +321,74 @@ describe("Runtime Handoff Common Pool Credits", () => {
     marketplaceService.addCredits(100, "topup via workspaceId", workspaceId);
     expect(marketplaceService.getCredits(domain)).toBe(4700);
     expect(marketplaceService.getCredits(workspaceId)).toBe(4700);
+  });
+
+  it("inherits credit balance and plan directly from runtime handoff OperationalSupportAccess projection", async () => {
+    const poolAccountId = `acct_inherited_${Date.now()}`;
+    const domain = `rt-inherit-${Date.now()}`;
+    const ws = `tenant_rt_${"e".repeat(48)}`;
+
+    auth.mockResolvedValue({
+      access: {
+        email: "runtime-lead@example.test",
+        domain,
+        planId: "plan_scale",
+        poolAccountId,
+        credits: 38500,
+      },
+      session: {
+        workspaceId: ws,
+        tenantDomain: domain,
+        accountId: "acct_member_local",
+        sub: "user-inherited",
+      },
+      role: "support:manage",
+    });
+
+    // 1. Session endpoint automatically inherits credits and plan
+    const sessionReq = new NextRequest(`https://${domain}.support.servicev8.com/api/auth/workspace-session`, {
+      headers: {
+        cookie: "__Host-sv8_runtime_support=test",
+        host: `${domain}.support.servicev8.com`,
+      },
+    });
+    const sessionRes = await getWorkspaceSession(sessionReq);
+    const sessionData = await sessionRes.json();
+
+    expect(sessionData.success).toBe(true);
+    expect(sessionData.session.accountId).toBe(poolAccountId);
+    expect(sessionData.session.credits).toBe(38500);
+    expect(sessionData.session.plan).toBe("plan_scale");
+
+    // 2. Credits endpoint reflects the inherited 38,500
+    const creditsReq = new NextRequest(`https://${domain}.support.servicev8.com/api/credits`, {
+      headers: {
+        cookie: "__Host-sv8_runtime_support=test",
+        host: `${domain}.support.servicev8.com`,
+      },
+    });
+    const creditsRes = await getCredits(creditsReq);
+    const creditsData = await creditsRes.json();
+
+    expect(creditsData.success).toBe(true);
+    expect(creditsData.data.credits).toBe(38500);
+
+    // 3. Marketplace endpoint reflects inherited credits and marks plan_scale as isCurrent: true
+    const marketReq = new NextRequest(`https://${domain}.support.servicev8.com/api/marketplace`, {
+      headers: {
+        cookie: "__Host-sv8_runtime_support=test",
+        host: `${domain}.support.servicev8.com`,
+      },
+    });
+    const marketRes = await getMarketplace(marketReq);
+    const marketData = await marketRes.json();
+
+    expect(marketData.success).toBe(true);
+    expect(marketData.data.credits).toBe(38500);
+
+    const scalePlan = marketData.data.plans.find((p: any) => p.id === "plan_scale");
+    expect(scalePlan).toBeDefined();
+    expect(scalePlan.isCurrent).toBe(true);
+    expect(scalePlan.badge).toBe("CURRENT PLAN");
   });
 });

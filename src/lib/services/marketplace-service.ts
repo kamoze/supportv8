@@ -1155,7 +1155,12 @@ export class MarketplaceService {
     if (this.isRuntimeTenant(tenantSlug, context)) {
       return this.getCommonPoolCredits();
     }
-    return this.stateFor(tenantSlug).credits;
+    const state = this.stateFor(tenantSlug);
+    const activePlan = state.plans.find((p) => p.isCurrent);
+    if (activePlan && state.credits === 0 && activePlan.creditsAllowance > 0) {
+      state.credits = activePlan.creditsAllowance;
+    }
+    return state.credits;
   }
 
   public setCredits(

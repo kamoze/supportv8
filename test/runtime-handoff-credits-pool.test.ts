@@ -391,4 +391,19 @@ describe("Runtime Handoff Common Pool Credits", () => {
     expect(scalePlan.isCurrent).toBe(true);
     expect(scalePlan.badge).toBe("CURRENT PLAN");
   });
+
+  it("in standalone mode without runtime handoff, credits are derived from the active plan", async () => {
+    const domain = `standalone-tenant-${Date.now()}`;
+
+    // 1. Initial standalone state has no current plan and 0 credits
+    expect(marketplaceService.getCredits(domain)).toBe(0);
+
+    // 2. Selecting a plan in standalone mode grants that plan's credits
+    marketplaceService.selectPlan("plan_starter", domain);
+    expect(marketplaceService.getCredits(domain)).toBe(5000);
+
+    const plans = marketplaceService.getPlans(domain);
+    const starter = plans.find((p) => p.id === "plan_starter");
+    expect(starter?.isCurrent).toBe(true);
+  });
 });

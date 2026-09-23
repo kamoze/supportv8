@@ -928,13 +928,13 @@ export default function SupportV8Dashboard() {
     void AuthService.restoreRuntimeSession().then(session => {
       if (!session) return;
       setOperatorSession(session);
-      setCurrentTenantSlug(session.tenantDomain || session.tenantSlug);
+      setCurrentTenantSlug((session as any).tenantDomain || session.tenantSlug);
       if (typeof (session as any).credits === "number") {
         setForgeGwCredits((session as any).credits);
       }
       setViewMode("cockpit");
       setIsSignInModalOpen(false);
-      void fetchData(session.tenantDomain || session.tenantSlug);
+      void fetchData((session as any).tenantDomain || session.tenantSlug);
     });
 
     const activeSession = AuthService.getActiveSession();

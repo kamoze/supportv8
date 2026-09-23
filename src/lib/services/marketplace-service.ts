@@ -952,10 +952,9 @@ export class MarketplaceService {
   private resolveAccountBalance(accountId: string): number {
     const existing = this.accountPools.get(accountId);
     if (existing !== undefined) return existing;
-    const plan = this.accountPlans.get(accountId);
-    const balance = plan ? this.getPlanCredits(plan) : this.getCommonPoolCredits();
-    this.accountPools.set(accountId, balance);
-    return balance;
+    const commonOverride = this.getCommonPoolCredits();
+    if (commonOverride > 0) return commonOverride;
+    return 0;
   }
 
   private isKnownVerticalOrApp(slug: string): boolean {
@@ -1123,11 +1122,11 @@ export class MarketplaceService {
           const available = Math.max(0, rawAvailable);
           this.accountPools.set(accountId, available);
           return available;
-        } else if (planTier && (status === "active" || status === undefined)) {
-          const planCredits = this.getPlanCredits(planTier);
-          this.accountPools.set(accountId, planCredits);
-          return planCredits;
-        } else if (body.subscription === null || status === "inactive") {
+        } else if (body.subscription === null || status === "inactive" || body.credits?.serviceActive === false) {
+          this.accountPools.set(accountId, 0);
+          return 0;
+        } else {
+          // Credits missing or unavailable from Forge Gateway for pooled account
           this.accountPools.set(accountId, 0);
           return 0;
         }
@@ -1157,8 +1156,8 @@ export class MarketplaceService {
     }
     const state = this.stateFor(tenantSlug);
     const activePlan = state.plans.find((p) => p.isCurrent);
-    if (activePlan && state.credits === 0 && activePlan.creditsAllowance > 0) {
-      state.credits = activePlan.creditsAllowance;
+    if (activePlan && state.credits === 0 && (activePlan.creditsAllowance ?? 0) > 0) {
+      state.credits = activePlan.creditsAllowance ?? 0;
     }
     return state.credits;
   }

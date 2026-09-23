@@ -220,7 +220,7 @@ describe("Runtime Handoff Common Pool Credits", () => {
     vi.unstubAllGlobals();
   });
 
-  it("derives credit balance from active plan tier during Forge Gateway sync, and zeros out on inactive subscription", async () => {
+  it("syncs credit balance strictly from Forge Gateway credits.available, never fabricating credits from plan tier, and zeros out on inactive subscription", async () => {
     const accountId = `acct_tier_sync_${Date.now()}`;
     const domain = `rt-tier-sync-${Date.now()}`;
     const ws = `tenant_rt_${"6".repeat(48)}`;
@@ -234,7 +234,7 @@ describe("Runtime Handoff Common Pool Credits", () => {
     vi.stubEnv("FORGE_GATEWAY_URL", "https://forge.test");
     vi.stubEnv("FORGE_GATEWAY_TOKEN", "test-token");
 
-    // 1. Sync with active "growth" tier without an explicit credits.available -> should derive 27,500
+    // 1. Sync with active "growth" tier without an explicit credits.available -> strictly 0, NEVER fabricate 27,500
     let fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -249,9 +249,24 @@ describe("Runtime Handoff Common Pool Credits", () => {
     let res = await getCredits(req);
     let data = await res.json();
     expect(data.success).toBe(true);
-    expect(data.data.credits).toBe(27500);
+    expect(data.data.credits).toBe(0);
 
-    // 2. Subscription becomes inactive -> balance drops to 0
+    // 2. Sync with real credits block from Forge Gateway (e.g. 4,385 remaining allowance)
+    fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        subscription: { status: "active", tier: "growth" },
+        credits: { available: 4385, serviceActive: true },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    res = await getCredits(req);
+    data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.data.credits).toBe(4385);
+
+    // 3. Subscription becomes inactive -> balance drops to 0
     fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({

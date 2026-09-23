@@ -23,8 +23,8 @@ export async function GET(request: Request) {
     }
     if (access.credits !== undefined) {
       marketplaceService.setCredits(access.credits, session.tenantDomain, { accountId: poolAccountId });
-    } else if (effectivePlanId && !marketplaceService.hasAccountPool(poolAccountId)) {
-      marketplaceService.enablePlanForAccount(poolAccountId, effectivePlanId);
+    } else {
+      await marketplaceService.syncForgeAccountPool(poolAccountId).catch(() => null);
     }
 
     const credits = marketplaceService.getCredits(session.tenantDomain, {

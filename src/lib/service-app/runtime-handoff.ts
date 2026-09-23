@@ -127,7 +127,7 @@ export async function handleRuntimeSupportHandoff(
       credits: effectiveCredits,
     });
 
-    void marketplaceService.syncForgeAccountPool(poolAccountId).catch(() => null);
+    await marketplaceService.syncForgeAccountPool(poolAccountId).catch(() => null);
 
     return new Response(null, {
       status: 303,

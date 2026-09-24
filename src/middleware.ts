@@ -67,6 +67,9 @@ export function middleware(request: NextRequest) {
     "/api/issues", "/api/presence", "/api/auth/profile", "/api/auth/logout",
     "/api/members", "/api/groups",
     "/api/chat/session", "/api/chat/message", "/api/chat/draft", "/api/chat/stream",
+    "/api/knowledge", "/api/knowledge/chunks", "/api/knowledge/curate",
+    "/api/knowledge/upload", "/api/knowledge/s3-source", "/api/knowledge/crawl",
+    "/api/marketplace",
   ]);
   if (hasRuntimeSession && !SAFE_HTTP_METHODS.has(request.method) && url.pathname.startsWith("/api/")
     && !url.pathname.startsWith("/api/runtime/") && !scopedRuntimeMutations.has(url.pathname)) {
@@ -100,8 +103,10 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  const tenantDomain =
-    browserTenantSlugFromHostname(hostname) || "tenant_default";
+  const hostedTenant = browserTenantSlugFromHostname(hostname);
+  const inboundTenant = (request.headers.get("x-servicev8-tenant-domain") || url.searchParams.get("tenant") || "").trim().toLowerCase();
+  const validInboundTenant = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(inboundTenant) && !["www", "support", "localhost"].includes(inboundTenant) ? inboundTenant : null;
+  const tenantDomain = hostedTenant || validInboundTenant || "tenant_default";
 
   // Overwrite, rather than trust, any inbound tenant header. Route handlers use
   // this request header as the public-host tenant boundary.

@@ -192,6 +192,13 @@ export function KnowledgeSuiteView({
     }
   }, [knowledge.documents]);
 
+  // Auto-select first document when opening RAG Editor if none selected
+  useEffect(() => {
+    if (activeSubTab === "rag_editor" && !ragEditingDoc && documents.length > 0) {
+      openRagEditor(documents[0]);
+    }
+  }, [activeSubTab, ragEditingDoc, documents]);
+
   // Load Chunks when opening RAG Editor
   const openRagEditor = async (doc: KnowledgeDocument) => {
     setRagEditingDoc(doc);

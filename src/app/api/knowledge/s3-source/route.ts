@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
-import { db } from "@/lib/db/mock-data";
+import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const sources = ragIngestion.getS3Sources(db.tenant.tenantId);
+  const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+  const { searchParams } = new URL(req.url);
+  const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
+  const sources = ragIngestion.getS3Sources(tenantId);
   return NextResponse.json({
     success: true,
     count: sources.length,
@@ -16,6 +21,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+    const { searchParams } = new URL(req.url);
+    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
     const body = await req.json();
     const { action, bucketName, prefix, region, endpoint, targetCategory, groups, sourceId } = body;
 
@@ -37,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     const newSource = ragIngestion.connectS3Source({
-      tenantId: db.tenant.tenantId,
+      tenantId,
       bucketName,
       prefix,
       region,

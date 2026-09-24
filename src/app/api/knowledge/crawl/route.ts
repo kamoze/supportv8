@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { webCrawler } from "@/lib/services/web-crawler-service";
-import { db } from "@/lib/db/mock-data";
+import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
 
-export async function GET() {
-  const sources = webCrawler.getWebSources(db.tenant.tenantId);
+export async function GET(req: NextRequest) {
+  const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+  const { searchParams } = new URL(req.url);
+  const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
+  const sources = webCrawler.getWebSources(tenantId);
   return NextResponse.json({
     success: true,
     count: sources.length,
@@ -13,6 +18,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+    const { searchParams } = new URL(req.url);
+    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
     const body = await req.json();
     const { url, title, category, crawlDepth, mockHtmlContent } = body;
 
@@ -21,7 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await webCrawler.crawlAndIngest({
-      tenantId: db.tenant.tenantId,
+      tenantId,
       url,
       title,
       category: category || "web_documentation",

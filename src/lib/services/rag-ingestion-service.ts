@@ -11,7 +11,7 @@ import { db } from "../db/mock-data";
 import { pgClient as defaultPgClient, type PostgresClient } from "../db/pg-client";
 import { marketplaceService } from "./marketplace-service";
 import { tenantIdFromSlug } from "../auth/request-tenant";
-import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle, KnowledgeS3Source } from "../types";
+import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle, KnowledgeS3Source, RagQueryResult, RagQueryResponse, RagQueryCitation } from "../types";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file — aligned with knowledgev8 pod memory guard
 export const MAX_BATCH_BYTES = 60 * 1024 * 1024;  // 60MB per batch upload request
@@ -1102,6 +1102,146 @@ export class RagIngestionService {
       message: `Successfully synced ${simulatedFiles.length} objects from s3://${source.bucketName}/${source.prefix} and indexed into pgvector chunks.`,
     };
   }
+
+  /**
+   * Execute 1536-dimensional semantic RAG search across knowledge document chunks
+   * using PostgreSQL pgvector cosine similarity (<=> operator) with in-memory fallback.
+   */
+  public async queryRag(params: {
+    tenantId: string;
+    query: string;
+    limit?: number;
+    minSimilarity?: number;
+  }): Promise<RagQueryResponse> {
+    const start = Date.now();
+    this.ensureInitialChunks();
+    const rawTenantId = params.tenantId;
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(rawTenantId) || tenantIdFromSlug(rawTenantId);
+    const limit = Math.max(1, Math.min(params.limit || 5, 20));
+    const minSimilarity = params.minSimilarity ?? 0.35;
+    const queryEmbedding = ragService.generateEmbedding(params.query);
+
+    let results: RagQueryResult[] = [];
+
+    if (process.env.DATABASE_URL) {
+      try {
+        results = await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          const rows = await session.query<{
+            id: string;
+            document_id: string;
+            chunk_index: number;
+            content: string;
+            document_title: string | null;
+            category: string | null;
+            filename: string | null;
+            s3_url: string | null;
+            similarity: number;
+          }>(
+            `SELECT c.id, c.document_id, c.chunk_index, c.content,
+                    COALESCE(d.title, c.document_id) as document_title,
+                    COALESCE(d.category, 'knowledge') as category,
+                    COALESCE(d.filename, '') as filename,
+                    COALESCE(d.s3_url, '') as s3_url,
+                    (1 - (c.embedding <=> $1::vector)) as similarity
+               FROM supportv8.knowledge_document_chunks c
+               LEFT JOIN supportv8.knowledge_documents d ON c.document_id = d.id AND c.tenant_id = d.tenant_id
+              WHERE c.tenant_id = $2
+              ORDER BY c.embedding <=> $1::vector ASC
+              LIMIT $3`,
+            [JSON.stringify(queryEmbedding), canonicalTenantId, limit]
+          );
+
+          return rows
+            .map((r) => ({
+              id: r.id,
+              documentId: r.document_id,
+              chunkIndex: r.chunk_index,
+              content: r.content,
+              documentTitle: r.document_title || r.document_id,
+              category: r.category || "knowledge",
+              filename: r.filename || "",
+              similarity: Math.round(Number(r.similarity) * 1000) / 1000,
+              s3Url: r.s3_url || undefined,
+            }))
+            .filter((r) => r.similarity >= minSimilarity);
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to execute PostgreSQL pgvector query:", err);
+      }
+    }
+
+    // In-memory fallback if no database results or running without PostgreSQL
+    if (!results || results.length === 0) {
+      const memoryChunks = (db.documentChunks || []).filter(
+        (c) => c.tenantId === canonicalTenantId || c.tenantId === "tenant_default" || c.tenantId === rawTenantId
+      );
+      const scored = memoryChunks.map((chunk) => {
+        const doc = (db.documents || []).find((d) => d.id === chunk.documentId);
+        const similarity = computeCosineSimilarity(queryEmbedding, chunk.embedding);
+        return {
+          id: chunk.id,
+          documentId: chunk.documentId,
+          chunkIndex: chunk.chunkIndex,
+          content: chunk.content,
+          documentTitle: doc?.title || chunk.documentId,
+          category: doc?.category || "knowledge",
+          filename: doc?.filename || "",
+          similarity: Math.round(similarity * 1000) / 1000,
+          s3Url: doc?.s3Url,
+          tags: doc?.tags,
+        };
+      });
+      scored.sort((a, b) => b.similarity - a.similarity);
+      results = scored.filter((r) => r.similarity >= minSimilarity).slice(0, limit);
+    }
+
+    const executionMs = Date.now() - start;
+    const matchCount = results.length;
+
+    const citations: RagQueryCitation[] = results.map((r) => ({
+      type: "document_chunk",
+      id: r.id,
+      title: r.documentTitle,
+      similarity: r.similarity,
+      chunkIndex: r.chunkIndex,
+    }));
+
+    let answer = "";
+    if (matchCount > 0) {
+      const topMatch = results[0];
+      const topPct = (topMatch.similarity * 100).toFixed(1);
+      answer = `Based on semantic retrieval from the SupportV8 Knowledge Base (top match: "${topMatch.documentTitle}" with ${topPct}% similarity):\n\n${topMatch.content}`;
+      if (results.length > 1) {
+        answer += `\n\n**Additional Corroborating Context:**\n` + results.slice(1, 3).map((r) => `- [${r.documentTitle}] (${(r.similarity * 100).toFixed(1)}% match): ${r.content.slice(0, 160)}...`).join("\n");
+      }
+    } else {
+      answer = `No matching knowledge documents or vector chunks found for "${params.query}" in this workspace (threshold: ${(minSimilarity * 100).toFixed(0)}%). Upload documents in the Knowledge Suite Vault or index resolved tickets into RAG to enable semantic retrieval.`;
+    }
+
+    return {
+      query: params.query,
+      matchCount,
+      executionMs,
+      answer,
+      citations,
+      results,
+    };
+  }
+}
+
+export function computeCosineSimilarity(a: number[], b: number[]): number {
+  if (!a || !b || a.length === 0 || b.length === 0) return 0;
+  const len = Math.min(a.length, b.length);
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < len; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 export const ragIngestion = new RagIngestionService();

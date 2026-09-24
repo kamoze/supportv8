@@ -26,6 +26,17 @@ interface AskWorkspaceViewProps {
   loading: boolean;
 }
 
+const DEFAULT_FALLBACK_ASSISTANT = {
+  id: "emp_rag_intelligence",
+  name: "SupportV8 RAG Intelligence",
+  role: "Knowledge Retrieval & Vector Copilot",
+  level: "ai_employee",
+  status: "active",
+  autonomyLevel: "L2 Assisted",
+  avatarUrl: "/avatars/beaver-curator.jpg",
+  isHired: true,
+};
+
 export function AskWorkspaceView({
   workforce,
   selectedEmployeeId,
@@ -39,17 +50,22 @@ export function AskWorkspaceView({
   const [inputQuery, setInputQuery] = useState<string>("");
   const [showPrompts, setShowPrompts] = useState<boolean>(true);
 
-  const activeEmployee = workforce.find((w) => w.id === selectedEmployeeId) || workforce[0];
-  const hasHiredEmployee = Boolean(activeEmployee);
+  const activeEmployee = workforce.find((w) => w.id === selectedEmployeeId) || workforce[0] || DEFAULT_FALLBACK_ASSISTANT;
+  const hasHiredEmployee = true;
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputQuery.trim() || loading || !hasHiredEmployee) return;
+    if (!inputQuery.trim() || loading) return;
     onSendMessage(inputQuery.trim());
     setInputQuery("");
   };
 
   const PROMPT_SUGGESTIONS: Record<string, string[]> = {
+    emp_rag_intelligence: [
+      "Search knowledge base for: Want to check on your inventory",
+      "How do I configure Okta SAML 2.0 Single Sign-On?",
+      "Diagnose 504 Gateway Timeout and Stripe payment webhook failure",
+    ],
     emp_support_lead: [
       "What is our active SLA attainment rate across all tiers?",
       "Summarize active systemic problems correlated by AI.",
@@ -80,7 +96,10 @@ export function AskWorkspaceView({
   };
 
   const suggestions = hasHiredEmployee
-    ? PROMPT_SUGGESTIONS[selectedEmployeeId] || []
+    ? PROMPT_SUGGESTIONS[selectedEmployeeId] ||
+      PROMPT_SUGGESTIONS[activeEmployee?.id] ||
+      PROMPT_SUGGESTIONS.emp_rag_intelligence ||
+      []
     : [];
 
   return (
@@ -309,8 +328,8 @@ export function AskWorkspaceView({
                   handleSend(e);
                 }
               }}
-              placeholder={hasHiredEmployee ? `Ask ${activeEmployee.name} about this workspace...` : "Hire an AI employee to start a workforce conversation"}
-              disabled={!hasHiredEmployee}
+              placeholder={`Ask ${activeEmployee.name} about tickets, runbooks, or vector knowledge...`}
+              disabled={loading}
               className="w-full bg-[#18222E] text-[#EAF1F8] p-3.5 pr-14 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] focus:ring-1 focus:ring-[#2ED8B6]/40 font-medium transition-all shadow-inner resize-y min-h-[80px] max-h-[360px] leading-relaxed"
             />
             <div className="absolute right-3.5 top-3.5 text-[#6B7C8D] text-[10px] font-mono pointer-events-none">
@@ -331,7 +350,7 @@ export function AskWorkspaceView({
 
             <button
               type="submit"
-              disabled={!hasHiredEmployee || !inputQuery.trim() || loading}
+              disabled={!inputQuery.trim() || loading}
               className="btn btn-primary py-2.5 px-5 text-xs font-bold flex items-center gap-2 disabled:opacity-40 cursor-pointer shadow-md shrink-0"
             >
               <Send className="w-3.5 h-3.5" />

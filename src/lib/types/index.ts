@@ -286,6 +286,36 @@ export interface KnowledgeS3Source {
   groups: string[];
 }
 
+export interface RagQueryResult {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  content: string;
+  documentTitle: string;
+  category: string;
+  filename: string;
+  similarity: number;
+  s3Url?: string;
+  tags?: string[];
+}
+
+export interface RagQueryCitation {
+  type: "document_chunk";
+  id: string;
+  title: string;
+  similarity: number;
+  chunkIndex: number;
+}
+
+export interface RagQueryResponse {
+  query: string;
+  matchCount: number;
+  executionMs: number;
+  answer: string;
+  citations: RagQueryCitation[];
+  results: RagQueryResult[];
+}
+
 export interface KnowledgeArticle {
   id: string;
   source: string;

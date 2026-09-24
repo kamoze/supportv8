@@ -66,9 +66,9 @@ export function middleware(request: NextRequest) {
   const scopedRuntimeMutations = new Set([
     "/api/issues", "/api/presence", "/api/auth/profile", "/api/auth/logout",
     "/api/members", "/api/groups",
-    "/api/chat/session", "/api/chat/message", "/api/chat/draft", "/api/chat/stream",
+    "/api/chat", "/api/chat/session", "/api/chat/message", "/api/chat/draft", "/api/chat/stream",
     "/api/knowledge", "/api/knowledge/chunks", "/api/knowledge/curate",
-    "/api/knowledge/upload", "/api/knowledge/s3-source", "/api/knowledge/crawl",
+    "/api/knowledge/upload", "/api/knowledge/s3-source", "/api/knowledge/crawl", "/api/knowledge/query",
     "/api/marketplace",
   ]);
   if (hasRuntimeSession && !SAFE_HTTP_METHODS.has(request.method) && url.pathname.startsWith("/api/")

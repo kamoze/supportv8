@@ -30,6 +30,7 @@ import {
   FolderPlus,
   BookOpen,
   Zap,
+  Bot,
 } from "@/components/ui/FlatIcon";
 import type {
   KnowledgeArticle,
@@ -38,6 +39,8 @@ import type {
   KnowledgeDocument,
   KnowledgeDocumentChunk,
   KnowledgeWebSource,
+  RagQueryResponse,
+  RagQueryResult,
 } from "@/lib/types";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import { KnowledgeGraphCanvas } from "./KnowledgeGraphCanvas";
@@ -176,6 +179,50 @@ export function KnowledgeSuiteView({
   const [newChunkContent, setNewChunkContent] = useState<string>("");
   const [newChunkSection, setNewChunkSection] = useState<string>("");
   const [isAddingChunk, setIsAddingChunk] = useState<boolean>(false);
+
+  // RAG Query Playground States
+  const [playgroundQuery, setPlaygroundQuery] = useState<string>("Want to check on your inventory");
+  const [playgroundLimit, setPlaygroundLimit] = useState<number>(5);
+  const [playgroundMinSimilarity, setPlaygroundMinSimilarity] = useState<number>(0.35);
+  const [playgroundLoading, setPlaygroundLoading] = useState<boolean>(false);
+  const [playgroundResponse, setPlaygroundResponse] = useState<RagQueryResponse | null>(null);
+
+  const handleExecuteRagQuery = async (queryText?: string) => {
+    const q = (queryText || playgroundQuery).trim();
+    if (!q) return;
+    setPlaygroundLoading(true);
+    try {
+      const res = await AuthService.authenticatedFetch(
+        `/api/knowledge/query${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}),
+          },
+          body: JSON.stringify({
+            query: q,
+            limit: playgroundLimit,
+            minSimilarity: playgroundMinSimilarity,
+          }),
+        }
+      );
+      const json = await res.json();
+      if (json.success && json.data) {
+        setPlaygroundResponse(json.data);
+        onNotify(
+          `Found ${json.data.matchCount} vector chunks matching query in ${json.data.executionMs}ms`,
+          "success"
+        );
+      } else {
+        onNotify(json.error || "RAG query failed", "error");
+      }
+    } catch (err: any) {
+      onNotify(err.message || "Network error querying RAG", "error");
+    } finally {
+      setPlaygroundLoading(false);
+    }
+  };
 
   // Tag Quick Edit Modal States
   const [tagEditingDoc, setTagEditingDoc] = useState<KnowledgeDocument | null>(null);
@@ -1290,6 +1337,245 @@ export function KnowledgeSuiteView({
       {/* ========================================================================= */}
       {activeSubTab === "rag_editor" && (
         <div className="space-y-6">
+          {/* ========================================================================= */}
+          {/* SEMANTIC RAG RETRIEVAL & PGVECTOR QUERY PLAYGROUND */}
+          {/* ========================================================================= */}
+          <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                    <Search className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">
+                    Semantic RAG Retrieval &amp; pgvector Query Playground
+                  </h3>
+                </div>
+                <p className="text-xs text-[#B4C2D0]">
+                  Query PostgreSQL <code className="text-[#2ED8B6] font-mono">knowledge_document_chunks</code> in real time using 1536-dimensional cosine similarity (<code className="text-[#2ED8B6] font-mono">&lt;=&gt;</code>).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="pill ok text-[10px] font-mono">
+                  {vectorModel === "forge-embed-text-1536" || isForgeGwActive
+                    ? "FORGEGW 1536-DIM VECTOR"
+                    : `${vectorModel.toUpperCase()} (1536-DIM)`}
+                </span>
+                <span className="pill text-[10px] font-mono bg-[#18222E] border border-[var(--line)] text-[#6B7C8D]">
+                  HNSW INDEX ACTIVE
+                </span>
+              </div>
+            </div>
+
+            {/* Interactive Search Bar & Controls */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleExecuteRagQuery();
+              }}
+              className="space-y-3"
+            >
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={playgroundQuery}
+                    onChange={(e) => setPlaygroundQuery(e.target.value)}
+                    placeholder="Enter semantic query (e.g., 'Want to check on your inventory', 'Okta SAML 2.0 clock skew')..."
+                    className="w-full bg-[#18222E] text-[#EAF1F8] py-2.5 pl-9 pr-4 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] font-medium"
+                  />
+                  <Search className="w-4 h-4 text-[#6B7C8D] absolute left-3 top-3 pointer-events-none" />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={playgroundLoading || !playgroundQuery.trim()}
+                    className="btn btn-primary py-2.5 px-4 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-40"
+                  >
+                    {playgroundLoading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    <span>{playgroundLoading ? "Vectorizing..." : "Query pgvector"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Preset Query Chips & Threshold Controls */}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs pt-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-mono text-[#6B7C8D] uppercase shrink-0">Sample Queries:</span>
+                  {[
+                    "Want to check on your inventory",
+                    "Okta SAML 2.0 Single Sign-On",
+                    "504 Gateway Timeout Stripe webhook",
+                    "Clock skew SAML troubleshooting",
+                  ].map((sample) => (
+                    <button
+                      key={sample}
+                      type="button"
+                      onClick={() => {
+                        setPlaygroundQuery(sample);
+                        handleExecuteRagQuery(sample);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] text-[#B4C2D0] hover:text-[#2ED8B6] text-[11px] font-mono transition-all cursor-pointer"
+                    >
+                      &ldquo;{sample}&rdquo;
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-4 text-[11px] font-mono text-[#6B7C8D]">
+                  <div className="flex items-center gap-1.5">
+                    <span>Limit:</span>
+                    <select
+                      value={playgroundLimit}
+                      onChange={(e) => setPlaygroundLimit(Number(e.target.value))}
+                      className="bg-[#18222E] text-[#EAF1F8] py-0.5 px-2 rounded-lg border border-[var(--line)] text-[11px] focus:outline-none"
+                    >
+                      <option value={3}>Top 3</option>
+                      <option value={5}>Top 5</option>
+                      <option value={10}>Top 10</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span>Min Sim:</span>
+                    <input
+                      type="number"
+                      min={0.1}
+                      max={0.99}
+                      step={0.05}
+                      value={playgroundMinSimilarity}
+                      onChange={(e) => setPlaygroundMinSimilarity(Number(e.target.value))}
+                      className="w-16 bg-[#18222E] text-[#EAF1F8] py-0.5 px-2 rounded-lg border border-[var(--line)] text-[11px] focus:outline-none text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            {/* Results Section */}
+            {playgroundResponse && (
+              <div className="space-y-4 pt-3 border-t border-[var(--line)] animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#2ED8B6] font-bold">
+                      {playgroundResponse.matchCount} {playgroundResponse.matchCount === 1 ? "Chunk" : "Chunks"} Found
+                    </span>
+                    <span className="text-[#6B7C8D]">&bull;</span>
+                    <span className="text-[#B4C2D0]">
+                      Execution: <strong className="text-[#EAF1F8]">{playgroundResponse.executionMs}ms</strong>
+                    </span>
+                    <span className="text-[#6B7C8D]">&bull;</span>
+                    <span className="text-[#6B7C8D]">Query: &ldquo;{playgroundResponse.query}&rdquo;</span>
+                  </div>
+
+                  <span className="pill text-[10px] font-mono bg-[#18222E] border border-[var(--line)] text-[#2ED8B6]">
+                    1536-DIM COSINE SIMILARITY
+                  </span>
+                </div>
+
+                {/* Synthesized Response Preview */}
+                <div className="p-4 rounded-xl bg-[#15202E] border border-[#2ED8B6]/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#2ED8B6] font-mono">
+                      <Bot className="w-3.5 h-3.5" />
+                      <span>Synthesized RAG Response &amp; Grounding</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#6B7C8D]">
+                      Grounded via {playgroundResponse.citations.length} Citations
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#EAF1F8] leading-relaxed whitespace-pre-line font-sans">
+                    {playgroundResponse.answer}
+                  </p>
+
+                  {playgroundResponse.citations.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {playgroundResponse.citations.map((c, idx) => (
+                        <span
+                          key={idx}
+                          className="pill text-[10px] font-mono flex items-center gap-1 bg-[#121A24] border border-[#2ED8B6]/40 text-[#2ED8B6]"
+                        >
+                          <Shield className="w-2.5 h-2.5" />
+                          <span>{c.title} ({(c.similarity * 100).toFixed(1)}%)</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Retrieved Vector Chunks Cards */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-mono font-bold text-[#6B7C8D] uppercase">
+                    Retrieved Chunks from PostgreSQL pgvector:
+                  </h4>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    {playgroundResponse.results.map((result, idx) => {
+                      const matchPct = (result.similarity * 100).toFixed(1);
+                      const isHighMatch = result.similarity >= 0.70;
+                      const isMedMatch = result.similarity >= 0.50;
+
+                      return (
+                        <div
+                          key={result.id || idx}
+                          className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6]/50 transition-all space-y-2.5"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`pill text-[10px] font-mono font-bold ${
+                                  isHighMatch
+                                    ? "bg-[#2ED8B6]/20 text-[#2ED8B6] border border-[#2ED8B6]/40"
+                                    : isMedMatch
+                                    ? "bg-[#00B4D8]/20 text-[#00B4D8] border border-[#00B4D8]/40"
+                                    : "bg-[#F5A623]/20 text-[#F5A623] border border-[#F5A623]/40"
+                                }`}
+                              >
+                                {matchPct}% SIMILARITY
+                              </span>
+                              <span className="text-xs font-bold text-[#EAF1F8]">{result.documentTitle}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono text-[#6B7C8D]">
+                                Chunk #{result.chunkIndex + 1} &bull; ID: {result.id}
+                              </span>
+                              {result.documentId && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const matchedDoc = documents.find((d) => d.id === result.documentId);
+                                    if (matchedDoc) {
+                                      openRagEditor(matchedDoc);
+                                    }
+                                  }}
+                                  className="btn btn-secondary py-1 px-2.5 text-[11px] font-mono flex items-center gap-1 hover:border-[#2ED8B6] text-[#2ED8B6] cursor-pointer"
+                                >
+                                  <span>Inspect Chunk</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-lg bg-[#121A24] border border-[var(--line)] font-mono text-xs text-[#B4C2D0] leading-relaxed whitespace-pre-wrap">
+                            {result.content}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
               <div>

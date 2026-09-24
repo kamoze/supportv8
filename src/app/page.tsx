@@ -165,6 +165,18 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export const DEFAULT_RAG_ASSISTANT = {
+  id: "emp_rag_intelligence",
+  name: "SupportV8 RAG Intelligence",
+  role: "Knowledge Retrieval & Vector Copilot",
+  level: "ai_employee",
+  status: "active",
+  autonomyLevel: "L2 Assisted",
+  avatarUrl: "/avatars/beaver-curator.jpg",
+  isHired: true,
+  hired: true,
+};
+
 const EMPTY_CONNECTORS = INITIAL_CONNECTORS.map((connector) => ({
   ...connector,
   isSubscribed: false,
@@ -300,7 +312,7 @@ export default function SupportV8Dashboard() {
   const [chatQuery, setChatQuery] = useState<string>("");
   const [chatLoading, setChatLoading] = useState<boolean>(false);
   const [chatResponse, setChatResponse] = useState<any | null>(null);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("emp_rag_intelligence");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Web Crawler Form State
@@ -320,7 +332,7 @@ export default function SupportV8Dashboard() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [workforce, setWorkforce] = useState<any[]>([]);
+  const [workforce, setWorkforce] = useState<any[]>([DEFAULT_RAG_ASSISTANT]);
   const [voiceData, setVoiceData] = useState<{
     phoneConfigs: any[];
     sessions: any[];
@@ -615,8 +627,8 @@ export default function SupportV8Dashboard() {
         setSources([]);
         setPolicy(null);
         setTrends({ series: [], anomalies: [] });
-        setWorkforce([]);
-        setSelectedEmployeeId("");
+        setWorkforce([DEFAULT_RAG_ASSISTANT]);
+        setSelectedEmployeeId("emp_rag_intelligence");
         setVoiceData({ phoneConfigs: [], sessions: [] });
         setSelectedVoiceSession(null);
         setVerticals([]);
@@ -686,9 +698,13 @@ export default function SupportV8Dashboard() {
       if (srcRes.success) setSources(srcRes.data);
       if (wfRes.success) {
         const hiredWorkforce = Array.isArray(wfRes.data) ? wfRes.data.filter((member: any) => member.hired) : [];
-        setWorkforce(hiredWorkforce);
+        const fullWorkforce = [
+          DEFAULT_RAG_ASSISTANT,
+          ...hiredWorkforce.filter((member: any) => member.id !== DEFAULT_RAG_ASSISTANT.id),
+        ];
+        setWorkforce(fullWorkforce);
         setSelectedEmployeeId((current) =>
-          hiredWorkforce.some((member: any) => member.id === current) ? current : hiredWorkforce[0]?.id || ""
+          fullWorkforce.some((member: any) => member.id === current) ? current : DEFAULT_RAG_ASSISTANT.id
         );
       }
       if (vertRes.success) setVerticals(vertRes.data);
@@ -1185,10 +1201,7 @@ export default function SupportV8Dashboard() {
     if (e) e.preventDefault();
     const queryToSend = overrideQuery || chatQuery;
     if (!queryToSend.trim()) return;
-    if (!selectedEmployeeId) {
-      notify("Hire an AI employee before opening an AI workforce conversation.", "info");
-      return;
-    }
+    const targetEmployeeId = selectedEmployeeId || DEFAULT_RAG_ASSISTANT.id;
 
     const userMsg: ChatMessage = {
       id: `usr_${Date.now()}`,
@@ -1207,7 +1220,7 @@ export default function SupportV8Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: queryToSend,
-          employeeId: selectedEmployeeId,
+          employeeId: targetEmployeeId,
         }),
       }).then((r) => r.json());
 
@@ -8045,6 +8058,31 @@ export default function SupportV8Dashboard() {
                       <Sparkles className="w-3 h-3" />
                       <span>Prompts:</span>
                     </span>
+                    {(selectedEmployeeId === "emp_rag_intelligence" || !selectedEmployeeId) && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Want to check on your inventory")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Want to check on your inventory&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "How do I configure Okta SAML SSO?")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;How do I configure Okta SAML SSO?&rdquo;
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAskChat(undefined, "Diagnose 504 Gateway Timeout on checkout")}
+                          className="pill cursor-pointer hover:border-[#2ED8B6] hover:text-[#2ED8B6] text-[11px]"
+                        >
+                          &ldquo;Diagnose 504 Gateway Timeout on checkout&rdquo;
+                        </button>
+                      </>
+                    )}
                     {selectedEmployeeId === "emp_support_lead" && (
                       <>
                         <button
@@ -8207,8 +8245,8 @@ export default function SupportV8Dashboard() {
                         handleAskChat(e);
                       }
                     }}
-                    placeholder={selectedEmployeeId ? `Message ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "AI employee"}...` : "Hire an AI employee to start a workforce conversation"}
-                    disabled={!selectedEmployeeId}
+                    placeholder={`Ask ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "SupportV8 RAG Intelligence"} about tickets, runbooks, or vector knowledge...`}
+                    disabled={chatLoading}
                     className="w-full bg-[#18222E] text-[#EAF1F8] p-3 pr-12 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] text-xs transition-colors shadow-inner resize-y min-h-[64px] max-h-[240px] leading-relaxed"
                   />
                   <div className="absolute right-3 top-3 text-[10px] font-mono text-[#6B7C8D] pointer-events-none">
@@ -8223,7 +8261,7 @@ export default function SupportV8Dashboard() {
 
                   <button
                     type="submit"
-                    disabled={!selectedEmployeeId || chatLoading || !chatQuery.trim()}
+                    disabled={chatLoading || !chatQuery.trim()}
                     className="btn btn-primary py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />

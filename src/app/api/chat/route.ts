@@ -26,6 +26,7 @@ import {
   isCentralAgenticChatEnabled,
   executeAgenticChatAsk,
 } from "@/lib/chat/agenticos-chat-client";
+import { ragIngestion } from "@/lib/services/rag-ingestion-service";
 
 const DEMO_HIRE_IDS: Record<string, string> = {
   acme: "hi_supportv8_demo_acme",
@@ -33,9 +34,11 @@ const DEMO_HIRE_IDS: Record<string, string> = {
 };
 
 type Citation = {
-  type: "problem" | "issue" | "metric";
+  type: "problem" | "issue" | "metric" | "document_chunk";
   id: string;
   title: string;
+  similarity?: number;
+  chunkIndex?: number;
 };
 
 function boundedQuery(value: unknown): string | null {
@@ -111,13 +114,26 @@ export async function POST(request: NextRequest) {
         .filter((employee) => employee.isHired)
         .map((employee) => employee.id)
     );
+    // SupportV8 RAG Intelligence copilot is always accessible to all workspaces
+    hiredIds.add("emp_rag_intelligence");
+
     if (!employeeId || !hiredIds.has(employeeId)) {
       return NextResponse.json(
         { success: false, error: "No hired AI employee is available for this workspace." },
         { status: 409 }
       );
     }
-    const employee = workforceManager.getById(employeeId);
+    let employee = workforceManager.getById(employeeId);
+    if (!employee && employeeId === "emp_rag_intelligence") {
+      employee = {
+        id: "emp_rag_intelligence",
+        name: "SupportV8 RAG Intelligence",
+        role: "Knowledge Retrieval & Vector Copilot",
+        level: "ai_employee",
+        status: "active",
+        avatar: "/avatars/beaver-curator.jpg",
+      } as any;
+    }
     if (!employee) {
       return NextResponse.json(
         { success: false, error: "The selected AI employee is not available." },
@@ -136,7 +152,35 @@ export async function POST(request: NextRequest) {
     }
 
     const instanceId = DEMO_HIRE_IDS[tenant.tenantSlug];
-    if (!instanceId || employeeId !== "emp_support_lead") {
+    // If querying the RAG Copilot or workspace has no demo-metered instance:
+    if (employeeId === "emp_rag_intelligence" || !instanceId) {
+      const ragResult = await ragIngestion.queryRag({
+        tenantId: tenant.tenantId,
+        query,
+        limit: 5,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          query,
+          employeeId: employee.id,
+          employeeName: employee.name,
+          employeeRole: employee.role,
+          employeeAvatar: (employee as any).avatar || "/avatars/beaver-curator.jpg",
+          answer: ragResult.answer,
+          citations: ragResult.citations,
+          suggestedActions: [
+            { label: "Inspect in RAG Output Editor", action: "navigate", targetTab: "knowledge" },
+            { label: "View Tickets & Issues", action: "navigate", targetTab: "issues" },
+          ],
+          timestamp: new Date().toISOString(),
+          runtime: "pgvector_rag",
+        },
+      });
+    }
+
+    if (employeeId !== "emp_support_lead") {
       return NextResponse.json(
         { success: false, error: "This AI employee is not connected to a metered runtime." },
         { status: 409 }

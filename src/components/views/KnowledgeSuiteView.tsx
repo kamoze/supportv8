@@ -41,6 +41,7 @@ import type {
 } from "@/lib/types";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import { KnowledgeGraphCanvas } from "./KnowledgeGraphCanvas";
+import { AuthService } from "@/lib/auth-service";
 
 interface KnowledgeSuiteViewProps {
   knowledge: {
@@ -57,6 +58,7 @@ interface KnowledgeSuiteViewProps {
   embeddingProvider?: "forgegw" | "openai" | "voyage" | "cohere" | "fastembed_local" | "custom_vector_endpoint" | string;
   embeddingModel?: string;
   onUpdateSettings?: (updates: Partial<TenantSettingConfig>) => void;
+  tenantSlug?: string;
 }
 
 export function KnowledgeSuiteView({
@@ -68,6 +70,7 @@ export function KnowledgeSuiteView({
   embeddingProvider,
   embeddingModel,
   onUpdateSettings,
+  tenantSlug,
 }: KnowledgeSuiteViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<"ingest" | "curation" | "rag_editor" | "deficit_mapper" | "graph" | "topology_settings">("ingest");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -204,7 +207,10 @@ export function KnowledgeSuiteView({
     setRagEditingDoc(doc);
     setChunksLoading(true);
     try {
-      const res = await fetch(`/api/knowledge/chunks?documentId=${doc.id}`);
+      const url = `/api/knowledge/chunks?documentId=${encodeURIComponent(doc.id)}${tenantSlug ? `&tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
+        headers: tenantSlug ? { "x-tenant-slug": tenantSlug } : {},
+      });
       const json = await res.json();
       if (json.success && json.data) {
         setDocChunks(json.data);
@@ -214,7 +220,7 @@ export function KnowledgeSuiteView({
           {
             id: `chk_${doc.id}_0`,
             documentId: doc.id,
-            tenantId: "tenant_default",
+            tenantId: tenantSlug || "tenant_default",
             chunkIndex: 0,
             section: "Overview",
             content: doc.summary || "Main document content",
@@ -281,8 +287,10 @@ export function KnowledgeSuiteView({
       formData.append("groups", JSON.stringify(uploadGroups));
       formData.append("tags", JSON.stringify(uploadTags));
 
-      const res = await fetch("/api/knowledge/upload", {
+      const url = `/api/knowledge/upload${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
+        headers: tenantSlug ? { "x-tenant-slug": tenantSlug } : {},
         body: formData,
       });
       const json = await res.json();
@@ -297,6 +305,7 @@ export function KnowledgeSuiteView({
         setUploadFile(null);
         setUploadTitle("");
         if (fileInputRef.current) fileInputRef.current.value = "";
+        onSyncKv8();
       } else {
         throw new Error(json.error || "Upload failed");
       }
@@ -315,9 +324,10 @@ export function KnowledgeSuiteView({
     }
     setIsConnectingS3(true);
     try {
-      const res = await fetch("/api/knowledge/s3-source", {
+      const url = `/api/knowledge/s3-source${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({
           bucketName: s3BucketName,
           prefix: s3Prefix,
@@ -331,6 +341,7 @@ export function KnowledgeSuiteView({
         setS3Sources((prev) => [res.data, ...prev]);
         onNotify(res.message || "S3 Storage Source connected successfully!", "success");
         setIsS3ModalOpen(false);
+        onSyncKv8();
       } else {
         onNotify(res.error || "Failed to connect S3 source", "error");
       }
@@ -345,9 +356,10 @@ export function KnowledgeSuiteView({
   const handleSyncS3 = async (sourceId: string) => {
     setS3SyncingId(sourceId);
     try {
-      const res = await fetch("/api/knowledge/s3-source", {
+      const url = `/api/knowledge/s3-source${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({ action: "sync", sourceId }),
       }).then((r) => r.json());
       if (res.success) {
@@ -368,9 +380,10 @@ export function KnowledgeSuiteView({
     if (!curatingDoc || !curateTitle) return;
     setCurateLoading(true);
     try {
-      const res = await fetch("/api/knowledge/curate", {
+      const url = `/api/knowledge/curate${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({
           documentId: curatingDoc.id,
           title: curateTitle,
@@ -389,6 +402,7 @@ export function KnowledgeSuiteView({
         );
         onNotify(`Document curated and published to Knowledge Base as '${curateTitle}'!`, "success");
         setCuratingDoc(null);
+        onSyncKv8();
       } else {
         throw new Error(json.error || "Curation failed");
       }
@@ -403,9 +417,10 @@ export function KnowledgeSuiteView({
   const handleSaveTags = async () => {
     if (!tagEditingDoc) return;
     try {
-      const res = await fetch("/api/knowledge/chunks", {
+      const url = `/api/knowledge/chunks${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({
           action: "update_tags",
           documentId: tagEditingDoc.id,
@@ -420,6 +435,7 @@ export function KnowledgeSuiteView({
         );
         onNotify(`Tags updated and propagated for ${tagEditingDoc.filename}!`, "success");
         setTagEditingDoc(null);
+        onSyncKv8();
       }
     } catch (err) {
       onNotify("Failed to save tags", "error");
@@ -429,9 +445,10 @@ export function KnowledgeSuiteView({
   // Save Edited Chunk
   const handleSaveChunk = async (chunkId: string) => {
     try {
-      const res = await fetch("/api/knowledge/chunks", {
+      const url = `/api/knowledge/chunks${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({
           action: "update_chunk",
           chunkId,
@@ -447,6 +464,7 @@ export function KnowledgeSuiteView({
         );
         onNotify(`RAG chunk re-vectorized with 1536-dim embedding!`, "success");
         setEditingChunkId(null);
+        onSyncKv8();
       }
     } catch (err) {
       onNotify("Failed to update chunk", "error");
@@ -457,9 +475,10 @@ export function KnowledgeSuiteView({
   const handleAddChunk = async () => {
     if (!ragEditingDoc || !newChunkContent.trim()) return;
     try {
-      const res = await fetch("/api/knowledge/chunks", {
+      const url = `/api/knowledge/chunks${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({
           action: "add_chunk",
           documentId: ragEditingDoc.id,
@@ -474,6 +493,7 @@ export function KnowledgeSuiteView({
         setNewChunkSection("");
         setIsAddingChunk(false);
         onNotify(`New RAG chunk indexed and vectorized!`, "success");
+        onSyncKv8();
       }
     } catch (err) {
       onNotify("Failed to add chunk", "error");
@@ -483,15 +503,17 @@ export function KnowledgeSuiteView({
   // Delete Chunk
   const handleDeleteChunk = async (chunkId: string) => {
     try {
-      const res = await fetch("/api/knowledge/chunks", {
+      const url = `/api/knowledge/chunks${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      const res = await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({ action: "delete_chunk", chunkId }),
       });
       const json = await res.json();
       if (json.success) {
         setDocChunks((prev) => prev.filter((c) => c.id !== chunkId));
         onNotify(`Chunk removed from vector index`, "info");
+        onSyncKv8();
       }
     } catch (err) {
       onNotify("Failed to delete chunk", "error");
@@ -504,12 +526,14 @@ export function KnowledgeSuiteView({
     if (!crawlUrl) return;
     setCrawlLoading(true);
     try {
-      await fetch("/api/knowledge/crawl", {
+      const url = `/api/knowledge/crawl${tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : ""}`;
+      await AuthService.authenticatedFetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(tenantSlug ? { "x-tenant-slug": tenantSlug } : {}) },
         body: JSON.stringify({ url: crawlUrl, category: crawlCategory }),
       });
       onNotify(`Ingested & vectorized web source ${crawlUrl}`, "success");
+      onSyncKv8();
     } catch (err) {
       onNotify("Web crawl ingestion failed", "error");
     } finally {
@@ -1567,40 +1591,52 @@ export function KnowledgeSuiteView({
               {/* Knowledge Gaps */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">Detected Deficit Gaps</h4>
-                {(knowledge.gaps || []).map((gap) => (
-                  <div key={gap.id} className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-[#E5484D]">{gap.topic}</span>
-                      <span className="pill err text-[9px] font-mono">{gap.recurringIssueCount} Tickets</span>
-                    </div>
-                    <p className="text-xs text-[#B4C2D0]">{gap.suggestedAction}</p>
+                {(knowledge.gaps || []).length === 0 ? (
+                  <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] text-center text-xs text-[#6B7C8D] font-mono py-6">
+                    No deficit gaps detected. All ticket patterns are currently covered by knowledge base articles.
                   </div>
-                ))}
+                ) : (
+                  (knowledge.gaps || []).map((gap) => (
+                    <div key={gap.id} className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-[#E5484D]">{gap.topic}</span>
+                        <span className="pill err text-[9px] font-mono">{gap.recurringIssueCount} Tickets</span>
+                      </div>
+                      <p className="text-xs text-[#B4C2D0]">{gap.suggestedAction}</p>
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* Mined Proposals */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">AI Mined Article Proposals</h4>
-                {(knowledge.proposals || []).map((prop) => (
-                  <div key={prop.id} className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h5 className="font-bold text-xs text-[#EAF1F8]">{prop.title}</h5>
-                      <span className="pill ok text-[9px] font-mono">{(prop.confidence * 100).toFixed(0)}% Match</span>
-                    </div>
-                    <p className="text-[11px] text-[#B4C2D0] line-clamp-2">{prop.proposedContent}</p>
-                    <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
-                      <span className="text-[10px] font-mono text-[#6B7C8D]">{prop.provenance}</span>
-                      <button
-                        type="button"
-                        onClick={() => onPublishProposal(prop.id)}
-                        className="btn btn-primary text-xs py-1 px-3 font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Publish to KV8</span>
-                      </button>
-                    </div>
+                {(knowledge.proposals || []).length === 0 ? (
+                  <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] text-center text-xs text-[#6B7C8D] font-mono py-6">
+                    No pending knowledge proposals. Jordan specialist continuously scans for recurring issue resolution opportunities.
                   </div>
-                ))}
+                ) : (
+                  (knowledge.proposals || []).map((prop) => (
+                    <div key={prop.id} className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-bold text-xs text-[#EAF1F8]">{prop.title}</h5>
+                        <span className="pill ok text-[9px] font-mono">{(prop.confidence * 100).toFixed(0)}% Match</span>
+                      </div>
+                      <p className="text-[11px] text-[#B4C2D0] line-clamp-2">{prop.proposedContent}</p>
+                      <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+                        <span className="text-[10px] font-mono text-[#6B7C8D]">{prop.provenance}</span>
+                        <button
+                          type="button"
+                          onClick={() => onPublishProposal(prop.id)}
+                          className="btn btn-primary text-xs py-1 px-3 font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Publish to KV8</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

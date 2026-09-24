@@ -34,6 +34,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+    const { searchParams } = new URL(req.url);
+    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
     const body = await req.json();
     const { action } = body;
 
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest) {
       if (!chunkId || content === undefined) {
         return NextResponse.json({ success: false, error: "chunkId and content required" }, { status: 400 });
       }
-      const updated = ragIngestion.updateChunk(chunkId, { content, section, weight });
+      const updated = await ragIngestion.updateChunk(tenantId, chunkId, { content, section, weight });
       return NextResponse.json({
         success: true,
         message: `RAG chunk ${chunkId} re-vectorized with 1536-dim embedding!`,
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
       if (!documentId || !content) {
         return NextResponse.json({ success: false, error: "documentId and content required" }, { status: 400 });
       }
-      const created = ragIngestion.addChunk(documentId, content, section);
+      const created = await ragIngestion.addChunk(tenantId, documentId, content, section);
       return NextResponse.json({
         success: true,
         message: `New RAG chunk added and vectorized for document ${documentId}!`,
@@ -68,7 +73,7 @@ export async function POST(req: NextRequest) {
       if (!chunkId) {
         return NextResponse.json({ success: false, error: "chunkId required" }, { status: 400 });
       }
-      const ok = ragIngestion.deleteChunk(chunkId);
+      const ok = await ragIngestion.deleteChunk(tenantId, chunkId);
       return NextResponse.json({
         success: ok,
         message: `Chunk ${chunkId} removed from vector index.`,
@@ -80,7 +85,7 @@ export async function POST(req: NextRequest) {
       if (!documentId) {
         return NextResponse.json({ success: false, error: "documentId required" }, { status: 400 });
       }
-      const updated = ragIngestion.updateDocumentTags(documentId, groups, tags);
+      const updated = await ragIngestion.updateDocumentTags(tenantId, documentId, groups, tags);
       return NextResponse.json({
         success: true,
         message: `Document tags updated and propagated to curated concepts!`,

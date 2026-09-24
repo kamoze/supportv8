@@ -1072,11 +1072,14 @@ export default function SupportV8Dashboard() {
 
   const handlePublishKnowledge = async (proposalId: string) => {
     try {
-      const res = await fetch("/api/knowledge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "publish", proposalId }),
-      }).then((r) => r.json());
+      const res = await AuthService.authenticatedFetch(
+        `/api/knowledge?tenant=${encodeURIComponent(currentTenantSlug)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-tenant-slug": currentTenantSlug },
+          body: JSON.stringify({ action: "publish", proposalId }),
+        }
+      ).then((r) => r.json());
 
       if (res.success) {
         handleDeductCredits(20, "Published Knowledge Proposal to RAG Corpus");
@@ -1684,11 +1687,14 @@ export default function SupportV8Dashboard() {
   const handleUpdateSettings = async (updates: Partial<TenantSettingConfig>) => {
     try {
       const updated = { ...tenantSettings, ...updates };
-      const res = await fetch("/api/marketplace", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update_settings", settings: updated }),
-      }).then((r) => r.json());
+      const res = await AuthService.authenticatedFetch(
+        `/api/marketplace?tenant=${encodeURIComponent(currentTenantSlug)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-tenant-slug": currentTenantSlug },
+          body: JSON.stringify({ action: "update_settings", settings: updated }),
+        }
+      ).then((r) => r.json());
 
       if (res.success) {
         setTenantSettings(updated);
@@ -7178,6 +7184,8 @@ export default function SupportV8Dashboard() {
         {/* ========================================================================= */}
         {activeTab === "knowledge" && (
           <KnowledgeSuiteView
+            key={currentTenantSlug}
+            tenantSlug={currentTenantSlug}
             knowledge={knowledge}
             onPublishProposal={handlePublishKnowledge}
             onSyncKv8={fetchData}

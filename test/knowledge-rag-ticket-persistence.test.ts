@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { RagIngestionService } from "@/lib/services/rag-ingestion-service";
 import { POST as knowledgePost, GET as knowledgeGet } from "@/app/api/knowledge/route";
-import { GET as chunksGet } from "@/app/api/knowledge/chunks/route";
+import { GET as chunksGet, POST as chunksPost } from "@/app/api/knowledge/chunks/route";
+import { POST as curatePost } from "@/app/api/knowledge/curate/route";
+import { tenantIdFromSlug, tenantSlugFromId } from "@/lib/auth/request-tenant";
 import { NextRequest } from "next/server";
 import type { PostgresClient } from "@/lib/db/pg-client";
 
@@ -161,5 +163,108 @@ describe("SupportV8 RAG Ticket Ingestion & Persistence", () => {
     } finally {
       process.env.DATABASE_URL = originalEnv;
     }
+  });
+
+  it("resolves canonical workspace tenant ID for runtime-acceptance", () => {
+    const canonicalId = tenantIdFromSlug("runtime-acceptance");
+    expect(canonicalId).toBe("tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559");
+
+    const slug = tenantSlugFromId("tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559");
+    expect(slug).toBe("runtime-acceptance");
+  });
+
+  it("supports RAG chunk addition, update, tags update, and deletion via /api/knowledge/chunks", async () => {
+    // 1. Add chunk
+    const addReq = new NextRequest("https://runtime-acceptance.support.servicev8.com/api/knowledge/chunks?tenant=runtime-acceptance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tenant-slug": "runtime-acceptance" },
+      body: JSON.stringify({
+        action: "add_chunk",
+        documentId: "doc_tkt_sv8_runtime_9999abcd",
+        content: "Manual runbook note for inventory reconciliation step 2.",
+        section: "Manual Step",
+      }),
+    });
+    const addRes = await chunksPost(addReq);
+    const addJson = await addRes.json();
+    expect(addRes.status).toBe(200);
+    expect(addJson.success).toBe(true);
+    expect(addJson.data.id).toBeDefined();
+    expect(addJson.data.embedding.length).toBe(1536);
+    const newChunkId = addJson.data.id;
+
+    // 2. Update chunk
+    const updateReq = new NextRequest("https://runtime-acceptance.support.servicev8.com/api/knowledge/chunks?tenant=runtime-acceptance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tenant-slug": "runtime-acceptance" },
+      body: JSON.stringify({
+        action: "update_chunk",
+        chunkId: newChunkId,
+        content: "Updated manual runbook note with higher precision.",
+        section: "Manual Step Refined",
+        weight: 1.5,
+      }),
+    });
+    const updateRes = await chunksPost(updateReq);
+    const updateJson = await updateRes.json();
+    expect(updateRes.status).toBe(200);
+    expect(updateJson.success).toBe(true);
+    expect(updateJson.data.weight).toBe(1.5);
+    expect(updateJson.data.embedding.length).toBe(1536);
+
+    // 3. Update tags
+    const tagsReq = new NextRequest("https://runtime-acceptance.support.servicev8.com/api/knowledge/chunks?tenant=runtime-acceptance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tenant-slug": "runtime-acceptance" },
+      body: JSON.stringify({
+        action: "update_tags",
+        documentId: "doc_tkt_sv8_runtime_9999abcd",
+        groups: ["support-tier1", "inventory-eng"],
+        tags: ["inventory", "runtime", "verified"],
+      }),
+    });
+    const tagsRes = await chunksPost(tagsReq);
+    const tagsJson = await tagsRes.json();
+    expect(tagsRes.status).toBe(200);
+    expect(tagsJson.success).toBe(true);
+    expect(tagsJson.data.tags).toContain("verified");
+
+    // 4. Delete chunk
+    const delReq = new NextRequest("https://runtime-acceptance.support.servicev8.com/api/knowledge/chunks?tenant=runtime-acceptance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tenant-slug": "runtime-acceptance" },
+      body: JSON.stringify({
+        action: "delete_chunk",
+        chunkId: newChunkId,
+      }),
+    });
+    const delRes = await chunksPost(delReq);
+    const delJson = await delRes.json();
+    expect(delRes.status).toBe(200);
+    expect(delJson.success).toBe(true);
+  });
+
+  it("supports document curation into runbook/FAQ via /api/knowledge/curate", async () => {
+    const curateReq = new NextRequest("https://runtime-acceptance.support.servicev8.com/api/knowledge/curate?tenant=runtime-acceptance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-tenant-slug": "runtime-acceptance" },
+      body: JSON.stringify({
+        documentId: "doc_tkt_sv8_runtime_9999abcd",
+        title: "Inventory Reconciliation Runbook",
+        articleType: "runbook",
+        category: "inventory",
+        groups: ["support-tier1"],
+        tags: ["inventory", "reconciliation"],
+        summary: "Standard operating procedure for reconciling order inventory deficits.",
+        content: "# Inventory Reconciliation Runbook\n\n1. Verify SKU status.\n2. Query warehouse catalog.\n3. Adjust discrepancy in OrderV8.",
+      }),
+    });
+    const curateRes = await curatePost(curateReq);
+    const curateJson = await curateRes.json();
+    expect(curateRes.status).toBe(200);
+    expect(curateJson.success).toBe(true);
+    expect(curateJson.data.article).toBeDefined();
+    expect(curateJson.data.article.title).toBe("Inventory Reconciliation Runbook");
+    expect(curateJson.data.article.tags).toContain("inventory");
   });
 });

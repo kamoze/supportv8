@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
+import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +14,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = ragIngestion.curateDocument(documentId, {
+    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+    const { searchParams } = new URL(req.url);
+    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
+    const result = await ragIngestion.curateDocument(tenantId, documentId, {
       title,
       articleType,
       category,

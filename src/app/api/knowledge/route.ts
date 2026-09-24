@@ -13,12 +13,20 @@ export async function GET(req: NextRequest) {
     const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
     const tenantData = db.getTenantData(tenantSlug);
 
-    const [durableDocs, articles, gaps, proposals] = await Promise.all([
+    const [durableDocs, durableArticles, mockArticles, gaps, proposals] = await Promise.all([
       ragIngestion.getDurableDocuments(tenantId),
+      ragIngestion.getDurableArticles(tenantId),
       Promise.resolve(tenantData.isClean ? [] : knowledgeService.getArticles()),
       Promise.resolve(tenantData.isClean ? [] : knowledgeService.getGaps()),
       Promise.resolve(tenantData.isClean ? [] : knowledgeService.getProposals()),
     ]);
+
+    const articleMap = new Map<string, any>();
+    for (const a of durableArticles) articleMap.set(a.id, a);
+    for (const a of mockArticles) {
+      if (!articleMap.has(a.id)) articleMap.set(a.id, a);
+    }
+    const articles = Array.from(articleMap.values());
 
     const mockDocs = tenantData.documents || [];
     const docMap = new Map<string, KnowledgeDocument>();

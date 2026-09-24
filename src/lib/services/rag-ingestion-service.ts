@@ -9,6 +9,8 @@ import { ragService } from "./rag-service";
 import { chunkBody } from "../rag/chunker";
 import { db } from "../db/mock-data";
 import { pgClient as defaultPgClient, type PostgresClient } from "../db/pg-client";
+import { marketplaceService } from "./marketplace-service";
+import { tenantIdFromSlug } from "../auth/request-tenant";
 import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle, KnowledgeS3Source } from "../types";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file — aligned with knowledgev8 pod memory guard
@@ -100,7 +102,9 @@ export class RagIngestionService {
     groups?: string[];
     tags?: string[];
   }): Promise<IngestionResult> {
-    const { tenantId, filename, category = "general", title, groups = ["support-tier1"], tags = [] } = params;
+    const rawTenantId = params.tenantId;
+    const tenantId = marketplaceService.resolveWorkspaceId(rawTenantId) || tenantIdFromSlug(rawTenantId);
+    const { filename, category = "general", title, groups = ["support-tier1"], tags = [] } = params;
     const buffer = Buffer.isBuffer(params.content) ? params.content : Buffer.from(params.content, "utf-8");
     const textContent = buffer.toString("utf-8");
 
@@ -250,7 +254,9 @@ export class RagIngestionService {
       tags?: string[];
     };
   }): Promise<IngestionResult> {
-    const { tenantId, ticket } = params;
+    const rawTenantId = params.tenantId;
+    const tenantId = marketplaceService.resolveWorkspaceId(rawTenantId) || tenantIdFromSlug(rawTenantId);
+    const { ticket } = params;
     const cleanExternalId = ticket.externalId.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const docId = `doc_tkt_${cleanExternalId}`;
     const filename = `ticket-${ticket.externalId.toLowerCase().replace(/[^a-z0-9]/g, "-")}.md`;
@@ -398,9 +404,10 @@ export class RagIngestionService {
 
   public async getDurableDocuments(tenantId: string): Promise<KnowledgeDocument[]> {
     this.ensureInitialChunks();
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
     if (process.env.DATABASE_URL) {
       try {
-        const docs = await this.client.withTenantSession(tenantId, async (session) => {
+        const docs = await this.client.withTenantSession(canonicalTenantId, async (session) => {
           const rows = await session.query<{
             id: string;
             tenant_id: string;
@@ -421,7 +428,7 @@ export class RagIngestionService {
                FROM supportv8.knowledge_documents
               WHERE tenant_id = $1
               ORDER BY uploaded_at DESC`,
-            [tenantId]
+            [canonicalTenantId]
           );
 
           const existingDocIds = new Set(rows.map((r) => r.id));
@@ -447,7 +454,7 @@ export class RagIngestionService {
                   OR 'rag' = ANY(tags)
                   OR 'rag-grounded' = ANY(tags)
                 )`,
-            [tenantId]
+            [canonicalTenantId]
           );
 
           for (const issue of ragIssues) {
@@ -460,8 +467,8 @@ export class RagIngestionService {
               const body = `# Ticket Resolution: ${issue.external_id}\n\n**Customer:** ${issue.customer_name || "Customer"}\n**Product:** ${issue.product || "Support"}\n**Category:** ${issue.category || "ticket_resolution"}\n**Summary:** ${issue.summary}\n\n## Verified Resolution\n${resolutionNotes}\n\n**Tags:** ${(issue.tags || []).join(", ")}`;
               const textChunks = this.chunkText(body);
               const chunksToProcess = textChunks.length ? textChunks : [body];
-              const s3Key = `kbs/${tenantId}/${filename}`;
-              const s3Url = `https://supportv8-kb-documents.s3.amazonaws.com/${tenantId}/${filename}`;
+              const s3Key = `kbs/${canonicalTenantId}/${filename}`;
+              const s3Url = `https://supportv8-kb-documents.s3.amazonaws.com/${canonicalTenantId}/${filename}`;
 
               await session.query(
                 `INSERT INTO supportv8.knowledge_documents (
@@ -471,7 +478,7 @@ export class RagIngestionService {
                 ON CONFLICT (id) DO NOTHING`,
                 [
                   expectedDocId,
-                  tenantId,
+                  canonicalTenantId,
                   filename,
                   "md",
                   Buffer.byteLength(body, "utf-8"),
@@ -496,7 +503,7 @@ export class RagIngestionService {
                   [
                     `chk_${expectedDocId}_${idx}`,
                     expectedDocId,
-                    tenantId,
+                    canonicalTenantId,
                     idx,
                     chunkContent,
                     JSON.stringify(embedding),
@@ -506,7 +513,7 @@ export class RagIngestionService {
 
               rows.unshift({
                 id: expectedDocId,
-                tenant_id: tenantId,
+                tenant_id: canonicalTenantId,
                 filename,
                 file_type: "md",
                 file_size_bytes: Buffer.byteLength(body, "utf-8"),
@@ -551,14 +558,15 @@ export class RagIngestionService {
       }
     }
 
-    return this.getDocuments(tenantId);
+    return this.getDocuments(canonicalTenantId);
   }
 
   public async getDurableChunks(tenantId: string, documentId: string): Promise<KnowledgeDocumentChunk[]> {
     this.ensureInitialChunks();
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
     if (process.env.DATABASE_URL) {
       try {
-        const chunks = await this.client.withTenantSession(tenantId, async (session) => {
+        const chunks = await this.client.withTenantSession(canonicalTenantId, async (session) => {
           const rows = await session.query<{
             id: string;
             document_id: string;
@@ -571,7 +579,7 @@ export class RagIngestionService {
                FROM supportv8.knowledge_document_chunks
               WHERE tenant_id = $1 AND document_id = $2
               ORDER BY chunk_index ASC`,
-            [tenantId, documentId]
+            [canonicalTenantId, documentId]
           );
 
           return rows.map((r): KnowledgeDocumentChunk => ({
@@ -599,6 +607,55 @@ export class RagIngestionService {
     return this.getDocumentChunks(documentId);
   }
 
+  public async getDurableArticles(tenantId: string): Promise<KnowledgeArticle[]> {
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
+    if (process.env.DATABASE_URL) {
+      try {
+        const articles = await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          const rows = await session.query<{
+            id: string;
+            source: string;
+            title: string;
+            url: string;
+            category: string;
+            usage_count: number;
+            csat_score: number;
+            status: string;
+            summary: string;
+            content: string;
+            last_updated: Date | string;
+          }>(
+            `SELECT id, source, title, url, category, usage_count, csat_score, status, summary, content, last_updated
+               FROM supportv8.knowledge_articles
+              WHERE tenant_id = $1
+              ORDER BY last_updated DESC`,
+            [canonicalTenantId]
+          );
+
+          return rows.map((r): KnowledgeArticle => ({
+            id: r.id,
+            source: r.source,
+            title: r.title,
+            url: r.url,
+            category: r.category,
+            usageCount: r.usage_count,
+            csatScore: Number(r.csat_score),
+            status: (r.status as KnowledgeArticle["status"]) || "active",
+            summary: r.summary,
+            body: r.content,
+            lastUpdated: typeof r.last_updated === "string" ? r.last_updated : r.last_updated.toISOString(),
+            groups: ["support-tier1"],
+            tags: [r.category],
+          }));
+        });
+        if (articles && articles.length > 0) return articles;
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to load durable articles:", err);
+      }
+    }
+    return db.articles || [];
+  }
+
   public getDocuments(tenantId: string): KnowledgeDocument[] {
     this.ensureInitialChunks();
     if (!db.documents) return [];
@@ -610,74 +667,215 @@ export class RagIngestionService {
     return (db.documentChunks || []).filter((c) => c.documentId === documentId);
   }
 
-  public updateChunk(
-    chunkId: string,
-    updates: { content?: string; section?: string; weight?: number }
-  ): KnowledgeDocumentChunk {
+  public async updateChunk(
+    arg1: string,
+    arg2: { content?: string; section?: string; weight?: number } | string,
+    arg3?: { content?: string; section?: string; weight?: number }
+  ): Promise<KnowledgeDocumentChunk> {
     this.ensureInitialChunks();
-    const chunk = (db.documentChunks || []).find((c) => c.id === chunkId);
-    if (!chunk) throw new Error(`Chunk ${chunkId} not found`);
+    const hasTenant = typeof arg2 === "string";
+    const tenantId = hasTenant ? arg1 : "tenant_default";
+    const chunkId = hasTenant ? (arg2 as string) : arg1;
+    const updates = (hasTenant ? arg3 : arg2) as { content?: string; section?: string; weight?: number } || {};
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
 
-    if (updates.content !== undefined) {
+    let chunk = (db.documentChunks || []).find((c) => c.id === chunkId);
+    if (updates.content !== undefined && chunk) {
       chunk.content = updates.content;
       chunk.tokenCount = Math.ceil(updates.content.length / 4);
       chunk.embedding = ragService.generateEmbedding(updates.content);
     }
-    if (updates.section !== undefined) chunk.section = updates.section;
-    if (updates.weight !== undefined) chunk.weight = updates.weight;
-    chunk.updatedAt = new Date().toISOString();
+    if (updates.section !== undefined && chunk) chunk.section = updates.section;
+    if (updates.weight !== undefined && chunk) chunk.weight = updates.weight;
+    if (chunk) chunk.updatedAt = new Date().toISOString();
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          if (updates.content !== undefined) {
+            const embedding = ragService.generateEmbedding(updates.content);
+            await session.query(
+              `UPDATE supportv8.knowledge_document_chunks
+                  SET content = $1, embedding = $2::vector
+                WHERE tenant_id = $3 AND id = $4`,
+              [updates.content, JSON.stringify(embedding), canonicalTenantId, chunkId]
+            );
+          }
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to update chunk in PostgreSQL:", err);
+      }
+    }
+
+    if (!chunk) {
+      chunk = {
+        id: chunkId,
+        documentId: "",
+        tenantId: canonicalTenantId,
+        chunkIndex: 0,
+        section: updates.section || "Updated Chunk",
+        content: updates.content || "",
+        weight: updates.weight ?? 1.0,
+        tokenCount: Math.ceil((updates.content || "").length / 4),
+        updatedAt: new Date().toISOString(),
+        embedding: ragService.generateEmbedding(updates.content || ""),
+      };
+      if (!db.documentChunks) db.documentChunks = [];
+      db.documentChunks.push(chunk);
+    }
 
     return { ...chunk };
   }
 
-  public addChunk(documentId: string, content: string, section?: string): KnowledgeDocumentChunk {
+  public async addChunk(
+    arg1: string,
+    arg2: string,
+    arg3?: string,
+    arg4?: string
+  ): Promise<KnowledgeDocumentChunk> {
     this.ensureInitialChunks();
-    const doc = (db.documents || []).find((d) => d.id === documentId);
-    if (!doc) throw new Error(`Document ${documentId} not found`);
+    const hasTenant = typeof arg4 === "string" || (typeof arg3 === "string" && arg1.startsWith("tenant_"));
+    const tenantId = hasTenant ? arg1 : "tenant_default";
+    const documentId = hasTenant ? arg2 : arg1;
+    const content = hasTenant ? (arg3 as string) : arg2;
+    const section = hasTenant ? arg4 : arg3;
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
+
+    let doc = (db.documents || []).find((d) => d.id === documentId);
+    if (!doc && process.env.DATABASE_URL) {
+      try {
+        const durable = await this.getDurableDocuments(canonicalTenantId);
+        doc = durable.find((d) => d.id === documentId);
+        if (doc) {
+          if (!db.documents) db.documents = [];
+          db.documents.push(doc);
+        }
+      } catch (_) {}
+    }
 
     const existing = (db.documentChunks || []).filter((c) => c.documentId === documentId);
     const newIdx = existing.length;
+    const chunkId = `chk_${documentId}_${Date.now()}_${newIdx}`;
+    const embedding = ragService.generateEmbedding(content);
 
     const newChunk: KnowledgeDocumentChunk = {
-      id: `chk_${documentId}_${Date.now()}_${newIdx}`,
+      id: chunkId,
       documentId,
-      tenantId: doc.tenantId,
+      tenantId: canonicalTenantId,
       chunkIndex: newIdx,
       section: section || `Section ${newIdx + 1}`,
       content,
       weight: 1.0,
       tokenCount: Math.ceil(content.length / 4),
       updatedAt: new Date().toISOString(),
-      embedding: ragService.generateEmbedding(content),
+      embedding,
     };
 
     if (!db.documentChunks) db.documentChunks = [];
     db.documentChunks.push(newChunk);
-    doc.chunkCount = (db.documentChunks.filter((c) => c.documentId === documentId)).length;
+    if (doc) {
+      doc.chunkCount = (db.documentChunks.filter((c) => c.documentId === documentId)).length;
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          await session.query(
+            `INSERT INTO supportv8.knowledge_document_chunks (
+              id, document_id, tenant_id, chunk_index, content, embedding, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())
+            ON CONFLICT (tenant_id, document_id, chunk_index) DO UPDATE
+              SET content = EXCLUDED.content, embedding = EXCLUDED.embedding`,
+            [chunkId, documentId, canonicalTenantId, newIdx, content, JSON.stringify(embedding)]
+          );
+
+          await session.query(
+            `UPDATE supportv8.knowledge_documents
+                SET chunk_count = chunk_count + 1
+              WHERE tenant_id = $1 AND id = $2`,
+            [canonicalTenantId, documentId]
+          );
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to insert chunk to PostgreSQL:", err);
+      }
+    }
 
     return newChunk;
   }
 
-  public deleteChunk(chunkId: string): boolean {
+  public async deleteChunk(arg1: string, arg2?: string): Promise<boolean> {
     this.ensureInitialChunks();
+    const hasTenant = typeof arg2 === "string";
+    const tenantId = hasTenant ? arg1 : "tenant_default";
+    const chunkId = hasTenant ? arg2 : arg1;
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
+
     const idx = (db.documentChunks || []).findIndex((c) => c.id === chunkId);
-    if (idx === -1) return false;
-    const [removed] = db.documentChunks.splice(idx, 1);
-    const doc = (db.documents || []).find((d) => d.id === removed.documentId);
-    if (doc) {
-      doc.chunkCount = db.documentChunks.filter((c) => c.documentId === removed.documentId).length;
+    if (idx !== -1) {
+      const [removed] = db.documentChunks.splice(idx, 1);
+      const doc = (db.documents || []).find((d) => d.id === removed.documentId);
+      if (doc) {
+        doc.chunkCount = db.documentChunks.filter((c) => c.documentId === removed.documentId).length;
+      }
     }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          const removed = await session.query<{ document_id: string }>(
+            `DELETE FROM supportv8.knowledge_document_chunks
+              WHERE tenant_id = $1 AND id = $2
+              RETURNING document_id`,
+            [canonicalTenantId, chunkId]
+          );
+          if (removed.length > 0) {
+            const targetDocId = removed[0].document_id;
+            await session.query(
+              `UPDATE supportv8.knowledge_documents
+                  SET chunk_count = GREATEST(0, chunk_count - 1)
+                WHERE tenant_id = $1 AND id = $2`,
+              [canonicalTenantId, targetDocId]
+            );
+          }
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to delete chunk in PostgreSQL:", err);
+      }
+    }
+
     return true;
   }
 
-  public updateDocumentTags(documentId: string, groups: string[], tags: string[]): KnowledgeDocument {
+  public async updateDocumentTags(
+    arg1: string,
+    arg2: string | string[],
+    arg3?: string[],
+    arg4?: string[]
+  ): Promise<KnowledgeDocument> {
     this.ensureInitialChunks();
-    const doc = (db.documents || []).find((d) => d.id === documentId);
+    const hasTenant = typeof arg2 === "string";
+    const tenantId = hasTenant ? arg1 : "tenant_default";
+    const documentId = hasTenant ? (arg2 as string) : arg1;
+    const groups = (hasTenant ? arg3 : (arg2 as string[])) || [];
+    const tags = (hasTenant ? arg4 : arg3) || [];
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
+
+    let doc = (db.documents || []).find((d) => d.id === documentId);
+    if (!doc && process.env.DATABASE_URL) {
+      try {
+        const durable = await this.getDurableDocuments(canonicalTenantId);
+        doc = durable.find((d) => d.id === documentId);
+        if (doc) {
+          if (!db.documents) db.documents = [];
+          db.documents.push(doc);
+        }
+      } catch (_) {}
+    }
     if (!doc) throw new Error(`Document ${documentId} not found`);
     doc.groups = groups;
     doc.tags = tags;
 
-    // Propagate to curated concept if linked
     if (doc.curatedConceptId && db.articles) {
       const art = db.articles.find((a) => a.id === doc.curatedConceptId);
       if (art) {
@@ -685,23 +883,48 @@ export class RagIngestionService {
         art.tags = tags;
       }
     }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          await session.query(
+            `UPDATE supportv8.knowledge_documents
+                SET category = $1
+              WHERE tenant_id = $2 AND id = $3`,
+            [tags[0] || doc.category, canonicalTenantId, documentId]
+          );
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to update document tags in PostgreSQL:", err);
+      }
+    }
+
     return { ...doc };
   }
 
-  public curateDocument(
-    documentId: string,
-    params: {
-      title: string;
-      articleType: "runbook" | "faq" | "architecture" | "api_reference" | "policy";
-      category: string;
-      groups: string[];
-      tags: string[];
-      summary: string;
-      body?: string;
-    }
-  ): { document: KnowledgeDocument; article: KnowledgeArticle } {
+  public async curateDocument(
+    arg1: string,
+    arg2: any,
+    arg3?: any
+  ): Promise<{ document: KnowledgeDocument; article: KnowledgeArticle }> {
     this.ensureInitialChunks();
-    const doc = (db.documents || []).find((d) => d.id === documentId);
+    const hasTenant = typeof arg3 === "object";
+    const tenantId = hasTenant ? arg1 : "tenant_default";
+    const documentId = hasTenant ? arg2 : arg1;
+    const params = hasTenant ? arg3 : arg2;
+    const canonicalTenantId = marketplaceService.resolveWorkspaceId(tenantId) || tenantIdFromSlug(tenantId);
+
+    let doc = (db.documents || []).find((d) => d.id === documentId);
+    if (!doc && process.env.DATABASE_URL) {
+      try {
+        const durable = await this.getDurableDocuments(canonicalTenantId);
+        doc = durable.find((d) => d.id === documentId);
+        if (doc) {
+          if (!db.documents) db.documents = [];
+          db.documents.push(doc);
+        }
+      } catch (_) {}
+    }
     if (!doc) throw new Error(`Document ${documentId} not found`);
 
     doc.curatedStatus = "curated";
@@ -735,6 +958,49 @@ export class RagIngestionService {
       db.articles[existingIdx] = article;
     } else {
       db.articles.unshift(article);
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(canonicalTenantId, async (session) => {
+          const embedding = ragService.generateEmbedding(`${article.title}\n${article.summary}\n${article.body}`);
+          await session.query(
+            `INSERT INTO supportv8.knowledge_articles (
+              id, tenant_id, source, title, url, category, usage_count, csat_score, status, summary, content, embedding, last_updated
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              category = EXCLUDED.category,
+              summary = EXCLUDED.summary,
+              content = EXCLUDED.content,
+              embedding = EXCLUDED.embedding,
+              last_updated = NOW()`,
+            [
+              article.id,
+              canonicalTenantId,
+              article.source,
+              article.title,
+              article.url,
+              article.category,
+              article.usageCount,
+              article.csatScore,
+              article.status,
+              article.summary,
+              article.body,
+              JSON.stringify(embedding),
+            ]
+          );
+
+          await session.query(
+            `UPDATE supportv8.knowledge_documents
+                SET title = $1, category = $2
+              WHERE tenant_id = $3 AND id = $4`,
+            [doc.title, doc.category, canonicalTenantId, doc.id]
+          );
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to persist curated article to PostgreSQL:", err);
+      }
     }
 
     return { document: { ...doc }, article };

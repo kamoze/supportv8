@@ -187,7 +187,7 @@ export function KnowledgeSuiteView({
 
   // Synchronize documents from props if updated
   useEffect(() => {
-    if (knowledge.documents && knowledge.documents.length > 0) {
+    if (knowledge.documents) {
       setDocuments(knowledge.documents);
     }
   }, [knowledge.documents]);

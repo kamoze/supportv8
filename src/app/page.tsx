@@ -850,7 +850,7 @@ export default function SupportV8Dashboard() {
   const handleExplorerIndexToRag = async () => {
     if (!selectedIssue) return;
     try {
-      await knowledgev8Connector.ingestResolvedTicket({
+      const ticketPayload = {
         externalId: selectedIssue.externalId,
         summary: selectedIssue.summary,
         customerName: selectedIssue.customerName,
@@ -858,7 +858,29 @@ export default function SupportV8Dashboard() {
         resolutionNotes: selectedIssue.recommendedAction || "Resolved via Issues Explorer triage.",
         category: selectedIssue.category,
         tags: selectedIssue.tags,
-      });
+      };
+
+      try {
+        const res = await AuthService.authenticatedFetch("/api/knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-tenant-slug": currentTenantSlug },
+          body: JSON.stringify({
+            action: "ingest_ticket",
+            ticket: ticketPayload,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.data?.document) {
+          setKnowledge((prev) => ({
+            ...prev,
+            documents: [data.data.document, ...(prev.documents || []).filter((d) => d.id !== data.data.document.id)],
+          }));
+        }
+      } catch (err) {
+        console.warn("[Explorer] Failed to persist ticket to RAG endpoint:", err);
+      }
+
+      await knowledgev8Connector.ingestResolvedTicket(ticketPayload);
       await handleDeductCredits(20, `Indexed ticket ${selectedIssue.externalId} into pgvector RAG corpus`);
       const now = new Date().toLocaleTimeString();
       const event: TicketTimelineEvent = {
@@ -7241,7 +7263,7 @@ export default function SupportV8Dashboard() {
             onCreateIssue={handleCreateIssue}
             onImportIssues={handleImportIssues}
             onSaveToKnowledgeBase={async (ticket) => {
-              await knowledgev8Connector.ingestResolvedTicket({
+              const ticketPayload = {
                 externalId: ticket.externalId,
                 summary: ticket.summary,
                 customerName: ticket.customerName,
@@ -7249,7 +7271,27 @@ export default function SupportV8Dashboard() {
                 resolutionNotes: ticket.recommendedAction || "Resolved via workdesk operations.",
                 category: ticket.category,
                 tags: ticket.tags,
-              });
+              };
+              try {
+                const res = await AuthService.authenticatedFetch("/api/knowledge", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "x-tenant-slug": currentTenantSlug },
+                  body: JSON.stringify({
+                    action: "ingest_ticket",
+                    ticket: ticketPayload,
+                  }),
+                });
+                const data = await res.json();
+                if (data.success && data.data?.document) {
+                  setKnowledge((prev) => ({
+                    ...prev,
+                    documents: [data.data.document, ...(prev.documents || []).filter((d) => d.id !== data.data.document.id)],
+                  }));
+                }
+              } catch (e) {
+                console.warn("[Workdesk] Failed to persist ticket to RAG:", e);
+              }
+              await knowledgev8Connector.ingestResolvedTicket(ticketPayload);
               await handleDeductCredits(20, `Indexed ticket ${ticket.externalId} into pgvector RAG corpus`);
             }}
             onDeductCredits={handleDeductCredits}

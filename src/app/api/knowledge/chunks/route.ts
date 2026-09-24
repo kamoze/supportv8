@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
+import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +14,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const chunks = ragIngestion.getDocumentChunks(documentId);
+    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
+    const chunks = await ragIngestion.getDurableChunks(tenantId, documentId);
     return NextResponse.json({
       success: true,
       count: chunks.length,

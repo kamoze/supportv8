@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ragIngestion, MAX_UPLOAD_BYTES } from "@/lib/services/rag-ingestion-service";
 import { db } from "@/lib/db/mock-data";
+import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const documents = ragIngestion.getDocuments(db.tenant.tenantId);
+  const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+  const { searchParams } = new URL(req.url);
+  const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+  const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
+  const documents = await ragIngestion.getDurableDocuments(tenantId);
   return NextResponse.json({
     success: true,
     count: documents.length,
@@ -16,6 +22,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
+    const { searchParams } = new URL(req.url);
+    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
+    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("multipart/form-data")) {
@@ -48,7 +59,7 @@ export async function POST(req: NextRequest) {
 
       const buffer = Buffer.from(await file.arrayBuffer());
       const result = await ragIngestion.ingestDocument({
-        tenantId: db.tenant.tenantId,
+        tenantId,
         filename: file.name,
         content: buffer,
         category,
@@ -87,7 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await ragIngestion.ingestDocument({
-      tenantId: db.tenant.tenantId,
+      tenantId,
       filename,
       content,
       category: category || "general",

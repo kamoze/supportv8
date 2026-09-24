@@ -185,6 +185,18 @@ export class KnowledgeV8Connector {
     };
     this.syncedConcepts.unshift(newConcept);
     this.lastSyncedAt = new Date().toISOString();
+
+    if (typeof window !== "undefined" && typeof fetch !== "undefined") {
+      fetch("/api/knowledge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ingest_ticket",
+          ticket,
+        }),
+      }).catch((e) => console.warn("[KnowledgeV8Connector] Background RAG sync failed:", e));
+    }
+
     return { success: true, conceptId, title: newConcept.title };
   }
 

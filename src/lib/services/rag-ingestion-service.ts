@@ -8,6 +8,7 @@ import { s3Storage } from "../storage/s3-client";
 import { ragService } from "./rag-service";
 import { chunkBody } from "../rag/chunker";
 import { db } from "../db/mock-data";
+import { pgClient as defaultPgClient, type PostgresClient } from "../db/pg-client";
 import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle, KnowledgeS3Source } from "../types";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file — aligned with knowledgev8 pod memory guard
@@ -20,6 +21,7 @@ export interface IngestionResult {
 }
 
 export class RagIngestionService {
+  constructor(private readonly client: PostgresClient = defaultPgClient) {}
   /**
    * Split document text into semantic chunks using KnowledgeV8 heading-based chunker.
    */
@@ -169,11 +171,432 @@ export class RagIngestionService {
     db.documents.unshift(document);
     db.documentChunks.push(...chunks);
 
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(tenantId, async (session) => {
+          await session.query(
+            `INSERT INTO supportv8.knowledge_documents (
+              id, tenant_id, filename, file_type, file_size_bytes, s3_key, s3_url,
+              category, title, chunk_count, status, summary, uploaded_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              category = EXCLUDED.category,
+              chunk_count = EXCLUDED.chunk_count,
+              summary = EXCLUDED.summary,
+              uploaded_at = NOW()`,
+            [
+              document.id,
+              document.tenantId,
+              document.filename,
+              document.fileType,
+              document.fileSizeBytes,
+              document.s3Key,
+              document.s3Url,
+              document.category,
+              document.title,
+              document.chunkCount,
+              document.status,
+              document.summary,
+            ]
+          );
+
+          for (const chk of chunks) {
+            await session.query(
+              `INSERT INTO supportv8.knowledge_document_chunks (
+                id, document_id, tenant_id, chunk_index, content, embedding, created_at
+              ) VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())
+              ON CONFLICT (tenant_id, document_id, chunk_index) DO UPDATE SET
+                content = EXCLUDED.content,
+                embedding = EXCLUDED.embedding,
+                created_at = NOW()`,
+              [
+                chk.id,
+                chk.documentId,
+                chk.tenantId,
+                chk.chunkIndex,
+                chk.content,
+                JSON.stringify(chk.embedding),
+              ]
+            );
+          }
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to persist uploaded document to PostgreSQL:", err);
+      }
+    }
+
     return {
       document,
       chunks,
       s3Url: s3Result.s3Url,
     };
+  }
+
+  /**
+   * Ingest a support ticket into the RAG corpus, generate 1536-dim embeddings,
+   * persist to PostgreSQL (supportv8.knowledge_documents & knowledge_document_chunks),
+   * and update the ticket timeline.
+   */
+  public async ingestTicketToRag(params: {
+    tenantId: string;
+    ticket: {
+      externalId: string;
+      summary: string;
+      customerName: string;
+      product: string;
+      resolutionNotes?: string;
+      category?: string;
+      tags?: string[];
+    };
+  }): Promise<IngestionResult> {
+    const { tenantId, ticket } = params;
+    const cleanExternalId = ticket.externalId.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const docId = `doc_tkt_${cleanExternalId}`;
+    const filename = `ticket-${ticket.externalId.toLowerCase().replace(/[^a-z0-9]/g, "-")}.md`;
+    const category = ticket.category || "ticket_resolution";
+    const docTitle = `[Ticket] ${ticket.externalId}: ${ticket.summary}`;
+    const resolutionNotes = ticket.resolutionNotes || "Issue investigated, root cause mitigated, and customer access restored.";
+    const tags = Array.from(new Set([...(ticket.tags || []), category, "rag-grounded", "ticket"]));
+
+    const textContent = `# Ticket Resolution: ${ticket.externalId}\n\n**Customer:** ${ticket.customerName || "Customer"}\n**Product:** ${ticket.product || "Support"}\n**Category:** ${category}\n**Summary:** ${ticket.summary}\n\n## Verified Resolution\n${resolutionNotes}\n\n**Tags:** ${tags.join(", ")}`;
+    const buffer = Buffer.from(textContent, "utf-8");
+
+    const s3Key = `kbs/${tenantId}/${filename}`;
+    const s3Url = `https://supportv8-kb-documents.s3.amazonaws.com/${tenantId}/${filename}`;
+
+    const textChunks = this.chunkText(textContent);
+    const chunksToProcess = textChunks.length ? textChunks : [textContent];
+
+    const document: KnowledgeDocument = {
+      id: docId,
+      tenantId,
+      filename,
+      fileType: "md",
+      fileSizeBytes: buffer.length,
+      s3Key,
+      s3Url,
+      category,
+      title: docTitle,
+      chunkCount: chunksToProcess.length,
+      status: "indexed",
+      uploadedAt: new Date().toISOString(),
+      summary: ticket.summary,
+      body: textContent,
+      groups: ["support-tier1", "vip-escalations"],
+      tags,
+      curatedStatus: "raw",
+    };
+
+    const chunks: KnowledgeDocumentChunk[] = chunksToProcess.map((chunkContent, idx) => {
+      let section = `Section ${idx + 1}`;
+      if (chunkContent.startsWith("[Section:")) {
+        const match = chunkContent.match(/^\[Section:\s*([^\]]+)\]/);
+        if (match) section = match[1].trim();
+      }
+
+      return {
+        id: `chk_${docId}_${idx}`,
+        documentId: docId,
+        tenantId,
+        chunkIndex: idx,
+        section,
+        content: chunkContent,
+        weight: 1.0,
+        tokenCount: Math.ceil(chunkContent.length / 4),
+        updatedAt: new Date().toISOString(),
+        embedding: ragService.generateEmbedding(chunkContent),
+      };
+    });
+
+    // Store in-memory
+    if (!db.documents) db.documents = [];
+    if (!db.documentChunks) db.documentChunks = [];
+    db.documents = [document, ...db.documents.filter((d) => d.id !== docId)];
+    db.documentChunks = [...db.documentChunks.filter((c) => c.documentId !== docId), ...chunks];
+
+    // Store in PostgreSQL
+    if (process.env.DATABASE_URL) {
+      try {
+        await this.client.withTenantSession(tenantId, async (session) => {
+          await session.query(
+            `INSERT INTO supportv8.knowledge_documents (
+              id, tenant_id, filename, file_type, file_size_bytes, s3_key, s3_url,
+              category, title, chunk_count, status, summary, uploaded_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              category = EXCLUDED.category,
+              chunk_count = EXCLUDED.chunk_count,
+              summary = EXCLUDED.summary,
+              uploaded_at = NOW()`,
+            [
+              document.id,
+              document.tenantId,
+              document.filename,
+              document.fileType,
+              document.fileSizeBytes,
+              document.s3Key,
+              document.s3Url,
+              document.category,
+              document.title,
+              document.chunkCount,
+              document.status,
+              document.summary,
+            ]
+          );
+
+          for (const chk of chunks) {
+            await session.query(
+              `INSERT INTO supportv8.knowledge_document_chunks (
+                id, document_id, tenant_id, chunk_index, content, embedding, created_at
+              ) VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())
+              ON CONFLICT (tenant_id, document_id, chunk_index) DO UPDATE SET
+                content = EXCLUDED.content,
+                embedding = EXCLUDED.embedding,
+                created_at = NOW()`,
+              [
+                chk.id,
+                chk.documentId,
+                chk.tenantId,
+                chk.chunkIndex,
+                chk.content,
+                JSON.stringify(chk.embedding),
+              ]
+            );
+          }
+
+          // Mark issue as RAG-ingested in supportv8.issues timeline if present
+          await session.query(
+            `UPDATE supportv8.issues
+                SET timeline = CASE
+                      WHEN timeline::text LIKE '%RAG Vector Corpus Ingestion%' THEN timeline
+                      ELSE COALESCE(timeline, '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+                        'id', 'tl_' || floor(extract(epoch from now()) * 1000)::text,
+                        'timestamp', to_char(now(), 'HH12:MI:SS AM'),
+                        'actor', 'Jordan (KB Refresh Specialist)',
+                        'actorType', 'ai_employee',
+                        'action', '1-Click RAG Vector Corpus Ingestion',
+                        'details', 'Resolution grounded into pgvector knowledge base.'
+                      ))
+                    END
+              WHERE tenant_id = $1 AND (external_id = $2 OR external_id = $3)`,
+            [tenantId, ticket.externalId, ticket.externalId.toUpperCase()]
+          );
+        });
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to persist ticket to PostgreSQL:", err);
+      }
+    }
+
+    return {
+      document,
+      chunks,
+      s3Url,
+    };
+  }
+
+  public async getDurableDocuments(tenantId: string): Promise<KnowledgeDocument[]> {
+    this.ensureInitialChunks();
+    if (process.env.DATABASE_URL) {
+      try {
+        const docs = await this.client.withTenantSession(tenantId, async (session) => {
+          const rows = await session.query<{
+            id: string;
+            tenant_id: string;
+            filename: string;
+            file_type: string;
+            file_size_bytes: number;
+            s3_key: string;
+            s3_url: string;
+            category: string;
+            title: string;
+            chunk_count: number;
+            status: string;
+            summary: string;
+            uploaded_at: Date | string;
+          }>(
+            `SELECT id, tenant_id, filename, file_type, file_size_bytes, s3_key, s3_url,
+                    category, title, chunk_count, status, summary, uploaded_at
+               FROM supportv8.knowledge_documents
+              WHERE tenant_id = $1
+              ORDER BY uploaded_at DESC`,
+            [tenantId]
+          );
+
+          const existingDocIds = new Set(rows.map((r) => r.id));
+
+          // Auto-discover any tickets in supportv8.issues marked as RAG ingested
+          const ragIssues = await session.query<{
+            id: string;
+            external_id: string;
+            summary: string;
+            customer_name: string;
+            product: string;
+            category: string;
+            recommended_action: string | null;
+            tags: string[];
+            timeline: Array<{ action?: string; details?: string }>;
+          }>(
+            `SELECT id, external_id, summary, customer_name, product, category, recommended_action, tags, timeline
+               FROM supportv8.issues
+              WHERE tenant_id = $1
+                AND (
+                  timeline::text LIKE '%RAG Vector Corpus Ingestion%'
+                  OR timeline::text LIKE '%pgvector knowledge base%'
+                  OR 'rag' = ANY(tags)
+                  OR 'rag-grounded' = ANY(tags)
+                )`,
+            [tenantId]
+          );
+
+          for (const issue of ragIssues) {
+            const cleanExternalId = issue.external_id.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            const expectedDocId = `doc_tkt_${cleanExternalId}`;
+            if (!existingDocIds.has(expectedDocId)) {
+              const resolutionNotes = issue.recommended_action || "Issue investigated, root cause mitigated, and customer access restored.";
+              const filename = `ticket-${issue.external_id.toLowerCase().replace(/[^a-z0-9]/g, "-")}.md`;
+              const docTitle = `[Ticket] ${issue.external_id}: ${issue.summary}`;
+              const body = `# Ticket Resolution: ${issue.external_id}\n\n**Customer:** ${issue.customer_name || "Customer"}\n**Product:** ${issue.product || "Support"}\n**Category:** ${issue.category || "ticket_resolution"}\n**Summary:** ${issue.summary}\n\n## Verified Resolution\n${resolutionNotes}\n\n**Tags:** ${(issue.tags || []).join(", ")}`;
+              const textChunks = this.chunkText(body);
+              const chunksToProcess = textChunks.length ? textChunks : [body];
+              const s3Key = `kbs/${tenantId}/${filename}`;
+              const s3Url = `https://supportv8-kb-documents.s3.amazonaws.com/${tenantId}/${filename}`;
+
+              await session.query(
+                `INSERT INTO supportv8.knowledge_documents (
+                  id, tenant_id, filename, file_type, file_size_bytes, s3_key, s3_url,
+                  category, title, chunk_count, status, summary, uploaded_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+                ON CONFLICT (id) DO NOTHING`,
+                [
+                  expectedDocId,
+                  tenantId,
+                  filename,
+                  "md",
+                  Buffer.byteLength(body, "utf-8"),
+                  s3Key,
+                  s3Url,
+                  issue.category || "ticket_resolution",
+                  docTitle,
+                  chunksToProcess.length,
+                  "indexed",
+                  issue.summary,
+                ]
+              );
+
+              for (let idx = 0; idx < chunksToProcess.length; idx++) {
+                const chunkContent = chunksToProcess[idx];
+                const embedding = ragService.generateEmbedding(chunkContent);
+                await session.query(
+                  `INSERT INTO supportv8.knowledge_document_chunks (
+                    id, document_id, tenant_id, chunk_index, content, embedding, created_at
+                  ) VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())
+                  ON CONFLICT (tenant_id, document_id, chunk_index) DO NOTHING`,
+                  [
+                    `chk_${expectedDocId}_${idx}`,
+                    expectedDocId,
+                    tenantId,
+                    idx,
+                    chunkContent,
+                    JSON.stringify(embedding),
+                  ]
+                );
+              }
+
+              rows.unshift({
+                id: expectedDocId,
+                tenant_id: tenantId,
+                filename,
+                file_type: "md",
+                file_size_bytes: Buffer.byteLength(body, "utf-8"),
+                s3_key: s3Key,
+                s3_url: s3Url,
+                category: issue.category || "ticket_resolution",
+                title: docTitle,
+                chunk_count: chunksToProcess.length,
+                status: "indexed",
+                summary: issue.summary,
+                uploaded_at: new Date().toISOString(),
+              });
+              existingDocIds.add(expectedDocId);
+            }
+          }
+
+          return rows.map((r): KnowledgeDocument => ({
+            id: r.id,
+            tenantId: r.tenant_id,
+            filename: r.filename,
+            fileType: r.file_type,
+            fileSizeBytes: r.file_size_bytes,
+            s3Key: r.s3_key,
+            s3Url: r.s3_url,
+            category: r.category,
+            title: r.title,
+            chunkCount: r.chunk_count,
+            status: (r.status as KnowledgeDocument["status"]) || "indexed",
+            uploadedAt: typeof r.uploaded_at === "string" ? r.uploaded_at : r.uploaded_at.toISOString(),
+            summary: r.summary,
+            groups: ["support-tier1"],
+            tags: [r.category, "rag-grounded"],
+            curatedStatus: "raw",
+          }));
+        });
+
+        if (docs && docs.length > 0) {
+          return docs;
+        }
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to load durable documents:", err);
+      }
+    }
+
+    return this.getDocuments(tenantId);
+  }
+
+  public async getDurableChunks(tenantId: string, documentId: string): Promise<KnowledgeDocumentChunk[]> {
+    this.ensureInitialChunks();
+    if (process.env.DATABASE_URL) {
+      try {
+        const chunks = await this.client.withTenantSession(tenantId, async (session) => {
+          const rows = await session.query<{
+            id: string;
+            document_id: string;
+            tenant_id: string;
+            chunk_index: number;
+            content: string;
+            created_at: Date | string;
+          }>(
+            `SELECT id, document_id, tenant_id, chunk_index, content, created_at
+               FROM supportv8.knowledge_document_chunks
+              WHERE tenant_id = $1 AND document_id = $2
+              ORDER BY chunk_index ASC`,
+            [tenantId, documentId]
+          );
+
+          return rows.map((r): KnowledgeDocumentChunk => ({
+            id: r.id,
+            documentId: r.document_id,
+            tenantId: r.tenant_id,
+            chunkIndex: r.chunk_index,
+            section: `Section ${r.chunk_index + 1}`,
+            content: r.content,
+            weight: 1.0,
+            tokenCount: Math.ceil(r.content.length / 4),
+            updatedAt: typeof r.created_at === "string" ? r.created_at : r.created_at.toISOString(),
+            embedding: ragService.generateEmbedding(r.content),
+          }));
+        });
+
+        if (chunks && chunks.length > 0) {
+          return chunks;
+        }
+      } catch (err) {
+        console.error("[RagIngestionService] Failed to load durable chunks:", err);
+      }
+    }
+
+    return this.getDocumentChunks(documentId);
   }
 
   public getDocuments(tenantId: string): KnowledgeDocument[] {

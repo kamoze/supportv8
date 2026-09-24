@@ -578,3 +578,16 @@ export interface AiChatGuardrailConfig {
   requireHumanForContractorPayout: boolean;
   enableRAGGrounding: boolean;
 }
+
+export const DEFAULT_RAG_ASSISTANT = {
+  id: "emp_rag_intelligence",
+  name: "SupportV8 RAG Intelligence",
+  role: "Knowledge Retrieval & Vector Copilot",
+  level: "ai_employee",
+  status: "active",
+  autonomyLevel: "L2 Assisted",
+  avatarUrl: "/avatars/beaver-curator.jpg",
+  isHired: true,
+  hired: true
+};
+

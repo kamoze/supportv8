@@ -103,6 +103,7 @@ import type {
   TicketTimelineEvent,
   TicketMessageItem,
 } from "@/lib/types";
+import { DEFAULT_RAG_ASSISTANT } from "@/lib/types";
 import type {
   MarketplaceConnector,
   MarketplaceWorkforceItem,
@@ -164,18 +165,6 @@ export interface ChatMessage {
   suggestedActions?: Array<{ label: string; action: string; targetTab?: string; payload?: any }>;
   timestamp: string;
 }
-
-export const DEFAULT_RAG_ASSISTANT = {
-  id: "emp_rag_intelligence",
-  name: "SupportV8 RAG Intelligence",
-  role: "Knowledge Retrieval & Vector Copilot",
-  level: "ai_employee",
-  status: "active",
-  autonomyLevel: "L2 Assisted",
-  avatarUrl: "/avatars/beaver-curator.jpg",
-  isHired: true,
-  hired: true,
-};
 
 const EMPTY_CONNECTORS = INITIAL_CONNECTORS.map((connector) => ({
   ...connector,
@@ -7940,7 +7929,13 @@ export default function SupportV8Dashboard() {
                   <div className="max-w-sm space-y-2">
                     <Bot className="mx-auto h-6 w-6 text-[#6B7C8D]" />
                     <p className="text-sm font-semibold text-[#EAF1F8]">No AI conversation yet</p>
-                    <p className="text-xs text-[#8E9AA8]">Hire an AI employee from Marketplace before starting a workforce chat.</p>
+                    <p className="text-xs text-[#8E9AA8]">
+                      {selectedEmployeeId === DEFAULT_RAG_ASSISTANT.id
+                        ? "Query tickets, runbooks, and pgvector knowledge with SupportV8 RAG Intelligence."
+                        : workforce.length > 0
+                        ? `Ask ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "your AI employee"} anything or select a prompt below.`
+                        : "Hire an AI employee from Marketplace before starting a workforce chat."}
+                    </p>
                   </div>
                 </div>
               )}

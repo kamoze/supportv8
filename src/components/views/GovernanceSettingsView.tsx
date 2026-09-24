@@ -26,10 +26,13 @@ import {
   AlertTriangle,
   FileCode,
   Plus,
+  Volume2,
+  VolumeX,
 } from "@/components/ui/FlatIcon";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import type { ChatStreamType } from "@/lib/types";
 import { ChatWorkflowService } from "@/lib/services/chat-workflow-service";
+import { soundAlertService } from "@/lib/services/sound-alert-service";
 
 interface GovernanceSettingsViewProps {
   settings: TenantSettingConfig;
@@ -153,6 +156,12 @@ export function GovernanceSettingsView({
   const [routingMode, setRoutingMode] = useState<"forgegw" | "byom">(
     settings.routingMode || "forgegw"
   );
+
+  // Audio & Sound Alerts State
+  const [soundConfig, setSoundConfig] = useState(() => soundAlertService.getConfig());
+  useEffect(() => {
+    return soundAlertService.subscribe((cfg) => setSoundConfig(cfg));
+  }, []);
 
   // General & Security
   const [workspaceName, setWorkspaceName] = useState<string>(settings.workspaceName || "Acme Enterprise");
@@ -1614,6 +1623,121 @@ export function GovernanceSettingsView({
                   checked={requireApproval}
                   onChange={(e) => setRequireApproval(e.target.checked)}
                   className="w-4 h-4 accent-[#2ED8B6] cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Sound & Audio Alerts Card */}
+          <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-[#2ED8B6]" />
+                <span>Audio & Sound Alert Notifications</span>
+              </h3>
+              <span
+                className={`pill text-[10px] ${
+                  soundConfig.enabled ? "ok text-[#2ED8B6] border-[#2ED8B6]/40" : "text-[#6B7C8D]"
+                }`}
+              >
+                {soundConfig.enabled ? "ACTIVE" : "MUTED"}
+              </span>
+            </div>
+
+            <p className="text-xs text-[#8E9AA8]">
+              Configure acoustic chimes for real-time customer support operations. Alerts use zero-bandwidth Web Audio synthesis with graceful autoplay policy handling.
+            </p>
+
+            <div className="space-y-4 text-xs">
+              {/* Master Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#18222E] border border-[var(--line)]">
+                <div>
+                  <div className="font-bold text-[#EAF1F8]">Master Sound Alerts</div>
+                  <div className="text-[11px] text-[#6B7C8D]">Enable or disable all audio notifications globally across this workspace</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = soundAlertService.toggleMaster();
+                    if (next) void soundAlertService.playTestChatAlert();
+                  }}
+                  className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${
+                    soundConfig.enabled ? "bg-[#2ED8B6]" : "bg-[#101722] border border-[var(--line)]"
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      soundConfig.enabled ? "translate-x-4 shadow" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Per Event Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Incoming Tickets */}
+                <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-[#EAF1F8]">Incoming Tickets</div>
+                      <div className="text-[11px] text-[#6B7C8D]">Two-tone executive chime (D5 &rarr; A5)</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={soundConfig.ticketAlerts}
+                      onChange={(e) => soundAlertService.updateConfig({ ticketAlerts: e.target.checked })}
+                      className="w-4 h-4 accent-[#2ED8B6] cursor-pointer"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void soundAlertService.playTestTicketAlert()}
+                    className="btn btn-secondary text-xs px-3 py-1 flex items-center gap-1.5 cursor-pointer text-[#2ED8B6]"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Audition Ticket Chime</span>
+                  </button>
+                </div>
+
+                {/* Incoming Chat */}
+                <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-[#EAF1F8]">Incoming Chat Messages</div>
+                      <div className="text-[11px] text-[#6B7C8D]">Ascending double-pop messaging tone</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={soundConfig.chatAlerts}
+                      onChange={(e) => soundAlertService.updateConfig({ chatAlerts: e.target.checked })}
+                      className="w-4 h-4 accent-[#2ED8B6] cursor-pointer"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void soundAlertService.playTestChatAlert()}
+                    className="btn btn-secondary text-xs px-3 py-1 flex items-center gap-1.5 cursor-pointer text-[#2ED8B6]"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>Audition Chat Pop</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Volume Slider */}
+              <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-[#8E9AA8]">NOTIFICATION VOLUME</span>
+                  <span className="font-bold text-[#EAF1F8]">{Math.round(soundConfig.volume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={soundConfig.volume}
+                  onChange={(e) => soundAlertService.updateConfig({ volume: parseFloat(e.target.value) })}
+                  className="w-full accent-[#2ED8B6] cursor-pointer h-2 bg-[#101722] rounded-lg"
                 />
               </div>
             </div>

@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   X,
 } from "@/components/ui/FlatIcon";
+import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import type { ChatMessage } from "@/app/page";
 
 interface AskWorkspaceViewProps {
@@ -121,13 +122,16 @@ export function AskWorkspaceView({
             </div>
           </div>
 
-          <button
-            onClick={onClearChat}
-            className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-mono"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset History</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <SoundAlertToggle showDropdown={false} className="p-2 min-w-0 min-h-0 h-8 w-8 rounded-lg" />
+            <button
+              onClick={onClearChat}
+              className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-mono"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset History</span>
+            </button>
+          </div>
         </div>
 
         {/* AI Workforce Selector Carousel */}

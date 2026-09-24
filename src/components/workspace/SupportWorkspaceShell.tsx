@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/FlatIcon";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { FamilyThemeToggle } from "@/components/FamilyControls";
+import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 
 export type WorkspaceNavItem = {
   id: string;
@@ -325,6 +326,7 @@ export function SupportWorkspaceHeader({
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        <SoundAlertToggle />
         <FamilyThemeToggle />
         {children}
       </div>

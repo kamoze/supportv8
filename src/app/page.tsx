@@ -82,8 +82,9 @@ import {
   X,
   Zap,
 } from "@/components/ui/FlatIcon";
-import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportWorkspaceHeaderFrame, SupportWorkspaceNavigation, SupportWorkspaceShell } from "@/components/workspace/SupportWorkspaceShell";
+import { SoundAlertToggle } from "@/components/SoundAlertToggle";
+import { soundAlertService } from "@/lib/services/sound-alert-service";
 import type {
   Issue,
   Problem,
@@ -1020,6 +1021,12 @@ export default function SupportV8Dashboard() {
           if (res?.success && Array.isArray(res.data)) {
             setIssues((current) => {
               const currentById = new Map(current.map((issue) => [issue.id, issue]));
+              if (current.length > 0) {
+                const hasNewIncoming = res.data.some((serverIssue: Issue) => !currentById.has(serverIssue.id));
+                if (hasNewIncoming) {
+                  void soundAlertService.playTicketAlert();
+                }
+              }
               return res.data.map((serverIssue: Issue) => {
                 const existing = currentById.get(serverIssue.id);
                 if (!existing) return serverIssue;
@@ -1229,6 +1236,7 @@ export default function SupportV8Dashboard() {
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         setChatResponse(res.data);
+        void soundAlertService.playChatAlert();
       } else {
         notify(res.error || "Chat query failed", "error");
       }
@@ -1745,10 +1753,14 @@ export default function SupportV8Dashboard() {
 
   const handleCreateIssue = (newIssue: Issue) => {
     setIssues((prev) => [newIssue, ...prev]);
+    void soundAlertService.playTicketAlert();
   };
 
   const handleImportIssues = (newIssues: Issue[]) => {
     setIssues((prev) => [...newIssues, ...prev]);
+    if (newIssues.length > 0) {
+      void soundAlertService.playTicketAlert();
+    }
   };
 
   const handleWorkspaceProcessRefund = async (issueId: string, amount: string) => {
@@ -2327,7 +2339,10 @@ export default function SupportV8Dashboard() {
             </span>
           </div>
 
-          <FamilyThemeToggle />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <SoundAlertToggle />
+            <FamilyThemeToggle />
+          </div>
           {/* Center: Autonomy Mode & ForgeGW Credits Capsule */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
             {/* Autonomy Mode Selector */}
@@ -7850,6 +7865,7 @@ export default function SupportV8Dashboard() {
               </div>
 
               <div className="flex items-center gap-2">
+                <SoundAlertToggle showDropdown={false} className="p-2 min-w-0 min-h-0 h-8 w-8 rounded-lg" />
                 <button
                   onClick={handleClearChat}
                   title="Clear Chat History"

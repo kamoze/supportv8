@@ -44,6 +44,8 @@ import {
   storeChatSessionId,
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
+import { soundAlertService } from "@/lib/services/sound-alert-service";
+import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 
 interface SupportChatWidgetProps {
   tenantSlug?: string;
@@ -88,7 +90,16 @@ export function SupportChatWidget({
   const [isGuestShopper, setIsGuestShopper] = useState(false);
 
   const chatConnectionState = useChatRealtimeSession(activeSession?.id, (session) => {
-    setActiveSession((current) => mergeChatSession(current, session));
+    setActiveSession((current) => {
+      if (current) {
+        const prevMsgIds = new Set(current.messages.map((m) => m.id));
+        const hasNewIncoming = session.messages.some((m) => !prevMsgIds.has(m.id) && m.sender !== "customer");
+        if (hasNewIncoming) {
+          void soundAlertService.playChatAlert();
+        }
+      }
+      return mergeChatSession(current, session);
+    });
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -455,6 +466,8 @@ export function SupportChatWidget({
                 <PhoneCall className="w-3.5 h-3.5" />
                 <span className="hidden xs:inline">Call Live</span>
               </a>
+
+              <SoundAlertToggle showDropdown={false} className="p-2 rounded-xl min-w-0 min-h-0 h-8 w-8 hover:bg-[#1C2836]" />
 
               {activeStep === "chat" && (
                 <button

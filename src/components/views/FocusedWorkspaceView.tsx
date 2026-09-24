@@ -73,6 +73,7 @@ import {
   mergeChatSession,
   useChatRealtimeSession,
 } from "@/lib/chat/use-chat-realtime";
+import { soundAlertService } from "@/lib/services/sound-alert-service";
 import { AuthService } from "@/lib/auth-service";
 import { AsunPalaceContextPanel } from "@/components/workspace/AsunPalaceContextPanel";
 import { isAsunPalaceTenant } from "@/lib/services/chat-workflow-service";
@@ -232,6 +233,7 @@ function RuntimeFocusedWorkspace({
       });
       setCreating(false);
       setNotice("Ticket created and saved.");
+      void soundAlertService.playTicketAlert();
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -587,7 +589,16 @@ function LegacyFocusedWorkspaceView({
   const shouldFollowLiveChatRef = useRef(true);
   const lastLiveChatSessionIdRef = useRef<string | undefined>(undefined);
   const chatConnectionState = useChatRealtimeSession(matchingChatSession?.id, (session) => {
-    setMatchingChatSession((current) => mergeChatSession(current, session));
+    setMatchingChatSession((current) => {
+      if (current) {
+        const prevMsgIds = new Set(current.messages.map((m) => m.id));
+        const hasNewIncoming = session.messages.some((m) => !prevMsgIds.has(m.id) && m.sender !== "agent");
+        if (hasNewIncoming) {
+          void soundAlertService.playChatAlert();
+        }
+      }
+      return mergeChatSession(current, session);
+    });
   });
 
   // Re-Assignment & Context Attachments State

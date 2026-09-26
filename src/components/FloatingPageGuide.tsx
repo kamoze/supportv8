@@ -83,6 +83,16 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     ],
     tip: "Use the prompt suggestions pill bar for quick one-click diagnostics, and drag the text area corner to expand for long queries.",
   },
+  chat: {
+    label: "AgenticOS Chat",
+    what: "Direct conversational workspace with the SupportV8 autonomous workforce: collaborate with AI employees, review live reasoning traces, and trigger guided actions.",
+    actions: [
+      "Select an autonomous employee to collaborate with or assign tickets to.",
+      "Review streaming diagnostic traces and cited knowledge runbooks.",
+      "Toggle sound alerts in the chat header for acoustic notifications on incoming replies.",
+    ],
+    tip: "Sound alert toggles are built directly into the chat header to give you instant acoustic feedback.",
+  },
   studio: {
     label: "Autonomous Studio",
     what: "Visual workflow orchestrator: build event trigger pipelines, enforce autonomy safety policy gates, and deploy pre-built scenario templates.",
@@ -313,6 +323,17 @@ export function FloatingPageGuide({ activeTab, onNotify }: FloatingPageGuideProp
     return () => document.removeEventListener("mousedown", handleDocumentClick);
   }, [isOpen]);
 
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   const currentGuide = GUIDE_CONTENT[activeTab] || {
     label: "supportV8 Workspace",
     what: "Autonomous customer experience platform powered by multi-channel AI Employees, 1536-dim vector knowledge, and zero-trust action governance.",
@@ -512,19 +533,36 @@ export function FloatingPageGuide({ activeTab, onNotify }: FloatingPageGuideProp
         </div>
       )}
 
-      {/* Floating FAB Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Open page guide and help dock"
-        className={`w-11 h-11 rounded-full border flex items-center justify-center font-mono text-base font-extrabold cursor-pointer transition-all shadow-xl hover:scale-105 ${
-          isOpen
-            ? "bg-[#2ED8B6] text-[#04201C] border-[#2ED8B6] shadow-[0_0_20px_rgba(46,216,182,0.4)]"
-            : "bg-[#121A24] text-[#2ED8B6] border-[#2ED8B6]/50 hover:border-[#2ED8B6] hover:text-[#FFFFFF] hover:shadow-[0_0_15px_rgba(46,216,182,0.3)]"
-        }`}
-      >
-        {isOpen ? <X className="w-5 h-5" /> : "?"}
-      </button>
+      {/* Floating Trigger Dock */}
+      <div className="flex items-center gap-2">
+        {!isOpen && (
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            title={`Open guide for ${currentGuide.label}`}
+            className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0E1520]/95 hover:bg-[#141C26] border border-[var(--line-2)] hover:border-[#2ED8B6]/50 text-[#EAF1F8] shadow-2xl text-xs font-mono transition-all cursor-pointer backdrop-blur-md group"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#2ED8B6] group-hover:scale-125 transition-transform shadow-[0_0_8px_rgba(46,216,182,0.8)]" />
+            <span className="text-[#8E9AA8] group-hover:text-[#B4C2D0]">Guide:</span>
+            <span className="font-bold text-[#2ED8B6]">{currentGuide.label}</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label={isOpen ? "Close page guide and help dock" : `Open page guide for ${currentGuide.label}`}
+          aria-expanded={isOpen}
+          title={isOpen ? "Close page guide" : `Page Guide: ${currentGuide.label}`}
+          className={`w-11 h-11 rounded-full border flex items-center justify-center font-mono text-base font-extrabold cursor-pointer transition-all shadow-xl hover:scale-105 ${
+            isOpen
+              ? "bg-[#2ED8B6] text-[#04201C] border-[#2ED8B6] shadow-[0_0_20px_rgba(46,216,182,0.4)]"
+              : "bg-[#121A24] text-[#2ED8B6] border-[#2ED8B6]/50 hover:border-[#2ED8B6] hover:text-[#FFFFFF] hover:shadow-[0_0_15px_rgba(46,216,182,0.3)]"
+          }`}
+        >
+          {isOpen ? <X className="w-5 h-5" /> : "?"}
+        </button>
+      </div>
     </div>
   );
 }

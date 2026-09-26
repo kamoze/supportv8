@@ -144,7 +144,6 @@ import { TenantLandingView } from "@/components/TenantLandingView";
 import { SignupModal } from "@/components/SignupModal";
 import { SignInModal } from "@/components/SignInModal";
 import { DemoAccessModal } from "@/components/DemoAccessModal";
-import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 import {
@@ -9185,13 +9184,6 @@ export default function SupportV8Dashboard() {
       <FloatingPageGuide
         activeTab={activeTab}
         onNotify={(text, type) => setActionNotice({ text, type: type || "info" })}
-      />
-
-      {/* Floating Support Chat Widget */}
-      <SupportChatWidget
-        key={currentTenantSlug}
-        tenantSlug={currentTenantSlug}
-        tenantName={db.getTenantData(currentTenantSlug).tenant?.name || currentTenantSlug}
       />
 
       {/* GrowthV8-Inspired Tenant Provisioning & Signup Modal */}

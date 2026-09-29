@@ -77,6 +77,7 @@ import { soundAlertService } from "@/lib/services/sound-alert-service";
 import { AuthService } from "@/lib/auth-service";
 import { AsunPalaceContextPanel } from "@/components/workspace/AsunPalaceContextPanel";
 import { isAsunPalaceTenant } from "@/lib/services/chat-workflow-service";
+import { findSituationsForTicket, type OlgSituation } from "@/lib/signals/olg-consumer";
 
 type CommunicationChannel = "chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass";
 
@@ -182,6 +183,7 @@ type RuntimeFocusedWorkspaceProps = {
     selected?: RuntimeWorkDeskTicket | null;
     selectionRequested?: boolean;
     cursor?: string;
+    situations?: OlgSituation[];
     canManage: boolean;
     onCreate: (input: {
       customerName: string;
@@ -200,6 +202,7 @@ function RuntimeFocusedWorkspace({
     selected,
     selectionRequested,
     cursor,
+    situations = [],
     canManage,
     onCreate,
     onUpdate,
@@ -211,6 +214,15 @@ function RuntimeFocusedWorkspace({
     [notice, setNotice] = useState("");
   const active = selectionRequested ? selected : (selected ?? tickets[0]);
   const canEditActive = runtimeMutationAllowed(canManage, active?.source);
+  const activeSituations =
+    active && situations.length
+      ? findSituationsForTicket(situations, {
+          ticketId: active.id,
+          ticketRef: active.ticketRef,
+          summary: active.summary,
+        })
+      : [];
+
   useEffect(() => {
     const next=runtimeFormState(canManage,{creating,editing});
     if (!next.creating && creating) setCreating(false);
@@ -307,16 +319,28 @@ function RuntimeFocusedWorkspace({
         )}
         {tickets.length ? (
           <ul>
-            {tickets.map((ticket) => (
-              <li key={ticket.id}>
-                <a
-                  href={`/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
-                  aria-current={active?.id === ticket.id ? "page" : undefined}
-                >
-                  <TicketSummary ticket={ticket} />
-                </a>
-              </li>
-            ))}
+            {tickets.map((ticket) => {
+              const ticketSituations = situations.length
+                ? findSituationsForTicket(situations, {
+                    ticketId: ticket.id,
+                    ticketRef: ticket.ticketRef,
+                    summary: ticket.summary,
+                  })
+                : [];
+              return (
+                <li key={ticket.id}>
+                  <a
+                    href={`/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
+                    aria-current={active?.id === ticket.id ? "page" : undefined}
+                  >
+                    <TicketSummary
+                      ticket={ticket}
+                      hasOlgAlert={ticketSituations.length > 0}
+                    />
+                  </a>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="runtime-empty">
@@ -331,7 +355,29 @@ function RuntimeFocusedWorkspace({
         {active ? (
           <>
             <span className="runtime-status">{active.status}</span>
+            {activeSituations.length > 0 && (
+              <div
+                className="my-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
+                data-testid="olg-ticket-alert"
+              >
+                <div className="flex items-center gap-2 font-semibold text-amber-400">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span>Operational Learning Graph Alert ({activeSituations.length})</span>
+                </div>
+                {activeSituations.map((sit) => (
+                  <div key={sit.id} className="mt-2 pt-2 border-t border-amber-500/20">
+                    <div className="font-medium text-amber-300">
+                      {sit.title} [{sit.severity.toUpperCase()}]
+                    </div>
+                    <div className="text-amber-200/80 text-[11px] mt-0.5">
+                      {sit.summary}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <h2>{active.customerName}</h2>
+
             {canEditActive && !editing && (
               <button type="button" onClick={() => setEditing(true)}>
                 Edit ticket
@@ -434,15 +480,32 @@ function WorkDeskFrame({
 function WorkDeskToolbar({count,subtitle,actions}:{count:number;subtitle:string;actions?:React.ReactNode}) {
   return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Customer Care &amp; Field Resolution Work Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2><p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p></div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
 }
-function TicketSummary({ ticket }: { ticket: RuntimeWorkDeskTicket }) {
+function TicketSummary({
+  ticket,
+  hasOlgAlert = false,
+}: {
+  ticket: RuntimeWorkDeskTicket;
+  hasOlgAlert?: boolean;
+}) {
   return (
     <>
-      <span>{ticket.ticketRef}</span>
+      <span className="flex items-center gap-1.5">
+        <span>{ticket.ticketRef}</span>
+        {hasOlgAlert && (
+          <span
+            className="rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-300 border border-amber-500/30"
+            title="Operational Learning Graph Alert"
+          >
+            OLG
+          </span>
+        )}
+      </span>
       <WorkDeskTicketIdentity customerName={ticket.customerName} summary={ticket.summary} status={ticket.status} />
       <LocalTime value={ticket.updatedAt} />
     </>
   );
 }
+
 function WorkDeskTicketIdentity({customerName,summary,status,compact=false}:{customerName:string;summary:string;status:string;compact?:boolean}) { return compact ? <><h4 className="text-xs font-semibold text-[#B4C2D0] line-clamp-1 group-hover:text-[#EAF1F8] transition-colors">{summary}</h4><div className="flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]"><span>{customerName}</span><span className="text-[#2ED8B6] font-semibold">{status}</span></div></> : <><strong>{customerName}</strong><p>{summary}</p><span className="runtime-status">{status}</span></>; }
 export function formatRuntimeLocalTime(value:string,locales?:Intl.LocalesArgument,timeZone?:string) { return new Intl.DateTimeFormat(locales,{dateStyle:"medium",timeStyle:"short",...(timeZone?{timeZone}:{})}).format(new Date(value)); }
 function LocalTime({value}:{value:string}) { const [label,setLabel]=useState(""); useEffect(()=>setLabel(formatRuntimeLocalTime(value)),[value]); return <time dateTime={value}>{label||"Local time loading…"}</time>; }

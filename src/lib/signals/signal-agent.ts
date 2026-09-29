@@ -1,0 +1,266 @@
+/**
+ * SupportV8 Signal Agent Outbox
+ *
+ * Implements the Signals aspect of the Four-Part Service App Contract.
+ * Emits CloudEvents 1.0 domain signals into the centralized Runtime Signals
+ * intake, contributing support ticket interactions, customer escalations,
+ * and resolution outcomes to the tenant's Operational Learning Graph (OLG).
+ */
+
+import { getAgenticRuntimeBaseUrl, getAgenticRuntimeToken } from "@/lib/chat/agenticos-chat-client";
+
+export const SUPPORT_SIGNAL_TYPES = {
+  TICKET_CREATED: "com.servicev8.business.support.ticket-created.v1",
+  TICKET_ESCALATED: "com.servicev8.business.support.ticket-escalated.v1",
+  TICKET_RESOLVED: "com.servicev8.business.support.ticket-resolved.v1",
+  CSAT_RECORDED: "com.servicev8.business.support.csat-recorded.v1",
+} as const;
+
+export type SupportSignalType = typeof SUPPORT_SIGNAL_TYPES[keyof typeof SUPPORT_SIGNAL_TYPES];
+
+export type SignalEmitOptions = {
+  fetchImpl?: typeof fetch;
+  env?: Record<string, string | undefined>;
+  maxRetries?: number;
+  retryDelayMs?: number;
+};
+
+export type SignalEmitResult =
+  | {
+      ok: true;
+      receiptId?: string;
+      duplicate?: boolean;
+      status?: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export function getSignalsSecret(env: Record<string, string | undefined> = process.env): string {
+  return (
+    env.RUNTIME_SIGNALS_SECRET ||
+    env.RUNTIME_WEBHOOK_SECRET ||
+    getAgenticRuntimeToken(env) ||
+    ""
+  );
+}
+
+export async function safeEmitSignal(
+  params: {
+    tenantId: string;
+    accountId?: string;
+    eventType: string;
+    subject: string;
+    data: Record<string, unknown>;
+    id?: string;
+    time?: string;
+  },
+  options: SignalEmitOptions = {}
+): Promise<SignalEmitResult> {
+  const env = options.env ?? process.env;
+  const fetchFn = options.fetchImpl ?? fetch;
+  const baseUrl = getAgenticRuntimeBaseUrl(env);
+  const secret = getSignalsSecret(env);
+
+  const eventId =
+    params.id ||
+    `evt_supportv8_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  const eventEnvelope = {
+    specversion: "1.0",
+    id: eventId,
+    source: "urn:servicev8:app:supportv8",
+    type: params.eventType,
+    subject: params.subject,
+    time: params.time || new Date().toISOString(),
+    datacontenttype: "application/json",
+    data: params.data,
+  };
+
+  const accountId = params.accountId || params.tenantId;
+  const maxRetries = options.maxRetries ?? 2;
+  const retryDelay = options.retryDelayMs ?? 150;
+
+  const url = `${baseUrl}/api/signals/intake`;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetchFn(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-servicev8-signal-secret": secret,
+          "x-servicev8-tenant-id": params.tenantId,
+          "x-servicev8-account-id": accountId,
+        },
+        body: JSON.stringify(eventEnvelope),
+      });
+
+      if (response.status === 200 || response.status === 202) {
+        const body = (await response.json()) as {
+          ok: boolean;
+          receiptId?: string;
+          duplicate?: boolean;
+          status?: string;
+        };
+        return {
+          ok: true,
+          receiptId: body.receiptId,
+          duplicate: body.duplicate,
+          status: body.status,
+        };
+      }
+
+      const errText = await response.text().catch(() => "");
+      if (attempt < maxRetries && response.status >= 500) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
+        continue;
+      }
+
+      console.warn(`[signal-agent] Intake rejected support signal (${response.status}): ${errText}`);
+      return { ok: false, error: `HTTP ${response.status}: ${errText}` };
+    } catch (err) {
+      if (attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
+        continue;
+      }
+      console.warn("[signal-agent] Support signal emission failed softly:", err);
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  return { ok: false, error: "max_retries_exceeded" };
+}
+
+export async function emitSupportTicketCreatedSignal(
+  params: {
+    tenantId: string;
+    accountId?: string;
+    ticket: {
+      id: string;
+      ticketRef?: string;
+      customerName: string;
+      customerRef?: string;
+      summary: string;
+      priority: string;
+      category?: string;
+      status?: string;
+    };
+  },
+  options?: SignalEmitOptions
+): Promise<SignalEmitResult> {
+  return safeEmitSignal(
+    {
+      tenantId: params.tenantId,
+      accountId: params.accountId,
+      eventType: SUPPORT_SIGNAL_TYPES.TICKET_CREATED,
+      subject: `ticket:${params.ticket.id}`,
+      data: {
+        ticketId: params.ticket.id,
+        ticketRef: params.ticket.ticketRef || params.ticket.id,
+        customerName: params.ticket.customerName,
+        customerRef: params.ticket.customerRef,
+        summary: params.ticket.summary,
+        priority: params.ticket.priority,
+        category: params.ticket.category || "general_support",
+        status: params.ticket.status || "open",
+        createdAt: new Date().toISOString(),
+      },
+    },
+    options
+  );
+}
+
+export async function emitSupportTicketEscalatedSignal(
+  params: {
+    tenantId: string;
+    accountId?: string;
+    ticketId: string;
+    ticketRef?: string;
+    customerName?: string;
+    reason?: string;
+    severity?: "warning" | "critical";
+  },
+  options?: SignalEmitOptions
+): Promise<SignalEmitResult> {
+  return safeEmitSignal(
+    {
+      tenantId: params.tenantId,
+      accountId: params.accountId,
+      eventType: SUPPORT_SIGNAL_TYPES.TICKET_ESCALATED,
+      subject: `ticket:${params.ticketId}`,
+      data: {
+        ticketId: params.ticketId,
+        ticketRef: params.ticketRef || params.ticketId,
+        customerName: params.customerName || "Customer",
+        priority: "urgent",
+        severity: params.severity || "critical",
+        reason: params.reason || "Customer escalation reported",
+        escalatedAt: new Date().toISOString(),
+      },
+    },
+    options
+  );
+}
+
+export async function emitSupportTicketResolvedSignal(
+  params: {
+    tenantId: string;
+    accountId?: string;
+    ticketId: string;
+    ticketRef?: string;
+    resolutionSummary?: string;
+    resolvedAt?: string;
+  },
+  options?: SignalEmitOptions
+): Promise<SignalEmitResult> {
+  return safeEmitSignal(
+    {
+      tenantId: params.tenantId,
+      accountId: params.accountId,
+      eventType: SUPPORT_SIGNAL_TYPES.TICKET_RESOLVED,
+      subject: `ticket:${params.ticketId}`,
+      data: {
+        ticketId: params.ticketId,
+        ticketRef: params.ticketRef || params.ticketId,
+        status: "resolved",
+        resolutionSummary: params.resolutionSummary || "Ticket resolved by support operator",
+        resolvedAt: params.resolvedAt || new Date().toISOString(),
+      },
+    },
+    options
+  );
+}
+
+export async function emitSupportCsatRecordedSignal(
+  params: {
+    tenantId: string;
+    accountId?: string;
+    ticketId: string;
+    ticketRef?: string;
+    score: number;
+    feedback?: string;
+  },
+  options?: SignalEmitOptions
+): Promise<SignalEmitResult> {
+  return safeEmitSignal(
+    {
+      tenantId: params.tenantId,
+      accountId: params.accountId,
+      eventType: SUPPORT_SIGNAL_TYPES.CSAT_RECORDED,
+      subject: `ticket:${params.ticketId}`,
+      data: {
+        ticketId: params.ticketId,
+        ticketRef: params.ticketRef || params.ticketId,
+        score: params.score,
+        feedback: params.feedback || "",
+        recordedAt: new Date().toISOString(),
+      },
+    },
+    options
+  );
+}

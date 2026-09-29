@@ -5,6 +5,11 @@ import {
   type OperationalSupportAccess,
   type SupportRuntimeScope,
 } from "./runtime-access";
+import {
+  emitSupportTicketCreatedSignal,
+  emitSupportTicketEscalatedSignal,
+  emitSupportTicketResolvedSignal,
+} from "@/lib/signals/signal-agent";
 
 export type SupportTicketSummary = {
   ticketRef: string;
@@ -232,7 +237,35 @@ export class RuntimeSupportTicketReader {
       ),
     );
     if (!rows[0]) throw new Error("ticket_write_failed");
-    return ticket(rows[0]);
+    const createdTicket = ticket(rows[0]);
+
+    // Emit OLG Domain Signal: support.ticket-created
+    void emitSupportTicketCreatedSignal({
+      tenantId: access.workspaceId,
+      accountId: scope.accountId,
+      ticket: {
+        id: createdTicket.id,
+        ticketRef: createdTicket.ticketRef,
+        customerName: createdTicket.customerName,
+        customerRef: createdTicket.customerRef,
+        summary: createdTicket.summary,
+        priority: createdTicket.priority,
+        status: createdTicket.status,
+      },
+    }).catch((err) => console.warn("[Signal Outbox] Ticket created warning:", err));
+
+    if (createdTicket.priority === "urgent") {
+      void emitSupportTicketEscalatedSignal({
+        tenantId: access.workspaceId,
+        accountId: scope.accountId,
+        ticketId: createdTicket.id,
+        ticketRef: createdTicket.ticketRef,
+        customerName: createdTicket.customerName,
+        reason: createdTicket.summary,
+      }).catch((err) => console.warn("[Signal Outbox] Ticket escalated warning:", err));
+    }
+
+    return createdTicket;
   }
   async update(
     scope: SupportRuntimeScope,
@@ -260,7 +293,29 @@ export class RuntimeSupportTicketReader {
         ],
       );
     });
-    return rows[0] ? ticket(rows[0]) : null;
+    const updatedTicket = rows[0] ? ticket(rows[0]) : null;
+    if (updatedTicket) {
+      if (input.priority === "urgent" || input.status === "escalated") {
+        void emitSupportTicketEscalatedSignal({
+          tenantId: access.workspaceId,
+          accountId: scope.accountId,
+          ticketId: updatedTicket.id,
+          ticketRef: updatedTicket.ticketRef,
+          customerName: updatedTicket.customerName,
+          reason: updatedTicket.summary,
+        }).catch((err) => console.warn("[Signal Outbox] Ticket escalated warning:", err));
+      }
+      if (input.status === "resolved" || input.status === "closed") {
+        void emitSupportTicketResolvedSignal({
+          tenantId: access.workspaceId,
+          accountId: scope.accountId,
+          ticketId: updatedTicket.id,
+          ticketRef: updatedTicket.ticketRef,
+          resolutionSummary: updatedTicket.summary,
+        }).catch((err) => console.warn("[Signal Outbox] Ticket resolved warning:", err));
+      }
+    }
+    return updatedTicket;
   }
 }
 export const runtimeSupportTicketReader = new RuntimeSupportTicketReader();

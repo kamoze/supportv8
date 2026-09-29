@@ -18,6 +18,7 @@ import {
   normalizeRuntimeWorkspaceView,
   runtimeViewUsesTickets,
 } from "@/lib/service-app/runtime-workspace-view";
+import type { OlgSituation } from "@/lib/signals/olg-consumer";
 type Props = {
   domain: string;
   page?: SupportTicketPage;
@@ -27,6 +28,7 @@ type Props = {
   role?: "support:read" | "support:manage";
   selectionRequested?: boolean;
   view?: string;
+  situations?: OlgSituation[];
 };
 const enabled = new Set(["overview", "workspace", "issues"]);
 export function RuntimeWorkspace({
@@ -38,7 +40,9 @@ export function RuntimeWorkspace({
   role = "support:read",
   selectionRequested = false,
   view = "workspace",
+  situations = [],
 }: Props) {
+
   const [collapsed, setCollapsed] = useState(false),
     [mobileOpen, setMobileOpen] = useState(false);
   const mobileRail = useFamilyDialog<HTMLElement>(mobileOpen, () =>
@@ -148,6 +152,7 @@ export function RuntimeWorkspace({
                   selected,
                   selectionRequested,
                   cursor,
+                  situations,
                   canManage,
                   onCreate: (input) =>
                     mutation("/api/runtime/tickets", "POST", input),

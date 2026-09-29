@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { authorizeRuntimeSupportRequest } from "@/lib/service-app/runtime-session";
 import { runtimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
 import { loadRuntimeWorkspaceTickets } from "@/lib/service-app/runtime-workspace-view";
+import { fetchOlgSituationsForTenant } from "@/lib/signals/olg-consumer";
 import { RuntimeWorkspace } from "./runtime-workspace";
 import "./runtime.css";
 export const dynamic = "force-dynamic";
@@ -38,11 +39,14 @@ export default async function RuntimePage({
   };
   try {
     const query = await searchParams;
-    const loaded = await loadRuntimeWorkspaceTickets(
-      runtimeSupportTicketReader,
-      scope,
-      query,
-    );
+    const [loaded, situations] = await Promise.all([
+      loadRuntimeWorkspaceTickets(
+        runtimeSupportTicketReader,
+        scope,
+        query,
+      ),
+      fetchOlgSituationsForTenant(scope.tenantId).catch(() => []),
+    ]);
     if (!loaded.page) {
       return (
         <RuntimeWorkspace
@@ -50,6 +54,7 @@ export default async function RuntimePage({
           role={auth.role}
           state="ready"
           view={loaded.view}
+          situations={situations}
         />
       );
     }
@@ -64,8 +69,10 @@ export default async function RuntimePage({
         state={page.tickets.length ? "ready" : "empty"}
         cursor={query.cursor}
         view={loaded.view}
+        situations={situations}
       />
     );
+
   } catch {
     return (
       <RuntimeWorkspace

@@ -92,4 +92,32 @@ describe("Runtime role-aware workspace", () => {
       ),
     ).toContain(label),
   );
+
+  it("renders OLG operational alerts when active situations correlate to the selected ticket", () => {
+    const deliverySituation = {
+      id: "sit-delivery-101",
+      tenantId: "synthetic-support",
+      title: "Delivery SLA Breach Risk",
+      summary: "Package ORD-8891 courier stalled",
+      severity: "critical" as const,
+      state: "open" as const,
+      category: "delivery_sla_risk",
+      entityRefs: ["order:ORD-8891", "ticket:synthetic-1"],
+    };
+    const html = renderToStaticMarkup(
+      <RuntimeWorkspace
+        domain="synthetic-support"
+        role="support:read"
+        state="ready"
+        page={{ tickets: [ticket] }}
+        selected={ticket}
+        situations={[deliverySituation]}
+      />,
+    );
+    expect(html).toContain("Operational Learning Graph Alert");
+    expect(html).toContain("Delivery SLA Breach Risk");
+    expect(html).toContain("Package ORD-8891 courier stalled");
+    expect(html).toContain("OLG");
+  });
 });
+

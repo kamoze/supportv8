@@ -50,6 +50,7 @@ export async function fetchOlgContextForTenant(
   const secret = getSignalsSecret(env);
   const limit = options.limit ?? 100;
   const timeoutMs = options.timeoutMs ?? 4000;
+  const startTime = Date.now();
 
   try {
     const url = new URL("/api/signals/query", baseUrl);
@@ -73,7 +74,7 @@ export async function fetchOlgContextForTenant(
 
     if (!response || !response.ok) {
       const errText = response ? await response.text().catch(() => "") : "no_response";
-      console.warn(`[olg-consumer] Support OLG query returned ${response?.status ?? "none"}: ${errText}`);
+      console.warn(`[OLG Consumer] Support OLG query returned ${response?.status ?? "none"}: ${errText}`);
       return {
         ok: false,
         situations: [],
@@ -97,6 +98,11 @@ export async function fetchOlgContextForTenant(
     const situations = payload.data?.situations || [];
     const totalSignals = payload.data?.stats?.totalSignals || 0;
     const verifiedReceiptRatio = payload.data?.stats?.verifiedReceiptRatio || 0;
+    const durationMs = Date.now() - startTime;
+
+    console.log(
+      `[OLG Consumer] Fetched context tenant="${tenantId}" situations=${situations.length} totalSignals=${totalSignals} (${durationMs}ms)`
+    );
 
     return {
       ok: true,
@@ -105,7 +111,7 @@ export async function fetchOlgContextForTenant(
       verifiedReceiptRatio,
     };
   } catch (err) {
-    console.warn("[olg-consumer] Support failed to fetch OLG context softly:", err);
+    console.warn("[OLG Consumer] Support failed to fetch OLG context softly:", err);
     return {
       ok: false,
       situations: [],

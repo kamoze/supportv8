@@ -81,6 +81,7 @@ export async function safeEmitSignal(
   const accountId = params.accountId || params.tenantId;
   const maxRetries = options.maxRetries ?? 2;
   const retryDelay = options.retryDelayMs ?? 150;
+  const startTime = Date.now();
 
   const url = `${baseUrl}/api/signals/intake`;
 
@@ -104,6 +105,10 @@ export async function safeEmitSignal(
           duplicate?: boolean;
           status?: string;
         };
+        const durationMs = Date.now() - startTime;
+        console.log(
+          `[OLG Signal Outbox] Emitted event="${params.eventType}" id="${eventId}" tenant="${params.tenantId}" subject="${params.subject}" status="${body.status ?? "accepted"}" receipt="${body.receiptId ?? "none"}" (${durationMs}ms)`
+        );
         return {
           ok: true,
           receiptId: body.receiptId,
@@ -118,14 +123,14 @@ export async function safeEmitSignal(
         continue;
       }
 
-      console.warn(`[signal-agent] Intake rejected support signal (${response.status}): ${errText}`);
+      console.warn(`[OLG Signal Outbox] Intake rejected support signal (${response.status}): ${errText}`);
       return { ok: false, error: `HTTP ${response.status}: ${errText}` };
     } catch (err) {
       if (attempt < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
         continue;
       }
-      console.warn("[signal-agent] Support signal emission failed softly:", err);
+      console.warn("[OLG Signal Outbox] Support signal emission failed softly:", err);
       return {
         ok: false,
         error: err instanceof Error ? err.message : String(err),

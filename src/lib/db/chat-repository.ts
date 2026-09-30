@@ -429,12 +429,18 @@ export class ChatRepository {
       : `Hello ${input.customerName}! Your ${workflowTitle} request (${externalId}) is recorded in the operator work desk. An available online operator will reply here.`;
 
     const session = await this.client.withTenantSession(input.tenantId, async (db) => {
-      await db.query(
-        `INSERT INTO supportv8.tenants (id, domain, name)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (id) DO NOTHING`,
-        [input.tenantId, input.tenantSlug, tenantName]
+      const existingTenant = await db.query<{ id: string }>(
+        `SELECT id FROM supportv8.tenants WHERE domain = $1 OR id = $2 LIMIT 1`,
+        [input.tenantSlug, input.tenantId]
       );
+      if (!existingTenant[0]) {
+        await db.query(
+          `INSERT INTO supportv8.tenants (id, domain, name)
+           VALUES ($1, $2, $3)
+           ON CONFLICT DO NOTHING`,
+          [input.tenantId, input.tenantSlug, tenantName]
+        );
+      }
 
       await db.query(
         `INSERT INTO supportv8.issues
@@ -547,8 +553,7 @@ export class ChatRepository {
       return sessionPage.session;
     });
 
-    const emitTenantId =
-      input.tenantId.startsWith("tenant_") ? input.tenantId : (input.tenantSlug || input.tenantId);
+    const emitTenantId = input.tenantSlug || input.tenantId;
 
     void emitSupportTicketCreatedSignal({
       tenantId: emitTenantId,

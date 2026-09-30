@@ -83,6 +83,27 @@ export async function safeEmitSignal(
   const retryDelay = options.retryDelayMs ?? 150;
   const startTime = Date.now();
 
+  // Structured CloudEvent emission to stdout for k8s container log inspection
+  console.log(
+    JSON.stringify({
+      timestamp: eventEnvelope.time,
+      channel: "cloudevents",
+      direction: "outbound",
+      stage: "emitted",
+      app: "supportv8",
+      tenantId: params.tenantId,
+      accountId,
+      source: eventEnvelope.source,
+      type: eventEnvelope.type,
+      subject: eventEnvelope.subject,
+      eventId: eventEnvelope.id,
+      data: eventEnvelope.data,
+    })
+  );
+  console.log(
+    `[CLOUDEVENT:EMIT] app="supportv8" type="${params.eventType}" id="${eventId}" tenant="${params.tenantId}" subject="${params.subject}"`
+  );
+
   const url = `${baseUrl}/api/signals/intake`;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -107,7 +128,25 @@ export async function safeEmitSignal(
         };
         const durationMs = Date.now() - startTime;
         console.log(
-          `[OLG Signal Outbox] Emitted event="${params.eventType}" id="${eventId}" tenant="${params.tenantId}" subject="${params.subject}" status="${body.status ?? "accepted"}" receipt="${body.receiptId ?? "none"}" (${durationMs}ms)`
+          JSON.stringify({
+            timestamp: new Date().toISOString(),
+            channel: "cloudevents",
+            direction: "inbound_ack",
+            stage: "acknowledged",
+            app: "supportv8",
+            tenantId: params.tenantId,
+            accountId,
+            source: eventEnvelope.source,
+            type: eventEnvelope.type,
+            subject: eventEnvelope.subject,
+            eventId: eventEnvelope.id,
+            status: body.status ?? "accepted",
+            receiptId: body.receiptId,
+            durationMs,
+          })
+        );
+        console.log(
+          `[CLOUDEVENT:ACK] app="supportv8" type="${params.eventType}" id="${eventId}" tenant="${params.tenantId}" subject="${params.subject}" status="${body.status ?? "accepted"}" receipt="${body.receiptId ?? "none"}" (${durationMs}ms)`
         );
         return {
           ok: true,
@@ -123,14 +162,47 @@ export async function safeEmitSignal(
         continue;
       }
 
-      console.warn(`[OLG Signal Outbox] Intake rejected support signal (${response.status}): ${errText}`);
+      console.error(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          channel: "cloudevents",
+          direction: "outbound_error",
+          stage: "rejected",
+          app: "supportv8",
+          tenantId: params.tenantId,
+          accountId,
+          source: eventEnvelope.source,
+          type: eventEnvelope.type,
+          subject: eventEnvelope.subject,
+          eventId: eventEnvelope.id,
+          httpStatus: response.status,
+          error: errText,
+        })
+      );
+      console.warn(`[CLOUDEVENT:REJECTED] app="supportv8" intake rejected signal (${response.status}): ${errText}`);
       return { ok: false, error: `HTTP ${response.status}: ${errText}` };
     } catch (err) {
       if (attempt < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
         continue;
       }
-      console.warn("[OLG Signal Outbox] Support signal emission failed softly:", err);
+      console.warn(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          channel: "cloudevents",
+          direction: "outbound_error",
+          stage: "transport_error",
+          app: "supportv8",
+          tenantId: params.tenantId,
+          accountId,
+          source: eventEnvelope.source,
+          type: eventEnvelope.type,
+          subject: eventEnvelope.subject,
+          eventId: eventEnvelope.id,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+      console.warn("[CLOUDEVENT:ERROR] app=\"supportv8\" signal emission failed softly:", err);
       return {
         ok: false,
         error: err instanceof Error ? err.message : String(err),

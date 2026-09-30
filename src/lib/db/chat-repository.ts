@@ -12,6 +12,10 @@ import {
   encodeChatMessageCursor,
 } from "@/lib/chat/message-cursor";
 import { pgClient, type DatabaseSession, type PostgresClient } from "./pg-client";
+import {
+  emitSupportTicketCreatedSignal,
+  emitSupportTicketEscalatedSignal,
+} from "@/lib/signals/signal-agent";
 
 type Sender = "customer" | "agent";
 
@@ -99,6 +103,7 @@ export interface StartChatInput {
   customerEmail: string;
   intakeData: Record<string, string>;
   sessionId?: string;
+  accountId?: string;
   channel?: "web" | "email" | "whatsapp" | "voice";
   manual?: { operatorName: string; priority: PriorityLevel };
   forceHumanQueue?: boolean;
@@ -423,7 +428,7 @@ export class ChatRepository {
       ? `Hello ${input.customerName}! I’m ${assignment.name} from ${tenantName} Support. Your ${workflowTitle} request (${externalId}) is now recorded in the operator work desk.`
       : `Hello ${input.customerName}! Your ${workflowTitle} request (${externalId}) is recorded in the operator work desk. An available online operator will reply here.`;
 
-    return this.client.withTenantSession(input.tenantId, async (db) => {
+    const session = await this.client.withTenantSession(input.tenantId, async (db) => {
       await db.query(
         `INSERT INTO supportv8.tenants (id, domain, name)
          VALUES ($1, $2, $3)
@@ -541,6 +546,37 @@ export class ChatRepository {
       if (!sessionPage) throw new Error("Created chat session could not be loaded");
       return sessionPage.session;
     });
+
+    const emitTenantId =
+      input.tenantId.startsWith("tenant_") ? input.tenantId : (input.tenantSlug || input.tenantId);
+
+    void emitSupportTicketCreatedSignal({
+      tenantId: emitTenantId,
+      accountId: input.accountId,
+      ticket: {
+        id: issueId,
+        ticketRef: externalId,
+        customerName: input.customerName,
+        customerRef: safeCustomerRef(input.customerEmail),
+        summary: initialContent,
+        priority: priority,
+        category: issueCategory(input.stream),
+        status: "open",
+      },
+    }).catch((err) => console.warn("[Signal Outbox] Ticket creation signal error:", err));
+
+    if (priority === "urgent") {
+      void emitSupportTicketEscalatedSignal({
+        tenantId: emitTenantId,
+        accountId: input.accountId,
+        ticketId: issueId,
+        ticketRef: externalId,
+        customerName: input.customerName,
+        reason: initialContent,
+      }).catch((err) => console.warn("[Signal Outbox] Ticket escalation signal error:", err));
+    }
+
+    return session;
   }
 
   async getSession(tenantId: string, sessionId: string): Promise<CustomerChatSession | null> {

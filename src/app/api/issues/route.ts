@@ -7,6 +7,10 @@ import {
   requireChatOperatorRole,
   requirePersistentMutationRole,
 } from "@/lib/chatbot/security/ingress-security";
+import {
+  emitSupportTicketEscalatedSignal,
+  emitSupportTicketResolvedSignal,
+} from "@/lib/signals/signal-agent";
 import type { Issue, SentimentClass, SourceType } from "@/lib/types";
 import { requireSameOrigin } from "@/lib/auth/account-error";
 
@@ -43,17 +47,54 @@ async function updateIssue(
   rawUpdates: unknown,
 ): Promise<Issue | undefined | null> {
   const updates = sanitizeIssueUpdates(rawUpdates);
+  let updated: Issue | undefined | null;
   if (tenant.runtimeLinked) {
     requirePersistentMutationRole(tenant);
-    return chatRepository.updateWorkspaceIssue(tenant.tenantId, targetId, updates);
+    updated = await chatRepository.updateWorkspaceIssue(tenant.tenantId, targetId, updates);
+  } else {
+    requirePersistentMutationRole(tenant);
+    updated =
+      (hasDurableDatabase()
+        ? await chatRepository.updateChatIssue(tenant.tenantId, targetId, updates)
+        : null) ||
+      issueService.updateIssue(targetId, updates, tenant.tenantSlug);
   }
-  requirePersistentMutationRole(tenant);
-  return (
-    (hasDurableDatabase()
-      ? await chatRepository.updateChatIssue(tenant.tenantId, targetId, updates)
-      : null) ||
-    issueService.updateIssue(targetId, updates, tenant.tenantSlug)
-  );
+
+  if (updated) {
+    const isResolved =
+      updates.status === "resolved" ||
+      updates.status === "closed" ||
+      updated.status === "resolved" ||
+      updated.status === "closed";
+    const isEscalated =
+      updates.status === "escalated" ||
+      updates.priority === "urgent" ||
+      updated.priority === "urgent";
+
+    const emitTenantId =
+      tenant.tenantId.startsWith("tenant_") ? tenant.tenantId : (tenant.tenantSlug || tenant.tenantId);
+
+    if (isResolved) {
+      void emitSupportTicketResolvedSignal({
+        tenantId: emitTenantId,
+        accountId: tenant.accountId,
+        ticketId: updated.id,
+        ticketRef: updated.externalId,
+        resolutionSummary: updated.summary,
+      }).catch((err) => console.warn("[Signal Outbox] Ticket resolved signal error:", err));
+    } else if (isEscalated) {
+      void emitSupportTicketEscalatedSignal({
+        tenantId: emitTenantId,
+        accountId: tenant.accountId,
+        ticketId: updated.id,
+        ticketRef: updated.externalId,
+        customerName: updated.customerName,
+        reason: updated.summary,
+      }).catch((err) => console.warn("[Signal Outbox] Ticket escalation signal error:", err));
+    }
+  }
+
+  return updated;
 }
 
 export async function GET(req: NextRequest) {
@@ -140,14 +181,19 @@ export async function POST(req: NextRequest) {
       }
       if (!hasDurableDatabase()) throw new ChatIngressError("Ticket storage is unavailable. Your ticket has not been saved; please try again.", 503);
       const session = await chatRepository.startSession({
-        tenantId: tenant.tenantId, tenantSlug: tenant.tenantSlug, stream,
-        customerName: customerName.trim(), customerEmail: customerEmail.trim(),
+        tenantId: tenant.tenantId,
+        tenantSlug: tenant.tenantSlug,
+        accountId: tenant.accountId,
+        stream,
+        customerName: customerName.trim(),
+        customerEmail: customerEmail.trim(),
         intakeData: { details: summary.trim(), origin: "operator_workdesk", ingressChannel: channel },
         channel: channel === "email" ? "email" : channel === "field_dispatch" ? "voice" : "web",
         manual: { operatorName: tenant.displayName || "Support operator", priority },
       });
       const [issue] = await chatRepository.listChatIssues(tenant.tenantId, session.id);
       if (!issue) throw new Error("Ticket was saved but could not be loaded. Refresh Workdesk before retrying.");
+
       return NextResponse.json({ success: true, data: issue }, { status: 201 });
     }
     if (tenant.runtimeLinked) return NextResponse.json({success:false,error:"Use create_manual to save a workspace ticket."},{status:400});

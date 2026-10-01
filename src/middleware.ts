@@ -70,9 +70,15 @@ export function middleware(request: NextRequest) {
     "/api/knowledge", "/api/knowledge/chunks", "/api/knowledge/curate",
     "/api/knowledge/upload", "/api/knowledge/s3-source", "/api/knowledge/crawl", "/api/knowledge/query",
     "/api/marketplace",
+    "/api/customers", "/api/customers/sync",
   ]);
+  const isAllowedMutation =
+    scopedRuntimeMutations.has(url.pathname) ||
+    url.pathname.startsWith("/api/customers/") ||
+    url.pathname.startsWith("/api/issues/");
+
   if (hasRuntimeSession && !SAFE_HTTP_METHODS.has(request.method) && url.pathname.startsWith("/api/")
-    && !url.pathname.startsWith("/api/runtime/") && !scopedRuntimeMutations.has(url.pathname)) {
+    && !url.pathname.startsWith("/api/runtime/") && !isAllowedMutation) {
     return NextResponse.json({success:false,error:"This operation is not connected to this workspace's tenant storage."},{status:403});
   }
   const presentedAccessToken =

@@ -180,8 +180,8 @@ it('a Runtime cookie cannot reach legacy global mutations, even with a manager b
   expect(response.status).toBe(403);
  }
 });
-it('allows scoped tenant mutations like knowledge and marketplace to reach tenant storage with a Runtime session', () => {
-  for (const path of ['/api/knowledge', '/api/knowledge/upload', '/api/marketplace']) {
+it('allows scoped tenant mutations like knowledge, marketplace, and customers to reach tenant storage with a Runtime session', () => {
+  for (const path of ['/api/knowledge', '/api/knowledge/upload', '/api/marketplace', '/api/customers', '/api/customers/cust_test123']) {
     const response = middleware(
       new NextRequest(`https://acme.support.servicev8.com${path}`, {
         method: 'POST',

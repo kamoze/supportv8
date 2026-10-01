@@ -21,8 +21,10 @@ import {
   Globe,
   Radio,
   Cpu,
+  Check,
 } from "@/components/ui/FlatIcon";
-import type { MarketplaceConnector } from "@/lib/types/marketplace-types";
+import type { MarketplaceConnector, ConnectorConnection, ConnectorAssignment } from "@/lib/types/marketplace-types";
+import { marketplaceService } from "@/lib/services/marketplace-service";
 
 interface MarketplaceConnectorsViewProps {
   connectors: MarketplaceConnector[];
@@ -43,10 +45,13 @@ export function MarketplaceConnectorsView({
   onNavigateToStudio,
   onNavigateToInstalled,
 }: MarketplaceConnectorsViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"connectors" | "verticals" | "dispatcher">("connectors");
+  const [activeSubTab, setActiveSubTab] = useState<"connectors" | "verticals" | "dispatcher" | "fleet">("connectors");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedConnectorConfig, setSelectedConnectorConfig] = useState<MarketplaceConnector | null>(null);
+  const [connections, setConnections] = useState<ConnectorConnection[]>(() => marketplaceService.getConnectorConnections());
+  const [assignments, setAssignments] = useState<ConnectorAssignment[]>(() => marketplaceService.getConnectorAssignments());
+  const [workforceList] = useState<any[]>(() => marketplaceService.getWorkforceCatalog());
 
   // Interactive Vertical Dispatcher States
   const [selectedVertical, setSelectedVertical] = useState<string>("orderv8");
@@ -223,6 +228,19 @@ export function MarketplaceConnectorsView({
           >
             <Terminal className="w-3.5 h-3.5" />
             <span>API Dispatcher</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("fleet")}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeSubTab === "fleet"
+                ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Assignments Fleet ({connections.length})</span>
           </button>
         </div>
 
@@ -537,6 +555,200 @@ export function MarketplaceConnectorsView({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 4: Two-Tier Assignments Fleet & 3-Layer Authorization Triangle */}
+      {/* ========================================================================= */}
+      {activeSubTab === "fleet" && (
+        <div className="space-y-6">
+          {/* Architecture Banner */}
+          <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
+                  <Shield className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Two-Tier Decoupled Connector Architecture</h2>
+              </div>
+              <p className="text-xs text-[#B4C2D0]">
+                Canonical sv8-deploy §128-159 architecture: Authenticated pipes configured once in Action Gateway SSM; explicit capability-scoped assignments bound per employee.
+              </p>
+            </div>
+            {onNavigateToStudio && (
+              <button
+                type="button"
+                onClick={() => onNavigateToStudio("setup")}
+                className="btn btn-primary text-xs py-2 px-4 flex items-center gap-1.5 font-bold cursor-pointer shrink-0 shadow-md"
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Open Studio Setup Wizard</span>
+              </button>
+            )}
+          </div>
+
+          {/* 3-Layer Authorization Triangle Card */}
+          <div className="card p-5 bg-[#121A24] border border-[#2ED8B6]/30 rounded-2xl space-y-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-[#2ED8B6]/20 text-[#2ED8B6]">
+                  <Zap className="w-4 h-4" />
+                </span>
+                <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                  The 3-Layer Authorization Triangle
+                </h3>
+              </div>
+              <span className="pill ok text-[9px] font-mono">ENFORCED AT DISPATCH</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-[#2ED8B6] font-mono">
+                  <span>1. Connection Layer</span>
+                </div>
+                <p className="text-[11px] text-[#8E9AA8] leading-relaxed">
+                  Active external pipe configured once with provider credentials stored strictly in Action Gateway AWS SSM.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-[#4D9FFF] font-mono">
+                  <span>2. Assignment Layer</span>
+                </div>
+                <p className="text-[11px] text-[#8E9AA8] leading-relaxed">
+                  Explicit binding between <code>connectionId</code> and <code>employeeId</code>. No tool execution without active grant.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-1">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-[#EAF1F8] font-mono">
+                  <span>3. Capability Intersection</span>
+                </div>
+                <p className="text-[11px] text-[#8E9AA8] leading-relaxed font-mono">
+                  Connection &cap; Assignment &cap; Registry Role Grants
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Connector Connections & Assigned Fleet */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                Active Tenant Connections &amp; Employee Assignments ({connections.length})
+              </h3>
+              <span className="text-[11px] font-mono text-[#6B7C8D]">
+                Click an employee pill to toggle their connector authorization
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {connections.map((conn) => {
+                const assignedEmps = workforceList.filter((w) =>
+                  conn.assignedEmployeeIds.includes(w.id)
+                );
+
+                return (
+                  <div
+                    key={conn.id}
+                    className="card p-5 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-4 hover:border-[#2ED8B6]/30 transition-all"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
+                      <div className="flex items-center gap-3">
+                        <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                          <Plug className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-[#EAF1F8]">{conn.name}</h4>
+                            <span className="pill ok text-[9px] font-mono uppercase">{conn.status}</span>
+                            <span className="pill text-[9px] font-mono">{conn.category}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5">
+                            SSM Parameter Store: <code>{conn.ssmPath}</code>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 font-mono text-xs">
+                        <span className="text-[#6B7C8D]">Authorized Employees:</span>
+                        <span className="font-bold text-[#2ED8B6]">{assignedEmps.length}</span>
+                      </div>
+                    </div>
+
+                    {/* Capabilities */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider block">
+                        Connection Capabilities ({conn.capabilities.length}):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {conn.capabilities.map((cap) => (
+                          <span
+                            key={cap}
+                            className="pill text-[9.5px] font-mono bg-[#18222E] text-[#B4C2D0] border border-[var(--line-2)]"
+                          >
+                            {cap}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Workforce Assignment Grid */}
+                    <div className="pt-3 border-t border-[var(--line)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
+                          Toggle Employee Assignment:
+                        </span>
+                        <span className="text-[10px] font-mono text-[#4D9FFF]">
+                          Changes persist directly to Action Gateway
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {workforceList
+                          .filter((w) => w.level === "ai_employee")
+                          .map((emp) => {
+                            const isAssigned = conn.assignedEmployeeIds.includes(emp.id);
+                            return (
+                              <button
+                                key={emp.id}
+                                type="button"
+                                onClick={() => {
+                                  const res = marketplaceService.toggleEmployeeConnectionAssignment(
+                                    conn.id,
+                                    emp.id,
+                                    emp.name
+                                  );
+                                  setConnections(marketplaceService.getConnectorConnections());
+                                  setAssignments(marketplaceService.getConnectorAssignments());
+                                  if (onNotify) {
+                                    onNotify(
+                                      res.assigned
+                                        ? `Assigned ${conn.name} to ${emp.name}`
+                                        : `Revoked ${conn.name} from ${emp.name}`,
+                                      "info"
+                                    );
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                                  isAssigned
+                                    ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] font-bold"
+                                    : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                                }`}
+                              >
+                                <Check className={`w-3 h-3 ${isAssigned ? "text-[#2ED8B6]" : "opacity-30"}`} />
+                                <span>{emp.name.split(" — ")[0]}</span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

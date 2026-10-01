@@ -143,3 +143,70 @@ export interface TenantAuditLog {
   reasoning: string;
   metadata: Record<string, unknown>;
 }
+
+// Two-Tier Decoupled Connector & Assignment Architecture (sv8-deploy §128-159)
+export interface ConnectorConnection {
+  id: string; // e.g. "conn_stripe_default"
+  connectorKey: string; // "stripe", "zendesk", "twilio", "vapi", "orderv8", "intercom"
+  name: string;
+  category: "helpdesk" | "crm" | "telephony" | "commerce" | "devops" | "knowledge" | "storage";
+  status: "active" | "error" | "disconnected" | "configuring";
+  ssmPath: string; // "/servicev8/action-gateway/tenants/:tenant/connectors/:key"
+  capabilities: string[]; // ["refund.execute", "customer.lookup", "call.receive", ...]
+  assignedEmployeeIds: string[]; // Hired employee instance IDs with active assignment
+  lastVerifiedAt?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ConnectorAssignment {
+  id: string; // "asgn_..."
+  connectionId: string;
+  connectorKey: string;
+  employeeId: string;
+  employeeName: string;
+  grantedCapabilities: string[]; // Subset of Connection Capabilities
+  status: "active" | "revoked" | "pending";
+  assignedAt: string;
+}
+
+// Employee 3-Step Onboarding Architecture (Voice -> Connections -> Review & Activate)
+export interface EmployeeOnboardingState {
+  employeeId: string;
+  currentStep: "voice" | "connections" | "review";
+  voice: {
+    enabled: boolean;
+    mode: "managed_v8" | "customer_twilio";
+    phoneNumber?: string;
+    monthlyPriceUsd: number; // 59
+    includedMinutes: number; // 100
+    overflowCreditsPerMin: number; // 90
+    consentGiven: boolean;
+  };
+  assignments: Record<string, string[]>; // connectionId -> granted capability keys
+  review: {
+    billingVerified: boolean;
+    paidInvoiceConfirmed: boolean;
+    serviceReady: boolean;
+    termsAccepted: boolean;
+    activatedAt?: string;
+  };
+}
+
+// AgenticOS Tiered Action Governance (Tier 1 Autonomous, Tier 2 Single TOTP, Tier 3 Dual TOTP + Timelock)
+export interface GovernedActionItem {
+  id: string;
+  turnId?: string;
+  title: string;
+  capability: string;
+  tier: "tier_1_autonomous" | "tier_2_moderate" | "tier_3_critical";
+  status: "executed" | "approval_required" | "timelock_pending" | "approved" | "rejected";
+  employeeId: string;
+  employeeName: string;
+  amountCents?: number;
+  recipient?: string;
+  timelockSecondsRemaining?: number;
+  approvers: Array<{ name: string; signedAt: string }>;
+  requiredSigners: number; // 1 for Tier 2, 2 for Tier 3
+  createdAt: string;
+}
+

@@ -47,11 +47,10 @@ export function useFamilyDialog<T extends HTMLElement = HTMLDivElement>(isOpen: 
 export function groupSupportNavigation<T extends { id: string }>(sections: { title: string; items: T[] }[], contractor: boolean) {
   const items = sections.flatMap(section => section.items);
   const groups: [string, string[]][] = [
-    [contractor ? "Field Operations" : "Work Desk", ["workspace", "problems", "issues", "cx_cockpit"]],
-    [contractor ? "Field Assistant & Comms" : "Core Intelligence", contractor ? ["ask"] : ["overview", "studio", "trends", "knowledge", "portal_composer"]],
-    ["Workforce", contractor ? [] : ["workforce", "ask", "approvals", "workflows", "gov_audit"]],
-    ["Marketplace", ["studio_marketplace", "market_workforce", "market_connectors"]],
-    ["Settings", ["gov_settings", "gov_members", "market_plans", "policies", "gov_reports"]],
+    [contractor ? "Field Operations" : "AGENTIC RUNTIME", contractor ? ["workspace", "problems", "issues", "cx_cockpit"] : ["ask", "workspace", "knowledge", "studio", "overview", "trends"]],
+    [contractor ? "Field Assistant & Comms" : "ECOSYSTEM", contractor ? ["ask"] : ["cx_cockpit", "problems", "issues", "customers", "workforce", "studio_marketplace", "market_workforce", "market_connectors", "portal_composer"]],
+    ["GOVERNANCE", contractor ? [] : ["gov_audit", "gov_reports", "approvals", "workflows", "policies"]],
+    ["SETTINGS", contractor ? [] : ["market_plans", "gov_settings", "gov_members"]],
   ];
   return groups.map(([title, ids]) => ({ title, items: ids.flatMap(id => items.filter(item => item.id === id)) })).filter(group => group.items.length);
 }

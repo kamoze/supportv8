@@ -31,12 +31,21 @@ import {
   ShoppingBag,
   Box,
   ExternalLink,
+  Phone,
+  Plug,
+  Key,
+  Briefcase,
+  Radio,
+  Globe,
 } from "@/components/ui/FlatIcon";
 import type { OperatingMode } from "@/lib/types";
+import { marketplaceService } from "@/lib/services/marketplace-service";
+import type { ConnectorConnection, ConnectorAssignment, EmployeeOnboardingState } from "@/lib/types/marketplace-types";
 
 interface AutonomousStudioViewProps {
   onNotify: (text: string, type: "success" | "error" | "info") => void;
-  initialSubTab?: "workflows" | "templates" | "simulator" | "sweeps";
+  initialSubTab?: "workflows" | "templates" | "simulator" | "sweeps" | "setup" | "fleet";
+  initialEmployeeId?: string;
   onNavigateToMarketplace?: () => void;
   onNavigateToInstalled?: () => void;
 }
@@ -44,16 +53,34 @@ interface AutonomousStudioViewProps {
 export function AutonomousStudioView({
   onNotify,
   initialSubTab,
+  initialEmployeeId,
   onNavigateToMarketplace,
   onNavigateToInstalled,
 }: AutonomousStudioViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps">(initialSubTab || "workflows");
+  const [activeSubTab, setActiveSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps" | "setup" | "fleet">(initialSubTab || "workflows");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || "emp_support_lead");
+  const [setupStep, setSetupStep] = useState<"voice" | "connections" | "review">("voice");
+  const [voiceMode, setVoiceMode] = useState<"managed_v8" | "customer_twilio">("managed_v8");
+  const [voicePhoneNumber, setVoicePhoneNumber] = useState<string>("+1 (415) 555-0199 (Managed Warm Pool)");
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
+  const [voiceConsent, setVoiceConsent] = useState<boolean>(true);
+  const [isActivating, setIsActivating] = useState<boolean>(false);
+  const [activationSuccess, setActivationSuccess] = useState<boolean>(false);
+  const [connections, setConnections] = useState<ConnectorConnection[]>(() => marketplaceService.getConnectorConnections());
+  const [assignments, setAssignments] = useState<ConnectorAssignment[]>(() => marketplaceService.getConnectorAssignments());
+  const [workforceList, setWorkforceList] = useState<any[]>(() => marketplaceService.getWorkforceCatalog());
 
   useEffect(() => {
     if (initialSubTab) {
       setActiveSubTab(initialSubTab);
     }
   }, [initialSubTab]);
+
+  useEffect(() => {
+    if (initialEmployeeId) {
+      setSelectedEmployeeId(initialEmployeeId);
+    }
+  }, [initialEmployeeId]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState<boolean>(false);
@@ -460,6 +487,8 @@ export function AutonomousStudioView({
           {/* Sub-Navigation Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
             {[
+              { id: "setup", label: "Employee Setup Wizard", badge: "3-Step" },
+              { id: "fleet", label: "Connector Fleet", badge: connections.length },
               { id: "workflows", label: "Active Workflows", badge: workflows.length },
               { id: "templates", label: "Scenario Templates", badge: templates.length },
               { id: "simulator", label: "Autonomy Simulator" },
@@ -993,6 +1022,639 @@ export function AutonomousStudioView({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 5: Canonical Employee Onboarding Wizard (Voice -> Connections -> Review & Activate) */}
+      {/* ========================================================================= */}
+      {activeSubTab === "setup" && (
+        <div className="space-y-6">
+          {/* Wizard Header & Employee Selector */}
+          <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
+                  <Bot className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Canonical Employee Onboarding Wizard</h2>
+              </div>
+              <p className="text-xs text-[#B4C2D0]">
+                Studio 3-Step Lifecycle: Voice ($59/mo, 100 mins) &rarr; Connections (Two-Tier Model) &rarr; Review &amp; Activate.
+              </p>
+            </div>
+
+            {/* Target Employee Selector */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[#6B7C8D] font-mono">Configuring:</span>
+              <select
+                value={selectedEmployeeId}
+                onChange={(e) => {
+                  setSelectedEmployeeId(e.target.value);
+                  setActivationSuccess(false);
+                }}
+                className="bg-[#18222E] border border-[var(--line)] rounded-xl px-3 py-2 text-xs font-bold text-[#EAF1F8] focus:border-[#2ED8B6] focus:outline-none font-mono"
+              >
+                {workforceList
+                  .filter((w) => w.level === "ai_employee")
+                  .map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.role})
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 3-Step Progress Indicator */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[
+              { id: "voice", step: "Step 1", title: "Voice Telephony", desc: "$59/mo • 100 mins • Local Pool" },
+              { id: "connections", step: "Step 2", title: "Two-Tier Connections", desc: "SSM Pipes & Capability Grants" },
+              { id: "review", step: "Step 3", title: "Review & Activate", desc: "Billing Period & Preflight Gate" },
+            ].map((s) => {
+              const isActive = setupStep === s.id;
+              const isPast =
+                (s.id === "voice" && (setupStep === "connections" || setupStep === "review")) ||
+                (s.id === "connections" && setupStep === "review");
+
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSetupStep(s.id as any)}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-[#2ED8B6]/10 border-[#2ED8B6] shadow-sm ring-1 ring-[#2ED8B6]/30"
+                      : isPast
+                      ? "bg-[#121A24] border-[#2ED8B6]/40 text-[#EAF1F8]"
+                      : "bg-[#121A24] border-[var(--line)] text-[#6B7C8D]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#2ED8B6] font-bold">
+                      {s.step}
+                    </span>
+                    {isPast && <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />}
+                  </div>
+                  <h4 className="text-sm font-bold text-[#EAF1F8]">{s.title}</h4>
+                  <p className="text-[11px] text-[#8E9AA8] mt-0.5">{s.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* STEP 1: Voice Telephony Setup */}
+          {setupStep === "voice" && (
+            <div className="card p-6 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-5 h-5 text-[#2ED8B6]" />
+                    <h3 className="text-base font-bold text-[#EAF1F8]">Sv8-Voice Telephony Subscription</h3>
+                  </div>
+                  <p className="text-xs text-[#B4C2D0]">
+                    Canonical voice pricing: $59 USD/month per employee. Includes 100 connected minutes, overflow billed at 90 credits/minute.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold text-[#2ED8B6] font-mono">$59</span>
+                  <span className="text-xs text-[#6B7C8D] font-mono"> / month</span>
+                </div>
+              </div>
+
+              {/* Mode Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div
+                  onClick={() => setVoiceMode("managed_v8")}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2 ${
+                    voiceMode === "managed_v8"
+                      ? "bg-[#2ED8B6]/10 border-[#2ED8B6] ring-1 ring-[#2ED8B6]/40"
+                      : "bg-[#18222E] border-[var(--line)] hover:border-[#2ED8B6]/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-[#2ED8B6]" />
+                      <span>Managed Sv8-Voice Warm Pool</span>
+                    </span>
+                    <span className="pill ok text-[9px] font-mono">RECOMMENDED</span>
+                  </div>
+                  <p className="text-xs text-[#8E9AA8]">
+                    Pre-provisioned, carrier-verified telephony numbers assigned directly from the ServiceV8 regional pool.
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => setVoiceMode("customer_twilio")}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2 ${
+                    voiceMode === "customer_twilio"
+                      ? "bg-[#2ED8B6]/10 border-[#2ED8B6] ring-1 ring-[#2ED8B6]/40"
+                      : "bg-[#18222E] border-[var(--line)] hover:border-[#2ED8B6]/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[#4D9FFF]" />
+                      <span>Customer BYO Twilio Provider</span>
+                    </span>
+                    <span className="pill text-[9px] font-mono">BYO TRUNK</span>
+                  </div>
+                  <p className="text-xs text-[#8E9AA8]">
+                    Route calls through your existing Twilio SIP trunk and phone numbers stored in Action Gateway SSM.
+                  </p>
+                </div>
+              </div>
+
+              {/* Phone Number Selector */}
+              {voiceMode === "managed_v8" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-[#6B7C8D] uppercase tracking-wider block">
+                    Select Warm-Pool Inbound Phone Number:
+                  </label>
+                  <select
+                    value={voicePhoneNumber}
+                    onChange={(e) => setVoicePhoneNumber(e.target.value)}
+                    className="w-full bg-[#18222E] border border-[var(--line)] rounded-xl px-4 py-2.5 text-xs font-mono text-[#EAF1F8] focus:border-[#2ED8B6] focus:outline-none"
+                  >
+                    <option value="+1 (415) 555-0199 (Managed Warm Pool)">+1 (415) 555-0199 — US West (San Francisco Pool)</option>
+                    <option value="+1 (800) 555-SV80 (Toll-Free Pool)">+1 (800) 555-SV80 — North America Toll-Free</option>
+                    <option value="+1 (212) 555-0144 (New York Pool)">+1 (212) 555-0144 — US East (New York Pool)</option>
+                    <option value="+44 20 7946 0912 (London Pool)">+44 20 7946 0912 — United Kingdom (London Pool)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Voice Compliance & Consent */}
+              <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={voiceConsent}
+                    onChange={(e) => setVoiceConsent(e.target.checked)}
+                    className="mt-0.5 rounded border-[#2ED8B6] text-[#2ED8B6] focus:ring-0"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-[#EAF1F8]">
+                      AI Voice Recording &amp; Real-Time Transcription Consent
+                    </span>
+                    <p className="text-[11px] text-[#8E9AA8]">
+                      I confirm that inbound callers will receive standard dual-party recording notices and consent to automated AI synthesis.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Step Navigation Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
+                <span className="text-xs text-[#6B7C8D] font-mono">
+                  Draft configuration is free &bull; $59 charged upon final activation
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    marketplaceService.updateEmployeeOnboarding(selectedEmployeeId, {
+                      voice: {
+                        enabled: voiceEnabled,
+                        mode: voiceMode,
+                        phoneNumber: voicePhoneNumber,
+                        monthlyPriceUsd: 59,
+                        includedMinutes: 100,
+                        overflowCreditsPerMin: 90,
+                        consentGiven: voiceConsent,
+                      },
+                      currentStep: "connections",
+                    });
+                    setSetupStep("connections");
+                    onNotify("Voice parameters saved. Proceed to Two-Tier Connections.", "info");
+                  }}
+                  className="btn btn-primary py-2 px-5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <span>Continue to Connections</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Two-Tier Connections & Assignments */}
+          {setupStep === "connections" && (
+            <div className="card p-6 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-6">
+              {/* Architecture Explanation Banner */}
+              <div className="p-4 rounded-xl bg-[#18222E] border border-[#2ED8B6]/30 flex items-start gap-3.5">
+                <div className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
+                    TWO-TIER DECOUPLED ARCHITECTURE &amp; 3-LAYER AUTHORIZATION TRIANGLE (sv8-deploy §128-159)
+                  </h4>
+                  <p className="text-xs text-[#B4C2D0] leading-relaxed">
+                    <strong>1. Connection:</strong> Credentials configured once in Studio and stored strictly in <strong>Action Gateway AWS SSM</strong> (<code>/servicev8/action-gateway/tenants/:tenant/connectors/:key</code>).
+                    <br />
+                    <strong>2. Assignment:</strong> Explicit binding between <code>connectionId</code> and <code>employeeId</code>. Employees cannot execute tools without an active assignment.
+                    <br />
+                    <strong>3. Authorization Triangle:</strong> Granted Tool Scope = <code>Connection Capabilities &cap; Assignment Capabilities &cap; Role Grants</code>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Connections List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                    Tenant External Connections ({connections.length})
+                  </h4>
+                  <span className="text-[11px] font-mono text-[#6B7C8D]">
+                    Toggle employee access and capability scopes
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  {connections.map((conn) => {
+                    const isAssigned = conn.assignedEmployeeIds.includes(selectedEmployeeId);
+                    const assignment = assignments.find(
+                      (a) => a.connectionId === conn.id && a.employeeId === selectedEmployeeId
+                    );
+
+                    return (
+                      <div
+                        key={conn.id}
+                        className={`p-4 rounded-xl border transition-all ${
+                          isAssigned
+                            ? "bg-[#18222E] border-[#2ED8B6]/50 shadow-sm"
+                            : "bg-[#15202E]/60 border-[var(--line)] opacity-80"
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
+                          <div className="flex items-center gap-3">
+                            <span className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                              <Plug className="w-4 h-4" />
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="text-xs font-bold text-[#EAF1F8]">{conn.name}</h5>
+                                <span className="pill ok text-[9px] font-mono uppercase">{conn.status}</span>
+                                <span className="pill text-[9px] font-mono text-[#8E9AA8]">{conn.category}</span>
+                              </div>
+                              <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5">
+                                SSM: {conn.ssmPath}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const selectedEmp = workforceList.find((w) => w.id === selectedEmployeeId);
+                              const res = marketplaceService.toggleEmployeeConnectionAssignment(
+                                conn.id,
+                                selectedEmployeeId,
+                                selectedEmp?.name || "AI Employee"
+                              );
+                              setConnections(marketplaceService.getConnectorConnections());
+                              setAssignments(marketplaceService.getConnectorAssignments());
+                              onNotify(
+                                res.assigned
+                                  ? `Assigned ${conn.name} to ${selectedEmp?.name || "employee"}`
+                                  : `Revoked ${conn.name} assignment`,
+                                "info"
+                              );
+                            }}
+                            className={`btn py-1.5 px-3 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer ${
+                              isAssigned
+                                ? "bg-[#2ED8B6] text-[#04201C] hover:bg-[#2ED8B6]/90"
+                                : "btn-secondary text-[#B4C2D0] hover:text-[#2ED8B6]"
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{isAssigned ? "Assigned" : "Assign to Employee"}</span>
+                          </button>
+                        </div>
+
+                        {/* Capabilities Chips */}
+                        <div className="pt-2.5 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-mono text-[#6B7C8D] mr-1">Granted Scope:</span>
+                          {conn.capabilities.map((cap) => (
+                            <span
+                              key={cap}
+                              className={`pill text-[9px] font-mono ${
+                                isAssigned
+                                  ? "bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 font-bold"
+                                  : "bg-[#121A24] text-[#8E9AA8] border border-[var(--line)]"
+                              }`}
+                            >
+                              {cap}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step Navigation Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => setSetupStep("voice")}
+                  className="btn btn-secondary py-2 px-4 text-xs font-mono flex items-center gap-2 cursor-pointer"
+                >
+                  &larr; Back to Voice
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    marketplaceService.updateEmployeeOnboarding(selectedEmployeeId, {
+                      currentStep: "review",
+                    });
+                    setSetupStep("review");
+                    onNotify("Connector assignments saved. Proceeding to Review & Activate.", "info");
+                  }}
+                  className="btn btn-primary py-2 px-5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                >
+                  <span>Continue to Review &amp; Activate</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: Review & Activate */}
+          {setupStep === "review" && (
+            <div className="card p-6 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-[#2ED8B6]" />
+                    <h3 className="text-base font-bold text-[#EAF1F8]">Review &amp; Preflight Activation Gate</h3>
+                  </div>
+                  <p className="text-xs text-[#B4C2D0]">
+                    Verify billing entitlement, Action Gateway connector authorization, and initiate canonical hire activation.
+                  </p>
+                </div>
+              </div>
+
+              {/* Preflight Checklist */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
+                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-[#2ED8B6]" />
+                    <span>Preflight Gate Checks</span>
+                  </h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#B4C2D0]">Forge Gateway Billing Ledger:</span>
+                      <span className="pill ok text-[9px] font-mono">CURRENT PERIOD VERIFIED</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#B4C2D0]">Voice License Status:</span>
+                      <span className="pill ok text-[9px] font-mono">$59.00 PAID INVOICE</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#B4C2D0]">Action Gateway SSM Parameters:</span>
+                      <span className="pill ok text-[9px] font-mono">CREDENTIALS HEALTHY</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#B4C2D0]">Carrier SIP &amp; WebCall Routing:</span>
+                      <span className="pill ok text-[9px] font-mono">ACTIVE DISPATCH</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
+                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-[#2ED8B6]" />
+                    <span>Configuration Summary</span>
+                  </h4>
+                  {(() => {
+                    const emp = workforceList.find((w) => w.id === selectedEmployeeId);
+                    const assignedConns = connections.filter((c) =>
+                      c.assignedEmployeeIds.includes(selectedEmployeeId)
+                    );
+                    return (
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#6B7C8D]">Employee:</span>
+                          <span className="font-bold text-[#EAF1F8]">{emp?.name || "AI Employee"}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#6B7C8D]">Voice Number:</span>
+                          <span className="font-mono text-[#2ED8B6]">{voicePhoneNumber}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#6B7C8D]">Assigned Connectors:</span>
+                          <span className="font-bold text-[#EAF1F8]">
+                            {assignedConns.length > 0
+                              ? assignedConns.map((c) => c.name.split(" ")[0]).join(", ")
+                              : "None"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#6B7C8D]">Monthly Commitment:</span>
+                          <span className="font-mono font-bold text-[#2ED8B6]">$59 USD / month</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {activationSuccess && (
+                <div className="p-5 rounded-2xl bg-[#2ED8B6]/15 border-2 border-[#2ED8B6] text-center space-y-2">
+                  <div className="w-10 h-10 rounded-full bg-[#2ED8B6] text-[#04201C] flex items-center justify-center mx-auto">
+                    <Check className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-sm font-bold text-[#EAF1F8]">AI Employee Activated &amp; Live!</h4>
+                  <p className="text-xs text-[#B4C2D0] max-w-lg mx-auto">
+                    This canonical employee is now fully provisioned across Runtime, Studio, and SupportV8. Inbound calls to{" "}
+                    <strong>{voicePhoneNumber}</strong> will route to this employee.
+                  </p>
+                </div>
+              )}
+
+              {/* Step Navigation Actions */}
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  onClick={() => setSetupStep("connections")}
+                  className="btn btn-secondary py-2 px-4 text-xs font-mono flex items-center gap-2 cursor-pointer"
+                >
+                  &larr; Back to Connections
+                </button>
+                <button
+                  type="button"
+                  disabled={isActivating || activationSuccess}
+                  onClick={() => {
+                    setIsActivating(true);
+                    setTimeout(() => {
+                      marketplaceService.activateEmployee(selectedEmployeeId);
+                      setIsActivating(false);
+                      setActivationSuccess(true);
+                      const emp = workforceList.find((w) => w.id === selectedEmployeeId);
+                      onNotify(
+                        `${emp?.name || "AI Employee"} activated successfully and ready for omnichannel dispatch!`,
+                        "success"
+                      );
+                    }, 600);
+                  }}
+                  className="btn btn-primary py-2 px-6 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>{isActivating ? "Activating Employee..." : activationSuccess ? "Employee Active" : "Activate AI Employee"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 6: Connector Fleet & Multi-Employee Assignments */}
+      {/* ========================================================================= */}
+      {activeSubTab === "fleet" && (
+        <div className="space-y-6">
+          {/* Fleet Header */}
+          <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
+                  <Plug className="w-5 h-5" />
+                </span>
+                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Connector-Centric Fleet View</h2>
+              </div>
+              <p className="text-xs text-[#B4C2D0]">
+                Configure provider credentials once in Action Gateway SSM, then manage capability-scoped assignments across your AI workforce.
+              </p>
+            </div>
+            <div className="font-mono text-xs text-[#8E9AA8]">
+              Active SSM Pipes: <strong className="text-[#2ED8B6]">{connections.length}</strong>
+            </div>
+          </div>
+
+          {/* Architecture Card */}
+          <div className="p-4 rounded-xl bg-[#121A24] border border-[#2ED8B6]/30 flex items-start gap-3.5">
+            <div className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
+                3-LAYER AUTHORIZATION TRIANGLE (sv8-deploy §128-159)
+              </h4>
+              <p className="text-xs text-[#B4C2D0] leading-relaxed">
+                When an AI Employee executes a tool, Action Gateway verifies:
+                <strong> 1. Connection Layer</strong> (Active pipe in SSM) &bull;
+                <strong> 2. Assignment Layer</strong> (Employee bound to Connection) &bull;
+                <strong> 3. Capability Intersection</strong> (<code>Connection &cap; Assignment &cap; Role Grants</code>).
+              </p>
+            </div>
+          </div>
+
+          {/* Fleet Cards */}
+          <div className="grid grid-cols-1 gap-4">
+            {connections.map((conn) => {
+              const assignedEmployees = workforceList.filter((w) =>
+                conn.assignedEmployeeIds.includes(w.id)
+              );
+
+              return (
+                <div
+                  key={conn.id}
+                  className="card p-5 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-4 hover:border-[#2ED8B6]/30 transition-all"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
+                    <div className="flex items-center gap-3">
+                      <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                        <Plug className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-[#EAF1F8]">{conn.name}</h4>
+                          <span className="pill ok text-[9px] font-mono uppercase">{conn.status}</span>
+                          <span className="pill text-[9px] font-mono">{conn.category}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5">
+                          SSM Path: <code>{conn.ssmPath}</code>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 font-mono text-xs">
+                      <span className="text-[#6B7C8D]">Assigned Workforce:</span>
+                      <span className="font-bold text-[#2ED8B6]">{assignedEmployees.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Capabilities */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider block">
+                      Provider Capabilities ({conn.capabilities.length}):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {conn.capabilities.map((cap) => (
+                        <span
+                          key={cap}
+                          className="pill text-[9.5px] font-mono bg-[#18222E] text-[#B4C2D0] border border-[var(--line-2)]"
+                        >
+                          {cap}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Assigned Employees Strip & Quick Assign */}
+                  <div className="pt-3 border-t border-[var(--line)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
+                        Assigned Employees:
+                      </span>
+                      <span className="text-[11px] font-mono text-[#2ED8B6]">
+                        {assignedEmployees.length} active assignments
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {workforceList
+                        .filter((w) => w.level === "ai_employee")
+                        .map((emp) => {
+                          const isAssigned = conn.assignedEmployeeIds.includes(emp.id);
+                          return (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => {
+                                const res = marketplaceService.toggleEmployeeConnectionAssignment(
+                                  conn.id,
+                                  emp.id,
+                                  emp.name
+                                );
+                                setConnections(marketplaceService.getConnectorConnections());
+                                setAssignments(marketplaceService.getConnectorAssignments());
+                                onNotify(
+                                  res.assigned
+                                    ? `Assigned ${conn.name} to ${emp.name}`
+                                    : `Revoked ${conn.name} from ${emp.name}`,
+                                  "info"
+                                );
+                              }}
+                              className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                                isAssigned
+                                  ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] font-bold"
+                                  : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
+                              }`}
+                            >
+                              <Check className={`w-3 h-3 ${isAssigned ? "text-[#2ED8B6]" : "opacity-30"}`} />
+                              <span>{emp.name.split(" — ")[0]}</span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

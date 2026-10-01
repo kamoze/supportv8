@@ -16,6 +16,9 @@ import type {
   TenantSettingConfig,
   ComplianceAuditReport,
   TenantAuditLog,
+  ConnectorConnection,
+  ConnectorAssignment,
+  EmployeeOnboardingState,
 } from "../types/marketplace-types";
 
 export const INITIAL_AUDIT_LOGS: TenantAuditLog[] = [
@@ -524,6 +527,104 @@ export const INITIAL_WORKFORCE_CATALOG: MarketplaceWorkforceItem[] = [
   },
 ];
 
+export const INITIAL_CONNECTOR_CONNECTIONS: ConnectorConnection[] = [
+  {
+    id: "conn_stripe_default",
+    connectorKey: "stripe",
+    name: "Stripe Billing & Subscriptions",
+    category: "commerce",
+    status: "active",
+    ssmPath: "/servicev8/action-gateway/tenants/:tenant/connectors/stripe",
+    capabilities: ["charge.refund", "customer.balance.query", "subscription.verify", "invoice.retrieve"],
+    assignedEmployeeIds: ["emp_support_lead", "emp_incident_analyst"],
+    lastVerifiedAt: "2026-09-29T10:14:00Z",
+  },
+  {
+    id: "conn_zendesk_default",
+    connectorKey: "zendesk",
+    name: "Zendesk Help Desk Sync",
+    category: "helpdesk",
+    status: "active",
+    ssmPath: "/servicev8/action-gateway/tenants/:tenant/connectors/zendesk",
+    capabilities: ["ticket.read", "ticket.update", "macro.execute", "comment.create"],
+    assignedEmployeeIds: ["emp_support_lead", "emp_kb_refresh"],
+    lastVerifiedAt: "2026-09-29T09:30:00Z",
+  },
+  {
+    id: "conn_twilio_default",
+    connectorKey: "twilio",
+    name: "Twilio Managed Voice Trunk",
+    category: "telephony",
+    status: "active",
+    ssmPath: "/servicev8/action-gateway/tenants/:tenant/connectors/twilio",
+    capabilities: ["call.receive", "call.route", "recording.transcribe", "sms.dispatch"],
+    assignedEmployeeIds: ["emp_voice_coordinator"],
+    lastVerifiedAt: "2026-09-28T14:20:00Z",
+    metadata: { inboundPhoneNumber: "+1 (800) 555-SV80", warmPoolE164: "+18005557880" },
+  },
+  {
+    id: "conn_vapi_default",
+    connectorKey: "vapi",
+    name: "Vapi Voice Runtime",
+    category: "telephony",
+    status: "active",
+    ssmPath: "/servicev8/action-gateway/tenants/:tenant/connectors/vapi",
+    capabilities: ["assistant.telephony.bridge", "audio.stream", "squad.dispatch"],
+    assignedEmployeeIds: ["emp_voice_coordinator"],
+    lastVerifiedAt: "2026-09-28T14:20:00Z",
+  },
+  {
+    id: "conn_orderv8_default",
+    connectorKey: "orderv8",
+    name: "OrderV8 Commerce Engine",
+    category: "commerce",
+    status: "active",
+    ssmPath: "/servicev8/action-gateway/tenants/:tenant/connectors/orderv8",
+    capabilities: ["order.lookup", "shipping.track", "return.initiate", "inventory.check"],
+    assignedEmployeeIds: ["emp_support_lead", "emp_incident_analyst"],
+    lastVerifiedAt: "2026-09-29T11:05:00Z",
+  },
+  {
+    id: "conn_intercom_default",
+    connectorKey: "intercom",
+    name: "Intercom Customer Messenger",
+    category: "crm",
+    status: "active",
+    ssmPath: "/servicev8/action-gateway/tenants/:tenant/connectors/intercom",
+    capabilities: ["conversation.reply", "user.profile.fetch", "lead.qualify"],
+    assignedEmployeeIds: ["emp_support_lead"],
+    lastVerifiedAt: "2026-09-27T18:00:00Z",
+  },
+];
+
+export const INITIAL_EMPLOYEE_ONBOARDING: Record<string, EmployeeOnboardingState> = {
+  emp_support_lead: {
+    employeeId: "emp_support_lead",
+    currentStep: "review",
+    voice: {
+      enabled: true,
+      mode: "managed_v8",
+      phoneNumber: "+1 (800) 555-SV80",
+      monthlyPriceUsd: 59,
+      includedMinutes: 100,
+      overflowCreditsPerMin: 90,
+      consentGiven: true,
+    },
+    assignments: {
+      conn_stripe_default: ["charge.refund", "customer.balance.query"],
+      conn_zendesk_default: ["ticket.read", "ticket.update", "macro.execute"],
+      conn_orderv8_default: ["order.lookup", "shipping.track", "return.initiate"],
+    },
+    review: {
+      billingVerified: true,
+      paidInvoiceConfirmed: true,
+      serviceReady: true,
+      termsAccepted: true,
+      activatedAt: "2026-09-15T08:00:00Z",
+    },
+  },
+};
+
 export const PLAN_CREDIT_ALLOWANCES: Record<string, number> = {
   plan_starter: 5000,
   starter: 5000,
@@ -753,6 +854,9 @@ export class MarketplaceService {
     reports: ComplianceAuditReport[];
     auditLogs: TenantAuditLog[];
     credits: number;
+    connectorConnections: ConnectorConnection[];
+    connectorAssignments: ConnectorAssignment[];
+    employeeOnboarding: Record<string, EmployeeOnboardingState>;
   }>();
 
   private readonly accountPools = new Map<string, number>();
@@ -826,6 +930,44 @@ export class MarketplaceService {
       reports: isDemoTenant ? this.clone(INITIAL_REPORTS) : [],
       auditLogs: isDemoTenant ? this.clone(INITIAL_AUDIT_LOGS) : [],
       credits: isDemoTenant ? 150 : 0,
+      connectorConnections: isDemoTenant
+        ? this.clone(INITIAL_CONNECTOR_CONNECTIONS)
+        : this.clone(INITIAL_CONNECTOR_CONNECTIONS).map((c) => ({ ...c, assignedEmployeeIds: [] })),
+      connectorAssignments: isDemoTenant
+        ? [
+            {
+              id: "asgn_stripe_lead",
+              connectionId: "conn_stripe_default",
+              connectorKey: "stripe",
+              employeeId: "emp_support_lead",
+              employeeName: "Alex — Support Lead",
+              grantedCapabilities: ["charge.refund", "customer.balance.query"],
+              status: "active" as const,
+              assignedAt: "2026-09-15T08:00:00Z",
+            },
+            {
+              id: "asgn_zendesk_lead",
+              connectionId: "conn_zendesk_default",
+              connectorKey: "zendesk",
+              employeeId: "emp_support_lead",
+              employeeName: "Alex — Support Lead",
+              grantedCapabilities: ["ticket.read", "ticket.update", "macro.execute"],
+              status: "active" as const,
+              assignedAt: "2026-09-15T08:00:00Z",
+            },
+            {
+              id: "asgn_orderv8_lead",
+              connectionId: "conn_orderv8_default",
+              connectorKey: "orderv8",
+              employeeId: "emp_support_lead",
+              employeeName: "Alex — Support Lead",
+              grantedCapabilities: ["order.lookup", "shipping.track", "return.initiate"],
+              status: "active" as const,
+              assignedAt: "2026-09-15T08:00:00Z",
+            },
+          ] as ConnectorAssignment[]
+        : ([] as ConnectorAssignment[]),
+      employeeOnboarding: isDemoTenant ? this.clone(INITIAL_EMPLOYEE_ONBOARDING) : {},
     };
     this.tenantStates.set(clean, state);
     return state;
@@ -1500,6 +1642,119 @@ export class MarketplaceService {
     state.settings = { ...state.settings, ...updates };
     return { ...state.settings };
   }
+
+  // Two-Tier Connector & Employee Assignment Methods (sv8-deploy §128-159)
+  public getConnectorConnections(tenantSlug = "acme"): ConnectorConnection[] {
+    return this.clone(this.stateFor(tenantSlug).connectorConnections);
+  }
+
+  public getConnectorAssignments(tenantSlug = "acme"): ConnectorAssignment[] {
+    return this.clone(this.stateFor(tenantSlug).connectorAssignments);
+  }
+
+  public toggleEmployeeConnectionAssignment(
+    connectionId: string,
+    employeeId: string,
+    employeeName: string,
+    grantedCapabilities?: string[],
+    tenantSlug = "acme"
+  ): { assigned: boolean; assignment?: ConnectorAssignment } {
+    const state = this.stateFor(tenantSlug);
+    const conn = state.connectorConnections.find((c) => c.id === connectionId);
+    if (!conn) throw new Error(`Connector connection ${connectionId} not found`);
+
+    const existingIdx = state.connectorAssignments.findIndex(
+      (a) => a.connectionId === connectionId && a.employeeId === employeeId
+    );
+
+    if (existingIdx >= 0) {
+      state.connectorAssignments.splice(existingIdx, 1);
+      conn.assignedEmployeeIds = conn.assignedEmployeeIds.filter((id) => id !== employeeId);
+      return { assigned: false };
+    } else {
+      const newAssignment: ConnectorAssignment = {
+        id: `asgn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        connectionId,
+        connectorKey: conn.connectorKey,
+        employeeId,
+        employeeName,
+        grantedCapabilities:
+          grantedCapabilities && grantedCapabilities.length > 0 ? grantedCapabilities : conn.capabilities,
+        status: "active",
+        assignedAt: new Date().toISOString(),
+      };
+      state.connectorAssignments.push(newAssignment);
+      if (!conn.assignedEmployeeIds.includes(employeeId)) {
+        conn.assignedEmployeeIds.push(employeeId);
+      }
+      return { assigned: true, assignment: this.clone(newAssignment) };
+    }
+  }
+
+  // Canonical Employee 3-Step Onboarding Methods (Voice -> Connections -> Review & Activate)
+  public getEmployeeOnboarding(employeeId: string, tenantSlug = "acme"): EmployeeOnboardingState {
+    const state = this.stateFor(tenantSlug);
+    const existing = state.employeeOnboarding[employeeId];
+    if (existing) return this.clone(existing);
+
+    const initial: EmployeeOnboardingState = {
+      employeeId,
+      currentStep: "voice",
+      voice: {
+        enabled: false,
+        mode: "managed_v8",
+        monthlyPriceUsd: 59,
+        includedMinutes: 100,
+        overflowCreditsPerMin: 90,
+        consentGiven: false,
+      },
+      assignments: {},
+      review: {
+        billingVerified: false,
+        paidInvoiceConfirmed: false,
+        serviceReady: false,
+        termsAccepted: false,
+      },
+    };
+    state.employeeOnboarding[employeeId] = initial;
+    return this.clone(initial);
+  }
+
+  public updateEmployeeOnboarding(
+    employeeId: string,
+    updates: Partial<EmployeeOnboardingState>,
+    tenantSlug = "acme"
+  ): EmployeeOnboardingState {
+    const state = this.stateFor(tenantSlug);
+    const current = this.getEmployeeOnboarding(employeeId, tenantSlug);
+    const merged: EmployeeOnboardingState = {
+      ...current,
+      ...updates,
+      voice: { ...current.voice, ...(updates.voice || {}) },
+      assignments: { ...current.assignments, ...(updates.assignments || {}) },
+      review: { ...current.review, ...(updates.review || {}) },
+    };
+    state.employeeOnboarding[employeeId] = merged;
+    return this.clone(merged);
+  }
+
+  public activateEmployee(employeeId: string, tenantSlug = "acme"): EmployeeOnboardingState {
+    const state = this.stateFor(tenantSlug);
+    const current = this.getEmployeeOnboarding(employeeId, tenantSlug);
+    current.review.billingVerified = true;
+    current.review.paidInvoiceConfirmed = true;
+    current.review.serviceReady = true;
+    current.review.termsAccepted = true;
+    current.review.activatedAt = new Date().toISOString();
+    state.employeeOnboarding[employeeId] = current;
+
+    const emp = state.workforce.find((w) => w.id === employeeId);
+    if (emp) {
+      emp.isHired = true;
+    }
+    return this.clone(current);
+  }
 }
 
 export const marketplaceService = new MarketplaceService();
+

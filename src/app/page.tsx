@@ -283,7 +283,8 @@ export default function SupportV8Dashboard() {
 
   // Navigation & Active View
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [studioSubTab, setStudioSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps">("workflows");
+  const [studioSubTab, setStudioSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps" | "setup" | "fleet">("workflows");
+  const [studioEmployeeId, setStudioEmployeeId] = useState<string>("emp_support_lead");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const mobileRail = useFamilyDialog<HTMLElement>(isMobileSidebarOpen, () => setIsMobileSidebarOpen(false));
@@ -1829,14 +1830,63 @@ export default function SupportV8Dashboard() {
 
   const allNavSections = [
     {
-      title: isContractorRole ? "Field Operations" : "Work Desk",
+      title: isContractorRole ? "Field Operations" : "AGENTIC RUNTIME",
       items: [
         {
+          id: "ask",
+          label: isContractorRole ? "Field Assistant (AI)" : "AgenticOS Chat",
+          icon: MessageSquare,
+          flaticon: "fi fi-rr-comment-alt",
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
           id: "workspace",
-          label: isContractorRole ? "Field Work Desk" : "Work Desk",
+          label: isContractorRole ? "Field Work Desk" : "Workspace",
           icon: LayoutDashboard,
           flaticon: "fi fi-rr-browser",
           roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "knowledge",
+          label: "Learning Graph",
+          icon: Brain,
+          flaticon: "fi fi-rr-brain",
+          roles: ["operator", "cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "studio",
+          label: "Studio",
+          icon: Cpu,
+          flaticon: "fi fi-rr-microchip",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "overview",
+          label: "Overview",
+          icon: LayoutDashboard,
+          flaticon: "fi fi-rr-dashboard",
+          roles: ["operator", "cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "trends",
+          label: "Trend Radar",
+          icon: TrendingUp,
+          flaticon: "fi fi-rr-chart-line-up",
+          roles: ["operator", "cx_lead", "superadmin"],
+        },
+      ],
+    },
+    {
+      title: isContractorRole ? "Field Applications" : "ECOSYSTEM",
+      items: [
+        {
+          id: "cx_cockpit",
+          label: "Applications",
+          icon: Target,
+          flaticon: "fi fi-rr-target",
+          badge: slaData.atRiskCount,
+          badgeColor: "warn",
+          roles: ["cx_lead", "superadmin"],
         },
         {
           id: "problems",
@@ -1865,60 +1915,6 @@ export default function SupportV8Dashboard() {
           roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
         },
         {
-          id: "cx_cockpit",
-          label: "CX Cockpit",
-          icon: Target,
-          flaticon: "fi fi-rr-target",
-          badge: slaData.atRiskCount,
-          badgeColor: "warn",
-          roles: ["cx_lead", "superadmin"],
-        },
-      ],
-    },
-    {
-      title: "Core Intelligence",
-      items: [
-        {
-          id: "overview",
-          label: "Overview",
-          icon: LayoutDashboard,
-          flaticon: "fi fi-rr-dashboard",
-          roles: ["operator", "cx_lead", "superadmin", "observer"],
-        },
-        {
-          id: "studio",
-          label: "Autonomous Studio",
-          icon: Cpu,
-          flaticon: "fi fi-rr-microchip",
-          roles: ["cx_lead", "superadmin"],
-        },
-        {
-          id: "trends",
-          label: "Trend Radar",
-          icon: TrendingUp,
-          flaticon: "fi fi-rr-chart-line-up",
-          roles: ["operator", "cx_lead", "superadmin"],
-        },
-        {
-          id: "knowledge",
-          label: "Knowledge Suite",
-          icon: Brain,
-          flaticon: "fi fi-rr-brain",
-          roles: ["operator", "cx_lead", "superadmin", "observer"],
-        },
-        {
-          id: "portal_composer",
-          label: "Support Portal",
-          icon: LayoutDashboard,
-          flaticon: "fi fi-rr-browser",
-          roles: ["cx_lead", "superadmin"],
-        },
-      ],
-    },
-    {
-      title: isContractorRole ? "Field Assistant & Comms" : "Workforce",
-      items: [
-        {
           id: "workforce",
           label: "Workforce",
           icon: Users,
@@ -1927,42 +1923,8 @@ export default function SupportV8Dashboard() {
           roles: ["cx_lead", "superadmin"],
         },
         {
-          id: "ask",
-          label: isContractorRole ? "Field Assistant (AI)" : "AgenticOS Chat",
-          icon: MessageSquare,
-          flaticon: "fi fi-rr-comment-alt",
-          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
-        },
-        {
-          id: "approvals",
-          label: "Approvals",
-          icon: CheckCircle2,
-          flaticon: "fi fi-rr-shield-check",
-          roles: ["cx_lead", "superadmin"],
-        },
-        {
-          id: "workflows",
-          label: "Workflows",
-          icon: Layers,
-          flaticon: "fi fi-rr-workflow",
-          roles: ["cx_lead", "superadmin"],
-        },
-        {
-          id: "gov_audit",
-          label: "Audit & Logs",
-          icon: ShieldCheck,
-          flaticon: "fi fi-rr-document",
-          badge: auditLogs.length,
-          roles: ["cx_lead", "superadmin", "observer"],
-        },
-      ],
-    },
-    {
-      title: "Marketplace",
-      items: [
-        {
           id: "studio_marketplace",
-          label: "Browse Marketplace",
+          label: "Marketplace",
           icon: ShoppingBag,
           flaticon: "fi fi-rr-apps",
           roles: ["cx_lead", "superadmin"],
@@ -1981,14 +1943,69 @@ export default function SupportV8Dashboard() {
           flaticon: "fi fi-rr-plug",
           roles: ["cx_lead", "superadmin"],
         },
+        {
+          id: "portal_composer",
+          label: "Support Portal",
+          icon: LayoutDashboard,
+          flaticon: "fi fi-rr-browser",
+          roles: ["cx_lead", "superadmin"],
+        },
       ],
     },
     {
-      title: "Settings",
+      title: "GOVERNANCE",
       items: [
         {
+          id: "gov_audit",
+          label: "Audit",
+          icon: ShieldCheck,
+          flaticon: "fi fi-rr-document",
+          badge: auditLogs.length,
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "gov_reports",
+          label: "Logs",
+          icon: FileText,
+          flaticon: "fi fi-rr-document",
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
+        {
+          id: "approvals",
+          label: "Approvals",
+          icon: CheckCircle2,
+          flaticon: "fi fi-rr-shield-check",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "workflows",
+          label: "Workflows",
+          icon: Layers,
+          flaticon: "fi fi-rr-workflow",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
+          id: "policies",
+          label: "Policies",
+          icon: Shield,
+          flaticon: "fi fi-rr-shield-check",
+          roles: ["cx_lead", "superadmin", "observer"],
+        },
+      ],
+    },
+    {
+      title: "SETTINGS",
+      items: [
+        {
+          id: "market_plans",
+          label: "Plan",
+          icon: CreditCard,
+          flaticon: "fi fi-rr-credit-card",
+          roles: ["cx_lead", "superadmin"],
+        },
+        {
           id: "gov_settings",
-          label: "Settings",
+          label: "Credits",
           icon: Settings,
           flaticon: "fi fi-rr-settings",
           roles: ["cx_lead", "superadmin"],
@@ -2000,27 +2017,6 @@ export default function SupportV8Dashboard() {
           flaticon: "fi fi-rr-user",
           badge: members.length,
           roles: ["cx_lead", "superadmin"],
-        },
-        {
-          id: "market_plans",
-          label: "Plans & Credits",
-          icon: CreditCard,
-          flaticon: "fi fi-rr-credit-card",
-          roles: ["cx_lead", "superadmin"],
-        },
-        {
-          id: "policies",
-          label: "Policies & Rules",
-          icon: Shield,
-          flaticon: "fi fi-rr-shield-check",
-          roles: ["cx_lead", "superadmin", "observer"],
-        },
-        {
-          id: "gov_reports",
-          label: "Reports",
-          icon: FileText,
-          flaticon: "fi fi-rr-document",
-          roles: ["cx_lead", "superadmin", "observer"],
         },
       ],
     },
@@ -5764,48 +5760,62 @@ export default function SupportV8Dashboard() {
                   <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">AI Workforce Hierarchy &amp; Roster</h1>
                 </div>
                 <p className="text-xs text-[#B4C2D0]">
-                  OrderV8 canonical workforce architecture: AI Employees are hired first to receive work; Specialized Interns operate as paired sub-agents.
+                  ServiceV8 canonical workforce architecture: AI Employees are hired first to receive work; Specialized Interns operate as paired sub-agents.
                 </p>
               </div>
 
-              {/* Roster Filter Strip */}
-              <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
-                {[
-                  { id: "all", label: "All Workforce", count: workforce.length },
-                  {
-                    id: "employees",
-                    label: "Hired AI Employees",
-                    count: workforce.filter((w) => w.level === "ai_employee" && (w.hired === undefined || w.hired)).length,
-                  },
-                  {
-                    id: "interns",
-                    label: "Paired Sub-Agents",
-                    count: workforce.filter((w) => w.level === "ai_intern").length,
-                  },
-                  {
-                    id: "catalog",
-                    label: "Onboard via Marketplace",
-                    count: workforce.filter((w) => w.level === "ai_employee" && w.hired === false).length,
-                  },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setWorkforceFilter(f.id as any)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      workforceFilter === f.id
-                        ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
-                        : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                    }`}
-                  >
-                    <span>{f.label}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      workforceFilter === f.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
-                    }`}>
-                      {f.count}
-                    </span>
-                  </button>
-                ))}
+              {/* Roster Controls: Onboard Button + Filter Strip */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudioSubTab("setup");
+                    setActiveTab("studio");
+                  }}
+                  className="btn btn-primary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Onboard AI Employee</span>
+                </button>
+
+                <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
+                  {[
+                    { id: "all", label: "All Workforce", count: workforce.length },
+                    {
+                      id: "employees",
+                      label: "Hired AI Employees",
+                      count: workforce.filter((w) => w.level === "ai_employee" && (w.hired === undefined || w.hired)).length,
+                    },
+                    {
+                      id: "interns",
+                      label: "Paired Sub-Agents",
+                      count: workforce.filter((w) => w.level === "ai_intern").length,
+                    },
+                    {
+                      id: "catalog",
+                      label: "Onboard via Marketplace",
+                      count: workforce.filter((w) => w.level === "ai_employee" && w.hired === false).length,
+                    },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setWorkforceFilter(f.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        workforceFilter === f.id
+                          ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
+                          : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+                      }`}
+                    >
+                      <span>{f.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                        workforceFilter === f.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
+                      }`}>
+                        {f.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -5819,7 +5829,7 @@ export default function SupportV8Dashboard() {
                   <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
                     CANONICAL WORKFORCE HIERARCHY &amp; INTERN DISPATCH POLICY
                   </h4>
-                  <span className="pill ok text-[9px] font-mono">ORDERV8 SPEC</span>
+                  <span className="pill ok text-[9px] font-mono">SERVICEV8 SPEC</span>
                 </div>
                 <p className="text-xs text-[#B4C2D0] leading-relaxed font-sans">
                   <strong>1. Hiring Precedence:</strong> AI Employees must first be <strong>hired / provisioned</strong> before they can be assigned customer tickets or execute workflows.
@@ -5877,6 +5887,15 @@ export default function SupportV8Dashboard() {
                               <span className="pill ok text-[9px] font-mono uppercase shrink-0">
                                 <i className="dot"></i>
                                 HIRED &amp; ACTIVE
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              <span className="pill text-[9.5px] font-mono bg-[#18222E] text-[#2ED8B6] border border-[#2ED8B6]/30">
+                                $59/mo Voice &bull; 100 mins
+                              </span>
+                              <span className="pill text-[9.5px] font-mono bg-[#18222E] text-[#B4C2D0] border border-[var(--line-2)]">
+                                Two-Tier SSM Bound
                               </span>
                             </div>
 
@@ -5967,14 +5986,15 @@ export default function SupportV8Dashboard() {
                             <button
                               type="button"
                               onClick={() => {
-                                setStudioSubTab("workflows");
+                                setStudioSubTab("setup");
+                                setStudioEmployeeId(emp.id);
                                 setActiveTab("studio");
                               }}
                               className="btn btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
-                              title="Tune workflows and autonomy policies in Studio"
+                              title="Configure Voice, Connections, and Activation in Studio Setup Wizard"
                             >
                               <Cpu className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                              <span>Studio</span>
+                              <span>Onboard &amp; Setup</span>
                             </button>
                           </div>
                         </div>
@@ -6916,6 +6936,7 @@ export default function SupportV8Dashboard() {
           <AutonomousStudioView
             onNotify={notify}
             initialSubTab={studioSubTab}
+            initialEmployeeId={studioEmployeeId}
             onNavigateToMarketplace={() => setActiveTab("studio_marketplace")}
             onNavigateToInstalled={() => setActiveTab("market_workforce")}
           />

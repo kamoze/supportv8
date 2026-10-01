@@ -519,6 +519,15 @@ export class ChatRepository {
         ]
       );
 
+      const persistedChannel: "web" | "email" | "whatsapp" | "voice" =
+        input.channel === "email" || resolvedSource === "email"
+          ? "email"
+          : input.channel === "voice" || input.channel === "field_dispatch" || resolvedSource === "voice" || resolvedSource === "twilio_voice"
+          ? "voice"
+          : input.channel === "whatsapp"
+          ? "whatsapp"
+          : "web";
+
       await db.query(
         `INSERT INTO supportv8.chat_sessions
            (id, tenant_id, stream, channel, customer_name, customer_email,
@@ -528,7 +537,7 @@ export class ChatRepository {
           sessionId,
           input.tenantId,
           input.stream,
-          input.channel || "web",
+          persistedChannel,
           input.customerName,
           input.customerEmail,
           safeCustomerRef(input.customerEmail),

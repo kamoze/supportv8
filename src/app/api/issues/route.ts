@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
           typeof customerEmail !== "string" || customerEmail.length > 254 ||
           (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) ||
           !["customers", "contractors", "enquiries"].includes(stream) || !ISSUE_PRIORITIES.has(priority) ||
-          !["web_chat", "email", "manual_entry", "field_dispatch", "chat", "manual", "voice"].includes(channel)) {
+          !["web_chat", "email", "manual_entry", "field_dispatch", "chat", "manual", "voice", "web", "whatsapp"].includes(channel)) {
         return NextResponse.json({ success: false, error: "Enter a customer name, summary, valid email (if provided), stream, and priority." }, { status: 400 });
       }
       if (!hasDurableDatabase()) throw new ChatIngressError("Ticket storage is unavailable. Your ticket has not been saved; please try again.", 503);
@@ -199,8 +199,21 @@ export async function POST(req: NextRequest) {
         stream,
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim(),
-        intakeData: { details: summary.trim(), origin: "operator_workdesk", ingressChannel: channel },
-        channel: channel === "email" ? "email" : normalizedSource === "voice" ? "voice" : normalizedSource === "manual" ? "manual" : "web",
+        intakeData: {
+          details: summary.trim(),
+          origin: "operator_workdesk",
+          ingressChannel: channel,
+          ...(typeof body.customerId === "string" && body.customerId ? { customerId: body.customerId } : {}),
+          ...(typeof body.customerPhone === "string" && body.customerPhone ? { customerPhone: body.customerPhone } : {}),
+          ...(typeof body.companyName === "string" && body.companyName ? { companyName: body.companyName } : {}),
+          ...(typeof body.customerTier === "string" && body.customerTier ? { customerTier: body.customerTier } : {}),
+        },
+        channel:
+          channel === "email"
+            ? "email"
+            : normalizedSource === "voice"
+            ? "voice"
+            : "web",
         source: normalizedSource,
         manual: { operatorName: tenant.displayName || "Support operator", priority },
       });

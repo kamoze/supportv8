@@ -27,6 +27,15 @@ describe("manual Workdesk ticket creation", () => {
       channel: "email", customerName: "Casey", manual: { operatorName: "Jordan", priority: "high" } }));
     expect(chatRepository.listChatIssues).toHaveBeenCalledWith("tenant_alpha", "session1");
   });
+  it("maps manual_entry to database-compliant channel 'web' and source 'manual'", async () => {
+    const result = await POST(request({ channel: "manual_entry" }));
+    expect(result.status).toBe(201);
+    expect(chatRepository.startSession).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: "tenant_alpha",
+      channel: "web",
+      source: "manual",
+    }));
+  });
   it.each([{ summary: "" }, { customerName: "" }, { priority: "fake" }, { customerEmail: "bad" }, { stream: "invalid" }])("rejects invalid fields before saving: %j", async fields => {
     expect((await POST(request(fields))).status).toBe(400);
     expect(chatRepository.startSession).not.toHaveBeenCalled();

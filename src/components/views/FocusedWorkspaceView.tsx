@@ -634,7 +634,7 @@ function LegacyFocusedWorkspaceView({
   const [newCustomerEmail, setNewCustomerEmail] = useState("");
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [createTicketError, setCreateTicketError] = useState("");
-  const [newChannel, setNewChannel] = useState<string>("web_chat");
+  const [newChannel, setNewChannel] = useState<string>("manual_entry");
 
   // CSV Import State
   const [csvText, setCsvText] = useState("");
@@ -688,10 +688,9 @@ function LegacyFocusedWorkspaceView({
     accessCode: "LOCK-7729-PIN",
   } : undefined);
 
-  // Technician Workflow State Machine
   const [techStatus, setTechStatus] = useState<"assigned" | "accepted" | "en_route" | "in_progress" | "completed" | "released">("assigned");
 
-  const isChatTicket = selectedIssue?.source === "chat" || selectedIssue?.externalId?.startsWith("SV8-CHAT-");
+  const isChatTicket = selectedIssue?.source === "chat" || (!selectedIssue?.source && selectedIssue?.externalId?.startsWith("SV8-CHAT-"));
   const chatSessionId = isChatTicket
     ? selectedIssue?.sourceUrl?.match(/\/chat\/([^/?#]+)/)?.[1]
     : undefined;
@@ -864,7 +863,9 @@ function LegacyFocusedWorkspaceView({
             ? "whatsapp"
             : selectedIssue.source === "voice" || selectedIssue.source === "twilio_voice"
               ? "voice"
-              : "chat";
+              : selectedIssue.source === "manual" || selectedIssue.source === "runtime_manual"
+                ? (selectedIssue.customerRef?.includes("@") ? "email" : "internal_note")
+                : "chat";
       setCommChannel(preferredChannel);
       if (contractorDetails) {
         setTechStatus("assigned");
@@ -1193,6 +1194,7 @@ function LegacyFocusedWorkspaceView({
       i.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
       i.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       i.externalId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (i.source && i.source.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (i.contractor && i.contractor.company.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (i.contractor && i.contractor.siteLocation.toLowerCase().includes(searchQuery.toLowerCase()));
     if (!matchesSearch) return false;
@@ -1445,6 +1447,7 @@ function LegacyFocusedWorkspaceView({
       setNewCustName("");
       setNewCustomerEmail("");
       setNewSummary("");
+      setNewChannel("manual_entry");
       onNotify(`Created ticket ${payload.data.externalId}`, "success");
     } catch (error) {
       setCreateTicketError(error instanceof Error ? error.message : "Ticket could not be saved. Please try again.");
@@ -1779,6 +1782,17 @@ function LegacyFocusedWorkspaceView({
                           <User className="w-3.5 h-3.5 text-[#2ED8B6] shrink-0" />
                         )}
                         <span className="font-mono font-extrabold text-[#EAF1F8]">{issue.externalId}</span>
+                        <span className={`pill text-[8.5px] font-mono uppercase ${
+                          issue.source === "manual" || issue.source === "runtime_manual"
+                            ? "bg-[#9B51E0]/20 text-[#D2A8FF] border border-[#9B51E0]/40"
+                            : issue.source === "email"
+                            ? "bg-[#4D9FFF]/20 text-[#82BFFF] border border-[#4D9FFF]/40"
+                            : issue.source === "voice" || issue.source === "twilio_voice"
+                            ? "bg-[#F5A623]/20 text-[#FFCA80] border border-[#F5A623]/40"
+                            : "bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30"
+                        }`}>
+                          {issue.source === "runtime_manual" ? "manual" : issue.source === "twilio_voice" ? "voice" : issue.source || "chat"}
+                        </span>
 
                         {/* Front of Line Badge */}
                         {isFrontOfLine && (
@@ -2522,7 +2536,19 @@ function LegacyFocusedWorkspaceView({
                 value={commChannel}
                 onChange={setCommChannel}
                 isContractor={isContractor}
-                inboundLabel={selectedIssue.source === "twilio_voice" ? "Voice" : selectedIssue.source.replace(/_/g, " ")}
+                inboundLabel={
+                  selectedIssue.source === "twilio_voice" || selectedIssue.source === "voice"
+                    ? "Voice"
+                    : selectedIssue.source === "manual" || selectedIssue.source === "runtime_manual"
+                    ? "Manual Operator"
+                    : selectedIssue.source === "email"
+                    ? "Email"
+                    : selectedIssue.source === "whatsapp"
+                    ? "WhatsApp"
+                    : selectedIssue.source === "chat"
+                    ? "Chat"
+                    : (selectedIssue.source || "Chat").replace(/_/g, " ")
+                }
               />
 
               {/* Quick Canned Takeover Chips & Draft */}
@@ -2641,7 +2667,19 @@ function LegacyFocusedWorkspaceView({
                   value={commChannel}
                   onChange={setCommChannel}
                   isContractor={isContractor}
-                  inboundLabel={selectedIssue.source === "twilio_voice" ? "Voice" : selectedIssue.source.replace(/_/g, " ")}
+                  inboundLabel={
+                  selectedIssue.source === "twilio_voice" || selectedIssue.source === "voice"
+                    ? "Voice"
+                    : selectedIssue.source === "manual" || selectedIssue.source === "runtime_manual"
+                    ? "Manual Operator"
+                    : selectedIssue.source === "email"
+                    ? "Email"
+                    : selectedIssue.source === "whatsapp"
+                    ? "WhatsApp"
+                    : selectedIssue.source === "chat"
+                    ? "Chat"
+                    : (selectedIssue.source || "Chat").replace(/_/g, " ")
+                }
                 />
               </div>
 
@@ -3055,9 +3093,9 @@ function LegacyFocusedWorkspaceView({
                   onChange={(e) => setNewChannel(e.target.value)}
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none"
                 >
+                  <option value="manual_entry">Operator Desk Manual</option>
                   <option value="web_chat">Direct Web Chat</option>
                   <option value="email">Inbound Email</option>
-                  <option value="manual_entry">Operator Desk Manual</option>
                   <option value="field_dispatch">Contractor Dispatch Call</option>
                 </select>
               </div>

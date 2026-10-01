@@ -55,7 +55,7 @@ async function updateIssue(
     requirePersistentMutationRole(tenant);
     updated =
       (hasDurableDatabase()
-        ? await chatRepository.updateChatIssue(tenant.tenantId, targetId, updates)
+        ? await chatRepository.updateChatIssue(tenant.tenantId, targetId, updates, true)
         : null) ||
       issueService.updateIssue(targetId, updates, tenant.tenantSlug);
   }
@@ -110,9 +110,11 @@ export async function GET(req: NextRequest) {
 
     const [mockIssues, durableChatIssues] = await Promise.all([
       Promise.resolve(tenant.runtimeLinked ? [] : issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug })),
-      tenant.runtimeLinked ? chatRepository.listWorkspaceIssues(tenant.tenantId) : source && source !== "chat" || !hasDurableDatabase()
+      !hasDurableDatabase()
         ? Promise.resolve([])
-        : chatRepository.listChatIssues(tenant.tenantId),
+        : tenant.runtimeLinked
+        ? chatRepository.listWorkspaceIssues(tenant.tenantId)
+        : chatRepository.listChatIssues(tenant.tenantId, undefined, true),
     ]);
     const filteredChatIssues = durableChatIssues.filter((issue) => {
       if (source && issue.source !== source) return false;
@@ -176,10 +178,20 @@ export async function POST(req: NextRequest) {
           typeof customerEmail !== "string" || customerEmail.length > 254 ||
           (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) ||
           !["customers", "contractors", "enquiries"].includes(stream) || !ISSUE_PRIORITIES.has(priority) ||
-          !["web_chat", "email", "manual_entry", "field_dispatch"].includes(channel)) {
+          !["web_chat", "email", "manual_entry", "field_dispatch", "chat", "manual", "voice"].includes(channel)) {
         return NextResponse.json({ success: false, error: "Enter a customer name, summary, valid email (if provided), stream, and priority." }, { status: 400 });
       }
       if (!hasDurableDatabase()) throw new ChatIngressError("Ticket storage is unavailable. Your ticket has not been saved; please try again.", 503);
+
+      const normalizedSource: "manual" | "voice" | "email" | "chat" =
+        channel === "manual_entry" || channel === "manual"
+          ? "manual"
+          : channel === "field_dispatch" || channel === "voice"
+          ? "voice"
+          : channel === "email"
+          ? "email"
+          : "chat";
+
       const session = await chatRepository.startSession({
         tenantId: tenant.tenantId,
         tenantSlug: tenant.tenantSlug,
@@ -188,7 +200,8 @@ export async function POST(req: NextRequest) {
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim(),
         intakeData: { details: summary.trim(), origin: "operator_workdesk", ingressChannel: channel },
-        channel: channel === "email" ? "email" : channel === "field_dispatch" ? "voice" : "web",
+        channel: channel === "email" ? "email" : normalizedSource === "voice" ? "voice" : normalizedSource === "manual" ? "manual" : "web",
+        source: normalizedSource,
         manual: { operatorName: tenant.displayName || "Support operator", priority },
       });
       const [issue] = await chatRepository.listChatIssues(tenant.tenantId, session.id);

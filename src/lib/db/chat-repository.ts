@@ -6,6 +6,7 @@ import type {
   CustomerChatSession,
   Issue,
   PriorityLevel,
+  SourceType,
 } from "@/lib/types";
 import {
   decodeChatMessageCursor,
@@ -104,7 +105,8 @@ export interface StartChatInput {
   intakeData: Record<string, string>;
   sessionId?: string;
   accountId?: string;
-  channel?: "web" | "email" | "whatsapp" | "voice";
+  channel?: "web" | "email" | "whatsapp" | "voice" | "manual" | "chat" | "manual_entry" | "field_dispatch" | "web_chat";
+  source?: SourceType;
   manual?: { operatorName: string; priority: PriorityLevel };
   forceHumanQueue?: boolean;
   initialMessageId?: string;
@@ -410,7 +412,25 @@ export class ChatRepository {
         ? requestedSessionId
         : `chat_${suffix}`;
     const issueId = `iss_${suffix}`;
-    const externalId = `SV8-${input.channel === "email" ? "EMAIL" : "CHAT"}-${suffix.slice(0, 12).toUpperCase()}`;
+    const resolvedSource: SourceType =
+      input.source ||
+      (input.channel === "email" || input.intakeData?.ingressChannel === "email"
+        ? "email"
+        : input.channel === "voice" || input.channel === "field_dispatch" || input.intakeData?.ingressChannel === "field_dispatch"
+        ? "voice"
+        : input.channel === "manual" || input.channel === "manual_entry" || input.intakeData?.ingressChannel === "manual_entry" || Boolean(input.manual && input.channel !== "web" && input.channel !== "chat" && input.channel !== "web_chat")
+        ? "manual"
+        : "chat");
+
+    const prefix =
+      resolvedSource === "manual"
+        ? "MANUAL"
+        : resolvedSource === "email"
+        ? "EMAIL"
+        : resolvedSource === "voice" || resolvedSource === "twilio_voice"
+        ? "VOICE"
+        : "CHAT";
+    const externalId = `SV8-${prefix}-${suffix.slice(0, 12).toUpperCase()}`;
     const userMessageId = input.initialMessageId && /^msg_[a-zA-Z0-9_-]{8,120}$/.test(input.initialMessageId) ? input.initialMessageId : `msg_${randomUUID().replace(/-/g, "")}`;
     const greetingMessageId = `msg_${randomUUID().replace(/-/g, "")}`;
     const tenantName = displayTenant(input.tenantSlug) || "SupportV8";
@@ -457,21 +477,45 @@ export class ChatRepository {
           issueId,
           input.tenantId,
           externalId,
-          `https://${input.tenantSlug}.support.servicev8.com/chat/${sessionId}`,
+          `https://${input.tenantSlug}.support.servicev8.com/${resolvedSource === "chat" ? `chat/${sessionId}` : `tickets/${externalId}`}`,
           safeCustomerRef(input.customerEmail),
           input.customerName,
           initialContent,
           issueCategory(input.stream),
-          input.stream === "contractors" ? "Field Ops Portal" : "SupportV8 Live Chat",
+          input.stream === "contractors"
+            ? "Field Ops Portal"
+            : resolvedSource === "manual"
+            ? "Operator Workdesk"
+            : resolvedSource === "voice"
+            ? "Voice Portal"
+            : resolvedSource === "email"
+            ? "Inbound Email"
+            : "SupportV8 Live Chat",
           priority === "urgent" ? "urgent" : "neutral",
           priority,
           priority === "urgent" ? "high" : "low",
           priority === "urgent" ? 0.4 : 0.1,
-          ["chat_intake", input.stream, input.tenantSlug],
+          [
+            resolvedSource === "manual"
+              ? "manual_intake"
+              : resolvedSource === "voice"
+              ? "voice_intake"
+              : resolvedSource === "email"
+              ? "email_intake"
+              : "chat_intake",
+            input.stream,
+            input.tenantSlug,
+          ],
           assignment.type === "ai"
             ? `AI employee ${assignment.name} active on ${externalId}.`
+            : resolvedSource === "manual"
+            ? `Manual ticket ${externalId} logged by ${input.manual?.operatorName || "operator"}. Ready for workdesk triage.`
+            : resolvedSource === "voice"
+            ? `Voice dispatch ticket ${externalId} recorded. Follow up with caller.`
+            : resolvedSource === "email"
+            ? `Inbound email ticket ${externalId} logged. Reply via email.`
             : `Waiting for an authenticated operator on ${externalId}.`,
-          input.channel === "email" ? "email" : "chat",
+          resolvedSource,
         ]
       );
 
@@ -988,7 +1032,8 @@ export class ChatRepository {
                 i.created_at, i.updated_at, s.intake_data
            FROM supportv8.issues i
            LEFT JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
-          WHERE ($2::boolean OR (i.source = 'chat' AND s.id IS NOT NULL)) AND ($1::text IS NULL OR s.id = $1::text)
+          WHERE (($1::text IS NOT NULL AND (s.id = $1::text OR i.id = $1::text))
+             OR ($1::text IS NULL AND ($2::boolean OR (i.source = 'chat' AND s.id IS NOT NULL))))
           ORDER BY i.updated_at DESC
           LIMIT 500`, [sessionId || null, includeOtherSources]
       );

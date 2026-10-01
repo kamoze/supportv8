@@ -5163,6 +5163,18 @@ export default function SupportV8Dashboard() {
                   <option value="neutral">Neutral</option>
                   <option value="positive">Positive</option>
                 </select>
+
+                <select
+                  value={issueSourceFilter}
+                  onChange={(e) => setIssueSourceFilter(e.target.value)}
+                  className="bg-[#18222E] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer shrink-0"
+                >
+                  <option value="all">All Sources</option>
+                  <option value="manual">Manual Operator</option>
+                  <option value="chat">Live Chat</option>
+                  <option value="email">Email</option>
+                  <option value="voice">Voice</option>
+                </select>
               </div>
             </div>
 

@@ -821,7 +821,7 @@ export function AutonomousStudioView({
             <div className="card p-4 space-y-3.5 bg-[#121A24] rounded-2xl border-[var(--line)]">
               <h3 className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5 font-mono">
                 <Sliders className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Simulate Customer Interaction</span>
+                <span>Interaction Simulator</span>
               </h3>
 
               <div className="space-y-3 text-xs">
@@ -883,7 +883,7 @@ export function AutonomousStudioView({
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5 font-mono">
                   <Shield className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>Gated Execution &amp; Reasoning Results</span>
+                  <span>Execution Results</span>
                 </h3>
                 {simResult && (
                   <span className="pill ok text-[9px] font-mono uppercase">SAFETY PASS</span>
@@ -1007,9 +1007,9 @@ export function AutonomousStudioView({
               <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h4 className="text-sm font-bold text-[#EAF1F8]">No Dormant Tickets Pending</h4>
+              <h4 className="text-sm font-bold text-[#EAF1F8]">Queue Clear</h4>
               <p className="text-xs text-[#6B7C8D] max-w-md mx-auto">
-                All external and dormant work tickets have been swept and archived according to active SLA policies.
+                All external and dormant work tickets have been swept and archived.
               </p>
             </div>
           )}
@@ -1235,7 +1235,7 @@ export function AutonomousStudioView({
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
-                    TWO-TIER DECOUPLED ARCHITECTURE &amp; 3-LAYER AUTHORIZATION TRIANGLE (sv8-deploy §128-159)
+                    Authorization Architecture
                   </h4>
                   <p className="text-xs text-[#B4C2D0] leading-relaxed">
                     <strong>1. Connection:</strong> Credentials configured once in Studio and stored strictly in <strong>Action Gateway AWS SSM</strong> (<code>/servicev8/action-gateway/tenants/:tenant/connectors/:key</code>).
@@ -1251,7 +1251,7 @@ export function AutonomousStudioView({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                    Tenant External Connections ({connections.length})
+                    External Connections
                   </h4>
                   <span className="text-[11px] font-mono text-[#6B7C8D]">
                     Toggle employee access and capability scopes
@@ -1386,7 +1386,7 @@ export function AutonomousStudioView({
                 <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
                   <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase flex items-center gap-2">
                     <Shield className="w-4 h-4 text-[#2ED8B6]" />
-                    <span>Preflight Gate Checks</span>
+                    <span>Preflight Checks</span>
                   </h4>
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between">
@@ -1522,7 +1522,7 @@ export function AutonomousStudioView({
             </div>
             <div className="space-y-1">
               <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
-                3-LAYER AUTHORIZATION TRIANGLE (sv8-deploy §128-159)
+                Authorization Triangle
               </h4>
               <p className="text-xs text-[#B4C2D0] leading-relaxed">
                 When an AI Employee executes a tool, Action Gateway verifies:

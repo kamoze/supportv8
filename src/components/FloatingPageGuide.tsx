@@ -550,7 +550,7 @@ export function FloatingPageGuide({ activeTab, onNotify }: FloatingPageGuideProp
         >
           <SupportV8Logo size={16} showText={false} />
           <span className="font-bold text-xs tracking-wide">Guide</span>
-          {isOpen ? <X className="w-3.5 h-3.5 ml-0.5" /> : <span className="font-mono text-xs text-[#2ED8B6] font-bold">?</span>}
+          {isOpen && <X className="w-3.5 h-3.5 ml-0.5" />}
         </button>
       </div>
     </div>

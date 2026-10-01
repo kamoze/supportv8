@@ -293,7 +293,7 @@ export function StudioMarketplaceHubView({
                   <Headphones className="size-5" />
                 </span>
                 <h2 id="workforce-heading" className="text-balance text-xl font-bold text-[#EAF1F8] sm:text-2xl">
-                  Voice support workforce
+                  Voice Workforce
                 </h2>
               </div>
               <p className="max-w-[72ch] text-sm leading-6 text-[#B4C2D0]">
@@ -334,7 +334,8 @@ export function StudioMarketplaceHubView({
                 </span>
                 <div className="min-w-0 space-y-2">
                   <h3 className="break-words text-lg font-semibold text-[#EAF1F8]">
-                    Sophia — Customer Support Lead AI
+                    <span className="sr-only">Sophia — Customer Support Lead AI</span>
+                    <span aria-hidden="true">Sophia AI</span>
                   </h3>
                   <p className="max-w-[65ch] break-words text-sm leading-6 text-[#B4C2D0]">
                     Autonomous customer care reasoning, order resolution, and sentiment escalation.
@@ -392,7 +393,7 @@ export function StudioMarketplaceHubView({
 
           <aside className="card rounded-2xl border border-[var(--line)] bg-[#121A24] p-6" aria-labelledby="voice-lifecycle-heading">
             <h3 id="voice-lifecycle-heading" className="text-base font-semibold text-[#EAF1F8]">
-              Voice activation path
+              Activation Path
             </h3>
             <ol className="mt-5 space-y-5">
               {[

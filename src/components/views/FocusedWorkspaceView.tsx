@@ -288,7 +288,7 @@ function RuntimeFocusedWorkspace({
     <WorkDeskFrame>
       <WorkDeskToolbar
         count={tickets.length}
-        subtitle="Runtime workspace tickets • Durable Support records"
+        subtitle="Runtime Tickets"
         actions={canManage ? <button type="button" onClick={() => setCreating((value) => !value)}>Create ticket</button> : <span className="runtime-readonly">Read only</span>}
       />
       <section aria-label="Ticket queue" className="runtime-list">
@@ -483,7 +483,7 @@ function WorkDeskFrame({
   );
 }
 function WorkDeskToolbar({count,subtitle,actions}:{count:number;subtitle:string;actions?:React.ReactNode}) {
-  return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Resolution Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2><p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p></div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
+  return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Resolution Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2>{subtitle && <p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p>}</div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
 }
 function TicketSummary({
   ticket,
@@ -1622,7 +1622,7 @@ function LegacyFocusedWorkspaceView({
       {/* ========================================================================= */}
       <WorkDeskToolbar
         count={issues.length}
-        subtitle="Unified Human Operator Station • Direct Ingest & Omnichannel Sync"
+        subtitle="Operator Station"
         actions={<>
 
           {selectedIssue && <div className="family-context-controls">
@@ -2982,7 +2982,7 @@ function LegacyFocusedWorkspaceView({
               <div className="flex items-center gap-2.5">
                 <Edit3 className="w-4 h-4 text-[#2ED8B6]" />
                 <h3 className="text-sm font-bold text-[#EAF1F8]">
-                  Edit Ticket Details — {selectedIssue.externalId}
+                  Edit Ticket
                 </h3>
               </div>
               <button
@@ -3106,7 +3106,8 @@ function LegacyFocusedWorkspaceView({
               <div className="flex items-center gap-2.5">
                 <Plus className="w-4 h-4 text-[#2ED8B6]" />
                 <h3 id="create-ticket-title" className="text-sm font-bold text-[#EAF1F8]">
-                  Create customer ticket
+                  <span className="sr-only">Create customer ticket</span>
+                  <span aria-hidden="true">Create Ticket</span>
                 </h3>
               </div>
               <button
@@ -3448,7 +3449,7 @@ function LegacyFocusedWorkspaceView({
               <div className="flex items-center gap-2.5">
                 <Upload className="w-4 h-4 text-[#4D9FFF]" />
                 <h3 className="text-sm font-bold text-[#EAF1F8]">
-                  Bulk Ingest Tickets via CSV / Spreadsheet
+                  Import CSV
                 </h3>
               </div>
               <button
@@ -3512,7 +3513,7 @@ function LegacyFocusedWorkspaceView({
               <div className="flex items-center gap-2.5">
                 <Code className="w-4 h-4 text-[#4D9FFF]" />
                 <h3 className="text-sm font-bold text-[#EAF1F8]">
-                  Attach Code / Trace Snippet to Ticket Context
+                  Attach Snippet
                 </h3>
               </div>
               <button

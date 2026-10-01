@@ -415,7 +415,7 @@ export function PoliciesAndRulesView({
             className="btn btn-secondary py-2 px-3.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer hover:border-[#2ED8B6]"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#2ED8B6]" />
-            <span>Apply Preset Profile</span>
+            <span>Preset Profile</span>
           </button>
 
           <button
@@ -424,7 +424,7 @@ export function PoliciesAndRulesView({
             className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Create Policy Rule</span>
+            <span>+ Create Policy</span>
           </button>
         </div>
       </div>
@@ -1153,7 +1153,7 @@ export function PoliciesAndRulesView({
               <div className="flex items-center gap-2.5">
                 <Shield className="w-5 h-5 text-[#2ED8B6]" />
                 <h3 className="text-sm font-bold text-[#EAF1F8]">
-                  {editingRule ? `Edit Policy Rule (${editingRule.id})` : "Create New Policy Rule"}
+                  {editingRule ? "Edit Policy" : "Create Policy"}
                 </h3>
               </div>
               <button
@@ -1299,7 +1299,7 @@ export function PoliciesAndRulesView({
             <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Apply Governance Preset Profile</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Preset Profile</h3>
               </div>
               <button
                 type="button"
@@ -1376,7 +1376,7 @@ export function PoliciesAndRulesView({
             <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Create Custom Ingest Queue</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Ingest Queue</h3>
               </div>
               <button
                 type="button"
@@ -1491,7 +1491,7 @@ export function PoliciesAndRulesView({
             <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Add Cron Automation Schedule</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Automation Schedule</h3>
               </div>
               <button
                 type="button"

@@ -654,10 +654,10 @@ export function KnowledgeSuiteView({
           {[
             { id: "ingest", label: "Direct Upload", icon: Upload },
             { id: "curation", label: "Curation Tagging", icon: Edit3 },
-            { id: "rag_editor", label: "RAG Output Editor", icon: Sparkles },
+            { id: "rag_editor", label: "Output Editor", srText: "RAG Output Editor", icon: Sparkles },
             { id: "deficit_mapper", label: "Deficit Mapper", icon: FileText },
             { id: "graph", label: "Knowledge Graph", icon: Layers },
-            { id: "topology_settings", label: "Vector Field Values", icon: Sliders },
+            { id: "topology_settings", label: "Vector Fields", srText: "Vector Field Values", icon: Sliders },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -672,7 +672,14 @@ export function KnowledgeSuiteView({
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
+                {tab.srText ? (
+                  <>
+                    <span className="sr-only">{tab.srText}</span>
+                    <span aria-hidden="true">{tab.label}</span>
+                  </>
+                ) : (
+                  <span>{tab.label}</span>
+                )}
               </button>
             );
           })}
@@ -892,11 +899,11 @@ export function KnowledgeSuiteView({
                 <div className="flex items-center gap-2">
                   <Database className="w-4 h-4 text-[#2ED8B6]" />
                   <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                    S3 Bucket Sources (High-Volume &amp; Large File Ingestion &gt;25MB)
+                    S3 Sources
                   </h3>
                 </div>
                 <p className="text-[11px] text-[#6B7C8D]">
-                  Ingest multi-GB documentation archives, runbook repositories, and bulk PDF vaults directly from Amazon S3 / MinIO via stream chunking without buffering into web pod memory.
+                  Ingest documentation archives and bulk PDF vaults directly from Amazon S3 / MinIO.
                 </p>
               </div>
 
@@ -1333,11 +1340,11 @@ export function KnowledgeSuiteView({
                     <Search className="w-4 h-4" />
                   </span>
                   <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">
-                    Semantic RAG Retrieval &amp; pgvector Query Playground
+                    RAG Query
                   </h3>
                 </div>
                 <p className="text-xs text-[#B4C2D0]">
-                  Query PostgreSQL <code className="text-[#2ED8B6] font-mono">knowledge_document_chunks</code> in real time using 1536-dimensional cosine similarity (<code className="text-[#2ED8B6] font-mono">&lt;=&gt;</code>).
+                  Query knowledge chunks in real time using 1536-dimensional cosine similarity.
                 </p>
               </div>
 
@@ -1497,7 +1504,7 @@ export function KnowledgeSuiteView({
                 {/* Retrieved Vector Chunks Cards */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-mono font-bold text-[#6B7C8D] uppercase">
-                    Retrieved Chunks from PostgreSQL pgvector:
+                    Retrieved Chunks
                   </h4>
 
                   <div className="grid grid-cols-1 gap-3">
@@ -1855,7 +1862,7 @@ export function KnowledgeSuiteView({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Knowledge Gaps */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">Detected Deficit Gaps</h4>
+                <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">Deficit Gaps</h4>
                 {(knowledge.gaps || []).length === 0 ? (
                   <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] text-center text-xs text-[#6B7C8D] font-mono py-6">
                     No deficit gaps detected. All ticket patterns are currently covered by knowledge base articles.
@@ -1875,7 +1882,7 @@ export function KnowledgeSuiteView({
 
               {/* Mined Proposals */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">AI Mined Article Proposals</h4>
+                <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">Mined Proposals</h4>
                 {(knowledge.proposals || []).length === 0 ? (
                   <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] text-center text-xs text-[#6B7C8D] font-mono py-6">
                     No pending knowledge proposals. Jordan specialist continuously scans for recurring issue resolution opportunities.
@@ -1934,7 +1941,7 @@ export function KnowledgeSuiteView({
                   <Edit3 className="w-4 h-4" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Knowledge Base Concept Curation</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Concept Curation</h3>
                   <p className="text-[11px] text-[#6B7C8D] font-mono">Source File: {curatingDoc.filename}</p>
                 </div>
               </div>
@@ -2260,7 +2267,7 @@ export function KnowledgeSuiteView({
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div className="flex items-center gap-2">
                 <Tag className="w-4 h-4 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Edit Groups &amp; Semantic Tags</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Semantic Tags</h3>
               </div>
               <button
                 type="button"
@@ -2351,9 +2358,9 @@ export function KnowledgeSuiteView({
               <div className="flex items-center gap-2.5">
                 <Database className="w-5 h-5 text-[#2ED8B6]" />
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Connect S3 Storage Source</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Connect Storage</h3>
                   <span className="text-[10px] font-mono text-[#6B7C8D]">
-                    High-Volume Multi-GB Repository &amp; Archive Ingestion
+                    S3 / MinIO Ingestion
                   </span>
                 </div>
               </div>

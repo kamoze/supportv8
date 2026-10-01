@@ -330,7 +330,16 @@ export function CustomerProfilesView({
               className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-2 text-xs font-mono flex items-center gap-2 cursor-pointer shadow-sm transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-[#2ED8B6] ${syncing ? "animate-spin" : ""}`} />
-              <span>{syncing ? `Syncing ${activeSyncSource || "..."}…` : "Sync from Target Systems"}</span>
+              <span>
+                {syncing ? (
+                  `Syncing ${activeSyncSource || "..."}…`
+                ) : (
+                  <>
+                    <span className="sr-only">Sync from Target Systems</span>
+                    <span aria-hidden="true">Sync Systems</span>
+                  </>
+                )}
+              </span>
               <ChevronDown className="w-3.5 h-3.5 text-[#8E9AA8]" />
             </button>
 
@@ -560,11 +569,11 @@ export function CustomerProfilesView({
               <tr>
                 <td colSpan={7} className="p-12 text-center">
                   <Users className="w-10 h-10 text-[#6B7C8D] mx-auto mb-3" />
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">No customer profiles found</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">No Customers</h3>
                   <p className="text-xs text-[#8E9AA8] mt-1 max-w-sm mx-auto">
                     {searchQuery || selectedTier !== "all" || selectedSource !== "all"
-                      ? "No records match the current filters. Try adjusting your search query."
-                      : "Your workspace customer directory is empty. Add a customer or sync from your external helpdesk or billing systems."}
+                      ? "No records match current filters."
+                      : "Directory is empty. Add a customer or sync systems."}
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-3">
                     <button
@@ -760,7 +769,7 @@ export function CustomerProfilesView({
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#2ED8B6]" />
                 <h3 id="add-customer-modal-title" className="text-sm font-bold text-[#EAF1F8]">
-                  Add Customer to Local Directory
+                  Add Customer
                 </h3>
               </div>
               <button
@@ -876,7 +885,7 @@ export function CustomerProfilesView({
               <div className="flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-[#2ED8B6]" />
                 <h3 id="edit-customer-modal-title" className="text-sm font-bold text-[#EAF1F8]">
-                  Edit Customer Biodata
+                  Edit Customer
                 </h3>
               </div>
               <button
@@ -987,7 +996,7 @@ export function CustomerProfilesView({
             <div className="flex items-center gap-2 text-[#FF7373]">
               <Trash2 className="w-5 h-5" />
               <h3 id="delete-customer-modal-title" className="text-sm font-bold">
-                Delete Customer Profile?
+                Delete Customer
               </h3>
             </div>
             <p className="text-xs text-[#B4C2D0] leading-relaxed">

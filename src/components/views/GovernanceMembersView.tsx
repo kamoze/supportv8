@@ -95,7 +95,7 @@ export function GovernanceMembersView({ members: externalMembers, onUpdateMember
       } catch (e) { setFormError(e instanceof Error ? e.message : "Unable to save. Please try again."); }
       finally { setSaving(false); }
     }}>
-      <h2 className="text-lg font-semibold">{inviting ? "Invite a team member" : "Edit member account"}</h2>
+      <h2 className="text-lg font-semibold">{inviting ? "Invite Member" : "Edit Member"}</h2>
       {formError && <p role="alert" className="text-sm text-[#FF7373]">{formError}</p>}
       <label className="block text-sm">Name<input autoFocus required maxLength={80} value={name} onChange={e => setName(e.target.value)} className={inputClass} /></label>
       <label className="block text-sm">Email<input type="email" required maxLength={254} readOnly={!inviting} value={email} onChange={e => setEmail(e.target.value)} className={inputClass} /></label>

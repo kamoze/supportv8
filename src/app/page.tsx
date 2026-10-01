@@ -204,10 +204,10 @@ function EmptyAnalyticsState({
         </div>
         <div className="space-y-2">
           <h1 id="empty-analytics-title" className="text-xl font-bold text-[#EAF1F8]">
-            Analytics will appear after your first conversation
+            Analytics Pending
           </h1>
-          <p className="text-sm text-[#B4C2D0] leading-relaxed">
-            This workspace has no imported history, subscriptions, employees, or generated metrics. New customer chats will route to the available online operator queue.
+          <p className="text-xs text-[#B4C2D0] leading-relaxed">
+            No conversation history or metrics recorded yet. Inbound customer chats route to the active queue.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
@@ -913,6 +913,23 @@ export default function SupportV8Dashboard() {
     } catch (err) {
       notify("Failed to index ticket into RAG corpus", "error");
     }
+  };
+
+  const handleOpenRawSource = (issue: Issue) => {
+    const rawUrl = issue.sourceUrl?.trim();
+    if (rawUrl) {
+      const target = rawUrl.startsWith("http://") || rawUrl.startsWith("https://") ? rawUrl : `https://${rawUrl}`;
+      try {
+        const opened = window.open(target, "_blank", "noopener,noreferrer");
+        if (opened) {
+          notify(`Opened raw source for ${issue.externalId}`, "info");
+          return;
+        }
+      } catch {
+        // Pop-up blocked fallback
+      }
+    }
+    setRawSourceIssue(issue);
   };
 
   useEffect(() => {
@@ -3276,7 +3293,7 @@ export default function SupportV8Dashboard() {
                   {displayNeedsAttention.length === 0 ? (
                     <div className="card p-6 text-center text-[#6B7C8D] space-y-1 col-span-full border border-[var(--line)]">
                       <CheckCircle2 className="w-6 h-6 text-[#2ED8B6]/60 mx-auto" />
-                      <h4 className="text-xs font-bold text-[#EAF1F8]">No Urgent Actions Required</h4>
+                      <h4 className="text-xs font-bold text-[#EAF1F8]">All Clear</h4>
                       <p className="text-[11px] text-[#6B7C8D]">All systemic incidents are stabilized and queues are nominal.</p>
                     </div>
                   ) : (
@@ -4279,7 +4296,7 @@ export default function SupportV8Dashboard() {
                         displayAccounts.length === 0 ? (
                           <div className="card p-12 text-center text-[#6B7C8D] space-y-2 col-span-full">
                             <HeartPulse className="w-8 h-8 text-[#6B7C8D] mx-auto opacity-50" />
-                            <h4 className="text-sm font-bold text-[#EAF1F8]">No Monitored Customer Accounts</h4>
+                            <h4 className="text-sm font-bold text-[#EAF1F8]">No Accounts</h4>
                             <p className="text-xs text-[#6B7C8D]">No customer accounts registered or flagged for churn monitoring.</p>
                           </div>
                         ) : (
@@ -5193,7 +5210,7 @@ export default function SupportV8Dashboard() {
                               <CheckCircle2 className="w-6 h-6" />
                             </div>
                             <div className="space-y-1">
-                              <h4 className="text-sm font-bold text-[#EAF1F8]">No Active Issues in this Workspace</h4>
+                              <h4 className="text-sm font-bold text-[#EAF1F8]">No Issues</h4>
                               <p className="text-xs text-[#6B7C8D] max-w-md mx-auto">
                                 {currentTenantSlug === "acme"
                                   ? "All issues have been resolved or filtered out."
@@ -5267,10 +5284,11 @@ export default function SupportV8Dashboard() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setRawSourceIssue(issue);
+                                handleOpenRawSource(issue);
                               }}
                               className="btn btn-secondary p-1.5 rounded-lg inline-flex items-center text-[#6B7C8D] hover:text-[#2ED8B6] hover:border-[#2ED8B6] cursor-pointer"
-                              title="Open Raw Source"
+                              title={issue.sourceUrl ? `Open Raw Source (${issue.sourceUrl})` : "Open Raw Source"}
+                              aria-label="Open Raw Source"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </button>
@@ -5298,10 +5316,10 @@ export default function SupportV8Dashboard() {
                 />
 
                 {/* Floating Slide-over Drawer Panel */}
-                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-4 overflow-y-auto flex flex-col justify-between space-y-4 animate-in slide-in-from-right duration-200">
-                  <div className="space-y-4">
+                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-[390px] bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-3.5 overflow-y-auto flex flex-col justify-between space-y-3 animate-in slide-in-from-right duration-200 text-xs">
+                  <div className="space-y-3">
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
                       <div className="min-w-0 flex-1 mr-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono text-xs font-extrabold text-[#2ED8B6]">{selectedIssue.externalId}</span>
@@ -5322,7 +5340,7 @@ export default function SupportV8Dashboard() {
                             {selectedIssue.status || "open"}
                           </span>
                         </div>
-                        <h3 className="text-sm font-bold text-[#EAF1F8] mt-1 truncate">
+                        <h3 className="text-xs sm:text-sm font-bold text-[#EAF1F8] mt-1 truncate">
                           {selectedIssue.summary}
                         </h3>
                       </div>
@@ -5354,7 +5372,7 @@ export default function SupportV8Dashboard() {
                     </div>
 
                     {/* Interactive 5-Button Status Lifecycle Bar */}
-                    <div className="p-2 rounded-xl bg-[#121A24] border border-[var(--line)]">
+                    <div className="p-1.5 rounded-xl bg-[#121A24] border border-[var(--line)]">
                       <div className="grid grid-cols-5 gap-1">
                         {[
                           { id: "open", label: "Open", color: "bg-[#18222E] text-[#2ED8B6] border-[#2ED8B6]" },
@@ -5369,7 +5387,7 @@ export default function SupportV8Dashboard() {
                               key={st.id}
                               type="button"
                               onClick={() => handleExplorerStatusChange(st.id)}
-                              className={`py-1.5 px-1 rounded-lg text-[11px] font-mono font-bold text-center border transition-all cursor-pointer ${
+                              className={`py-1 px-0.5 rounded-lg text-[10px] font-mono font-bold text-center border transition-all cursor-pointer ${
                                 isActive
                                   ? `${st.color} shadow-sm ring-1 ring-white/20`
                                   : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
@@ -5384,8 +5402,8 @@ export default function SupportV8Dashboard() {
 
                     {/* IN-DRAWER EDIT MODE FORM */}
                     {isExplorerEditMode ? (
-                      <div className="card p-4 bg-[#141C26] border border-[#2ED8B6]/40 rounded-2xl space-y-3.5 animate-in fade-in-50 duration-150">
-                        <div className="flex items-center justify-between border-b border-[var(--line)] pb-2 text-xs font-mono text-[#2ED8B6] font-bold">
+                      <div className="card p-3 bg-[#141C26] border border-[#2ED8B6]/40 rounded-xl space-y-2.5 animate-in fade-in-50 duration-150">
+                        <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5 text-xs font-mono text-[#2ED8B6] font-bold">
                           <span className="flex items-center gap-1.5">
                             <Edit3 className="w-3.5 h-3.5" />
                             <span>Edit Ticket #{selectedIssue.externalId}</span>
@@ -5393,14 +5411,14 @@ export default function SupportV8Dashboard() {
                           <span className="text-[10px] text-[#8E9AA8]">Direct Update</span>
                         </div>
 
-                        <div className="space-y-2.5 text-xs font-mono">
+                        <div className="space-y-2 text-xs font-mono">
                           <div>
                             <label className="text-[10px] text-[#8E9AA8] block mb-1">Issue Summary / Title</label>
                             <input
                               type="text"
                               value={explorerEditSummary}
                               onChange={(e) => setExplorerEditSummary(e.target.value)}
-                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
                             />
                           </div>
 
@@ -5411,7 +5429,7 @@ export default function SupportV8Dashboard() {
                                 type="text"
                                 value={explorerEditCategory}
                                 onChange={(e) => setExplorerEditCategory(e.target.value)}
-                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
                               />
                             </div>
 
@@ -5420,7 +5438,7 @@ export default function SupportV8Dashboard() {
                               <select
                                 value={explorerEditPriority}
                                 onChange={(e) => setExplorerEditPriority(e.target.value as any)}
-                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
                               >
                                 <option value="urgent">Urgent</option>
                                 <option value="high">High</option>
@@ -5432,11 +5450,11 @@ export default function SupportV8Dashboard() {
 
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[10px] text-[#8E9AA8] block mb-1">Lifecycle Status</label>
+                              <label className="text-[10px] text-[#8E9AA8] block mb-1">Status</label>
                               <select
                                 value={explorerEditStatus}
                                 onChange={(e) => setExplorerEditStatus(e.target.value)}
-                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
                               >
                                 <option value="open">Open</option>
                                 <option value="in_progress">In Progress</option>
@@ -5451,7 +5469,7 @@ export default function SupportV8Dashboard() {
                               <select
                                 value={explorerEditSentiment}
                                 onChange={(e) => setExplorerEditSentiment(e.target.value as any)}
-                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
+                                className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] cursor-pointer"
                               >
                                 <option value="urgent">Urgent</option>
                                 <option value="angry">Angry</option>
@@ -5463,22 +5481,22 @@ export default function SupportV8Dashboard() {
                           </div>
 
                           <div>
-                            <label className="text-[10px] text-[#8E9AA8] block mb-1">Assigned Agent / Operator</label>
+                            <label className="text-[10px] text-[#8E9AA8] block mb-1">Assigned Agent</label>
                             <input
                               type="text"
                               value={explorerEditAssignee}
                               onChange={(e) => setExplorerEditAssignee(e.target.value)}
-                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1.5 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
                             />
                           </div>
 
                           <div>
-                            <label className="text-[10px] text-[#8E9AA8] block mb-1">AI Recommended Action / Resolution Notes</label>
+                            <label className="text-[10px] text-[#8E9AA8] block mb-1">AI Recommendation</label>
                             <textarea
-                              rows={3}
+                              rows={2}
                               value={explorerEditRecommendedAction}
                               onChange={(e) => setExplorerEditRecommendedAction(e.target.value)}
-                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] p-3 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] resize-none"
+                              className="w-full bg-[#0E1520] text-xs text-[#EAF1F8] p-2 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6] resize-none"
                             />
                           </div>
                         </div>
@@ -5487,7 +5505,7 @@ export default function SupportV8Dashboard() {
                           <button
                             type="button"
                             onClick={() => setIsExplorerEditMode(false)}
-                            className="btn btn-secondary text-xs px-3 py-1.5 cursor-pointer"
+                            className="btn btn-secondary text-xs px-2.5 py-1 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -5495,24 +5513,24 @@ export default function SupportV8Dashboard() {
                             type="button"
                             onClick={handleSaveExplorerEdits}
                             disabled={isExplorerSaving}
-                            className="btn btn-primary text-xs px-4 py-1.5 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            className="btn btn-primary text-xs px-3.5 py-1 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                           >
                             <Check className="w-3.5 h-3.5" />
-                            <span>{isExplorerSaving ? "Saving..." : "Save Changes"}</span>
+                            <span>{isExplorerSaving ? "Saving..." : "Save"}</span>
                           </button>
                         </div>
                       </div>
                     ) : (
                       <>
-                        {/* Customer 360 & Account Snapshot */}
-                        <div className="p-3 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1.5 text-xs">
+                        {/* Customer Snapshot */}
+                        <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1 text-[11px]">
                           <div className="flex justify-between items-center">
                             <span className="font-bold text-[#EAF1F8]">{selectedIssue.customerName}</span>
                             <span className="pill ok uppercase text-[9px]">{selectedIssue.customerTier} Tier</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[#6B7C8D] font-mono pt-0.5">
+                          <div className="grid grid-cols-2 gap-1 text-[10px] text-[#6B7C8D] font-mono pt-0.5">
                             <div>
-                              <span>Customer Ref:</span> <strong className="text-[#EAF1F8]">{selectedIssue.customerRef || "CUST-9921"}</strong>
+                              <span>Ref:</span> <strong className="text-[#EAF1F8]">{selectedIssue.customerRef || "CUST-9921"}</strong>
                             </div>
                             <div>
                               <span>Risk:</span> <strong className="text-[#F5A623]">{selectedIssue.resolutionRiskScore || "0.18"}</strong>
@@ -5532,9 +5550,9 @@ export default function SupportV8Dashboard() {
                           </div>
                         </div>
 
-                        {/* Contractor / Field Ops Dispatch Card (if contractor entity) */}
+                        {/* Contractor / Field Ops Dispatch Card */}
                         {selectedIssue.contractor && (
-                          <div className="p-3 rounded-xl bg-[#141C26] border border-[#F5A623]/40 space-y-2 text-xs font-mono">
+                          <div className="p-2.5 rounded-xl bg-[#141C26] border border-[#F5A623]/40 space-y-1.5 text-[11px] font-mono">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-[#F5A623] font-bold">
                                 <HardHat className="w-3.5 h-3.5" />
@@ -5557,7 +5575,7 @@ export default function SupportV8Dashboard() {
                               </div>
                             </div>
                             {selectedIssue.contractor.accessCode && (
-                              <div className="flex items-center justify-between p-1.5 rounded-lg bg-[#0E1520] border border-[var(--line)] text-[10px]">
+                              <div className="flex items-center justify-between p-1 rounded bg-[#0E1520] border border-[var(--line)] text-[10px]">
                                 <span className="text-[#6B7C8D]">PIN:</span>
                                 <span className="font-bold text-[#F5A623]">{selectedIssue.contractor.accessCode}</span>
                               </div>
@@ -5566,55 +5584,53 @@ export default function SupportV8Dashboard() {
                         )}
 
                         {/* AI Triage & Reasoning */}
-                        <div className="p-3 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1 text-xs">
+                        <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1 text-[11px]">
                           <span className="text-[#2ED8B6] font-mono uppercase text-[10px] font-bold block">
                             AI Recommendation
                           </span>
-                          <p className="text-[#B4C2D0] text-xs leading-relaxed">
-                            {selectedIssue.recommendedAction || "Autonomous assessment completed. Ready for standard procedure dispatch."}
+                          <p className="text-[#B4C2D0] text-[11px] leading-relaxed">
+                            {selectedIssue.recommendedAction || "Autonomous assessment completed. Ready for dispatch."}
                           </p>
                         </div>
 
                         {/* 1-Click Save Resolution to Knowledge Base (RAG) */}
-                        <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
-                              <Brain className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                              <span>Knowledge Base RAG</span>
-                            </div>
+                        <div className="p-2 rounded-xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
+                          <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
+                            <Brain className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                            <span>Knowledge RAG</span>
                           </div>
                           <button
                             type="button"
                             onClick={handleExplorerIndexToRag}
                             disabled={selectedIssue.ragIngested}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 cursor-pointer transition-all border ${
+                            className={`px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all border ${
                               selectedIssue.ragIngested
                                 ? "bg-[#4CC38A]/20 text-[#4CC38A] border-[#4CC38A]/40"
                                 : "bg-[#182635] hover:bg-[#203348] text-[#2ED8B6] border-[#2ED8B6]/50"
                             }`}
                           >
                             <Sparkles className="w-3 h-3" />
-                            <span>{selectedIssue.ragIngested ? "Ingested" : "Index RAG"}</span>
+                            <span>{selectedIssue.ragIngested ? "Indexed" : "Index RAG"}</span>
                           </button>
                         </div>
 
                         {/* Correlated Problem Incident */}
                         {selectedIssue.problemId && (
-                          <div className="p-2.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-xs">
+                          <div className="p-2 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-[11px]">
                             <div className="flex items-center justify-between">
-                              <span className="text-[#E5484D] font-bold font-mono text-[11px]">Systemic Problem</span>
+                              <span className="text-[#E5484D] font-bold font-mono text-[10px]">Problem</span>
                               <span className="pill err text-[9px]">{selectedIssue.problemId}</span>
                             </div>
                           </div>
                         )}
 
                         {/* Ticket Activity Timeline & Internal Notes */}
-                        <div className="space-y-1.5 pt-1">
+                        <div className="space-y-1 pt-0.5">
                           <span className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
-                            Activity Timeline
+                            Timeline
                           </span>
 
-                          <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-2">
+                          <div className="p-2 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1.5">
                             <div className="flex gap-1.5">
                               <input
                                 type="text"
@@ -5626,19 +5642,19 @@ export default function SupportV8Dashboard() {
                                     handleAddExplorerNote();
                                   }
                                 }}
-                                placeholder="Add an internal note..."
-                                className="flex-1 bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                                placeholder="Add note..."
+                                className="flex-1 bg-[#0E1520] text-xs text-[#EAF1F8] px-2 py-1 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
                               />
                               <button
                                 type="button"
                                 onClick={handleAddExplorerNote}
-                                className="btn btn-secondary text-xs px-2.5 py-1 cursor-pointer font-bold"
+                                className="btn btn-secondary text-xs px-2 py-1 cursor-pointer font-bold"
                               >
                                 Post
                               </button>
                             </div>
 
-                            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                            <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
                               {(selectedIssue.timeline || [
                                 {
                                   id: "tl_init",
@@ -5664,7 +5680,7 @@ export default function SupportV8Dashboard() {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="pt-3 border-t border-[var(--line)] flex flex-col gap-2">
+                  <div className="pt-2.5 border-t border-[var(--line)] flex flex-col gap-1.5">
                     <button
                       type="button"
                       onClick={() => {
@@ -5673,30 +5689,39 @@ export default function SupportV8Dashboard() {
                         setActiveTab("workspace");
                         notify(`Opened ${selectedIssue.externalId} in Focused Work Desk`, "info");
                       }}
-                      className="btn btn-primary w-full py-2 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                      className="btn btn-primary w-full py-1.5 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <Layers className="w-3.5 h-3.5" />
-                      <span>Open in Focused Work Desk →</span>
+                      <span>Open in Work Desk →</span>
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleExplorerStatusChange("resolved")}
-                        className="btn btn-secondary flex-1 py-1.5 text-xs flex items-center justify-center gap-1.5 cursor-pointer hover:text-[#4CC38A] hover:border-[#4CC38A]"
+                        className="btn btn-secondary flex-1 py-1 text-xs flex items-center justify-center gap-1 cursor-pointer hover:text-[#4CC38A] hover:border-[#4CC38A]"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Mark Resolved</span>
+                        <span>Resolve</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRawSource(selectedIssue)}
+                        className="btn btn-secondary py-1 px-2.5 text-xs flex items-center gap-1 cursor-pointer hover:text-[#2ED8B6]"
+                        title={selectedIssue.sourceUrl ? `Open Raw Source (${selectedIssue.sourceUrl})` : "Open Raw Source"}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Raw Source</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setRawSourceIssue(selectedIssue)}
-                        className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
+                        className="btn btn-secondary py-1 px-2 text-xs flex items-center gap-1 cursor-pointer hover:text-[#2ED8B6]"
                         title="View Raw Ingestion Payload"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Raw Source</span>
+                        <span>JSON</span>
                       </button>
                     </div>
                   </div>
@@ -5713,17 +5738,17 @@ export default function SupportV8Dashboard() {
                 onClick={() => setRawSourceIssue(null)}
               >
                 <div
-                  className="w-full max-w-xl bg-[#0C121A] border border-[var(--line)] rounded-2xl shadow-2xl p-4 flex flex-col gap-3 font-mono animate-in zoom-in-95 duration-150"
+                  className="w-full max-w-lg bg-[#0C121A] border border-[var(--line)] rounded-2xl shadow-2xl p-3.5 flex flex-col gap-2.5 font-mono animate-in zoom-in-95 duration-150 text-xs"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
                     <div className="flex items-center gap-2">
                       <span className="p-1.5 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </span>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-[#EAF1F8]">Raw Source</h3>
+                          <h3 className="text-xs font-bold text-[#EAF1F8]">Raw Source</h3>
                           <span className="pill ok text-[9px] uppercase">{rawSourceIssue.source}</span>
                         </div>
                         <span className="text-[10px] text-[#6B7C8D] block">{rawSourceIssue.externalId}</span>
@@ -5732,13 +5757,13 @@ export default function SupportV8Dashboard() {
                     <button
                       type="button"
                       onClick={() => setRawSourceIssue(null)}
-                      className="p-1.5 rounded-lg hover:bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+                      className="p-1 rounded-lg hover:bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 rounded-xl bg-[#121A24] border border-[var(--line)] text-[10px]">
+                  <div className="grid grid-cols-3 gap-2 p-2 rounded-xl bg-[#121A24] border border-[var(--line)] text-[10px]">
                     <div>
                       <span className="text-[#6B7C8D] block">Format:</span>
                       <span className="text-[#2ED8B6] font-bold">application/json</span>
@@ -5758,7 +5783,7 @@ export default function SupportV8Dashboard() {
                       <span>Ingested Payload</span>
                       <span>UTF-8</span>
                     </div>
-                    <pre className="p-3 rounded-xl bg-[#080D14] border border-[var(--line)] text-[#2ED8B6] text-[11px] leading-relaxed max-h-64 overflow-auto font-mono select-all">
+                    <pre className="p-2.5 rounded-xl bg-[#080D14] border border-[var(--line)] text-[#2ED8B6] text-[10px] leading-relaxed max-h-52 overflow-auto font-mono select-all">
                       {JSON.stringify({
                         externalId: rawSourceIssue.externalId,
                         source: rawSourceIssue.source,
@@ -5789,17 +5814,15 @@ export default function SupportV8Dashboard() {
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
-                    {rawSourceIssue.sourceUrl ? (
-                      <a
-                        href={rawSourceIssue.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-[#8E9AA8] hover:text-[#EAF1F8]"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Source Link</span>
-                      </a>
-                    ) : <div />}
+                    <a
+                      href={rawSourceIssue.sourceUrl || `https://${currentTenantSlug}.support.servicev8.com/tickets/${rawSourceIssue.externalId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5 text-[#8E9AA8] hover:text-[#EAF1F8]"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Source Link</span>
+                    </a>
 
                     <div className="flex items-center gap-2">
                       <button
@@ -5808,7 +5831,7 @@ export default function SupportV8Dashboard() {
                           navigator.clipboard.writeText(JSON.stringify(rawSourceIssue, null, 2));
                           notify("Raw JSON payload copied to clipboard", "success");
                         }}
-                        className="btn btn-primary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        className="btn btn-primary text-xs py-1 px-2.5 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                       >
                         <Copy className="w-3.5 h-3.5" />
                         <span>Copy JSON</span>
@@ -5816,7 +5839,7 @@ export default function SupportV8Dashboard() {
                       <button
                         type="button"
                         onClick={() => setRawSourceIssue(null)}
-                        className="btn btn-secondary text-xs py-1.5 px-3 cursor-pointer"
+                        className="btn btn-secondary text-xs py-1 px-2.5 cursor-pointer"
                       >
                         Close
                       </button>
@@ -5907,7 +5930,7 @@ export default function SupportV8Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
-                    CANONICAL WORKFORCE HIERARCHY &amp; INTERN DISPATCH POLICY
+                    Workforce Hierarchy
                   </h4>
                   <span className="pill ok text-[9px] font-mono">SERVICEV8 SPEC</span>
                 </div>
@@ -6191,7 +6214,7 @@ export default function SupportV8Dashboard() {
                     </span>
                     <div>
                       <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                        Need to hire AI employees or onboard new packages?
+                        Hire Workforce
                       </h4>
                       <span className="text-[10px] font-mono text-[#2ED8B6]">SERVICEV8 STANDARD: ONBOARD IN MARKETPLACE • MANAGE IN STUDIO</span>
                     </div>
@@ -7583,7 +7606,7 @@ export default function SupportV8Dashboard() {
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#2ED8B6]" />
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Invite Team Member</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Invite Member</h3>
               </div>
               <button
                 onClick={() => setIsInviteModalOpen(false)}
@@ -7765,7 +7788,7 @@ export default function SupportV8Dashboard() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Escalate Priority &amp; Re-assign Support Personnel</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Escalate Priority</h3>
                   <span className="text-[10px] text-[#6B7C8D] font-mono uppercase">
                     Ticket: {selectedTicketForEscalation.externalId} • {selectedTicketForEscalation.customerName}
                   </span>
@@ -7981,7 +8004,7 @@ export default function SupportV8Dashboard() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">AI Workforce Chat</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">Workforce Chat</h3>
                     <span className="pill ok text-[10px] py-0 px-2">
                       <i className="dot"></i> {workforce.length} HIRED
                     </span>
@@ -8423,7 +8446,7 @@ export default function SupportV8Dashboard() {
             <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-base font-bold text-[#EAF1F8]">Broadcast Proactive Incident Notice</h3>
+                <h3 className="text-base font-bold text-[#EAF1F8]">Incident Notice</h3>
               </div>
               <button onClick={() => setIsBroadcastModalOpen(false)} className="p-1 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer">
                 <X className="w-4 h-4" />
@@ -8492,7 +8515,7 @@ export default function SupportV8Dashboard() {
               <div className="flex items-center gap-2.5">
                 <Briefcase className="w-5 h-5 text-[#2ED8B6]" />
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Assign Work to AI Employee</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Assign Work</h3>
                   <span className="text-[10px] font-mono text-[#6B7C8D]">Hired Roster Dispatch</span>
                 </div>
               </div>
@@ -8595,7 +8618,7 @@ export default function SupportV8Dashboard() {
               <div className="flex items-center gap-2.5">
                 <PhoneCall className="w-5 h-5 text-[#2ED8B6]" />
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Provision Voice Bot via API</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Provision Voice</h3>
                   <span className="text-[10px] font-mono text-[#6B7C8D]">Vapi AI &amp; Twilio Voice Telephony Matching</span>
                 </div>
               </div>
@@ -8801,7 +8824,7 @@ export default function SupportV8Dashboard() {
               <div className="flex items-center gap-2.5">
                 <Sliders className="w-5 h-5 text-[#2ED8B6]" />
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Edit Voice Bot Permission Scopes</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Permission Scopes</h3>
                   <span className="text-[10px] font-mono text-[#6B7C8D]">
                     {selectedConfigForPermissions.phoneNumber} • {selectedConfigForPermissions.agentName}
                   </span>
@@ -8888,7 +8911,7 @@ export default function SupportV8Dashboard() {
               <div className="flex items-center gap-2.5">
                 <Edit3 className="w-5 h-5 text-[#2ED8B6]" />
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">Edit Voice Agent &amp; Telephony Binding</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">Voice Agent</h3>
                   <span className="text-[10px] text-[#6B7C8D]">
                     ID: {selectedConfigForEdit.id} • Provider: {selectedConfigForEdit.provider.toUpperCase()}
                   </span>
@@ -9130,8 +9153,8 @@ export default function SupportV8Dashboard() {
                   <Zap className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">ForgeGW &amp; BYOM Model Governance</h3>
-                  <p className="text-[10px] text-[#6B7C8D]">Pooled multi-service action credits and private LLM keys</p>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-sans">Model Governance</h3>
+                  <p className="text-[10px] text-[#6B7C8D]">Pooled action credits and private keys</p>
                 </div>
               </div>
               <button

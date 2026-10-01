@@ -28,51 +28,171 @@ export interface AnomalyAlert {
 export class TrendAnomalyService {
   public getTrendSeries(tenantSlug?: string): TrendDataPoint[] {
     const clean = (tenantSlug || "acme").toLowerCase().trim();
-    if (clean !== "acme" && clean !== "meridian") {
+    const tenantData = db.getTenantData(clean);
+    const issues = tenantData?.issues || [];
+
+    if (!issues || issues.length === 0) {
       return [];
     }
-    return [
-      { date: "Aug 20", totalVolume: 120, checkoutFailures: 14, ssoAuth: 8, billing: 25, mfaSms: 12, csat: 95.0, sentimentNegativePct: 12 },
-      { date: "Aug 21", totalVolume: 135, checkoutFailures: 18, ssoAuth: 10, billing: 28, mfaSms: 15, csat: 94.5, sentimentNegativePct: 14 },
-      { date: "Aug 22", totalVolume: 140, checkoutFailures: 16, ssoAuth: 12, billing: 30, mfaSms: 18, csat: 93.8, sentimentNegativePct: 16 },
-      { date: "Aug 23", totalVolume: 180, checkoutFailures: 35, ssoAuth: 22, billing: 34, mfaSms: 45, csat: 91.2, sentimentNegativePct: 24 },
-      { date: "Aug 24", totalVolume: 240, checkoutFailures: 68, ssoAuth: 30, billing: 40, mfaSms: 60, csat: 88.4, sentimentNegativePct: 32 },
-      { date: "Aug 25", totalVolume: 290, checkoutFailures: 110, ssoAuth: 42, billing: 48, mfaSms: 72, csat: 84.1, sentimentNegativePct: 41 },
-      { date: "Aug 26", totalVolume: 340, checkoutFailures: 187, ssoAuth: 64, billing: 52, mfaSms: 86, csat: 82.0, sentimentNegativePct: 48 },
-    ];
+
+    const timestamps = issues
+      .map((i) => new Date(i.createdAt).getTime())
+      .filter((t) => !isNaN(t));
+    const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : Date.now();
+    const endDate = new Date(maxTime);
+
+    const series: TrendDataPoint[] = [];
+    for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
+      const targetDate = new Date(endDate);
+      targetDate.setUTCDate(endDate.getUTCDate() - dayOffset);
+      const isoPrefix = targetDate.toISOString().slice(0, 10);
+      const dateLabel = targetDate.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      });
+
+      const dayIssues = issues.filter(
+        (i) => (i.createdAt || "").slice(0, 10) === isoPrefix
+      );
+
+      const totalVolume = dayIssues.length;
+      const checkoutFailures = dayIssues.filter((i) =>
+        /checkout|payment|order|cart/i.test(i.category || i.summary || "")
+      ).length;
+      const ssoAuth = dayIssues.filter((i) =>
+        /auth|sso|login|saml|okta/i.test(i.category || i.summary || "")
+      ).length;
+      const billing = dayIssues.filter((i) =>
+        /billing|invoice|refund|charge/i.test(i.category || i.summary || "")
+      ).length;
+      const mfaSms = dayIssues.filter((i) =>
+        /mfa|sms|token|2fa/i.test(i.category || i.summary || "")
+      ).length;
+
+      const posCount = dayIssues.filter(
+        (i) =>
+          i.sentiment === "positive" ||
+          i.sentiment === "happy" ||
+          (typeof i.sentimentScore === "number" && i.sentimentScore >= 0)
+      ).length;
+      const negCount = dayIssues.filter(
+        (i) =>
+          i.sentiment === "frustrated" ||
+          i.sentiment === "angry" ||
+          i.sentiment === "urgent" ||
+          (typeof i.sentimentScore === "number" && i.sentimentScore < 0)
+      ).length;
+
+      const csat =
+        totalVolume > 0
+          ? Math.round((posCount / totalVolume) * 1000) / 10
+          : 100;
+      const sentimentNegativePct =
+        totalVolume > 0
+          ? Math.round((negCount / totalVolume) * 100)
+          : 0;
+
+      series.push({
+        date: dateLabel,
+        totalVolume,
+        checkoutFailures,
+        ssoAuth,
+        billing,
+        mfaSms,
+        csat,
+        sentimentNegativePct,
+      });
+    }
+
+    return series;
   }
 
   public getAnomalies(tenantSlug?: string): AnomalyAlert[] {
     const clean = (tenantSlug || "acme").toLowerCase().trim();
-    if (clean !== "acme" && clean !== "meridian") {
+    const tenantData = db.getTenantData(clean);
+    const issues = tenantData?.issues || [];
+
+    if (!issues || issues.length === 0) {
       return [];
     }
-    return [
-      {
-        id: "anom_1",
+
+    const anomalies: AnomalyAlert[] = [];
+
+    const checkoutIssues = issues.filter((i) =>
+      /checkout|payment|order|cart/i.test(i.category || i.summary || "")
+    );
+    if (checkoutIssues.length > 0) {
+      const urgentCount = checkoutIssues.filter(
+        (i) => i.sentiment === "angry" || i.sentiment === "urgent" || i.priority === "urgent"
+      ).length;
+      const changePct = Math.round((checkoutIssues.length / issues.length) * 100);
+      const latest = checkoutIssues[checkoutIssues.length - 1];
+      anomalies.push({
+        id: "anom_checkout",
         category: "Checkout Failures",
-        changePct: 284,
-        severity: "high",
-        description: "Checkout failure volume is +284% over 7-day rolling baseline following release 4.18.2.",
-        timestamp: "2026-08-26T04:30:00Z",
-      },
-      {
-        id: "anom_2",
-        category: "MFA Authentication",
-        changePct: 217,
-        severity: "medium",
-        description: "MFA inquiries rose 217% due to FIDO2 hardware token migration inquiries.",
-        timestamp: "2026-08-26T03:15:00Z",
-      },
-      {
-        id: "anom_3",
-        category: "Refund Re-open Rate",
-        changePct: 180,
-        severity: "medium",
-        description: "AI-only refund conversations re-open 2.8x more frequently than human-handled refunds.",
-        timestamp: "2026-08-26T02:00:00Z",
-      },
-    ];
+        changePct,
+        severity: urgentCount > 0 ? "high" : "medium",
+        description: `${checkoutIssues.length} checkout failure ticket${checkoutIssues.length > 1 ? "s" : ""} detected in current queue (${urgentCount} urgent or frustrated).`,
+        timestamp: latest.createdAt || new Date().toISOString(),
+      });
+    }
+
+    const authIssues = issues.filter((i) =>
+      /auth|sso|login|saml|mfa|sms/i.test(i.category || i.summary || "")
+    );
+    if (authIssues.length > 0) {
+      const urgentCount = authIssues.filter(
+        (i) => i.sentiment === "angry" || i.sentiment === "urgent" || i.priority === "urgent"
+      ).length;
+      const changePct = Math.round((authIssues.length / issues.length) * 100);
+      const latest = authIssues[authIssues.length - 1];
+      anomalies.push({
+        id: "anom_auth",
+        category: "Authentication & MFA",
+        changePct,
+        severity: urgentCount > 0 ? "high" : "medium",
+        description: `${authIssues.length} authentication or MFA token inquir${authIssues.length > 1 ? "ies" : "y"} active in current queue.`,
+        timestamp: latest.createdAt || new Date().toISOString(),
+      });
+    }
+
+    const frustratedIssues = issues.filter(
+      (i) =>
+        i.sentiment === "angry" ||
+        i.sentiment === "frustrated" ||
+        (typeof i.sentimentScore === "number" && i.sentimentScore < -0.5)
+    );
+    if (frustratedIssues.length >= 2) {
+      const latest = frustratedIssues[frustratedIssues.length - 1];
+      const changePct = Math.round((frustratedIssues.length / issues.length) * 100);
+      anomalies.push({
+        id: "anom_sentiment",
+        category: "Customer Frustration",
+        changePct,
+        severity: frustratedIssues.length >= 5 ? "high" : "medium",
+        description: `${frustratedIssues.length} tickets currently flagged with elevated customer frustration or negative sentiment.`,
+        timestamp: latest.createdAt || new Date().toISOString(),
+      });
+    }
+
+    const opsIssues = issues.filter((i) =>
+      /contractor|dispatch|logistics|lockbox/i.test(i.category || i.summary || "")
+    );
+    if (opsIssues.length > 0 && clean === "meridian") {
+      const latest = opsIssues[opsIssues.length - 1];
+      const changePct = Math.round((opsIssues.length / issues.length) * 100);
+      anomalies.push({
+        id: "anom_ops",
+        category: "Contractor Dispatch",
+        changePct,
+        severity: opsIssues.some((i) => i.priority === "urgent") ? "high" : "medium",
+        description: `${opsIssues.length} field contractor dispatch issue${opsIssues.length > 1 ? "s" : ""} pending review.`,
+        timestamp: latest.createdAt || new Date().toISOString(),
+      });
+    }
+
+    return anomalies;
   }
 }
 

@@ -7043,31 +7043,73 @@ export default function SupportV8Dashboard() {
         {/* TAB: TREND RADAR & PROACTIVE ANOMALY INTELLIGENCE (EP13 & EP14) */}
         {/* ========================================================================= */}
         {(activeTab === "trends" || activeTab === "insights") && (() => {
-          const displaySeries = (trends.series && trends.series.length > 0) ? trends.series : [
-            { date: "Aug 20", totalVolume: 120, checkoutFailures: 14, ssoAuth: 8, billing: 25, mfaSms: 12, csat: 95.0, sentimentNegativePct: 12 },
-            { date: "Aug 21", totalVolume: 135, checkoutFailures: 18, ssoAuth: 10, billing: 28, mfaSms: 15, csat: 94.5, sentimentNegativePct: 14 },
-            { date: "Aug 22", totalVolume: 140, checkoutFailures: 16, ssoAuth: 12, billing: 30, mfaSms: 18, csat: 93.8, sentimentNegativePct: 16 },
-            { date: "Aug 23", totalVolume: 180, checkoutFailures: 35, ssoAuth: 22, billing: 34, mfaSms: 45, csat: 91.2, sentimentNegativePct: 24 },
-            { date: "Aug 24", totalVolume: 240, checkoutFailures: 68, ssoAuth: 30, billing: 40, mfaSms: 60, csat: 88.4, sentimentNegativePct: 32 },
-            { date: "Aug 25", totalVolume: 290, checkoutFailures: 110, ssoAuth: 42, billing: 48, mfaSms: 72, csat: 84.1, sentimentNegativePct: 41 },
-            { date: "Aug 26", totalVolume: 340, checkoutFailures: 187, ssoAuth: 64, billing: 52, mfaSms: 86, csat: 82.0, sentimentNegativePct: 48 },
-          ];
+          const displaySeries = trends.series || [];
+          const displayAnomalies = trends.anomalies || [];
+          const displayInsights = insights || [];
 
-          const displayAnomalies = (trends.anomalies && trends.anomalies.length > 0) ? trends.anomalies : [
-            { id: "anom_1", category: "Checkout Failures", changePct: 284, severity: "high", description: "Checkout failure volume is +284% over 7-day rolling baseline following release 4.18.2.", timestamp: "2026-08-26T04:30:00Z" },
-            { id: "anom_2", category: "MFA Authentication", changePct: 217, severity: "medium", description: "MFA inquiries rose 217% due to FIDO2 hardware token migration inquiries.", timestamp: "2026-08-26T03:15:00Z" },
-            { id: "anom_3", category: "Refund Re-open Rate", changePct: 180, severity: "medium", description: "AI-only refund conversations re-open 2.8x more frequently than human-handled refunds.", timestamp: "2026-08-26T02:00:00Z" },
-          ];
+          if (displaySeries.length === 0) {
+            return (
+              <div className="space-y-6">
+                {/* Header Banner */}
+                <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                        <TrendingUp className="w-5 h-5" />
+                      </span>
+                      <h2 className="text-xl font-bold text-[#EAF1F8]">Trends Analysis</h2>
+                      <span className="pill ok text-[10px] font-mono">EP13 / EP14 TELEMETRY</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      onClick={() => fetchData()}
+                      className="btn btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Refresh Radar</span>
+                    </button>
+                  </div>
+                </div>
 
-          const displayInsights = (insights && insights.length > 0) ? insights : [
-            { id: "ins_1", title: "Automate Safari 504 Checkout Fallback", confidence: 0.94, finding: "187 checkout timeouts on Safari iOS 17.5. Automated mitigation can reroute to backup payment gateway.", recommendation: "Deploy ephemeral payment webhook retry policy to drop cart abandonment by 92%." },
-            { id: "ins_2", title: "Publish Hardware Token Self-Service Runbook", confidence: 0.91, finding: "86 FIDO2 MFA setup inquiries opened in the last 24 hours with zero grounded runbook matches.", recommendation: "Auto-generate and publish Knowledge Article from engineering SCIM release notes." },
-          ];
+                <div className="card p-12 text-center border-[var(--line)] bg-[#121A24] flex flex-col items-center justify-center space-y-3">
+                  <span className="p-3 rounded-2xl bg-[#2ED8B6]/10 text-[#2ED8B6] border border-[#2ED8B6]/20">
+                    <TrendingUp className="w-8 h-8 opacity-75" />
+                  </span>
+                  <h3 className="text-base font-bold text-[#EAF1F8]">No Trends</h3>
+                  <p className="text-xs text-[#6B7C8D] max-w-md">
+                    No ticket velocity or anomaly telemetry recorded for this workspace. Telemetry rolls up automatically as customer inquiries arrive.
+                  </p>
+                </div>
+              </div>
+            );
+          }
 
-          const maxVolume = Math.max(...displaySeries.map((s) => s.totalVolume), 350);
+          const maxVolume = Math.max(...displaySeries.map((s) => s.totalVolume), 1);
           const latestPoint = displaySeries[displaySeries.length - 1];
           const firstPoint = displaySeries[0];
-          const volumeGrowth = Math.round(((latestPoint.totalVolume - firstPoint.totalVolume) / firstPoint.totalVolume) * 100);
+          const priorPoints = displaySeries.slice(0, -1);
+          const priorVolumeSum = priorPoints.reduce((sum, p) => sum + p.totalVolume, 0);
+          const baselineAvg = priorPoints.length > 0 ? Math.round(priorVolumeSum / priorPoints.length) : firstPoint.totalVolume;
+          const volumeGrowth = baselineAvg > 0
+            ? Math.round(((latestPoint.totalVolume - baselineAvg) / baselineAvg) * 100)
+            : (latestPoint.totalVolume > 0 ? 100 : 0);
+
+          const priorCheckoutSum = priorPoints.reduce((sum, p) => sum + p.checkoutFailures, 0);
+          const priorCheckoutAvg = priorPoints.length > 0 ? priorCheckoutSum / priorPoints.length : 0;
+          const checkoutSurgePct = priorCheckoutAvg > 0
+            ? Math.round(((latestPoint.checkoutFailures - priorCheckoutAvg) / priorCheckoutAvg) * 100)
+            : (latestPoint.checkoutFailures > 0 ? 100 : 0);
+
+          const peakCsat = Math.max(...displaySeries.map((s) => s.csat));
+          const csatDiff = Math.round((latestPoint.csat - firstPoint.csat) * 10) / 10;
+          const csatDeltaText = csatDiff > 0 ? `+${csatDiff} pts` : `${csatDiff} pts`;
+          const csatSubtext = peakCsat > latestPoint.csat
+            ? `Down from ${peakCsat}% 7-day peak`
+            : "At 7-day peak";
+
+          const sentimentDiff = latestPoint.sentimentNegativePct - firstPoint.sentimentNegativePct;
+          const sentimentDeltaText = sentimentDiff > 0 ? `+${sentimentDiff}%` : `${sentimentDiff}%`;
 
           return (
             <div className="space-y-6">
@@ -7098,37 +7140,47 @@ export default function SupportV8Dashboard() {
                 <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">7-Day Velocity Surge</span>
-                    <span className="text-[10px] font-mono font-bold text-[#E5484D]">+{volumeGrowth}%</span>
+                    <span className={`text-[10px] font-mono font-bold ${volumeGrowth > 0 ? "text-[#E5484D]" : "text-[#4CC38A]"}`}>
+                      {volumeGrowth >= 0 ? `+${volumeGrowth}%` : `${volumeGrowth}%`}
+                    </span>
                   </div>
                   <div className="text-xl font-extrabold font-mono text-[#EAF1F8]">{latestPoint.totalVolume} / day</div>
-                  <p className="text-[11px] text-[#6B7C8D]">Rolling baseline: {firstPoint.totalVolume} tickets/day</p>
+                  <p className="text-[11px] text-[#6B7C8D]">Rolling baseline: {baselineAvg} tickets/day</p>
                 </div>
 
                 <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Checkout Failures</span>
-                    <span className="pill err text-[10px] font-mono">CRITICAL</span>
+                    <span className={`pill ${latestPoint.checkoutFailures > 0 ? "err" : "ok"} text-[10px] font-mono`}>
+                      {latestPoint.checkoutFailures > 0 ? "CRITICAL" : "NORMAL"}
+                    </span>
                   </div>
                   <div className="text-xl font-extrabold font-mono text-[#E5484D]">{latestPoint.checkoutFailures} today</div>
-                  <p className="text-[11px] text-[#E5484D]/90">+284% surge vs 7-day average</p>
+                  <p className="text-[11px] text-[#E5484D]/90">
+                    {checkoutSurgePct > 0 ? `+${checkoutSurgePct}% surge vs 7-day average` : "Within normal baseline"}
+                  </p>
                 </div>
 
                 <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">Negative Sentiment</span>
-                    <span className="text-[10px] font-mono font-bold text-[#F5A623]">+{latestPoint.sentimentNegativePct - firstPoint.sentimentNegativePct}%</span>
+                    <span className="text-[10px] font-mono font-bold text-[#F5A623]">{sentimentDeltaText}</span>
                   </div>
                   <div className="text-xl font-extrabold font-mono text-[#F5A623]">{latestPoint.sentimentNegativePct}%</div>
-                  <p className="text-[11px] text-[#6B7C8D]">Elevated ticket frustration ratio</p>
+                  <p className="text-[11px] text-[#6B7C8D]">
+                    {latestPoint.sentimentNegativePct > 30 ? "Elevated ticket frustration ratio" : "Sentiment within healthy range"}
+                  </p>
                 </div>
 
                 <div className="card p-4 rounded-xl border-[var(--line)] bg-[#121A24] space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">CSAT Trend</span>
-                    <span className="text-[10px] font-mono font-bold text-[#E5484D]">-13.0 pts</span>
+                    <span className={`text-[10px] font-mono font-bold ${csatDiff >= 0 ? "text-[#4CC38A]" : "text-[#E5484D]"}`}>
+                      {csatDeltaText}
+                    </span>
                   </div>
                   <div className="text-xl font-extrabold font-mono text-[#2ED8B6]">{latestPoint.csat}%</div>
-                  <p className="text-[11px] text-[#6B7C8D]">Down from 95.0% 7-day peak</p>
+                  <p className="text-[11px] text-[#6B7C8D]">{csatSubtext}</p>
                 </div>
               </div>
 
@@ -7247,43 +7299,53 @@ export default function SupportV8Dashboard() {
                   <span className="text-[11px] font-mono text-[#6B7C8D]">Auto-flagged against 7-day rolling window</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {displayAnomalies.map((anom) => (
-                    <div
-                      key={anom.id}
-                      className={`card p-5 space-y-3 rounded-2xl border transition-all ${
-                        anom.severity === "high"
-                          ? "border-[#E5484D]/40 bg-gradient-to-b from-[#E5484D]/10 to-[#121A24]"
-                          : "border-[var(--line)] bg-[#121A24]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              anom.severity === "high" ? "bg-[#E5484D] animate-ping" : "bg-[#F5A623]"
-                            }`}
-                          />
-                          <span className="font-semibold text-xs text-[#EAF1F8]">{anom.category}</span>
-                        </div>
-                        <span
-                          className={`font-mono font-extrabold text-xs px-2 py-0.5 rounded-full ${
-                            anom.severity === "high"
-                              ? "bg-[#E5484D]/20 text-[#E5484D] border border-[#E5484D]/40"
-                              : "bg-[#F5A623]/20 text-[#F5A623] border border-[#F5A623]/40"
-                          }`}
-                        >
-                          +{anom.changePct}%
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#B4C2D0] leading-relaxed">{anom.description}</p>
-                      <div className="pt-2 border-t border-[var(--line-2)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
-                        <span>Severity: {anom.severity.toUpperCase()}</span>
-                        <span>{new Date(anom.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                      </div>
+                {displayAnomalies.length === 0 ? (
+                  <div className="card p-6 text-center border-[var(--line)] bg-[#121A24]">
+                    <div className="flex items-center justify-center gap-2 text-xs text-[#2ED8B6]">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="font-semibold">No Anomalies</span>
                     </div>
-                  ))}
-                </div>
+                    <p className="text-[11px] text-[#6B7C8D] mt-1">All monitored ticket categories and volume curves are within normal variance thresholds.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {displayAnomalies.map((anom) => (
+                      <div
+                        key={anom.id}
+                        className={`card p-5 space-y-3 rounded-2xl border transition-all ${
+                          anom.severity === "high"
+                            ? "border-[#E5484D]/40 bg-gradient-to-b from-[#E5484D]/10 to-[#121A24]"
+                            : "border-[var(--line)] bg-[#121A24]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                anom.severity === "high" ? "bg-[#E5484D] animate-ping" : "bg-[#F5A623]"
+                              }`}
+                            />
+                            <span className="font-semibold text-xs text-[#EAF1F8]">{anom.category}</span>
+                          </div>
+                          <span
+                            className={`font-mono font-extrabold text-xs px-2 py-0.5 rounded-full ${
+                              anom.severity === "high"
+                                ? "bg-[#E5484D]/20 text-[#E5484D] border border-[#E5484D]/40"
+                                : "bg-[#F5A623]/20 text-[#F5A623] border border-[#F5A623]/40"
+                            }`}
+                          >
+                            +{anom.changePct}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#B4C2D0] leading-relaxed">{anom.description}</p>
+                        <div className="pt-2 border-t border-[var(--line-2)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
+                          <span>Severity: {anom.severity.toUpperCase()}</span>
+                          <span>{new Date(anom.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Proactive Action Insights Feed (EP14 / Action Gateway) */}
@@ -7298,35 +7360,45 @@ export default function SupportV8Dashboard() {
                   <span className="text-[11px] font-mono text-[#2ED8B6]">One-Click Action Gateway</span>
                 </div>
 
-                <div className="space-y-4">
-                  {displayInsights.map((ins) => (
-                    <div
-                      key={ins.id}
-                      className="card p-5 space-y-3.5 rounded-2xl border border-[var(--line)] bg-[#121A24] hover:border-[#2ED8B6]/40 transition-colors"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <h4 className="text-sm font-bold text-[#EAF1F8]">{ins.title}</h4>
-                        <span className="pill ok text-[10px] font-mono shrink-0 self-start sm:self-auto">
-                          <i className="dot" />
-                          {(ins.confidence * 100).toFixed(0)}% Confidence Match
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#B4C2D0] leading-relaxed">{ins.finding}</p>
-                      <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono uppercase text-[#2ED8B6] font-bold">Recommended:</span>
-                          <span className="text-[#EAF1F8] font-medium">{ins.recommendation}</span>
-                        </div>
-                        <button
-                          onClick={() => handleExecuteInsight(ins.id)}
-                          className="btn btn-primary text-xs whitespace-nowrap cursor-pointer shrink-0"
-                        >
-                          Execute via Action Gateway
-                        </button>
-                      </div>
+                {displayInsights.length === 0 ? (
+                  <div className="card p-6 text-center border-[var(--line)] bg-[#121A24]">
+                    <div className="flex items-center justify-center gap-2 text-xs text-[#6B7C8D]">
+                      <Zap className="w-4 h-4 opacity-50" />
+                      <span className="font-semibold">No Insights</span>
                     </div>
-                  ))}
-                </div>
+                    <p className="text-[11px] text-[#6B7C8D] mt-1">No proactive operational interventions recommended at this time.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {displayInsights.map((ins) => (
+                      <div
+                        key={ins.id}
+                        className="card p-5 space-y-3.5 rounded-2xl border border-[var(--line)] bg-[#121A24] hover:border-[#2ED8B6]/40 transition-colors"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <h4 className="text-sm font-bold text-[#EAF1F8]">{ins.title}</h4>
+                          <span className="pill ok text-[10px] font-mono shrink-0 self-start sm:self-auto">
+                            <i className="dot" />
+                            {typeof ins.confidence === "number" ? `${(ins.confidence * 100).toFixed(0)}% Confidence Match` : "Verified Insight"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#B4C2D0] leading-relaxed">{ins.finding}</p>
+                        <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono uppercase text-[#2ED8B6] font-bold">Recommended:</span>
+                            <span className="text-[#EAF1F8] font-medium">{ins.recommendation}</span>
+                          </div>
+                          <button
+                            onClick={() => handleExecuteInsight(ins.id)}
+                            className="btn btn-primary text-xs whitespace-nowrap cursor-pointer shrink-0"
+                          >
+                            Execute via Action Gateway
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );

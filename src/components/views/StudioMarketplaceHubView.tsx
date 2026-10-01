@@ -110,7 +110,8 @@ export function StudioMarketplaceHubView({
             className="btn btn-primary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Browse Marketplace ↗</span>
+            <span>Browse Market</span>
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
 
           <a
@@ -190,7 +191,8 @@ export function StudioMarketplaceHubView({
             rel="noopener noreferrer"
             className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
           >
-            <span>All Categories ↗</span>
+            <span>All Categories</span>
+            <ExternalLink className="w-3 h-3" />
           </a>
         </div>
 

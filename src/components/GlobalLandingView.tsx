@@ -260,7 +260,10 @@ export function GlobalLandingView({
               <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
                 <Users className="w-6 h-6" />
               </div>
-              <span className="pill text-[9.5px] font-mono text-[#2ED8B6]">Customer Care &rarr;</span>
+              <span className="pill text-[9.5px] font-mono text-[#2ED8B6] flex items-center gap-1">
+                <span>Customer Care</span>
+                <ArrowRight className="w-2.5 h-2.5" />
+              </span>
             </div>
             <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
               1. Customer Care &amp; Success
@@ -289,7 +292,10 @@ export function GlobalLandingView({
               <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623]">
                 <HardHat className="w-6 h-6" />
               </div>
-              <span className="pill text-[9.5px] font-mono text-[#F5A623]">Field &amp; Ops &rarr;</span>
+              <span className="pill text-[9.5px] font-mono text-[#F5A623] flex items-center gap-1">
+                <span>Field &amp; Ops</span>
+                <ArrowRight className="w-2.5 h-2.5" />
+              </span>
             </div>
             <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#F5A623] transition-colors">
               2. Operations, Field &amp; Partners
@@ -318,7 +324,10 @@ export function GlobalLandingView({
               <div className="w-12 h-12 rounded-2xl bg-[#4D9FFF]/15 border border-[#4D9FFF]/40 flex items-center justify-center text-[#4D9FFF]">
                 <HelpCircle className="w-6 h-6" />
               </div>
-              <span className="pill text-[9.5px] font-mono text-[#4D9FFF]">Knowledge Desk &rarr;</span>
+              <span className="pill text-[9.5px] font-mono text-[#4D9FFF] flex items-center gap-1">
+                <span>Knowledge Desk</span>
+                <ArrowRight className="w-2.5 h-2.5" />
+              </span>
             </div>
             <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#4D9FFF] transition-colors">
               3. Inquiries &amp; Knowledge Desk

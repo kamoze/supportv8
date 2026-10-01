@@ -20,6 +20,7 @@ import {
   KeyRound,
   CheckCircle2,
   Smartphone,
+  ArrowLeft,
 } from "@/components/ui/FlatIcon";
 import { useFamilyDialog } from "@/components/FamilyControls";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
@@ -755,9 +756,10 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     onClose();
                     onOpenSignIn();
                   }}
-                  className="text-xs sm:text-sm text-[#2ED8B6] font-semibold hover:underline cursor-pointer"
+                  className="text-xs sm:text-sm text-[#2ED8B6] font-semibold hover:underline cursor-pointer flex items-center gap-1"
                 >
-                  Already have a workspace? Sign in &rarr;
+                  <span>Sign In</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               ) : (
                 <button
@@ -784,9 +786,10 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="btn btn-secondary px-5 py-2.5 text-xs font-mono cursor-pointer"
+                className="btn btn-secondary px-5 py-2.5 text-xs font-mono cursor-pointer flex items-center gap-1"
               >
-                &larr; Back
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
               </button>
               <button
                 type="submit"
@@ -814,9 +817,10 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="btn btn-secondary px-5 py-2.5 text-xs font-mono cursor-pointer"
+                className="btn btn-secondary px-5 py-2.5 text-xs font-mono cursor-pointer flex items-center gap-1"
               >
-                &larr; Back
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
               </button>
               <button
                 type="submit"
@@ -853,7 +857,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 }}
                 className="btn btn-primary px-8 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xl shadow-[#2ED8B6]/30 disabled:opacity-50"
               >
-                <span>Proceed to Sign In &rarr;</span>
+                <span>Sign In</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

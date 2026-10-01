@@ -126,7 +126,7 @@ export const INITIAL_WORKFORCE: WorkforceMember[] = [
     hired: true,
     canReceiveDirectWork: false,
     supervisorId: "emp_support_lead",
-    avatar: "🐣",
+    avatar: "tag",
     avatarUrl: "/avatars/beaver-intern.jpg",
     status: "active",
     autonomyLevel: "low",

@@ -76,7 +76,8 @@ export function MarketplaceWorkforceView({
             className="btn btn-primary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Manage in Studio ↗</span>
+            <span>Manage Studio</span>
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
 
           {onNavigateToMarketplace ? (
@@ -167,7 +168,8 @@ export function MarketplaceWorkforceView({
             rel="noopener noreferrer"
             className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
           >
-            <span>Manage in Studio ↗</span>
+            <span>Manage Studio</span>
+            <ExternalLink className="w-3 h-3" />
           </a>
         </div>
 

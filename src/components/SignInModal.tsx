@@ -574,9 +574,10 @@ export function SignInModal({
                   onClose();
                   onOpenSignup();
                 }}
-                className="text-xs sm:text-sm text-[#2ED8B6] font-semibold hover:underline cursor-pointer"
+                className="text-xs sm:text-sm text-[#2ED8B6] font-semibold hover:underline cursor-pointer flex items-center gap-1"
               >
-                Create new workspace &rarr;
+                <span>Create Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
 
               <button

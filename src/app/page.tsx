@@ -70,6 +70,8 @@ import {
   ShoppingBag,
   Sliders,
   Sparkles,
+  Star,
+  CornerDownLeft,
   Target,
   Terminal,
   Trash2,
@@ -2203,9 +2205,10 @@ export default function SupportV8Dashboard() {
               </button>
               <button
                 onClick={() => setViewMode("global_landing")}
-                className="w-full btn btn-secondary py-2.5 text-xs font-mono cursor-pointer text-[#8FA2B7]"
+                className="w-full btn btn-secondary py-2.5 text-xs font-mono cursor-pointer text-[#8FA2B7] flex items-center justify-center gap-1.5"
               >
-                &larr; Return to Overview Portal
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Return Overview</span>
               </button>
             </div>
           </div>
@@ -3651,23 +3654,26 @@ export default function SupportV8Dashboard() {
                         <button
                           type="button"
                           onClick={() => setActiveTab("workspace")}
-                          className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6]"
+                          className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] flex items-center gap-1.5"
                         >
-                          View Work Desk →
+                          <span>Work Desk</span>
+                          <ArrowRight className="w-3 h-3" />
                         </button>
                         <button
                           type="button"
                           onClick={() => setActiveTab("problems")}
-                          className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6]"
+                          className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] flex items-center gap-1.5"
                         >
-                          View Problem Matrix →
+                          <span>Problem Matrix</span>
+                          <ArrowRight className="w-3 h-3" />
                         </button>
                         <button
                           type="button"
                           onClick={() => setActiveTab("workforce")}
-                          className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6]"
+                          className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] flex items-center gap-1.5"
                         >
-                          Inspect AI Workforce →
+                          <span>AI Workforce</span>
+                          <ArrowRight className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -4241,9 +4247,10 @@ export default function SupportV8Dashboard() {
                                           setActiveTab("workspace");
                                           notify(`Opened ticket ${issue.externalId} in Workspace`, "info");
                                         }}
-                                        className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6]"
+                                        className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] flex items-center gap-1.5"
                                       >
-                                        Open in Workspace →
+                                        <span>Open Workspace</span>
+                                        <ArrowRight className="w-3 h-3" />
                                       </button>
                                     </td>
                                   </tr>
@@ -4768,7 +4775,10 @@ export default function SupportV8Dashboard() {
                         ) : displayCsatDist.map((dist: any) => (
                           <div key={dist.score} className="space-y-1">
                             <div className="flex justify-between">
-                              <span className="text-[#EAF1F8]">{dist.score} Stars ★</span>
+                              <span className="text-[#EAF1F8] flex items-center gap-1">
+                                <span>{dist.score} Stars</span>
+                                <Star className="w-3 h-3 text-[#F5A623] fill-[#F5A623]" />
+                              </span>
                               <span className="text-[#6B7C8D]">{dist.count} ratings ({dist.percentage}%)</span>
                             </div>
                             <div className="w-full bg-[#18222E] h-2 rounded-full overflow-hidden border border-[var(--line)]">
@@ -5243,9 +5253,10 @@ export default function SupportV8Dashboard() {
                             <button
                               type="button"
                               onClick={() => setSelectedIssue(issue)}
-                              className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] hover:border-[#2ED8B6]"
+                              className="btn btn-secondary text-xs py-1 px-2.5 font-mono cursor-pointer hover:text-[#2ED8B6] hover:border-[#2ED8B6] flex items-center gap-1.5"
                             >
-                              Inspect Details →
+                              <span>Inspect Details</span>
+                              <ArrowRight className="w-3 h-3" />
                             </button>
                             <button
                               type="button"
@@ -5659,7 +5670,8 @@ export default function SupportV8Dashboard() {
                       className="btn btn-primary w-full py-1.5 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <Layers className="w-3.5 h-3.5" />
-                      <span>Open in Work Desk →</span>
+                      <span>Open Desk</span>
+                      <ArrowRight className="w-3 h-3" />
                     </button>
 
                     <div className="flex items-center gap-1.5">
@@ -6355,7 +6367,7 @@ export default function SupportV8Dashboard() {
                           </span>
                         </div>
 
-                        {/* Remote ↔ Local Agent Matching Box */}
+                        {/* Remote to Local Agent Matching Box */}
                         <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
                           <div className="flex items-center justify-between text-[9px] font-mono text-[#6B7C8D] uppercase font-bold">
                             <span>Local AI Employee:</span>
@@ -6956,7 +6968,8 @@ export default function SupportV8Dashboard() {
                           className="btn btn-secondary text-xs flex items-center gap-1.5 cursor-pointer font-mono hover:text-[#2ED8B6] hover:border-[#2ED8B6]"
                         >
                           <Layers className="w-3.5 h-3.5" />
-                          <span>Inspect in Work Desk →</span>
+                          <span>Inspect Desk</span>
+                          <ArrowRight className="w-3 h-3" />
                         </button>
 
                         <button
@@ -8472,14 +8485,15 @@ export default function SupportV8Dashboard() {
                     disabled={chatLoading}
                     className="w-full bg-[#18222E] text-[#EAF1F8] p-3 pr-12 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] text-xs transition-colors shadow-inner resize-y min-h-[64px] max-h-[240px] leading-relaxed"
                   />
-                  <div className="absolute right-3 top-3 text-[10px] font-mono text-[#6B7C8D] pointer-events-none">
-                    ↵ ENTER
+                  <div className="absolute right-3 top-3 text-[10px] font-mono text-[#6B7C8D] pointer-events-none flex items-center gap-1">
+                    <CornerDownLeft className="w-2.5 h-2.5" />
+                    <span>ENTER</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 text-[11px] font-mono text-[#6B7C8D]">
                   <span className="text-[10px] text-[#2ED8B6] flex items-center gap-1">
-                    <span>Drag bottom-right ⤡ to resize</span>
+                    <span>Drag corner to resize</span>
                   </span>
 
                   <button

@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   Check,
   ShoppingBag,
+  ArrowRight,
+  CornerDownLeft,
 } from "@/components/ui/FlatIcon";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import type { ChatMessage } from "@/app/page";
@@ -579,12 +581,14 @@ export function AskWorkspaceView({
                         {relevantSampleAction.tier === "tier_3_critical" ? (
                           <>
                             <Lock className="w-3 h-3" />
-                            <span>Step-Up Authorize &rarr;</span>
+                            <span>Authorize</span>
+                            <ArrowRight className="w-3 h-3" />
                           </>
                         ) : (
                           <>
                             <Check className="w-3 h-3" />
-                            <span>Approve &amp; Execute &rarr;</span>
+                            <span>Approve</span>
+                            <ArrowRight className="w-3 h-3" />
                           </>
                         )}
                       </button>
@@ -681,14 +685,15 @@ export function AskWorkspaceView({
                 disabled={loading}
                 className="w-full bg-[#18222E] text-[#EAF1F8] p-3.5 pr-14 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] focus:ring-1 focus:ring-[#2ED8B6]/40 font-medium transition-all shadow-inner resize-y min-h-[80px] max-h-[360px] leading-relaxed"
               />
-              <div className="absolute right-3.5 top-3.5 text-[#6B7C8D] text-[10px] font-mono pointer-events-none">
-                ↵ ENTER
+              <div className="absolute right-3.5 top-3.5 text-[#6B7C8D] text-[10px] font-mono pointer-events-none flex items-center gap-1">
+                <CornerDownLeft className="w-2.5 h-2.5" />
+                <span>ENTER</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-3 text-[11px] font-mono text-[#6B7C8D]">
               <div className="flex items-center gap-2">
-                <span className="hidden sm:inline">Press <strong className="text-[#EAF1F8]">Enter ↵</strong> to send</span>
+                <span className="hidden sm:inline">Press <strong className="text-[#EAF1F8]">Enter</strong> to send</span>
                 <span className="hidden sm:inline">&bull;</span>
                 <span className="hidden sm:inline"><strong className="text-[#EAF1F8]">Shift + Enter</strong> for new line</span>
               </div>
@@ -728,7 +733,7 @@ export function AskWorkspaceView({
                   className="w-24 h-24 rounded-3xl object-cover border-4 border-[#2ED8B6] shadow-xl mx-auto"
                 />
                 <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#2ED8B6] text-[#04201C] flex items-center justify-center text-xs font-bold">
-                  ✓
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </span>
               </div>
 

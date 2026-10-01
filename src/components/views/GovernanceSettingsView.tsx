@@ -28,6 +28,7 @@ import {
   Plus,
   Volume2,
   VolumeX,
+  ArrowRight,
 } from "@/components/ui/FlatIcon";
 import type { TenantSettingConfig } from "@/lib/types/marketplace-types";
 import type { ChatStreamType } from "@/lib/types";
@@ -572,7 +573,11 @@ export function GovernanceSettingsView({
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-[#6B7C8D] font-mono">Temperature: <strong className="text-[#2ED8B6]">{byomTemperature.toFixed(2)}</strong></span>
-                  <span className="text-[10px] text-[#6B7C8D]">Deterministic (0.0) &rarr; Creative (1.0)</span>
+                  <span className="text-[10px] text-[#6B7C8D] inline-flex items-center gap-1">
+                    <span>Deterministic (0.0)</span>
+                    <ArrowRight className="w-2.5 h-2.5" />
+                    <span>Creative (1.0)</span>
+                  </span>
                 </div>
                 <input
                   type="range"
@@ -1658,7 +1663,11 @@ export function GovernanceSettingsView({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-bold text-[#EAF1F8]">Incoming Tickets</div>
-                      <div className="text-[11px] text-[#6B7C8D]">Two-tone executive chime (D5 &rarr; A5)</div>
+                      <div className="text-[11px] text-[#6B7C8D] flex items-center gap-1">
+                        <span>Two-tone executive chime (D5</span>
+                        <ArrowRight className="w-2.5 h-2.5 inline" />
+                        <span>A5)</span>
+                      </div>
                     </div>
                     <input
                       type="checkbox"

@@ -8,13 +8,43 @@ import {
   Bot,
   Clock,
   Shield,
+  ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
   Plus,
   Settings,
   RefreshCw,
+  Mail,
+  Moon,
+  Radio,
+  Search,
 } from "@/components/ui/FlatIcon";
+
+function renderWorkflowNodeIcon(iconName: string) {
+  switch (iconName) {
+    case "Clock":
+      return <Clock className="w-4 h-4" />;
+    case "Bot":
+      return <Bot className="w-4 h-4" />;
+    case "ShieldCheck":
+      return <ShieldCheck className="w-4 h-4" />;
+    case "Mail":
+      return <Mail className="w-4 h-4" />;
+    case "Moon":
+      return <Moon className="w-4 h-4" />;
+    case "Zap":
+      return <Zap className="w-4 h-4" />;
+    case "Radio":
+      return <Radio className="w-4 h-4" />;
+    case "Search":
+      return <Search className="w-4 h-4" />;
+    case "AlertTriangle":
+      return <AlertTriangle className="w-4 h-4" />;
+    default:
+      return <Bot className="w-4 h-4" />;
+  }
+}
 
 export type WorkflowNode = {
   id: string;
@@ -56,7 +86,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "trigger",
         title: "Daily Cron Trigger",
         subtitle: "Every Day at 5:00 PM (17:00 EST)",
-        icon: "⏰",
+        icon: "Clock",
         color: "#38BDF8",
         config: { cronExpression: "0 17 * * *", timezone: "America/New_York" },
       },
@@ -65,7 +95,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "agent",
         title: "Arthur • Autonomous Auditor",
         subtitle: "Reconcile Tickets vs Refunds",
-        icon: "🦫",
+        icon: "Bot",
         color: "#34D399",
         config: { employeePersona: "Arthur", task: "Reconcile daily tickets, CSAT %, and refunds." },
       },
@@ -74,7 +104,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "condition",
         title: "Check Unresolved Variances",
         subtitle: "If unresolved escalations > 0",
-        icon: "⚖️",
+        icon: "ShieldCheck",
         color: "#FBBF24",
         config: { conditionField: "escalated_tickets", operator: "> 0" },
       },
@@ -83,7 +113,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "action",
         title: "Send Executive Digest (Email / Slack)",
         subtitle: "leadership@acme.com, #support-exec",
-        icon: "✉️",
+        icon: "Mail",
         color: "#A78BFA",
         config: { template: "executive_support_digest" },
       },
@@ -105,7 +135,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "trigger",
         title: "Nightly Cron Trigger",
         subtitle: "Daily at 03:00 AM UTC",
-        icon: "🌙",
+        icon: "Moon",
         color: "#38BDF8",
         config: { cronExpression: "0 3 * * *" },
       },
@@ -114,7 +144,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "agent",
         title: "Sophia • Support Lead",
         subtitle: "Identify Stale Work Candidates",
-        icon: "🦫",
+        icon: "Bot",
         color: "#34D399",
         config: { employeePersona: "Sophia", tool: "stale_work_sweep" },
       },
@@ -123,7 +153,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "action",
         title: "Batch Resolution Notice",
         subtitle: "Close dormant cases & notify",
-        icon: "⚡",
+        icon: "Zap",
         color: "#2ED8B6",
         config: { autoClose: true, retentionWindowDays: 14 },
       },
@@ -145,7 +175,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "trigger",
         title: "Real-Time NLP Sentiment Stream",
         subtitle: "Ingress on Chat & Tickets",
-        icon: "📡",
+        icon: "Radio",
         color: "#F43F5E",
         config: { eventTopic: "chat.message.analyzed" },
       },
@@ -154,7 +184,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "condition",
         title: "Frustration & Tier Filter",
         subtitle: "Sentiment == Angry AND Tier == Enterprise",
-        icon: "🔍",
+        icon: "Search",
         color: "#FBBF24",
         config: { filter: "sentiment == 'angry' && tier == 'enterprise'" },
       },
@@ -163,7 +193,7 @@ const STARTER_WORKFLOWS: WorkflowPipeline[] = [
         type: "action",
         title: "Slack Priority Broadcast & PagerDuty",
         subtitle: "Channel #cx-vip-escalations",
-        icon: "🚨",
+        icon: "AlertTriangle",
         color: "#FB7185",
         config: { priority: "P1_URGENT" },
       },
@@ -345,7 +375,7 @@ export function WorkforceWorkflowsView({ onNotify }: WorkforceWorkflowsViewProps
                           color: node.color,
                         }}
                       >
-                        <span>{node.icon}</span>
+                        {renderWorkflowNodeIcon(node.icon)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">

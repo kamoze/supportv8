@@ -23,6 +23,7 @@ import {
   PhoneCall,
   Smartphone,
   Zap,
+  ArrowLeft,
 } from "@/components/ui/FlatIcon";
 import type {
   ChatStreamType,
@@ -599,7 +600,8 @@ export function SupportChatWidget({
                     onClick={() => setActiveStep("select_stream")}
                     className="text-xs font-mono text-[#6B7C8D] hover:text-[var(--chat-brand)] flex items-center gap-1 cursor-pointer"
                   >
-                    ← Back to Channels
+                    <ArrowLeft className="w-3 h-3" />
+                    <span>Back Channels</span>
                   </button>
                   <span
                     className="pill text-[9px] font-mono uppercase px-2 py-0.5"

@@ -14,6 +14,7 @@ import {
 } from "@/lib/portal/config";
 import type { PortalAnalytics } from "@/lib/portal/analytics";
 import { createPortalLoadGuard } from "@/lib/portal/load-guard";
+import { ArrowUp, ArrowDown } from "@/components/ui/FlatIcon";
 
 interface PortalComposerViewProps {
   tenantSlug: string;
@@ -554,8 +555,12 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
                         </span>
                       </button>
                       <span className={`flex shrink-0 items-center gap-1 pr-2 ${selectedActionId === action.id ? "bg-[#18222E]" : ""}`}>
-                        <button type="button" disabled={index === 0} aria-label={`Move ${action.label} up`} className="rounded-lg px-2 py-1 text-[#8E9AA8] hover:bg-[#243244] hover:text-white disabled:cursor-not-allowed disabled:opacity-30" onClick={() => moveAction(action.id, -1)}>↑</button>
-                        <button type="button" disabled={index === config.actions.length - 1} aria-label={`Move ${action.label} down`} className="rounded-lg px-2 py-1 text-[#8E9AA8] hover:bg-[#243244] hover:text-white disabled:cursor-not-allowed disabled:opacity-30" onClick={() => moveAction(action.id, 1)}>↓</button>
+                        <button type="button" disabled={index === 0} aria-label={`Move ${action.label} up`} className="rounded-lg px-2 py-1 text-[#8E9AA8] hover:bg-[#243244] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 flex items-center justify-center" onClick={() => moveAction(action.id, -1)}>
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" disabled={index === config.actions.length - 1} aria-label={`Move ${action.label} down`} className="rounded-lg px-2 py-1 text-[#8E9AA8] hover:bg-[#243244] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 flex items-center justify-center" onClick={() => moveAction(action.id, 1)}>
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
                       </span>
                     </li>
                   ))}

@@ -124,7 +124,8 @@ export function AutonomousStudioView({
             className="btn btn-primary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Open Studio ↗</span>
+            <span>Open Studio</span>
+            <ExternalLink className="w-3 h-3" />
           </a>
 
           {onNavigateToMarketplace ? (
@@ -226,7 +227,8 @@ export function AutonomousStudioView({
                   rel="noopener noreferrer"
                   className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
                 >
-                  <span>Edit in Studio ↗</span>
+                  <span>Edit Studio</span>
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
@@ -249,7 +251,8 @@ export function AutonomousStudioView({
                   rel="noopener noreferrer"
                   className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
                 >
-                  <span>Set Limits ↗</span>
+                  <span>Set Limits</span>
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
@@ -272,7 +275,8 @@ export function AutonomousStudioView({
                   rel="noopener noreferrer"
                   className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
                 >
-                  <span>Configure Pipes ↗</span>
+                  <span>Configure Pipes</span>
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
@@ -348,7 +352,8 @@ export function AutonomousStudioView({
               rel="noopener noreferrer"
               className="btn btn-primary py-2 px-4 text-xs font-mono inline-flex items-center gap-1.5"
             >
-              <span>Manage Fleet ↗</span>
+              <span>Manage Fleet</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>

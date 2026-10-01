@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Flame,
   ArrowRight,
+  ArrowLeft,
   ArrowDown,
   Mail,
   Phone,
@@ -1830,7 +1831,14 @@ function LegacyFocusedWorkspaceView({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-[#EAF1F8]">
-                    {queueStatusFilter === "active" ? "✨ Active Queue Clear" : "No Tickets Found"}
+                    {queueStatusFilter === "active" ? (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                        <span>Active Clear</span>
+                      </span>
+                    ) : (
+                      "No Tickets"
+                    )}
                   </h4>
                   <p className="text-[10px] text-[#6B7C8D] mt-1 leading-relaxed">
                     {queueStatusFilter === "active"
@@ -1842,9 +1850,10 @@ function LegacyFocusedWorkspaceView({
                   <button
                     type="button"
                     onClick={() => setQueueStatusFilter("resolved")}
-                    className="px-3 py-1.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line-2)] text-[11px] text-[#2ED8B6] cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line-2)] text-[11px] text-[#2ED8B6] cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    View Resolved Archive ({resolvedCount}) &rarr;
+                    <span>View Archive ({resolvedCount})</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -1973,14 +1982,15 @@ function LegacyFocusedWorkspaceView({
               onClick={() => setMobileActivePane("queue")}
               className="text-xs font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer"
             >
-              ← Back to Queue
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back Queue</span>
             </button>
             <button
               type="button"
               onClick={() => setMobileActivePane("actions")}
               className="text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer font-bold"
             >
-              <span>Go to Actions</span>
+              <span>View Actions</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2062,9 +2072,10 @@ function LegacyFocusedWorkspaceView({
                       <button
                         type="button"
                         onClick={() => setQueueStatusFilter("resolved")}
-                        className="px-2 py-1 rounded-lg bg-[#4CC38A]/20 hover:bg-[#4CC38A]/30 text-[#4CC38A] border border-[#4CC38A]/40 text-[10px] font-bold cursor-pointer transition-colors shrink-0"
+                        className="px-2 py-1 rounded-lg bg-[#4CC38A]/20 hover:bg-[#4CC38A]/30 text-[#4CC38A] border border-[#4CC38A]/40 text-[10px] font-bold cursor-pointer transition-colors shrink-0 inline-flex items-center gap-1.5"
                       >
-                        Switch to Resolved Filter &rarr;
+                        <span>Resolved Filter</span>
+                        <ArrowRight className="w-3 h-3" />
                       </button>
                     )}
                   </div>
@@ -2521,7 +2532,8 @@ function LegacyFocusedWorkspaceView({
               onClick={() => setMobileActivePane("details")}
               className="text-xs font-mono text-[#6B7C8D] hover:text-[#2ED8B6] flex items-center gap-1 cursor-pointer"
             >
-              ← Back to Details &amp; PIN
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back Details</span>
             </button>
             <span className="text-[10px] font-mono text-[#2ED8B6]">Dispatch Station</span>
           </div>
@@ -2890,9 +2902,10 @@ function LegacyFocusedWorkspaceView({
             <button
               type="button"
               onClick={() => setShowInsightsDrawer(false)}
-              className="text-xs text-[#6B7C8D] hover:text-[#EAF1F8] px-2.5 py-1 rounded-lg bg-[#141C26] cursor-pointer"
+              className="text-xs text-[#6B7C8D] hover:text-[#EAF1F8] px-2.5 py-1 rounded-lg bg-[#141C26] cursor-pointer flex items-center gap-1.5"
             >
-              Hide ✕
+              <span>Hide</span>
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 

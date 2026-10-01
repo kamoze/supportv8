@@ -16,6 +16,8 @@ import {
   Copy,
   X,
   Sliders,
+  AlertTriangle,
+  ArrowRight,
 } from "@/components/ui/FlatIcon";
 import type { Issue } from "@/lib/types";
 
@@ -643,7 +645,14 @@ export function AsunPalaceContextPanel({
                                       : "bg-[#FF5C5C]/15 text-[#FF8585] font-bold border border-[#FF5C5C]/30"
                                   }`}
                                 >
-                                  {a === "None" ? "No Allergens" : `⚠️ Allergen: ${a}`}
+                                  {a === "None" ? (
+                                    "No Allergens"
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3 text-[#FF8585]" />
+                                      <span>Allergen: {a}</span>
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </div>
@@ -653,7 +662,8 @@ export function AsunPalaceContextPanel({
                               onClick={() => handleInsertMenuItem(item)}
                               className="px-2.5 py-1 rounded-lg bg-[#F5A623]/20 hover:bg-[#F5A623]/30 text-[#F5A623] hover:text-[#FFBF53] text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
                             >
-                              <span>Insert in Reply &rarr;</span>
+                              <span>Insert Reply</span>
+                              <ArrowRight className="w-3 h-3" />
                             </button>
                           </div>
                         </div>

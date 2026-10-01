@@ -48,7 +48,7 @@ export const GUIDE_CONTENT: Record<string, GuideEntry> = {
     label: "CX Cockpit & Performance Funnel",
     what: "Executive customer experience command: Involvement rate, resolution funnel stages, Voice of the Customer (VoC) sentiment, and automated QA scorecards.",
     actions: [
-      "Inspect the 4-stage resolution funnel (Ingress → Triage → Autonomous → Escalated).",
+      "Inspect the 4-stage resolution funnel (Ingress, Triage, Autonomous, Escalated).",
       "Review Eleanor's automated QA scorecards scoring empathy, accuracy, and tone.",
       "Export executive CX PDF/CSV summary reports with 1-click.",
     ],

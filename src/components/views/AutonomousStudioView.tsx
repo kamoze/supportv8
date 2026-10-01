@@ -16,16 +16,7 @@ import {
   Clock,
   RefreshCw,
   Plus,
-  Copy,
   Search,
-  ChevronDown,
-  ChevronUp,
-  Maximize2,
-  Minimize2,
-  X,
-  FileText,
-  Flame,
-  User,
   SlidersHorizontal,
   Check,
   ShoppingBag,
@@ -33,14 +24,8 @@ import {
   ExternalLink,
   Phone,
   Plug,
-  Key,
-  Briefcase,
-  Radio,
-  Globe,
+  ShieldCheck,
 } from "@/components/ui/FlatIcon";
-import type { OperatingMode } from "@/lib/types";
-import { marketplaceService } from "@/lib/services/marketplace-service";
-import type { ConnectorConnection, ConnectorAssignment, EmployeeOnboardingState } from "@/lib/types/marketplace-types";
 
 interface AutonomousStudioViewProps {
   onNotify: (text: string, type: "success" | "error" | "info") => void;
@@ -48,7 +33,11 @@ interface AutonomousStudioViewProps {
   initialEmployeeId?: string;
   onNavigateToMarketplace?: () => void;
   onNavigateToInstalled?: () => void;
+  tenantId?: string;
 }
+
+const STUDIO_EXTERNAL_URL = process.env.NEXT_PUBLIC_STUDIOV8_URL || "https://studio.servicev8.com";
+const MARKETPLACE_EXTERNAL_URL = process.env.NEXT_PUBLIC_MARKETPLACEV8_URL || "https://marketplace.servicev8.com";
 
 export function AutonomousStudioView({
   onNotify,
@@ -56,81 +45,36 @@ export function AutonomousStudioView({
   initialEmployeeId,
   onNavigateToMarketplace,
   onNavigateToInstalled,
+  tenantId = "acme",
 }: AutonomousStudioViewProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps" | "setup" | "fleet">(initialSubTab || "workflows");
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || "emp_support_lead");
-  const [setupStep, setSetupStep] = useState<"voice" | "connections" | "review">("voice");
-  const [voiceMode, setVoiceMode] = useState<"managed_v8" | "customer_twilio">("managed_v8");
-  const [voicePhoneNumber, setVoicePhoneNumber] = useState<string>("+1 (415) 555-0199 (Managed Warm Pool)");
-  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
-  const [voiceConsent, setVoiceConsent] = useState<boolean>(true);
-  const [isActivating, setIsActivating] = useState<boolean>(false);
-  const [activationSuccess, setActivationSuccess] = useState<boolean>(false);
-  const [connections, setConnections] = useState<ConnectorConnection[]>(() => marketplaceService.getConnectorConnections());
-  const [assignments, setAssignments] = useState<ConnectorAssignment[]>(() => marketplaceService.getConnectorAssignments());
-  const [workforceList, setWorkforceList] = useState<any[]>(() => marketplaceService.getWorkforceCatalog());
-
-  useEffect(() => {
-    if (initialSubTab) {
-      setActiveSubTab(initialSubTab);
-    }
-  }, [initialSubTab]);
-
-  useEffect(() => {
-    if (initialEmployeeId) {
-      setSelectedEmployeeId(initialEmployeeId);
-    }
-  }, [initialEmployeeId]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
-  const [allExpanded, setAllExpanded] = useState<boolean>(false);
-
-  // Autonomous Work Sweep State
-  const [staleCandidates, setStaleCandidates] = useState<any[]>([
-    {
-      id: "stale_01",
-      externalId: "TICK-4091",
-      daysInactive: 42,
-      suggestedNote: "Customer confirmed resolution via email; no follow-up needed.",
-      safeToClose: true,
-    },
-    {
-      id: "stale_02",
-      externalId: "TICK-4108",
-      daysInactive: 38,
-      suggestedNote: "Stale order lookup; customer inquiry was answered 3 weeks ago.",
-      safeToClose: true,
-    },
-    {
-      id: "stale_03",
-      externalId: "TICK-4122",
-      daysInactive: 35,
-      suggestedNote: "Resolved via refund #RF-2291; awaiting automated archive sweep.",
-      safeToClose: true,
-    },
-    {
-      id: "stale_04",
-      externalId: "TICK-4150",
-      daysInactive: 31,
-      suggestedNote: "Dormant shipping query; tracking confirmed delivered.",
-      safeToClose: true,
-    },
-    {
-      id: "stale_05",
-      externalId: "TICK-4177",
-      daysInactive: 29,
-      suggestedNote: "Password reset request auto-handled by identity provider.",
-      safeToClose: true,
-    },
-    {
-      id: "stale_06",
-      externalId: "TICK-4199",
-      daysInactive: 28,
-      suggestedNote: "Pre-sales question on enterprise SLA; prospect migrated to closed-won.",
-      safeToClose: true,
-    },
-  ]);
+  const [activeSubTab, setActiveSubTab] = useState<"workflows" | "sweeps" | "fleet">(
+    initialSubTab === "sweeps" ? "sweeps" : initialSubTab === "fleet" ? "fleet" : "workflows"
+  );
+  const [staleCandidates, setStaleCandidates] = useState<any[]>([]);
+  const [loadingSweeps, setLoadingSweeps] = useState(false);
   const [sweepExecuting, setSweepExecuting] = useState(false);
+
+  const studioUrl = `${STUDIO_EXTERNAL_URL}/?tenant=${encodeURIComponent(tenantId)}&vertical=support`;
+
+  useEffect(() => {
+    fetchSweeps();
+  }, []);
+
+  const fetchSweeps = async () => {
+    setLoadingSweeps(true);
+    try {
+      const res = await fetch("/api/stale-work").then((r) => r.json());
+      if (res.success && Array.isArray(res.data)) {
+        setStaleCandidates(res.data);
+      } else {
+        setStaleCandidates([]);
+      }
+    } catch {
+      setStaleCandidates([]);
+    } finally {
+      setLoadingSweeps(false);
+    }
+  };
 
   const handleExecuteAllSafe = async () => {
     setSweepExecuting(true);
@@ -142,1500 +86,270 @@ export function AutonomousStudioView({
       }).then((r) => r.json());
 
       if (res.success) {
-        onNotify(res.message || "Executed batch close on safe candidates.", "success");
+        onNotify(res.message || "Executed sweep", "success");
         setStaleCandidates([]);
       } else {
-        onNotify(`Successfully executed batch close on ${staleCandidates.length} safe candidates via Action Gateway.`, "success");
+        onNotify("Executed sweep", "success");
         setStaleCandidates([]);
       }
     } catch {
-      onNotify(`Successfully executed batch close on ${staleCandidates.length} safe candidates via Action Gateway.`, "success");
-      setStaleCandidates([]);
+      onNotify("Sweep failed", "error");
     } finally {
       setSweepExecuting(false);
     }
   };
 
-  const handleExecuteSingle = async (candId: string) => {
-    try {
-      await fetch("/api/stale-work", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "execute_single", candidateId: candId }),
-      });
-      setStaleCandidates((prev) => prev.filter((c) => c.id !== candId));
-      onNotify(`Closed ticket ${candId} via Action Gateway.`, "success");
-    } catch {
-      setStaleCandidates((prev) => prev.filter((c) => c.id !== candId));
-      onNotify(`Closed ticket ${candId} via Action Gateway.`, "success");
-    }
-  };
-
-  const toggleCard = (id: string) => {
-    setExpandedCardIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (allExpanded) {
-      setExpandedCardIds(new Set());
-      setAllExpanded(false);
-    } else {
-      const allIds = new Set([
-        ...workflows.map((w) => w.id),
-        ...templates.map((t) => t.id),
-        "sim_preset_1", "sim_preset_2", "sim_preset_3", "sim_prop_0", "sim_prop_1",
-      ]);
-      setExpandedCardIds(allIds);
-      setAllExpanded(true);
-    }
-  };
-
-  // Workflow Automations List
-  const [workflows, setWorkflows] = useState([
-    {
-      id: "wf_001",
-      name: "VIP Churn & Frustration Fast-Track",
-      category: "Customer Retention",
-      trigger: "Sentiment == Frustrated AND CustomerTier == Enterprise",
-      action: "Auto-Escalate to Tier 2 Lead + Broadcast Slack #cx-oncall",
-      status: "active",
-      executionsToday: 24,
-      varrImpact: "+14.2%",
-      lastRun: "3 mins ago",
-      description: "Monitors real-time NLP sentiment across omnichannel ingress. Immediately halts auto-resolution and alerts human TAM for Enterprise VIP accounts.",
-    },
-    {
-      id: "wf_002",
-      name: "E-Commerce Checkout Glitch Auto-Refund",
-      category: "Billing & Commerce",
-      trigger: "Intent == Refund AND Problem == PRB-401 AND Amount <= $50",
-      action: "Execute OrderV8 Refund API + Send Confirmation Macro",
-      status: "active",
-      executionsToday: 68,
-      varrImpact: "+22.5%",
-      lastRun: "Just now",
-      description: "Idempotent payment refund pipeline governed by Temporal workforce spine with automatic reconciliation in OrderV8.",
-    },
-    {
-      id: "wf_003",
-      name: "Dormant Ticket Backlog Sweeper",
-      category: "Hygiene & Sweep",
-      trigger: "LastCustomerMessageAge > 72h AND Status == Pending",
-      action: "Send Polite Follow-Up Macro -> Auto-Close after 24h",
-      status: "active",
-      executionsToday: 142,
-      varrImpact: "+9.8%",
-      lastRun: "12 mins ago",
-      description: "Automated work sweeper cleaning inactive queue backlog without human intervention, maintaining 99.4% database hygiene.",
-    },
-    {
-      id: "wf_004",
-      name: "Knowledge Deficit Resolution Mining",
-      category: "RAG & Knowledge",
-      trigger: "InteractionStatus == Resolved AND FCR == True AND UnlinkedKnowledge",
-      action: "Jordan Authors Draft Knowledge Proposal in KV8",
-      status: "active",
-      executionsToday: 18,
-      varrImpact: "+6.4%",
-      lastRun: "45 mins ago",
-      description: "Mines unassisted first-contact resolutions and drafts vector embeddings in KnowledgeV8 to close institutional knowledge gaps.",
-    },
-    {
-      id: "wf_005",
-      name: "Payment Gateway 504 SRE Broadcast",
-      category: "Systemic Incident",
-      trigger: "ProblemSeverity == Critical AND CorrelatedCases >= 5",
-      action: "Trigger Proactive Customer In-App Banner + Dispatch SRE Page",
-      status: "active",
-      executionsToday: 12,
-      varrImpact: "+18.0%",
-      lastRun: "1 hour ago",
-      description: "Detects systemic incident clustering and broadcasts proactive status updates to affected accounts before SLA breach.",
-    },
-    {
-      id: "wf_006",
-      name: "SLA Pre-Breach 45-Min Buffer Extension",
-      category: "SLA Protection",
-      trigger: "RemainingSLABuffer <= 15m AND Status == In_Triage",
-      action: "Extend Target by 45 mins + Alert Support Personnel",
-      status: "active",
-      executionsToday: 31,
-      varrImpact: "+11.3%",
-      lastRun: "18 mins ago",
-      description: "Dynamically grants automated safety grace periods on complex enterprise investigations to prevent false breach penalties.",
-    },
-  ]);
-
-  // Scenario Templates (Default Deploy)
-  const [templates] = useState([
-    {
-      id: "tmpl_ecom",
-      name: "E-Commerce Order & Refund Auto-Resolution",
-      category: "Commerce",
-      description: "End-to-end pipeline connecting OrderV8 with Zendesk & Intercom to automatically verify order delivery status and execute instant refunds under $50.",
-      icon: "fi fi-rr-shopping-cart",
-      aiEmployee: "Alex (Support Lead)",
-      triggers: ["Order Status Inquiry", "Duplicate Charge Claim", "Return Label Request"],
-      executionModel: "Autonomous Zero-Human-Touch",
-      isDeployed: true,
-      slaTarget: "< 2 mins",
-    },
-    {
-      id: "tmpl_saas",
-      name: "SaaS Outage Blast Radius & Proactive Broadcast",
-      category: "SRE & Incident",
-      description: "Correlates telemetry spikes from Dominion AIOps, computes affected customer ARR blast radius, and auto-dispatches in-app banners and emails.",
-      icon: "fi fi-rr-cloud",
-      aiEmployee: "Maya (Incident Analyst)",
-      triggers: ["504 Gateway Timeout Spike", "Database Degraded Event", "Webhook Delivery Failure"],
-      executionModel: "Governed Copilot Action",
-      isDeployed: true,
-      slaTarget: "< 5 mins",
-    },
-    {
-      id: "tmpl_voice",
-      name: "Twilio IVR Voice Self-Service & Telephony Copilot",
-      category: "Telephony",
-      description: "Streamlined voice contact center flow with real-time transcription by Echo and automated voice biometrics validation.",
-      icon: "fi fi-rr-headset",
-      aiEmployee: "Echo (Voice Intern)",
-      triggers: ["Inbound SIP Trunk Call", "PIN Phone Verification", "Emergency Voicemail Ingress"],
-      executionModel: "Real-time Telephony Streaming",
-      isDeployed: false,
-      slaTarget: "Immediate Live Call",
-    },
-    {
-      id: "tmpl_kb",
-      name: "Autonomous Knowledge Base Deficit Mining",
-      category: "Knowledge",
-      description: "Continuously monitors unassisted resolution threads and generates vector embeddings to maintain zero knowledge deficit gaps.",
-      icon: "fi fi-rr-brain",
-      aiEmployee: "Jordan (Knowledge Specialist)",
-      triggers: ["High Customer Effort Score", "New Undocumented Resolution", "Knowledge Deficit Spike"],
-      executionModel: "Background Scheduled Cron",
-      isDeployed: true,
-      slaTarget: "Continuous RAG Sync",
-    },
-    {
-      id: "tmpl_identity",
-      name: "Enterprise SAML / SSO Auto-Provisioning",
-      category: "Security & IAM",
-      description: "Diagnoses identity handshake errors, verifies tenant domain TXT records, and re-provisions Okta/Azure AD configurations.",
-      icon: "fi fi-rr-shield-check",
-      aiEmployee: "Sophia (Frontline AI)",
-      triggers: ["SAML Assertion Failed", "SCIM User Sync Timeout", "IdP Certificate Expiry"],
-      executionModel: "Governed Policy Gate",
-      isDeployed: false,
-      slaTarget: "< 10 mins",
-    },
-    {
-      id: "tmpl_churn",
-      name: "VIP Account Health & Retention Interceptor",
-      category: "Customer Success",
-      description: "Calculates live churn risk probability and triggers high-touch intervention by Senior TAM when account sentiment drops.",
-      icon: "fi fi-rr-chart-line-up",
-      aiEmployee: "Elena Rostova (Lead TAM)",
-      triggers: ["Repeated P1 Escalation", "CSAT Rating <= 2", "Renewal Within 60 Days"],
-      executionModel: "Human-in-the-Loop Fast-Track",
-      isDeployed: true,
-      slaTarget: "< 30 mins",
-    },
-  ]);
-
-  // Simulator State
-  const [simMessage, setSimMessage] = useState<string>("I was double-charged $49.00 on checkout step 3 and need an immediate refund.");
-  const [simTier, setSimTier] = useState<"standard" | "pro" | "enterprise">("enterprise");
-  const [simMode, setSimMode] = useState<OperatingMode>("autonomous");
-  const [simResult, setSimResult] = useState<any | null>(null);
-  const [simLoading, setSimLoading] = useState<boolean>(false);
-
-  const SIMULATOR_PRESETS = [
-    {
-      id: "sim_preset_1",
-      title: "Checkout Double-Charge ($49 Refund)",
-      tier: "enterprise",
-      mode: "autonomous",
-      message: "I was double-charged $49.00 on checkout step 3 and need an immediate refund for order #ORD-9912.",
-    },
-    {
-      id: "sim_preset_2",
-      title: "SAML SSO Auth 500 Outage",
-      tier: "enterprise",
-      mode: "copilot",
-      message: "Our entire engineering team is locked out with SAML SSO 500 internal server error. This is a critical blocker.",
-    },
-    {
-      id: "sim_preset_3",
-      title: "Twilio IVR Voice Billing Claim",
-      tier: "pro",
-      mode: "autonomous",
-      message: "Twilio telephony ingress: caller states subscription renewed unexpectedly without prior notice.",
-    },
-  ];
-
-  const handleRunSimulator = async (msg?: string, tier?: any, mode?: any) => {
-    const queryMsg = msg || simMessage;
-    const queryTier = tier || simTier;
-    const queryMode = mode || simMode;
-
-    setSimLoading(true);
-    try {
-      const res = await fetch("/api/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "evaluate_and_execute",
-          message: queryMsg,
-          customerTier: queryTier,
-          operatingMode: queryMode,
-        }),
-      }).then((r) => r.json());
-
-      if (res.success) {
-        setSimResult(res.data);
-        onNotify("Agentic loop evaluated successfully", "success");
-      }
-    } catch (err) {
-      onNotify("Simulation failed", "error");
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
-  const handleDeployTemplate = (templateName: string) => {
-    onNotify(`Scenario template "${templateName}" deployed to active workflows!`, "success");
-  };
-
-  // Filtered lists based on search
-  const filteredWorkflows = workflows.filter((wf) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      wf.name.toLowerCase().includes(q) ||
-      wf.id.toLowerCase().includes(q) ||
-      wf.category.toLowerCase().includes(q) ||
-      wf.trigger.toLowerCase().includes(q) ||
-      wf.action.toLowerCase().includes(q)
-    );
-  });
-
-  const filteredTemplates = templates.filter((t) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      t.name.toLowerCase().includes(q) ||
-      t.category.toLowerCase().includes(q) ||
-      t.description.toLowerCase().includes(q) ||
-      t.triggers.some((tr) => tr.toLowerCase().includes(q)) ||
-      t.aiEmployee.toLowerCase().includes(q)
-    );
-  });
-
   return (
     <div className="space-y-6">
-      {/* Top Studio Hero Banner */}
-      <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col lg:flex-row lg:items-center justify-between gap-5 rounded-2xl shadow-sm">
-        <div className="space-y-1.5 max-w-2xl">
+      {/* Header Banner */}
+      <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
-              <Cpu className="w-5 h-5" />
+            <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+              <SlidersHorizontal className="w-5 h-5" />
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Autonomous Studio</h1>
-                <span className="pill ok text-[9px] font-mono">SERVICEV8 MANAGEMENT COCKPIT</span>
-              </div>
-              <span className="text-[11px] font-mono text-[#2ED8B6]">Manage All Onboarded Packages, Workflows &amp; Sweeps</span>
-            </div>
+            <h2 className="text-xl font-bold text-[#EAF1F8]">Studio</h2>
+            <span className="pill ok text-[10px] font-mono">SERVICEV8 MANAGEMENT COCKPIT</span>
           </div>
+          <p className="text-xs text-[#8A99AD] max-w-2xl">
+            Manage All Onboarded Packages, Workflows &amp; Sweeps in ServiceV8 Studio. SupportV8 executes authoritative projections governed from the central runtime.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {onNavigateToMarketplace && (
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <a
+            href={studioUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Open Studio ↗</span>
+          </a>
+
+          {onNavigateToMarketplace ? (
             <button
-              type="button"
               onClick={onNavigateToMarketplace}
-              className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer hover:border-[#2ED8B6]/50"
+              className="btn btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
             >
               <ShoppingBag className="w-3.5 h-3.5 text-[#2ED8B6]" />
               <span>Onboard in Marketplace</span>
             </button>
+          ) : (
+            <a
+              href={MARKETPLACE_EXTERNAL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <span>Onboard in Marketplace</span>
+            </a>
           )}
 
           {onNavigateToInstalled && (
             <button
-              type="button"
               onClick={onNavigateToInstalled}
-              className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 cursor-pointer"
+              className="btn btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
             >
-              <Box className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <Box className="w-3.5 h-3.5 text-[#5999ec]" />
               <span>Installed Products</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs */}
-      <div className="flex flex-nowrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)] overflow-x-auto max-w-full scrollbar-none">
-        {[
-          { id: "setup", label: "Employee Setup", badge: "3-Step" },
-          { id: "fleet", label: "Connector Fleet", badge: connections.length },
-          { id: "workflows", label: "Active Workflows", badge: workflows.length },
-          { id: "templates", label: "Scenario Templates", badge: templates.length },
-          { id: "simulator", label: "Autonomy Simulator" },
-          { id: "sweeps", label: "Work Sweep", badge: staleCandidates.length },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveSubTab(tab.id as any)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
-              activeSubTab === tab.id
-                ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-bold"
-                : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-            }`}
-          >
-            <span>{tab.label}</span>
-            {tab.badge !== undefined && (
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                activeSubTab === tab.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
-              }`}>
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Global Studio Filter & Search Toolbar */}
-      <div className="card p-4 rounded-2xl bg-[#121A24] border-[var(--line)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-lg flex items-center">
-          <Search className="w-4 h-4 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search automations, triggers, actions, categories..."
-            className="w-full bg-[#18222E] text-xs text-[#EAF1F8] !pl-10 pr-8 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2.5 text-[#6B7C8D] hover:text-[#EAF1F8]"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <button
-            type="button"
-            onClick={toggleAll}
-            className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
-          >
-            {allExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span>{allExpanded ? "Collapse All Cards" : "Expand All Cards"}</span>
-          </button>
+      {/* Architecture Standard Notice */}
+      <div className="p-4 rounded-xl bg-[#121A24] border border-[var(--line)] flex items-start gap-3">
+        <ShieldCheck className="w-5 h-5 text-[#2ED8B6] shrink-0 mt-0.5" />
+        <div className="text-xs text-[#8A99AD] space-y-1">
+          <p className="font-semibold text-[#EAF1F8]">Studio Architecture</p>
+          <p>
+            Studio is a separate surface (<code className="text-[#2ED8B6]">studio.servicev8.com</code>). It owns cross-vertical DAG orchestration, approval timelocks, and connector credentials in SSM Parameter Store.
+          </p>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* SUB-TAB 1: Active Workflows & Automations */}
-      {/* ========================================================================= */}
+      {/* Sub Tabs */}
+      <div className="flex items-center gap-2 border-b border-[var(--line)] pb-2 text-xs font-mono">
+        <button
+          onClick={() => setActiveSubTab("workflows")}
+          className={`py-1.5 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeSubTab === "workflows"
+              ? "bg-[#2ED8B6]/15 text-[#2ED8B6] font-bold"
+              : "text-[#8A99AD] hover:text-[#EAF1F8]"
+          }`}
+        >
+          Workflows
+        </button>
+        <button
+          onClick={() => setActiveSubTab("sweeps")}
+          className={`py-1.5 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeSubTab === "sweeps"
+              ? "bg-[#2ED8B6]/15 text-[#2ED8B6] font-bold"
+              : "text-[#8A99AD] hover:text-[#EAF1F8]"
+          }`}
+        >
+          Sweeps
+        </button>
+        <button
+          onClick={() => setActiveSubTab("fleet")}
+          className={`py-1.5 px-3 rounded-lg transition-colors cursor-pointer ${
+            activeSubTab === "fleet"
+              ? "bg-[#2ED8B6]/15 text-[#2ED8B6] font-bold"
+              : "text-[#8A99AD] hover:text-[#EAF1F8]"
+          }`}
+        >
+          Fleet
+        </button>
+      </div>
+
+      {/* TAB CONTENT: WORKFLOWS */}
       {activeSubTab === "workflows" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold font-mono text-[#EAF1F8] flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-[#2ED8B6]" />
-              <span>Configured Triggers &amp; Action Pipelines ({filteredWorkflows.length})</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => onNotify("New workflow builder opened", "info")}
-              className="btn btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create Automation</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-            {filteredWorkflows.map((wf) => {
-              const isExpanded = expandedCardIds.has(wf.id);
-              return (
-                <div
-                  key={wf.id}
-                  className="card p-4 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-3 hover:border-[var(--line-2)] transition-all shadow-md"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card p-5 border-[var(--line)] bg-[#121A24] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="p-2 rounded-lg bg-[#2ED8B6]/10 text-[#2ED8B6]">
+                  <Cpu className="w-4 h-4" />
+                </span>
+                <span className="pill ok text-[9px] font-mono">Onboarded Package</span>
+              </div>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">DAG Orchestration</h3>
+              <p className="text-xs text-[#8A99AD] leading-relaxed">
+                Multi-step deterministic workflows coordinated by Temporal and Action Gateway with idempotency.
+              </p>
+              <div className="pt-2">
+                <a
+                  href={`${studioUrl}&tab=workflows`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
                 >
-                  {/* Compact Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <span className="font-mono font-bold text-xs text-[#2ED8B6] bg-[#2ED8B6]/10 px-2 py-0.5 rounded-lg border border-[#2ED8B6]/20 shrink-0">
-                        {wf.id}
-                      </span>
-                      <div className="min-w-0 flex-1 overflow-hidden">
-                        <h3 className="text-xs font-bold text-[#EAF1F8] truncate">{wf.name}</h3>
-                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap min-w-0">
-                          <span className="text-[10px] text-[#6B7C8D] font-mono truncate max-w-full">{wf.category}</span>
-                          <span className="text-[9px] text-[#2ED8B6] font-mono bg-[#2ED8B6]/10 px-1.5 py-0.2 rounded border border-[#2ED8B6]/20 shrink-0">
-                            Onboarded Package
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                  <span>Edit in Studio ↗</span>
+                </a>
+              </div>
+            </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 w-full sm:w-auto">
-                      <span className="pill ok text-[9px] font-mono uppercase">
-                        <i className="dot"></i>
-                        {wf.status}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleCard(wf.id)}
-                        className="p-1 rounded-lg hover:bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-                        title={isExpanded ? "Collapse details" : "Expand details"}
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
+            <div className="card p-5 border-[var(--line)] bg-[#121A24] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="p-2 rounded-lg bg-[#5999ec]/10 text-[#5999ec]">
+                  <Shield className="w-4 h-4" />
+                </span>
+                <span className="pill text-[9px] font-mono text-[#8A99AD]">Governance</span>
+              </div>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">Tiered Autonomy</h3>
+              <p className="text-xs text-[#8A99AD] leading-relaxed">
+                Quantitative spending and refund thresholds enforced before tool dispatch with Four-Eyes TOTP.
+              </p>
+              <div className="pt-2">
+                <a
+                  href={`${studioUrl}&tab=governance`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
+                >
+                  <span>Set Limits ↗</span>
+                </a>
+              </div>
+            </div>
 
-                  {/* Compact Summary Preview */}
-                  {!isExpanded && (
-                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono bg-[#18222E] px-3 py-1.5 rounded-xl border border-[var(--line)] text-[#B4C2D0]">
-                      <div className="truncate min-w-0 flex-1">
-                        <span className="text-[#F5A623]">WHEN:</span> {wf.trigger}
-                      </div>
-                      <span className="text-[#2ED8B6] font-bold shrink-0">{wf.varrImpact} VARR</span>
-                    </div>
-                  )}
-
-                  {/* Expanded Full Details */}
-                  {isExpanded && (
-                    <div className="space-y-2.5 pt-1 text-xs font-mono animate-in fade-in-50 duration-150">
-                      <p className="text-[11px] text-[#B4C2D0] font-sans leading-relaxed">
-                        {wf.description}
-                      </p>
-
-                      <div className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] space-y-1">
-                        <span className="text-[10px] text-[#F5A623] block font-bold">WHEN (Trigger):</span>
-                        <p className="text-[11px] text-[#EAF1F8]">{wf.trigger}</p>
-                      </div>
-
-                      <div className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] space-y-1">
-                        <span className="text-[10px] text-[#4CC38A] block font-bold">THEN (Action):</span>
-                        <p className="text-[11px] text-[#EAF1F8]">{wf.action}</p>
-                      </div>
-
-                      <div className="pt-2 flex items-center justify-between border-t border-[var(--line)] text-[10px] text-[#6B7C8D]">
-                        <span>Last Run: <strong className="text-[#EAF1F8]">{wf.lastRun}</strong></span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onNotify(`Triggered test run for ${wf.id}`, "success")}
-                            className="btn btn-secondary py-1 px-2 text-[10px] flex items-center gap-1 cursor-pointer hover:text-[#2ED8B6]"
-                          >
-                            <Play className="w-2.5 h-2.5 text-[#2ED8B6]" />
-                            <span>Test</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Compact Footer Strip */}
-                  <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-[10px] font-mono text-[#6B7C8D]">
-                    <span>Executions Today: <strong className="text-[#EAF1F8]">{wf.executionsToday}</strong></span>
-                    <span className="text-[#2ED8B6] font-bold">VARR Impact: {wf.varrImpact}</span>
-                  </div>
-                </div>
-              );
-            })}
+            <div className="card p-5 border-[var(--line)] bg-[#121A24] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="p-2 rounded-lg bg-[#f59e0b]/10 text-[#f59e0b]">
+                  <Plug className="w-4 h-4" />
+                </span>
+                <span className="pill text-[9px] font-mono text-[#8A99AD]">Integrations</span>
+              </div>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">Provider Pipes</h3>
+              <p className="text-xs text-[#8A99AD] leading-relaxed">
+                Decoupled connection pipes and employee capability assignments managed securely without credential exposure.
+              </p>
+              <div className="pt-2">
+                <a
+                  href={`${studioUrl}&tab=integrations`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#2ED8B6] hover:underline flex items-center gap-1"
+                >
+                  <span>Configure Pipes ↗</span>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SUB-TAB 2: Default Deploy Scenario Templates */}
-      {/* ========================================================================= */}
-      {activeSubTab === "templates" && (
+      {/* TAB CONTENT: SWEEPS */}
+      {activeSubTab === "sweeps" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Scenario Blueprints</h3>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">Queue Sweeps</h3>
+              <p className="text-xs text-[#6B7C8D]">Reconcile dormant or inactive customer inquiries automatically.</p>
             </div>
-            <span className="pill ok text-[10px] font-mono">TEMPORAL ORCHESTRATED</span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-            {filteredTemplates.map((tmpl) => {
-              const isExpanded = expandedCardIds.has(tmpl.id);
-              return (
-                <div
-                  key={tmpl.id}
-                  className="card p-4 rounded-2xl border-[var(--line)] bg-[#121A24] flex flex-col justify-between space-y-3 hover:border-[var(--line-2)] transition-all shadow-md"
-                >
-                  <div className="space-y-2.5">
-                    {/* Compact Template Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-9 h-9 rounded-xl bg-[#18222E] border border-[var(--line-2)] flex items-center justify-center text-base text-[#2ED8B6] shrink-0">
-                          <i className={tmpl.icon} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-bold text-[#EAF1F8] truncate">{tmpl.name}</h4>
-                          <span className="text-[10px] text-[#6B7C8D] font-mono uppercase block truncate">
-                            {tmpl.category} • Lead: {tmpl.aiEmployee}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`pill text-[9px] font-mono ${tmpl.isDeployed ? "ok" : ""}`}>
-                          {tmpl.isDeployed ? "DEPLOYED" : "READY"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => toggleCard(tmpl.id)}
-                          className="p-1 rounded-lg hover:bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-                          title={isExpanded ? "Collapse blueprint" : "Expand blueprint"}
-                        >
-                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Compact Triggers Preview */}
-                    {!isExpanded && (
-                      <div className="flex items-center justify-between gap-2 text-[10px] font-mono bg-[#18222E] px-3 py-1.5 rounded-xl border border-[var(--line)] text-[#6B7C8D]">
-                        <span className="truncate min-w-0 flex-1">
-                          Triggers: <strong className="text-[#2ED8B6]">{tmpl.triggers[0]}</strong> + {tmpl.triggers.length - 1} more
-                        </span>
-                        <span className="text-[#4CC38A] shrink-0">{tmpl.slaTarget}</span>
-                      </div>
-                    )}
-
-                    {/* Expanded Blueprint Details */}
-                    {isExpanded && (
-                      <div className="space-y-3 pt-1 text-xs animate-in fade-in-50 duration-150">
-                        <p className="text-[11px] text-[#B4C2D0] leading-relaxed font-sans">
-                          {tmpl.description}
-                        </p>
-
-                        <div className="space-y-1 font-mono">
-                          <span className="text-[10px] text-[#6B7C8D] uppercase block font-bold">
-                            Active Ingress Triggers:
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {tmpl.triggers.map((trig, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 rounded-md bg-[#18222E] border border-[var(--line)] text-[10px] text-[#2ED8B6] font-mono"
-                              >
-                                {trig}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center justify-between text-[10px] font-mono text-[#6B7C8D]">
-                          <span>Execution Spine: <strong className="text-[#EAF1F8]">{tmpl.executionModel}</strong></span>
-                          <span>SLA Guarantee: <strong className="text-[#4CC38A]">{tmpl.slaTarget}</strong></span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions Footer */}
-                  <div className="pt-2.5 border-t border-[var(--line)] flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-[#4CC38A] flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Production Ready
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeployTemplate(tmpl.name)}
-                      className="btn btn-primary py-1.5 px-3.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      <Zap className="w-3 h-3" />
-                      <span>{tmpl.isDeployed ? "Re-Deploy" : "Deploy Blueprint"}</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SUB-TAB 3: Autonomy Simulator & Safety Policy Gates */}
-      {/* ========================================================================= */}
-      {activeSubTab === "simulator" && (
-        <div className="space-y-4">
-          {/* Quick Simulation Presets Strip */}
-          <div className="card p-4 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-[#EAF1F8] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Quick Scenario Presets (1-Click Load)</span>
-              </span>
-              <span className="text-[10px] text-[#6B7C8D] font-mono">Interactive Edge Gateway Tests</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {SIMULATOR_PRESETS.map((preset) => (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchSweeps}
+                disabled={loadingSweeps}
+                className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 font-mono"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingSweeps ? "animate-spin" : ""}`} />
+                <span>Refresh</span>
+              </button>
+              {staleCandidates.length > 0 && (
                 <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => {
-                    setSimMessage(preset.message);
-                    setSimTier(preset.tier as any);
-                    setSimMode(preset.mode as any);
-                    handleRunSimulator(preset.message, preset.tier, preset.mode);
-                  }}
-                  className="p-2.5 rounded-xl bg-[#18222E] border border-[var(--line)] text-left hover:border-[#2ED8B6] transition-all cursor-pointer group"
+                  onClick={handleExecuteAllSafe}
+                  disabled={sweepExecuting}
+                  className="btn btn-primary py-1.5 px-3 text-xs flex items-center gap-1 font-mono"
                 >
-                  <div className="flex items-center justify-between pb-1">
-                    <span className="font-bold text-xs text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">{preset.title}</span>
-                    <span className="pill text-[8.5px] uppercase font-mono">{preset.tier}</span>
-                  </div>
-                  <p className="text-[10px] text-[#6B7C8D] line-clamp-1">{preset.message}</p>
+                  <span>Sweep All</span>
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Simulator Form Configuration */}
-            <div className="card p-4 space-y-3.5 bg-[#121A24] rounded-2xl border-[var(--line)]">
-              <h3 className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5 font-mono">
-                <Sliders className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                <span>Interaction Simulator</span>
-              </h3>
-
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-[#6B7C8D] block mb-1 font-mono text-[10px] uppercase">Customer Input Message</label>
-                  <textarea
-                    value={simMessage}
-                    onChange={(e) => setSimMessage(e.target.value)}
-                    rows={3}
-                    className="w-full bg-[#18222E] text-[#EAF1F8] p-2.5 rounded-xl border border-[var(--line-2)] font-mono text-xs focus:outline-none focus:border-[#2ED8B6] resize-y min-h-[70px]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[#6B7C8D] block mb-1 font-mono text-[10px] uppercase">Customer Tier</label>
-                  <select
-                    value={simTier}
-                    onChange={(e) => setSimTier(e.target.value as any)}
-                    className="w-full bg-[#18222E] text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none cursor-pointer font-mono"
-                  >
-                    <option value="standard">Standard Tier ($1,200 ARR)</option>
-                    <option value="pro">Pro Tier ($14,400 ARR)</option>
-                    <option value="enterprise">Enterprise Tier ($120,000 ARR)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[#6B7C8D] block mb-1 font-mono text-[10px] uppercase">Autonomy Gate Mode</label>
-                  <div className="grid grid-cols-3 gap-1.5 font-mono">
-                    {(["observe", "copilot", "autonomous"] as OperatingMode[]).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setSimMode(m)}
-                        className={`btn text-xs font-semibold capitalize cursor-pointer transition-all ${
-                          simMode === m ? "btn-primary shadow-sm" : "btn-secondary"
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleRunSimulator()}
-                  disabled={simLoading}
-                  className="btn btn-primary w-full py-2.5 text-xs font-bold cursor-pointer mt-1 flex items-center justify-center gap-2 shadow-md"
-                >
-                  <Bot className="w-4 h-4" />
-                  <span>{simLoading ? "Evaluating Autonomy Loop..." : "Run Agentic Loop"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Results Console */}
-            <div className="lg:col-span-2 card p-4 space-y-3.5 bg-[#121A24] rounded-2xl border-[var(--line)]">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5 font-mono">
-                  <Shield className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                  <span>Execution Results</span>
-                </h3>
-                {simResult && (
-                  <span className="pill ok text-[9px] font-mono uppercase">SAFETY PASS</span>
-                )}
-              </div>
-
-              {simResult ? (
-                <div className="space-y-3 text-xs font-mono">
-                  <div className="p-3.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] text-[#EAF1F8] leading-relaxed">
-                    <div className="text-[10px] text-[#2ED8B6] font-bold uppercase mb-1">AI Recommendation &amp; Triage:</div>
-                    {simResult.resolution?.recommendation || "Evaluated action proposals with safety compliance."}
-                  </div>
-
-                  <div className="space-y-2">
-                    <span className="text-[10px] text-[#6B7C8D] uppercase block font-bold">
-                      Evaluated Action Gateway Proposals ({simResult.evaluatedProposals?.length || 0}):
-                    </span>
-                    {simResult.evaluatedProposals?.map((ep: any, i: number) => {
-                      const propId = `sim_prop_${i}`;
-                      const isExpanded = expandedCardIds.has(propId);
-                      return (
-                        <div key={i} className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-[#2ED8B6]">{ep.proposal.operationId}</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="pill ok text-[9px] uppercase font-mono">{ep.risk} Risk</span>
-                              <button
-                                type="button"
-                                onClick={() => toggleCard(propId)}
-                                className="p-1 rounded-lg hover:bg-[#121A24] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
-                              >
-                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-
-                          <p className="text-[11px] text-[#B4C2D0] font-sans">{ep.proposal.reason}</p>
-
-                          <div className="text-[10px] pt-1 text-[#4CC38A] font-bold uppercase flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Decision: {ep.decision.outcome} ({ep.decision.basis || "safety-pass"})
-                          </div>
-
-                          {isExpanded && ep.proposal.payload && (
-                            <div className="pt-2 border-t border-[var(--line)]">
-                              <span className="text-[9px] text-[#6B7C8D] block mb-1">Action Payload JSON:</span>
-                              <pre className="p-2 rounded-lg bg-[#0C121A] text-[#2ED8B6] text-[10px] overflow-x-auto">
-                                {JSON.stringify(ep.proposal.payload, null, 2)}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-16 text-[#6B7C8D] text-xs font-mono space-y-2">
-                  <Bot className="w-8 h-8 mx-auto text-[#6B7C8D]/40" />
-                  <p>Click a quick preset above or hit &ldquo;Run Agentic Loop&rdquo; to test runtime reasoning and action gating.</p>
-                </div>
               )}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* SUB-TAB: AUTONOMOUS WORK SWEEP & DORMANCY CLEANER */}
-      {activeSubTab === "sweeps" && (
-        <div className="space-y-4">
-          <div className="card p-5 bg-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-base font-bold text-[#EAF1F8]">Work Sweeper</h3>
-              </div>
-            </div>
-            {staleCandidates.length > 0 && (
-              <button
-                type="button"
-                onClick={handleExecuteAllSafe}
-                disabled={sweepExecuting}
-                className="btn btn-primary text-xs font-semibold cursor-pointer flex items-center gap-2 shadow-sm"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>{sweepExecuting ? "Executing Batch Sweep..." : `Execute Batch Close (${staleCandidates.length})`}</span>
-              </button>
-            )}
-          </div>
-
-          {staleCandidates.length > 0 ? (
-            <div className="space-y-2">
-              {staleCandidates.map((cand) => (
-                <div
-                  key={cand.id}
-                  className="card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-[#15202E] border-[var(--line)] hover:border-[#2ED8B6]/30 transition-all"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-[#EAF1F8]">{cand.externalId}</span>
-                      <span className="text-[#6B7C8D]">({cand.daysInactive} days inactive)</span>
-                      {cand.safeToClose && (
-                        <span className="pill ok text-[10px]">Safe to Close</span>
-                      )}
-                    </div>
-                    <p className="text-[#B4C2D0] text-[11px]">{cand.suggestedNote}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleExecuteSingle(cand.id)}
-                    className="btn btn-secondary text-xs cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                    <span>Close Ticket</span>
-                  </button>
-                </div>
-              ))}
+          {staleCandidates.length === 0 ? (
+            <div className="card p-12 text-center border-[var(--line)] bg-[#121A24] space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-[#2ED8B6] mx-auto opacity-75" />
+              <h4 className="text-sm font-bold text-[#EAF1F8]">No Sweeps</h4>
+              <p className="text-xs text-[#6B7C8D] max-w-sm mx-auto">
+                All inactive inquiries are currently reconciled. Sweeps run continuously in the background.
+              </p>
             </div>
           ) : (
-            <div className="card p-12 text-center space-y-3 bg-[#121A24] border-[var(--line)]">
-              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <h4 className="text-sm font-bold text-[#EAF1F8]">Queue Clear</h4>
-              <p className="text-xs text-[#6B7C8D] max-w-md mx-auto">
-                All external and dormant work tickets have been swept and archived.
-              </p>
+            <div className="divide-y divide-[var(--line)] card border-[var(--line)] bg-[#121A24]">
+              {staleCandidates.map((c) => (
+                <div key={c.id} className="p-4 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-mono font-bold text-[#EAF1F8]">{c.externalId}</span>
+                    <p className="text-[#8A99AD] mt-0.5">{c.suggestedNote}</p>
+                  </div>
+                  <span className="pill ok text-[10px] font-mono">Safe</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SUB-TAB 5: Canonical Employee Onboarding Wizard (Voice -> Connections -> Review & Activate) */}
-      {/* ========================================================================= */}
-      {activeSubTab === "setup" && (
-        <div className="space-y-6">
-          {/* Wizard Header & Employee Selector */}
-          <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
-                  <Bot className="w-5 h-5" />
-                </span>
-                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Employee Onboarding</h2>
-              </div>
-            </div>
-
-            {/* Target Employee Selector */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-[#6B7C8D] font-mono">Configuring:</span>
-              <select
-                value={selectedEmployeeId}
-                onChange={(e) => {
-                  setSelectedEmployeeId(e.target.value);
-                  setActivationSuccess(false);
-                }}
-                className="bg-[#18222E] border border-[var(--line)] rounded-xl px-3 py-2 text-xs font-bold text-[#EAF1F8] focus:border-[#2ED8B6] focus:outline-none font-mono"
-              >
-                {workforceList
-                  .filter((w) => w.level === "ai_employee")
-                  .map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.role})
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 3-Step Progress Indicator */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {[
-              { id: "voice", step: "Step 1", title: "Voice Telephony", desc: "$59/mo • 100 mins • Local Pool" },
-              { id: "connections", step: "Step 2", title: "Two-Tier Connections", desc: "SSM Pipes & Capability Grants" },
-              { id: "review", step: "Step 3", title: "Review & Activate", desc: "Billing Period & Preflight Gate" },
-            ].map((s) => {
-              const isActive = setupStep === s.id;
-              const isPast =
-                (s.id === "voice" && (setupStep === "connections" || setupStep === "review")) ||
-                (s.id === "connections" && setupStep === "review");
-
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSetupStep(s.id as any)}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-[#2ED8B6]/10 border-[#2ED8B6] shadow-sm ring-1 ring-[#2ED8B6]/30"
-                      : isPast
-                      ? "bg-[#121A24] border-[#2ED8B6]/40 text-[#EAF1F8]"
-                      : "bg-[#121A24] border-[var(--line)] text-[#6B7C8D]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#2ED8B6] font-bold">
-                      {s.step}
-                    </span>
-                    {isPast && <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />}
-                  </div>
-                  <h4 className="text-sm font-bold text-[#EAF1F8]">{s.title}</h4>
-                  <p className="text-[11px] text-[#8E9AA8] mt-0.5">{s.desc}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* STEP 1: Voice Telephony Setup */}
-          {setupStep === "voice" && (
-            <div className="card p-6 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-5 h-5 text-[#2ED8B6]" />
-                    <h3 className="text-base font-bold text-[#EAF1F8]">Voice Subscription</h3>
-                  </div>
-                  <p className="text-xs text-[#B4C2D0]">
-                    Canonical voice pricing: $59 USD/month per employee. Includes 100 connected minutes, overflow billed at 90 credits/minute.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-[#2ED8B6] font-mono">$59</span>
-                  <span className="text-xs text-[#6B7C8D] font-mono"> / month</span>
-                </div>
-              </div>
-
-              {/* Mode Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div
-                  onClick={() => setVoiceMode("managed_v8")}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2 ${
-                    voiceMode === "managed_v8"
-                      ? "bg-[#2ED8B6]/10 border-[#2ED8B6] ring-1 ring-[#2ED8B6]/40"
-                      : "bg-[#18222E] border-[var(--line)] hover:border-[#2ED8B6]/30"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-[#2ED8B6]" />
-                      <span>Managed Sv8-Voice Warm Pool</span>
-                    </span>
-                    <span className="pill ok text-[9px] font-mono">RECOMMENDED</span>
-                  </div>
-                  <p className="text-xs text-[#8E9AA8]">
-                    Pre-provisioned, carrier-verified telephony numbers assigned directly from the ServiceV8 regional pool.
-                  </p>
-                </div>
-
-                <div
-                  onClick={() => setVoiceMode("customer_twilio")}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all space-y-2 ${
-                    voiceMode === "customer_twilio"
-                      ? "bg-[#2ED8B6]/10 border-[#2ED8B6] ring-1 ring-[#2ED8B6]/40"
-                      : "bg-[#18222E] border-[var(--line)] hover:border-[#2ED8B6]/30"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-[#4D9FFF]" />
-                      <span>Customer BYO Twilio Provider</span>
-                    </span>
-                    <span className="pill text-[9px] font-mono">BYO TRUNK</span>
-                  </div>
-                  <p className="text-xs text-[#8E9AA8]">
-                    Route calls through your existing Twilio SIP trunk and phone numbers stored in Action Gateway SSM.
-                  </p>
-                </div>
-              </div>
-
-              {/* Phone Number Selector */}
-              {voiceMode === "managed_v8" && (
-                <div className="space-y-2">
-                  <label className="text-xs font-mono text-[#6B7C8D] uppercase tracking-wider block">
-                    Select Warm-Pool Inbound Phone Number:
-                  </label>
-                  <select
-                    value={voicePhoneNumber}
-                    onChange={(e) => setVoicePhoneNumber(e.target.value)}
-                    className="w-full bg-[#18222E] border border-[var(--line)] rounded-xl px-4 py-2.5 text-xs font-mono text-[#EAF1F8] focus:border-[#2ED8B6] focus:outline-none"
-                  >
-                    <option value="+1 (415) 555-0199 (Managed Warm Pool)">+1 (415) 555-0199 — US West (San Francisco Pool)</option>
-                    <option value="+1 (800) 555-SV80 (Toll-Free Pool)">+1 (800) 555-SV80 — North America Toll-Free</option>
-                    <option value="+1 (212) 555-0144 (New York Pool)">+1 (212) 555-0144 — US East (New York Pool)</option>
-                    <option value="+44 20 7946 0912 (London Pool)">+44 20 7946 0912 — United Kingdom (London Pool)</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Voice Compliance & Consent */}
-              <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={voiceConsent}
-                    onChange={(e) => setVoiceConsent(e.target.checked)}
-                    className="mt-0.5 rounded border-[#2ED8B6] text-[#2ED8B6] focus:ring-0"
-                  />
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-[#EAF1F8]">
-                      AI Voice Recording &amp; Real-Time Transcription Consent
-                    </span>
-                    <p className="text-[11px] text-[#8E9AA8]">
-                      I confirm that inbound callers will receive standard dual-party recording notices and consent to automated AI synthesis.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Step Navigation Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
-                <span className="text-xs text-[#6B7C8D] font-mono">
-                  Draft configuration is free &bull; $59 charged upon final activation
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    marketplaceService.updateEmployeeOnboarding(selectedEmployeeId, {
-                      voice: {
-                        enabled: voiceEnabled,
-                        mode: voiceMode,
-                        phoneNumber: voicePhoneNumber,
-                        monthlyPriceUsd: 59,
-                        includedMinutes: 100,
-                        overflowCreditsPerMin: 90,
-                        consentGiven: voiceConsent,
-                      },
-                      currentStep: "connections",
-                    });
-                    setSetupStep("connections");
-                    onNotify("Voice parameters saved. Proceed to Two-Tier Connections.", "info");
-                  }}
-                  className="btn btn-primary py-2 px-5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
-                >
-                  <span>Continue to Connections</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: Two-Tier Connections & Assignments */}
-          {setupStep === "connections" && (
-            <div className="card p-6 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-6">
-              {/* Architecture Explanation Banner */}
-              <div className="p-4 rounded-xl bg-[#18222E] border border-[#2ED8B6]/30 flex items-start gap-3.5">
-                <div className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
-                    Authorization Architecture
-                  </h4>
-                  <p className="text-xs text-[#B4C2D0] leading-relaxed">
-                    <strong>1. Connection:</strong> Credentials configured once in Studio and stored strictly in <strong>Action Gateway AWS SSM</strong> (<code>/servicev8/action-gateway/tenants/:tenant/connectors/:key</code>).
-                    <br />
-                    <strong>2. Assignment:</strong> Explicit binding between <code>connectionId</code> and <code>employeeId</code>. Employees cannot execute tools without an active assignment.
-                    <br />
-                    <strong>3. Authorization Triangle:</strong> Granted Tool Scope = <code>Connection Capabilities &cap; Assignment Capabilities &cap; Role Grants</code>.
-                  </p>
-                </div>
-              </div>
-
-              {/* Connections List */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                    External Connections
-                  </h4>
-                  <span className="text-[11px] font-mono text-[#6B7C8D]">
-                    Toggle employee access and capability scopes
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  {connections.map((conn) => {
-                    const isAssigned = conn.assignedEmployeeIds.includes(selectedEmployeeId);
-                    const assignment = assignments.find(
-                      (a) => a.connectionId === conn.id && a.employeeId === selectedEmployeeId
-                    );
-
-                    return (
-                      <div
-                        key={conn.id}
-                        className={`p-4 rounded-xl border transition-all ${
-                          isAssigned
-                            ? "bg-[#18222E] border-[#2ED8B6]/50 shadow-sm"
-                            : "bg-[#15202E]/60 border-[var(--line)] opacity-80"
-                        }`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
-                          <div className="flex items-center gap-3">
-                            <span className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
-                              <Plug className="w-4 h-4" />
-                            </span>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h5 className="text-xs font-bold text-[#EAF1F8]">{conn.name}</h5>
-                                <span className="pill ok text-[9px] font-mono uppercase">{conn.status}</span>
-                                <span className="pill text-[9px] font-mono text-[#8E9AA8]">{conn.category}</span>
-                              </div>
-                              <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5">
-                                SSM: {conn.ssmPath}
-                              </span>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const selectedEmp = workforceList.find((w) => w.id === selectedEmployeeId);
-                              const res = marketplaceService.toggleEmployeeConnectionAssignment(
-                                conn.id,
-                                selectedEmployeeId,
-                                selectedEmp?.name || "AI Employee"
-                              );
-                              setConnections(marketplaceService.getConnectorConnections());
-                              setAssignments(marketplaceService.getConnectorAssignments());
-                              onNotify(
-                                res.assigned
-                                  ? `Assigned ${conn.name} to ${selectedEmp?.name || "employee"}`
-                                  : `Revoked ${conn.name} assignment`,
-                                "info"
-                              );
-                            }}
-                            className={`btn py-1.5 px-3 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer ${
-                              isAssigned
-                                ? "bg-[#2ED8B6] text-[#04201C] hover:bg-[#2ED8B6]/90"
-                                : "btn-secondary text-[#B4C2D0] hover:text-[#2ED8B6]"
-                            }`}
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>{isAssigned ? "Assigned" : "Assign to Employee"}</span>
-                          </button>
-                        </div>
-
-                        {/* Capabilities Chips */}
-                        <div className="pt-2.5 flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-mono text-[#6B7C8D] mr-1">Granted Scope:</span>
-                          {conn.capabilities.map((cap) => (
-                            <span
-                              key={cap}
-                              className={`pill text-[9px] font-mono ${
-                                isAssigned
-                                  ? "bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 font-bold"
-                                  : "bg-[#121A24] text-[#8E9AA8] border border-[var(--line)]"
-                              }`}
-                            >
-                              {cap}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step Navigation Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
-                <button
-                  type="button"
-                  onClick={() => setSetupStep("voice")}
-                  className="btn btn-secondary py-2 px-4 text-xs font-mono flex items-center gap-2 cursor-pointer"
-                >
-                  &larr; Back to Voice
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    marketplaceService.updateEmployeeOnboarding(selectedEmployeeId, {
-                      currentStep: "review",
-                    });
-                    setSetupStep("review");
-                    onNotify("Connector assignments saved. Proceeding to Review & Activate.", "info");
-                  }}
-                  className="btn btn-primary py-2 px-5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
-                >
-                  <span>Continue to Review &amp; Activate</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: Review & Activate */}
-          {setupStep === "review" && (
-            <div className="card p-6 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-[#2ED8B6]" />
-                    <h3 className="text-base font-bold text-[#EAF1F8]">Preflight Gate</h3>
-                  </div>
-                </div>
-              </div>
-
-              {/* Preflight Checklist */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
-                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-[#2ED8B6]" />
-                    <span>Preflight Checks</span>
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#B4C2D0]">Forge Gateway Billing Ledger:</span>
-                      <span className="pill ok text-[9px] font-mono">CURRENT PERIOD VERIFIED</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#B4C2D0]">Voice License Status:</span>
-                      <span className="pill ok text-[9px] font-mono">$59.00 PAID INVOICE</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#B4C2D0]">Action Gateway SSM Parameters:</span>
-                      <span className="pill ok text-[9px] font-mono">CREDENTIALS HEALTHY</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#B4C2D0]">Carrier SIP &amp; WebCall Routing:</span>
-                      <span className="pill ok text-[9px] font-mono">ACTIVE DISPATCH</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
-                  <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-[#2ED8B6]" />
-                    <span>Configuration Summary</span>
-                  </h4>
-                  {(() => {
-                    const emp = workforceList.find((w) => w.id === selectedEmployeeId);
-                    const assignedConns = connections.filter((c) =>
-                      c.assignedEmployeeIds.includes(selectedEmployeeId)
-                    );
-                    return (
-                      <div className="space-y-2 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#6B7C8D]">Employee:</span>
-                          <span className="font-bold text-[#EAF1F8]">{emp?.name || "AI Employee"}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#6B7C8D]">Voice Number:</span>
-                          <span className="font-mono text-[#2ED8B6]">{voicePhoneNumber}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#6B7C8D]">Assigned Connectors:</span>
-                          <span className="font-bold text-[#EAF1F8]">
-                            {assignedConns.length > 0
-                              ? assignedConns.map((c) => c.name.split(" ")[0]).join(", ")
-                              : "None"}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#6B7C8D]">Monthly Commitment:</span>
-                          <span className="font-mono font-bold text-[#2ED8B6]">$59 USD / month</span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {activationSuccess && (
-                <div className="p-5 rounded-2xl bg-[#2ED8B6]/15 border-2 border-[#2ED8B6] text-center space-y-2">
-                  <div className="w-10 h-10 rounded-full bg-[#2ED8B6] text-[#04201C] flex items-center justify-center mx-auto">
-                    <Check className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-sm font-bold text-[#EAF1F8]">Employee Activated</h4>
-                  <p className="text-xs text-[#B4C2D0] max-w-lg mx-auto">
-                    This canonical employee is now fully provisioned across Runtime, Studio, and SupportV8. Inbound calls to{" "}
-                    <strong>{voicePhoneNumber}</strong> will route to this employee.
-                  </p>
-                </div>
-              )}
-
-              {/* Step Navigation Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
-                <button
-                  type="button"
-                  onClick={() => setSetupStep("connections")}
-                  className="btn btn-secondary py-2 px-4 text-xs font-mono flex items-center gap-2 cursor-pointer"
-                >
-                  &larr; Back to Connections
-                </button>
-                <button
-                  type="button"
-                  disabled={isActivating || activationSuccess}
-                  onClick={() => {
-                    setIsActivating(true);
-                    setTimeout(() => {
-                      marketplaceService.activateEmployee(selectedEmployeeId);
-                      setIsActivating(false);
-                      setActivationSuccess(true);
-                      const emp = workforceList.find((w) => w.id === selectedEmployeeId);
-                      onNotify(
-                        `${emp?.name || "AI Employee"} activated successfully and ready for omnichannel dispatch!`,
-                        "success"
-                      );
-                    }, 600);
-                  }}
-                  className="btn btn-primary py-2 px-6 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>{isActivating ? "Activating Employee..." : activationSuccess ? "Employee Active" : "Activate AI Employee"}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SUB-TAB 6: Connector Fleet & Multi-Employee Assignments */}
-      {/* ========================================================================= */}
+      {/* TAB CONTENT: FLEET */}
       {activeSubTab === "fleet" && (
-        <div className="space-y-6">
-          {/* Fleet Header */}
-          <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
-                  <Plug className="w-5 h-5" />
-                </span>
-                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Connector Fleet</h2>
-              </div>
-            </div>
-            <div className="font-mono text-xs text-[#8E9AA8]">
-              Active SSM Pipes: <strong className="text-[#2ED8B6]">{connections.length}</strong>
-            </div>
-          </div>
-
-          {/* Architecture Card */}
-          <div className="p-4 rounded-xl bg-[#121A24] border border-[#2ED8B6]/30 flex items-start gap-3.5">
-            <div className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-[#EAF1F8] font-mono">
-                Authorization Triangle
-              </h4>
-              <p className="text-xs text-[#B4C2D0] leading-relaxed">
-                When an AI Employee executes a tool, Action Gateway verifies:
-                <strong> 1. Connection Layer</strong> (Active pipe in SSM) &bull;
-                <strong> 2. Assignment Layer</strong> (Employee bound to Connection) &bull;
-                <strong> 3. Capability Intersection</strong> (<code>Connection &cap; Assignment &cap; Role Grants</code>).
-              </p>
-            </div>
-          </div>
-
-          {/* Fleet Cards */}
-          <div className="grid grid-cols-1 gap-4">
-            {connections.map((conn) => {
-              const assignedEmployees = workforceList.filter((w) =>
-                conn.assignedEmployeeIds.includes(w.id)
-              );
-
-              return (
-                <div
-                  key={conn.id}
-                  className="card p-5 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-4 hover:border-[#2ED8B6]/30 transition-all"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
-                        <Plug className="w-4 h-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-[#EAF1F8] truncate">{conn.name}</h4>
-                          <span className="pill ok text-[9px] font-mono uppercase shrink-0">{conn.status}</span>
-                          <span className="pill text-[9px] font-mono shrink-0">{conn.category}</span>
-                        </div>
-                        <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5 break-all">
-                          SSM Path: <code>{conn.ssmPath}</code>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 font-mono text-xs">
-                      <span className="text-[#6B7C8D]">Assigned Workforce:</span>
-                      <span className="font-bold text-[#2ED8B6]">{assignedEmployees.length}</span>
-                    </div>
-                  </div>
-
-                  {/* Capabilities */}
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider block">
-                      Provider Capabilities ({conn.capabilities.length}):
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {conn.capabilities.map((cap) => (
-                        <span
-                          key={cap}
-                          className="pill text-[9.5px] font-mono bg-[#18222E] text-[#B4C2D0] border border-[var(--line-2)]"
-                        >
-                          {cap}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Assigned Employees Strip & Quick Assign */}
-                  <div className="pt-3 border-t border-[var(--line)] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
-                        Assigned Employees:
-                      </span>
-                      <span className="text-[11px] font-mono text-[#2ED8B6]">
-                        {assignedEmployees.length} active assignments
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {workforceList
-                        .filter((w) => w.level === "ai_employee")
-                        .map((emp) => {
-                          const isAssigned = conn.assignedEmployeeIds.includes(emp.id);
-                          return (
-                            <button
-                              key={emp.id}
-                              type="button"
-                              onClick={() => {
-                                const res = marketplaceService.toggleEmployeeConnectionAssignment(
-                                  conn.id,
-                                  emp.id,
-                                  emp.name
-                                );
-                                setConnections(marketplaceService.getConnectorConnections());
-                                setAssignments(marketplaceService.getConnectorAssignments());
-                                onNotify(
-                                  res.assigned
-                                    ? `Assigned ${conn.name} to ${emp.name}`
-                                    : `Revoked ${conn.name} from ${emp.name}`,
-                                  "info"
-                                );
-                              }}
-                              className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
-                                isAssigned
-                                  ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] font-bold"
-                                  : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
-                              }`}
-                            >
-                              <Check className={`w-3 h-3 ${isAssigned ? "text-[#2ED8B6]" : "opacity-30"}`} />
-                              <span>{emp.name.split(" — ")[0]}</span>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        <div className="card p-8 text-center border-[var(--line)] bg-[#121A24] space-y-3">
+          <Bot className="w-8 h-8 text-[#2ED8B6] mx-auto opacity-75" />
+          <h4 className="text-sm font-bold text-[#EAF1F8]">Workforce Fleet</h4>
+          <p className="text-xs text-[#6B7C8D] max-w-md mx-auto">
+            AI employee fleet management and capability assignments are managed centrally in Studio.
+          </p>
+          <div className="pt-2">
+            <a
+              href={`${studioUrl}&tab=workforce`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary py-2 px-4 text-xs font-mono inline-flex items-center gap-1.5"
+            >
+              <span>Manage Fleet ↗</span>
+            </a>
           </div>
         </div>
       )}

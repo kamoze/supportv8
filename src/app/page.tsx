@@ -154,7 +154,7 @@ import {
   resolveBrowserWorkspace,
 } from "@/lib/tenant-host";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
-import { db, INITIAL_PROBLEMS } from "@/lib/db/mock-data";
+import { db } from "@/lib/db/mock-data";
 
 export interface ChatMessage {
   id: string;
@@ -1360,42 +1360,13 @@ export default function SupportV8Dashboard() {
 
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setProblems(res.data);
-        notify(`Simulated ${res.data.length} systemic incident clusters loaded into Problem Matrix`, "success");
+        notify("Clusters Loaded", "success");
       } else {
-        const filteredDemo =
-          activeSlug === "meridian"
-            ? INITIAL_PROBLEMS.filter(
-                (p) =>
-                  p.title.toLowerCase().includes("lockbox") ||
-                  p.title.toLowerCase().includes("dispatch") ||
-                  p.title.toLowerCase().includes("contractor")
-              )
-            : INITIAL_PROBLEMS.filter(
-                (p) =>
-                  !p.title.toLowerCase().includes("lockbox") &&
-                  !p.title.toLowerCase().includes("dispatch") &&
-                  !p.title.toLowerCase().includes("contractor")
-              );
-        setProblems(filteredDemo);
-        notify(`Simulated ${filteredDemo.length} systemic incident clusters loaded into Problem Matrix`, "success");
+        setProblems([]);
+        notify("No Clusters", "info");
       }
     } catch {
-      const filteredDemo =
-        (currentTenantSlug || "acme") === "meridian"
-          ? INITIAL_PROBLEMS.filter(
-              (p) =>
-                p.title.toLowerCase().includes("lockbox") ||
-                p.title.toLowerCase().includes("dispatch") ||
-                p.title.toLowerCase().includes("contractor")
-            )
-          : INITIAL_PROBLEMS.filter(
-              (p) =>
-                !p.title.toLowerCase().includes("lockbox") &&
-                !p.title.toLowerCase().includes("dispatch") &&
-                !p.title.toLowerCase().includes("contractor")
-            );
-      setProblems(filteredDemo);
-      notify(`Simulated ${filteredDemo.length} systemic incident clusters loaded into Problem Matrix`, "success");
+      notify("Query Failed", "error");
     }
   };
 

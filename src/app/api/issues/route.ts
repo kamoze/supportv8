@@ -108,27 +108,28 @@ export async function GET(req: NextRequest) {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
     requireChatOperatorRole(tenant);
 
-    const [mockIssues, durableChatIssues] = await Promise.all([
-      Promise.resolve(tenant.runtimeLinked ? [] : issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug })),
-      !hasDurableDatabase()
-        ? Promise.resolve([])
-        : tenant.runtimeLinked
-        ? chatRepository.listWorkspaceIssues(tenant.tenantId)
-        : chatRepository.listChatIssues(tenant.tenantId, undefined, true),
-    ]);
-    const filteredChatIssues = durableChatIssues.filter((issue) => {
-      if (source && issue.source !== source) return false;
-      if (sentiment && issue.sentiment !== sentiment) return false;
-      if (category && issue.category !== category) return false;
-      if (problemId && issue.problemId !== problemId) return false;
-      if (search) {
-        const haystack = `${issue.externalId} ${issue.customerName} ${issue.summary}`.toLowerCase();
-        if (!haystack.includes(search.toLowerCase())) return false;
-      }
-      return true;
-    });
-    const durableIds = new Set(filteredChatIssues.map((issue) => issue.id));
-    const issues = [...filteredChatIssues, ...mockIssues.filter((issue) => !durableIds.has(issue.id))];
+    let issues: Issue[];
+    if (hasDurableDatabase()) {
+      const durableChatIssues = tenant.runtimeLinked
+        ? await chatRepository.listWorkspaceIssues(tenant.tenantId)
+        : await chatRepository.listChatIssues(tenant.tenantId, undefined, true);
+      issues = durableChatIssues.filter((issue) => {
+        if (source && issue.source !== source) return false;
+        if (sentiment && issue.sentiment !== sentiment) return false;
+        if (category && issue.category !== category) return false;
+        if (problemId && issue.problemId !== problemId) return false;
+        if (search) {
+          const haystack = `${issue.externalId} ${issue.customerName} ${issue.summary}`.toLowerCase();
+          if (!haystack.includes(search.toLowerCase())) return false;
+        }
+        return true;
+      });
+    } else if (tenant.runtimeLinked) {
+      issues = [];
+    } else {
+      issues = issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug });
+    }
+
     return NextResponse.json({
       success: true,
       count: issues.length,

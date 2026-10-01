@@ -87,22 +87,9 @@ const INITIAL_APPROVALS: PendingApproval[] = [
 ];
 
 export function WorkforceApprovalsView({ onNotify }: WorkforceApprovalsViewProps) {
-  const [approvals, setApprovals] = useState<PendingApproval[]>(INITIAL_APPROVALS);
+  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
   const [expandedPayloadIds, setExpandedPayloadIds] = useState<Set<string>>(new Set());
-  const [decidedHistory, setDecidedHistory] = useState<Array<PendingApproval & { decidedAt: string }>>([
-    {
-      id: "app_100",
-      actionId: "act_refund_9910",
-      employeeName: "Sophia — Customer Support Lead",
-      actionType: "orderv8.refund",
-      payload: { orderId: "ORD-99011", refundAmount: 19.99 },
-      riskScore: 0.35,
-      explanation: "Approved refund for damaged item packaging.",
-      status: "approved",
-      timestamp: "2 hours ago",
-      decidedAt: "Today at 09:12",
-    },
-  ]);
+  const [decidedHistory, setDecidedHistory] = useState<Array<PendingApproval & { decidedAt: string }>>([]);
 
   const togglePayload = (id: string) => {
     setExpandedPayloadIds((prev) => {

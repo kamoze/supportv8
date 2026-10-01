@@ -22,16 +22,10 @@ describe("ServiceV8 Marketplace, Workforce & Studio Architecture Linkages", () =
     );
 
     // Architectural Banner
-    expect(html).toContain("Marketplace &amp; Package Onboarding");
+    expect(html).toContain("Marketplace");
     expect(html).toContain("Onboard in Marketplace • Manage in Studio • Operate in Workforce");
     expect(html).toContain("Manage in Studio");
     expect(html).toContain("Installed Products");
-
-    // Autonomous Packages Onboarding
-    expect(html).toContain("Autonomous Solution Packages");
-    expect(html).toContain("Customer Support Triage &amp; Tagging");
-    expect(html).toContain("E-Commerce Auto-Refund &amp; Verification");
-    expect(html).toContain("Dormant Ticket Backlog Sweeper");
 
     // Canonical Sophia Voice Support Onboarding
     expect(html).toContain("Sophia — Customer Support Lead AI");
@@ -58,12 +52,7 @@ describe("ServiceV8 Marketplace, Workforce & Studio Architecture Linkages", () =
     expect(html).toContain("Manage in Studio");
     expect(html).toContain("Onboard More");
 
-    // Installed Packages
-    expect(html).toContain("Customer Support Triage &amp; Tagging");
-    expect(html).toContain("E-Commerce Auto-Refund &amp; Verification");
-    expect(html).toContain("Dormant Ticket Backlog Sweeper");
-
-    // AI Employees & Connectors
+    // AI Employees & Connectors Projections
     expect(html).toContain("Active Hired AI Employees");
     expect(html).toContain("Active Integration Connectors");
   });

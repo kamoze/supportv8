@@ -13,29 +13,25 @@ export async function GET(req: NextRequest) {
     const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
     const tenantData = db.getTenantData(tenantSlug);
 
-    const [durableDocs, durableArticles, mockArticles, gaps, proposals] = await Promise.all([
+    const [durableDocs, durableArticles] = await Promise.all([
       ragIngestion.getDurableDocuments(tenantId),
       ragIngestion.getDurableArticles(tenantId),
-      Promise.resolve(tenantData.isClean ? [] : knowledgeService.getArticles()),
-      Promise.resolve(tenantData.isClean ? [] : knowledgeService.getGaps()),
-      Promise.resolve(tenantData.isClean ? [] : knowledgeService.getProposals()),
     ]);
 
-    const articleMap = new Map<string, any>();
-    for (const a of durableArticles) articleMap.set(a.id, a);
-    for (const a of mockArticles) {
-      if (!articleMap.has(a.id)) articleMap.set(a.id, a);
-    }
-    const articles = Array.from(articleMap.values());
+    let articles: any[] = durableArticles;
+    let documents: KnowledgeDocument[] = durableDocs;
+    let gaps: any[] = [];
+    let proposals: any[] = [];
+    let webSources: any[] = [];
 
-    const mockDocs = tenantData.documents || [];
-    const docMap = new Map<string, KnowledgeDocument>();
-    for (const d of durableDocs) docMap.set(d.id, d);
-    for (const d of mockDocs) {
-      if (!docMap.has(d.id)) docMap.set(d.id, d);
+    const hasDb = Boolean(process.env.DATABASE_URL);
+    if (!hasDb && !tenantData.isClean && !tenantCtx?.runtimeLinked) {
+      if (articles.length === 0) articles = knowledgeService.getArticles();
+      gaps = knowledgeService.getGaps();
+      proposals = knowledgeService.getProposals();
+      if (documents.length === 0) documents = tenantData.documents || [];
+      webSources = tenantData.webSources || [];
     }
-    const documents = Array.from(docMap.values());
-    const webSources = tenantData.webSources || [];
 
     return NextResponse.json({
       success: true,

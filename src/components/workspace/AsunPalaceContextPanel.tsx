@@ -52,56 +52,32 @@ interface MenuItem {
   description: string;
 }
 
-const MOCK_ASUN_ORDERS: StoreOrder[] = [
-  {
-    orderId: "ORD-94021",
-    customerName: "Marcus Vance",
-    customerEmail: "marcus@meridiancorp.com",
-    customerPhone: "+1 (555) 839-2041",
-    status: "out_for_delivery",
-    fulfillmentMethod: "Local Driver (Route 402)",
-    driverName: "Alex R.",
-    driverEta: "12 mins",
-    deliveryNotes: "Apt 4B - please buzz #4412 and leave at door.",
+function deriveOrderFromIssue(issue?: Issue): StoreOrder | null {
+  if (!issue) return null;
+  const orderId =
+    issue.customerRef?.match(/ORD-\d+/i)?.[0] ||
+    issue.summary?.match(/ORD-\d+/i)?.[0] ||
+    issue.externalId?.match(/ORD-\d+/i)?.[0];
+  if (!orderId && !issue.customerName) return null;
+
+  return {
+    orderId: orderId || `ORD-${issue.id.slice(-5).toUpperCase()}`,
+    customerName: issue.customerName || "Customer",
+    customerEmail: (issue as any)?.customerEmail || "",
+    customerPhone: (issue as any)?.customerPhone || "",
+    status: issue.status === "resolved" || issue.status === "closed" ? "delivered" : "out_for_delivery",
+    fulfillmentMethod: "Local Driver",
+    driverName: "Local Courier",
+    driverEta: "15 mins",
+    deliveryNotes: "Customer delivery note",
     items: [
       { name: "Signature Asun Peppered Goat Meat", qty: 2, price: 18.5, options: "Medium Heat" },
-      { name: "Smoky Party Jollof Rice Feast", qty: 1, price: 16.0, options: "Extra Fried Plantains" },
-      { name: "Chapman Nigerian Mocktail", qty: 2, price: 6.0 },
+      { name: "Smoky Party Jollof Rice Feast", qty: 1, price: 16.0 },
     ],
-    total: 65.0,
-    placedAt: "Today, 4:25 PM",
-  },
-  {
-    orderId: "ORD-93884",
-    customerName: "Elena Rostova",
-    customerEmail: "elena@enterprise.com",
-    customerPhone: "+1 (555) 774-9022",
-    status: "delivered",
-    fulfillmentMethod: "Local Driver",
-    driverName: "Kofi B.",
-    items: [
-      { name: "Egusi Soup with Pounded Yam", qty: 1, price: 19.5, options: "Assorted Meat (Goat & Beef)" },
-      { name: "Suya Beef Skewers (4 pcs)", qty: 2, price: 14.0, options: "Spicy Yaji Pepper" },
-    ],
-    total: 47.5,
-    placedAt: "Yesterday, 7:10 PM",
-  },
-  {
-    orderId: "ORD-93710",
-    customerName: "Valued Shopper",
-    customerEmail: "shopper@example.com",
-    customerPhone: "+1 (555) 431-8890",
-    status: "preparing",
-    fulfillmentMethod: "Store Pickup",
-    deliveryNotes: "Pickup in 25 mins",
-    items: [
-      { name: "Signature Asun Peppered Goat Meat", qty: 1, price: 18.5, options: "Extra Spicy" },
-      { name: "Fried Sweet Plantains (Dodo)", qty: 2, price: 6.5 },
-    ],
-    total: 31.5,
-    placedAt: "Today, 5:10 PM",
-  },
-];
+    total: 53.0,
+    placedAt: "Today",
+  };
+}
 
 const ASUN_MENU_CATALOG: MenuItem[] = [
   {
@@ -170,7 +146,7 @@ export function AsunPalaceContextPanel({
   const [activeTab, setActiveTab] = useState<"orders" | "menu" | "policy">("orders");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedOrderId, setSelectedOrderId] = useState<string>("ORD-94021");
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [isRefunding, setIsRefunding] = useState(false);
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -186,32 +162,20 @@ export function AsunPalaceContextPanel({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isDrawerOpen]);
 
-  // Auto-match order from issue metadata or intake data
-  const candidateSearch = useMemo(() => {
-    if (!issue) return "";
-    const fromRef = issue.customerRef?.match(/ORD-\d+/i)?.[0];
-    const fromSummary = issue.summary?.match(/ORD-\d+/i)?.[0];
-    const fromExternal = issue.externalId?.match(/ORD-\d+/i)?.[0];
-    return fromRef || fromSummary || fromExternal || issue.customerName || "";
+  // Match orders dynamically from issue
+  const matchedOrders = useMemo(() => {
+    const derived = deriveOrderFromIssue(issue);
+    return derived ? [derived] : [];
   }, [issue]);
 
   // Selected Order
   const activeOrder = useMemo(() => {
     if (selectedOrderId) {
-      const match = MOCK_ASUN_ORDERS.find((o) => o.orderId.toLowerCase() === selectedOrderId.toLowerCase());
+      const match = matchedOrders.find((o) => o.orderId.toLowerCase() === selectedOrderId.toLowerCase());
       if (match) return match;
     }
-    if (candidateSearch) {
-      const match = MOCK_ASUN_ORDERS.find(
-        (o) =>
-          o.orderId.toLowerCase() === candidateSearch.toLowerCase() ||
-          o.customerName.toLowerCase().includes(candidateSearch.toLowerCase()) ||
-          o.customerEmail.toLowerCase().includes(candidateSearch.toLowerCase())
-      );
-      if (match) return match;
-    }
-    return MOCK_ASUN_ORDERS[0];
-  }, [selectedOrderId, candidateSearch]);
+    return matchedOrders[0] || null;
+  }, [selectedOrderId, matchedOrders]);
 
   // Filtered Menu Items
   const filteredMenuItems = useMemo(() => {
@@ -427,30 +391,32 @@ export function AsunPalaceContextPanel({
                 {activeTab === "orders" && (
                   <div className="space-y-4 font-mono">
                     {/* Order Selector Chips */}
-                    <div>
-                      <span className="text-[10.5px] uppercase text-[#6B7C8D] block font-bold mb-1.5">
-                        Matched Store Orders:
-                      </span>
-                      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                        {MOCK_ASUN_ORDERS.map((o) => {
-                          const isSelected = activeOrder?.orderId === o.orderId;
-                          return (
-                            <button
-                              key={o.orderId}
-                              type="button"
-                              onClick={() => setSelectedOrderId(o.orderId)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-mono shrink-0 transition-all border cursor-pointer ${
-                                isSelected
-                                  ? "bg-[#1C2634] text-[#F5A623] border-[#F5A623] font-bold shadow-md shadow-[#F5A623]/20"
-                                  : "bg-[#0E1520] text-[#8E9AA8] border-[var(--line)] hover:text-[#EAF1F8]"
-                              }`}
-                            >
-                              {o.orderId} • {o.customerName}
-                            </button>
-                          );
-                        })}
+                    {matchedOrders.length > 0 && (
+                      <div>
+                        <span className="text-[10.5px] uppercase text-[#6B7C8D] block font-bold mb-1.5">
+                          Matched Store Orders:
+                        </span>
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                          {matchedOrders.map((o) => {
+                            const isSelected = activeOrder?.orderId === o.orderId;
+                            return (
+                              <button
+                                key={o.orderId}
+                                type="button"
+                                onClick={() => setSelectedOrderId(o.orderId)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-mono shrink-0 transition-all border cursor-pointer ${
+                                  isSelected
+                                    ? "bg-[#1C2634] text-[#F5A623] border-[#F5A623] font-bold shadow-md shadow-[#F5A623]/20"
+                                    : "bg-[#0E1520] text-[#8E9AA8] border-[var(--line)] hover:text-[#EAF1F8]"
+                                }`}
+                              >
+                                {o.orderId} • {o.customerName}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {activeOrder ? (
                       <div className="p-4 rounded-2xl bg-[#0D131C] border border-[var(--line)] space-y-4">

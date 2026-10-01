@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || undefined;
     const sourceSystem = searchParams.get("source") || searchParams.get("sourceSystem") || undefined;
     const tier = searchParams.get("tier") || undefined;
+    const company = searchParams.get("company") || undefined;
     const limit = searchParams.get("limit") ? Math.min(500, Math.max(1, Number(searchParams.get("limit")))) : 100;
     const offset = searchParams.get("offset") ? Math.max(0, Number(searchParams.get("offset"))) : 0;
 
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
       search,
       sourceSystem,
       tier,
+      company,
       limit,
       offset,
     });

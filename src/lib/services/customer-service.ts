@@ -29,6 +29,7 @@ export interface ListCustomersOptions {
   search?: string;
   sourceSystem?: string;
   tier?: string;
+  company?: string;
   limit?: number;
   offset?: number;
 }
@@ -336,7 +337,7 @@ export class CustomerService {
   }
 
   public async listCustomers(tenantId: string, options: ListCustomersOptions = {}): Promise<CustomerProfile[]> {
-    const { search, sourceSystem, tier, limit = 100, offset = 0 } = options;
+    const { search, sourceSystem, tier, company, limit = 100, offset = 0 } = options;
 
     if (this.hasDatabase()) {
       try {
@@ -353,6 +354,11 @@ export class CustomerService {
           if (tier && tier !== "all") {
             conditions.push(`customer_tier = $${paramIdx++}`);
             params.push(tier);
+          }
+
+          if (company && company !== "all") {
+            conditions.push(`LOWER(company_name) = $${paramIdx++}`);
+            params.push(company.trim().toLowerCase());
           }
 
           if (search && search.trim()) {
@@ -373,7 +379,7 @@ export class CustomerService {
           params.push(limit, offset);
 
           const rows = await db.query<CustomerRow>(sql, params);
-          if (rows.length === 0 && !search && (!sourceSystem || sourceSystem === "all") && (!tier || tier === "all")) {
+          if (rows.length === 0 && !search && (!sourceSystem || sourceSystem === "all") && (!tier || tier === "all") && (!company || company === "all")) {
             // Seed demo tenant if empty in db
             await this.seedDatabaseIfEmpty(db, tenantId);
             const refetched = await db.query<CustomerRow>(sql, params);
@@ -395,6 +401,10 @@ export class CustomerService {
     }
     if (tier && tier !== "all") {
       filtered = filtered.filter((c) => c.customerTier === tier);
+    }
+    if (company && company !== "all") {
+      const comp = company.trim().toLowerCase();
+      filtered = filtered.filter((c) => (c.companyName || "").trim().toLowerCase() === comp);
     }
     if (search && search.trim()) {
       const q = search.trim().toLowerCase();

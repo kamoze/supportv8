@@ -40,6 +40,16 @@ describe("CustomerService", () => {
     expect(byPhone[0].name).toBe("Sarah Jenkins");
   });
 
+  it("filters customers by exact company name", async () => {
+    const apexCustomers = await service.listCustomers(tenantId, { company: "Apex Global Logistics" });
+    expect(apexCustomers.length).toBe(1);
+    expect(apexCustomers[0].name).toBe("Elena Rostova");
+    expect(apexCustomers[0].companyName).toBe("Apex Global Logistics");
+
+    const nonExistent = await service.listCustomers(tenantId, { company: "NonExistent Corp" });
+    expect(nonExistent.length).toBe(0);
+  });
+
   it("creates a new local customer profile", async () => {
     const created = await service.createCustomer(tenantId, {
       name: "Gregory House",

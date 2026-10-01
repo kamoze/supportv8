@@ -24,6 +24,15 @@ import {
 import { AuthService } from "@/lib/auth-service";
 import type { CustomerProfile, CustomerSourceSystem, CustomerTier } from "@/lib/types";
 
+export interface CompanySummary {
+  name: string;
+  customerCount: number;
+  highestTier: CustomerTier;
+  contacts: CustomerProfile[];
+  domains: string[];
+  lastActivity: string | null;
+}
+
 interface CustomerProfilesViewProps {
   onCreateTicketForCustomer?: (customer: CustomerProfile) => void;
   onNotify?: (message: string, type?: "success" | "error" | "info") => void;
@@ -55,10 +64,26 @@ export function CustomerProfilesView({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Subtab navigation: "customers" | "companies"
+  const [activeSubTab, setActiveSubTab] = useState<"customers" | "companies">("customers");
+
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedTier, setSelectedTier] = useState<string>("all");
   const [selectedSource, setSelectedSource] = useState<string>("all");
+  const [selectedCompany, setSelectedCompany] = useState<string>("all");
+
+  // Company Directory state
+  const [companySearchQuery, setCompanySearchQuery] = useState<string>("");
+  const [customCompanies, setCustomCompanies] = useState<string[]>([]);
+  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState<boolean>(false);
+  const [companyFormName, setCompanyFormName] = useState<string>("");
+  const [companyFormContactName, setCompanyFormContactName] = useState<string>("");
+  const [companyFormEmail, setCompanyFormEmail] = useState<string>("");
+  const [companyFormPhone, setCompanyFormPhone] = useState<string>("");
+  const [companyFormTier, setCompanyFormTier] = useState<CustomerTier>("standard");
+  const [companyFormSaving, setCompanyFormSaving] = useState<boolean>(false);
+  const [companyFormError, setCompanyFormError] = useState<string | null>(null);
 
   // Sync menu state
   const [isSyncMenuOpen, setIsSyncMenuOpen] = useState<boolean>(false);
@@ -73,6 +98,7 @@ export function CustomerProfilesView({
   // Form state
   const [formName, setFormName] = useState<string>("");
   const [formCompany, setFormCompany] = useState<string>("");
+  const [isCustomCompany, setIsCustomCompany] = useState<boolean>(false);
   const [formEmail, setFormEmail] = useState<string>("");
   const [formPhone, setFormPhone] = useState<string>("");
   const [formTier, setFormTier] = useState<CustomerTier>("standard");
@@ -134,10 +160,98 @@ export function CustomerProfilesView({
     }
   };
 
-  // Open Add modal
-  const openAddModal = () => {
+  const TIER_ORDER: Record<CustomerTier, number> = {
+    vip: 4,
+    enterprise: 3,
+    premium: 2,
+    standard: 1,
+  };
+
+  // Derive unique company summaries from customer profiles and custom companies
+  const companySummaries = useMemo<CompanySummary[]>(() => {
+    const map = new Map<string, CustomerProfile[]>();
+
+    for (const c of customers) {
+      const raw = (c.companyName || "").trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(c);
+    }
+
+    for (const custom of customCompanies) {
+      const raw = custom.trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+    }
+
+    const summaries: CompanySummary[] = [];
+
+    for (const [key, contacts] of map.entries()) {
+      const canonicalName =
+        contacts[0]?.companyName?.trim() ||
+        customCompanies.find((c) => c.trim().toLowerCase() === key)?.trim() ||
+        key;
+
+      let highestTier: CustomerTier = "standard";
+      let highestRank = 1;
+      const domainsSet = new Set<string>();
+      let latestTimestamp = 0;
+
+      for (const c of contacts) {
+        const rank = TIER_ORDER[c.customerTier] || 1;
+        if (rank > highestRank) {
+          highestRank = rank;
+          highestTier = c.customerTier;
+        }
+        if (c.email && c.email.includes("@")) {
+          const domain = c.email.split("@")[1]?.trim().toLowerCase();
+          if (domain) domainsSet.add(domain);
+        }
+        const actTime = new Date(c.lastSyncedAt || c.updatedAt).getTime();
+        if (actTime > latestTimestamp) {
+          latestTimestamp = actTime;
+        }
+      }
+
+      summaries.push({
+        name: canonicalName,
+        customerCount: contacts.length,
+        highestTier,
+        contacts,
+        domains: Array.from(domainsSet),
+        lastActivity: latestTimestamp ? new Date(latestTimestamp).toISOString() : null,
+      });
+    }
+
+    return summaries.sort((a, b) => a.name.localeCompare(b.name));
+  }, [customers, customCompanies]);
+
+  // Filtered companies for Companies subtab
+  const filteredCompanies = useMemo(() => {
+    if (!companySearchQuery.trim()) return companySummaries;
+    const q = companySearchQuery.trim().toLowerCase();
+    return companySummaries.filter((comp) => {
+      if (comp.name.toLowerCase().includes(q)) return true;
+      if (comp.domains.some((d) => d.toLowerCase().includes(q))) return true;
+      if (comp.contacts.some((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))) return true;
+      return false;
+    });
+  }, [companySummaries, companySearchQuery]);
+
+  // Open Add customer modal (optionally prefilled with company name)
+  const openAddModal = (prefillCompany?: string) => {
     setFormName("");
-    setFormCompany("");
+    const targetComp = prefillCompany || "";
+    setFormCompany(targetComp);
+    setIsCustomCompany(
+      Boolean(targetComp && !companySummaries.some((c) => c.name.toLowerCase() === targetComp.toLowerCase()))
+    );
     setFormEmail("");
     setFormPhone("");
     setFormTier("standard");
@@ -145,15 +259,88 @@ export function CustomerProfilesView({
     setIsAddModalOpen(true);
   };
 
-  // Open Edit modal
+  // Open Edit customer modal
   const openEditModal = (c: CustomerProfile) => {
     setFormName(c.name);
-    setFormCompany(c.companyName || "");
+    const comp = c.companyName || "";
+    setFormCompany(comp);
+    setIsCustomCompany(
+      Boolean(comp && !companySummaries.some((cs) => cs.name.toLowerCase() === comp.toLowerCase()))
+    );
     setFormEmail(c.email);
     setFormPhone(c.phone || "");
     setFormTier(c.customerTier);
     setFormError(null);
     setEditingCustomer(c);
+  };
+
+  // Open Add Company modal
+  const openAddCompanyModal = () => {
+    setCompanyFormName("");
+    setCompanyFormContactName("");
+    setCompanyFormEmail("");
+    setCompanyFormPhone("");
+    setCompanyFormTier("standard");
+    setCompanyFormError(null);
+    setIsAddCompanyModalOpen(true);
+  };
+
+  // Submit Add Company
+  const handleCreateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const compName = companyFormName.trim();
+    if (!compName) {
+      setCompanyFormError("Company name is required.");
+      return;
+    }
+
+    if (companyFormEmail.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companyFormEmail.trim())) {
+        setCompanyFormError("A valid email address is required.");
+        return;
+      }
+      setCompanyFormSaving(true);
+      setCompanyFormError(null);
+      try {
+        const contactName = companyFormContactName.trim() || `${compName} Primary`;
+        const res = await AuthService.authenticatedFetch("/api/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: contactName,
+            companyName: compName,
+            email: companyFormEmail.trim(),
+            phone: companyFormPhone.trim(),
+            customerTier: companyFormTier,
+            sourceSystem: "local",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Failed to create company contact");
+        }
+        if (!customCompanies.includes(compName)) {
+          setCustomCompanies((prev) => [...prev, compName]);
+        }
+        setIsAddCompanyModalOpen(false);
+        const msg = `Company ${compName} saved with initial contact.`;
+        setNotice(msg);
+        onNotify?.(msg, "success");
+        await loadCustomers();
+      } catch (err: unknown) {
+        setCompanyFormError(err instanceof Error ? err.message : "Failed to create company");
+      } finally {
+        setCompanyFormSaving(false);
+      }
+    } else {
+      if (!customCompanies.includes(compName)) {
+        setCustomCompanies((prev) => [...prev, compName]);
+      }
+      setIsAddCompanyModalOpen(false);
+      const msg = `Company ${compName} registered in directory.`;
+      setNotice(msg);
+      onNotify?.(msg, "success");
+    }
   };
 
   // Submit Add Customer
@@ -181,6 +368,12 @@ export function CustomerProfilesView({
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Failed to create customer");
+      }
+      if (formCompany.trim()) {
+        const comp = formCompany.trim();
+        if (!customCompanies.includes(comp)) {
+          setCustomCompanies((prev) => [...prev, comp]);
+        }
       }
       setIsAddModalOpen(false);
       const msg = `Customer ${data.data.name} saved to local directory.`;
@@ -219,6 +412,12 @@ export function CustomerProfilesView({
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Failed to update customer");
+      }
+      if (formCompany.trim()) {
+        const comp = formCompany.trim();
+        if (!customCompanies.includes(comp)) {
+          setCustomCompanies((prev) => [...prev, comp]);
+        }
       }
       setEditingCustomer(null);
       const msg = `Customer ${data.data.name} biodata updated.`;
@@ -268,6 +467,9 @@ export function CustomerProfilesView({
         if (selectedSource === "local" && c.sourceSystem !== "local" && c.sourceSystem !== "manual") return false;
         if (selectedSource !== "local" && c.sourceSystem !== selectedSource) return false;
       }
+      if (selectedCompany !== "all" && (c.companyName || "").trim().toLowerCase() !== selectedCompany.trim().toLowerCase()) {
+        return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase();
         const match =
@@ -279,9 +481,9 @@ export function CustomerProfilesView({
       }
       return true;
     });
-  }, [customers, selectedTier, selectedSource, searchQuery]);
+  }, [customers, selectedTier, selectedSource, selectedCompany, searchQuery]);
 
-  // Metrics
+  // Customer Metrics
   const metrics = useMemo(() => {
     const total = customers.length;
     const vipOrEnterprise = customers.filter(
@@ -302,6 +504,22 @@ export function CustomerProfilesView({
       latestSync: latestSync ? new Date(latestSync).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Never",
     };
   }, [customers]);
+
+  // Company Metrics
+  const companyMetrics = useMemo(() => {
+    const totalCompanies = companySummaries.length;
+    const associatedContacts = customers.filter((c) => c.companyName?.trim()).length;
+    const priorityAccounts = companySummaries.filter(
+      (c) => c.highestTier === "enterprise" || c.highestTier === "vip"
+    ).length;
+    const verifiedDomains = new Set(companySummaries.flatMap((c) => c.domains)).size;
+    return {
+      totalCompanies,
+      associatedContacts,
+      priorityAccounts,
+      verifiedDomains,
+    };
+  }, [companySummaries, customers]);
 
   return (
     <div className="space-y-6">
@@ -395,49 +613,128 @@ export function CustomerProfilesView({
             )}
           </div>
 
-          {/* Add Customer Button */}
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="btn btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Customer</span>
-          </button>
+          {/* Subtab Aware Primary Action */}
+          {activeSubTab === "customers" ? (
+            <button
+              type="button"
+              onClick={() => openAddModal()}
+              className="btn btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Customer</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={openAddCompanyModal}
+              className="btn btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Company</span>
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SUBTAB NAVIGATION */}
+      {/* ========================================================================= */}
+      <div className="flex items-center gap-2 border-b border-[var(--line)] pb-3 text-xs font-mono">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("customers")}
+          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeSubTab === "customers"
+              ? "bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm"
+              : "text-[#8E9AA8] hover:text-[#EAF1F8] hover:bg-[#141C26] border border-transparent"
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Customers</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-[#18222E] text-[10px] text-[#8E9AA8]">
+            {customers.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("companies")}
+          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeSubTab === "companies"
+              ? "bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm"
+              : "text-[#8E9AA8] hover:text-[#EAF1F8] hover:bg-[#141C26] border border-transparent"
+          }`}
+        >
+          <Building className="w-3.5 h-3.5" />
+          <span>Companies</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-[#18222E] text-[10px] text-[#8E9AA8]">
+            {companySummaries.length}
+          </span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
       {/* METRIC KPI TILES */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
-          <div className="text-[11px] font-mono text-[#8E9AA8]">Total Customer Profiles</div>
-          <div className="text-2xl font-bold text-[#EAF1F8]">{metrics.total}</div>
-          <div className="text-[10px] text-[#2ED8B6] flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" />
-            <span>Active in local tenant store</span>
+      {activeSubTab === "customers" ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Total Customer Profiles</div>
+            <div className="text-2xl font-bold text-[#EAF1F8]">{metrics.total}</div>
+            <div className="text-[10px] text-[#2ED8B6] flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Active in local tenant store</span>
+            </div>
+          </div>
+
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Enterprise &amp; VIP Accounts</div>
+            <div className="text-2xl font-bold text-[#F5A623]">{metrics.vipOrEnterprise}</div>
+            <div className="text-[10px] text-[#B4C2D0]">SLA Priority Escorts Enabled</div>
+          </div>
+
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Connected Source Systems</div>
+            <div className="text-2xl font-bold text-[#4D9FFF]">{metrics.syncedSystems}</div>
+            <div className="text-[10px] text-[#8E9AA8]">Stripe • Zendesk • Intercom • OrderV8</div>
+          </div>
+
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Last Gateway Sync</div>
+            <div className="text-2xl font-bold text-[#EAF1F8]">{metrics.latestSync}</div>
+            <div className="text-[10px] text-[#2ED8B6]">Automated deduplication active</div>
           </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Total Companies</div>
+            <div className="text-2xl font-bold text-[#EAF1F8]">{companyMetrics.totalCompanies}</div>
+            <div className="text-[10px] text-[#2ED8B6] flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Registered accounts</span>
+            </div>
+          </div>
 
-        <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
-          <div className="text-[11px] font-mono text-[#8E9AA8]">Enterprise &amp; VIP Accounts</div>
-          <div className="text-2xl font-bold text-[#F5A623]">{metrics.vipOrEnterprise}</div>
-          <div className="text-[10px] text-[#B4C2D0]">SLA Priority Escorts Enabled</div>
-        </div>
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Associated Contacts</div>
+            <div className="text-2xl font-bold text-[#4D9FFF]">{companyMetrics.associatedContacts}</div>
+            <div className="text-[10px] text-[#B4C2D0]">Affiliated profiles</div>
+          </div>
 
-        <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
-          <div className="text-[11px] font-mono text-[#8E9AA8]">Connected Source Systems</div>
-          <div className="text-2xl font-bold text-[#4D9FFF]">{metrics.syncedSystems}</div>
-          <div className="text-[10px] text-[#8E9AA8]">Stripe • Zendesk • Intercom • OrderV8</div>
-        </div>
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Priority Accounts</div>
+            <div className="text-2xl font-bold text-[#F5A623]">{companyMetrics.priorityAccounts}</div>
+            <div className="text-[10px] text-[#8E9AA8]">Enterprise &amp; VIP tiers</div>
+          </div>
 
-        <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
-          <div className="text-[11px] font-mono text-[#8E9AA8]">Last Gateway Sync</div>
-          <div className="text-2xl font-bold text-[#EAF1F8]">{metrics.latestSync}</div>
-          <div className="text-[10px] text-[#2ED8B6]">Automated deduplication active</div>
+          <div className="card p-4 rounded-xl border border-[var(--line)] bg-[#0E1520] space-y-1">
+            <div className="text-[11px] font-mono text-[#8E9AA8]">Active Domains</div>
+            <div className="text-2xl font-bold text-[#2ED8B6]">{companyMetrics.verifiedDomains}</div>
+            <div className="text-[10px] text-[#2ED8B6]">Corporate email domains</div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ========================================================================= */}
       {/* NOTICES & ALERTS */}
@@ -481,63 +778,96 @@ export function CustomerProfilesView({
       )}
 
       {/* ========================================================================= */}
-      {/* CONTROLS & FILTER BAR */}
+      {/* SUBTAB CONTENT: CUSTOMERS OR COMPANIES */}
       {/* ========================================================================= */}
-      <div className="card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-        <div className="relative flex-1 min-w-[260px] sm:min-w-[320px]">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7C8D]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by customer name, company, email, or phone..."
-            className="w-full bg-[#141C26] text-[#EAF1F8] pl-9 pr-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
-          />
-        </div>
+      {activeSubTab === "customers" ? (
+        <>
+          {/* ========================================================================= */}
+          {/* CONTROLS & FILTER BAR */}
+          {/* ========================================================================= */}
+          <div className="card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+            <div className="relative flex-1 min-w-[260px] sm:min-w-[320px]">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7C8D]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by customer name, company, email, or phone..."
+                className="w-full bg-[#141C26] text-[#EAF1F8] pl-9 pr-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
+              />
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <label className="flex items-center gap-1.5 text-[#8E9AA8]">
-            <span>Tier:</span>
-            <select
-              value={selectedTier}
-              onChange={(e) => setSelectedTier(e.target.value)}
-              className="bg-[#141C26] text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Tiers</option>
-              <option value="standard">Standard</option>
-              <option value="premium">Premium</option>
-              <option value="enterprise">Enterprise</option>
-              <option value="vip">VIP</option>
-            </select>
-          </label>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <label className="flex items-center gap-1.5 text-[#8E9AA8]">
+                <span>Company:</span>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="bg-[#141C26] text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer max-w-[170px] truncate"
+                >
+                  <option value="all">All Companies</option>
+                  {companySummaries.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name} ({c.customerCount})
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label className="flex items-center gap-1.5 text-[#8E9AA8]">
-            <span>Source:</span>
-            <select
-              value={selectedSource}
-              onChange={(e) => setSelectedSource(e.target.value)}
-              className="bg-[#141C26] text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Sources</option>
-              <option value="local">Local Directory</option>
-              <option value="stripe">Stripe</option>
-              <option value="zendesk">Zendesk</option>
-              <option value="intercom">Intercom</option>
-              <option value="orderv8">OrderV8</option>
-              <option value="shopify">Shopify</option>
-            </select>
-          </label>
+              <label className="flex items-center gap-1.5 text-[#8E9AA8]">
+                <span>Tier:</span>
+                <select
+                  value={selectedTier}
+                  onChange={(e) => setSelectedTier(e.target.value)}
+                  className="bg-[#141C26] text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All Tiers</option>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                  <option value="enterprise">Enterprise</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </label>
 
-          <button
-            type="button"
-            onClick={() => void loadCustomers()}
-            title="Refresh customer list"
-            className="p-2 rounded-xl border border-[var(--line-2)] bg-[#141C26] hover:bg-[#18222E] text-[#B4C2D0] hover:text-[#EAF1F8] cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </div>
+              <label className="flex items-center gap-1.5 text-[#8E9AA8]">
+                <span>Source:</span>
+                <select
+                  value={selectedSource}
+                  onChange={(e) => setSelectedSource(e.target.value)}
+                  className="bg-[#141C26] text-[#EAF1F8] px-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All Sources</option>
+                  <option value="local">Local Directory</option>
+                  <option value="stripe">Stripe</option>
+                  <option value="zendesk">Zendesk</option>
+                  <option value="intercom">Intercom</option>
+                  <option value="orderv8">OrderV8</option>
+                  <option value="shopify">Shopify</option>
+                </select>
+              </label>
+
+              {selectedCompany !== "all" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCompany("all")}
+                  className="px-2 py-1 rounded-lg bg-[#2ED8B6]/15 border border-[#2ED8B6]/30 text-[#2ED8B6] hover:bg-[#2ED8B6]/25 text-[11px] flex items-center gap-1 cursor-pointer"
+                  title="Clear company filter"
+                >
+                  <span>{selectedCompany}</span>
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => void loadCustomers()}
+                title="Refresh customer list"
+                className="p-2 rounded-xl border border-[var(--line-2)] bg-[#141C26] hover:bg-[#18222E] text-[#B4C2D0] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+          </div>
 
       {/* ========================================================================= */}
       {/* CUSTOMER DIRECTORY DATA TABLE */}
@@ -578,7 +908,7 @@ export function CustomerProfilesView({
                   <div className="mt-4 flex items-center justify-center gap-3">
                     <button
                       type="button"
-                      onClick={openAddModal}
+                      onClick={() => openAddModal()}
                       className="btn btn-primary px-4 py-2 text-xs font-bold cursor-pointer"
                     >
                       + Add Customer
@@ -753,6 +1083,191 @@ export function CustomerProfilesView({
           </tbody>
         </table>
       </div>
+    </>
+  ) : (
+    /* ========================================================================= */
+    /* COMPANIES SUBTAB VIEW */
+    /* ========================================================================= */
+    <>
+      {/* CONTROLS & SEARCH BAR FOR COMPANIES */}
+      <div className="card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+        <div className="relative flex-1 min-w-[260px] sm:min-w-[320px]">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7C8D]" />
+          <input
+            type="text"
+            value={companySearchQuery}
+            onChange={(e) => setCompanySearchQuery(e.target.value)}
+            placeholder="Search by company name, contact, or domain..."
+            className="w-full bg-[#141C26] text-[#EAF1F8] pl-9 pr-3 py-2 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] transition-colors"
+          />
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={openAddCompanyModal}
+            className="btn btn-primary px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Company</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void loadCustomers()}
+            title="Refresh company list"
+            className="p-2 rounded-xl border border-[var(--line-2)] bg-[#141C26] hover:bg-[#18222E] text-[#B4C2D0] hover:text-[#EAF1F8] cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* COMPANIES DATA TABLE */}
+      <div className="overflow-x-auto rounded-2xl border border-[var(--line)] bg-[#0E1520] shadow-sm">
+        <table className="w-full text-left text-xs font-mono">
+          <caption className="sr-only">Directory of workspace companies</caption>
+          <thead className="bg-[#121A24] text-[#8E9AA8] border-b border-[var(--line)]">
+            <tr>
+              <th scope="col" className="py-3 px-4">Company</th>
+              <th scope="col" className="py-3 px-4">Contacts</th>
+              <th scope="col" className="py-3 px-4">Tier</th>
+              <th scope="col" className="py-3 px-4">Domain</th>
+              <th scope="col" className="py-3 px-4">Activity</th>
+              <th scope="col" className="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--line)]">
+            {loading && customers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-[#8E9AA8]">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#2ED8B6] mb-2" />
+                  <span>Loading company directory…</span>
+                </td>
+              </tr>
+            ) : filteredCompanies.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="p-12 text-center">
+                  <Building className="w-10 h-10 text-[#6B7C8D] mx-auto mb-3" />
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">No Companies</h3>
+                  <p className="text-xs text-[#8E9AA8] mt-1 max-w-sm mx-auto">
+                    {companySearchQuery
+                      ? "No companies match current search query."
+                      : "No company accounts registered yet. Add a company to get started."}
+                  </p>
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={openAddCompanyModal}
+                      className="btn btn-primary px-4 py-2 text-xs font-bold cursor-pointer"
+                    >
+                      + Add Company
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filteredCompanies.map((comp) => {
+                const tierStyle = TIER_COLORS[comp.highestTier] || TIER_COLORS.standard;
+                return (
+                  <tr key={comp.name} className="hover:bg-[#121A24]/60 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-[#141C26] border border-[var(--line-2)] flex items-center justify-center text-[#2ED8B6] font-bold shrink-0">
+                          <Building className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-[#EAF1F8]">{comp.name}</div>
+                          <div className="text-[10px] text-[#8E9AA8]">
+                            {comp.customerCount === 1 ? "1 affiliated contact" : `${comp.customerCount} affiliated contacts`}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="space-y-1">
+                        <span className="px-2 py-0.5 rounded-md bg-[#18222E] border border-[var(--line-2)] text-[#B4C2D0] font-bold text-[11px]">
+                          {comp.customerCount} {comp.customerCount === 1 ? "Contact" : "Contacts"}
+                        </span>
+                        {comp.contacts.length > 0 && (
+                          <div className="text-[10px] text-[#8E9AA8] truncate max-w-[200px]">
+                            {comp.contacts.map((c) => c.name).slice(0, 2).join(", ")}
+                            {comp.contacts.length > 2 && ` +${comp.contacts.length - 2}`}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${tierStyle.bg} ${tierStyle.text} ${tierStyle.border}`}
+                      >
+                        {comp.highestTier}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-[#B4C2D0]">
+                      {comp.domains.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {comp.domains.slice(0, 2).map((d) => (
+                            <span
+                              key={d}
+                              className="px-1.5 py-0.5 rounded bg-[#141C26] border border-[var(--line-2)] text-[10px] text-[#2ED8B6]"
+                            >
+                              @{d}
+                            </span>
+                          ))}
+                          {comp.domains.length > 2 && (
+                            <span className="text-[10px] text-[#8E9AA8]">+{comp.domains.length - 2}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[#6B7C8D]">—</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-[#8E9AA8] text-[11px]">
+                      {comp.lastActivity ? (
+                        new Date(comp.lastActivity).toLocaleDateString([], {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      ) : (
+                        <span className="text-[#6B7C8D]">Never</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCompany(comp.name);
+                            setActiveSubTab("customers");
+                          }}
+                          title={`View contacts for ${comp.name}`}
+                          className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#2ED8B6] px-2.5 py-1 text-[11px] flex items-center gap-1 cursor-pointer"
+                        >
+                          <Users className="w-3 h-3" />
+                          <span>View Contacts</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAddModal(comp.name)}
+                          title={`Add new contact for ${comp.name}`}
+                          className="btn bg-[#141C26] hover:bg-[#18222E] border border-[var(--line-2)] text-[#EAF1F8] px-2.5 py-1 text-[11px] flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Contact</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
 
       {/* ========================================================================= */}
       {/* MODAL: ADD CUSTOMER */}
@@ -797,17 +1312,55 @@ export function CustomerProfilesView({
                 />
               </label>
 
-              <label className="block space-y-1 text-[#B4C2D0]">
-                <span>Company / Organization Name</span>
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={formCompany}
-                  onChange={(e) => setFormCompany(e.target.value)}
-                  placeholder="e.g. Apex Global Logistics"
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
-                />
-              </label>
+              <div className="space-y-1 text-[#B4C2D0]">
+                <div className="flex items-center justify-between">
+                  <span>Company</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCompany(!isCustomCompany);
+                      if (!isCustomCompany) {
+                        setFormCompany("");
+                      }
+                    }}
+                    className="text-[11px] text-[#2ED8B6] hover:underline cursor-pointer"
+                  >
+                    {isCustomCompany ? "Select Existing" : "+ New Company"}
+                  </button>
+                </div>
+                {!isCustomCompany ? (
+                  <select
+                    value={formCompany}
+                    onChange={(e) => {
+                      if (e.target.value === "__NEW__") {
+                        setIsCustomCompany(true);
+                        setFormCompany("");
+                      } else {
+                        setFormCompany(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  >
+                    <option value="">Select Company (Optional)</option>
+                    {companySummaries.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                    <option value="__NEW__">+ Add New Company…</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    maxLength={255}
+                    value={formCompany}
+                    onChange={(e) => setFormCompany(e.target.value)}
+                    placeholder="e.g. Apex Global Logistics"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    autoFocus
+                  />
+                )}
+              </div>
 
               <label className="block space-y-1 text-[#B4C2D0]">
                 <span>Email Address *</span>
@@ -912,16 +1465,55 @@ export function CustomerProfilesView({
                 />
               </label>
 
-              <label className="block space-y-1 text-[#B4C2D0]">
-                <span>Company / Organization Name</span>
-                <input
-                  type="text"
-                  maxLength={255}
-                  value={formCompany}
-                  onChange={(e) => setFormCompany(e.target.value)}
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
-                />
-              </label>
+              <div className="space-y-1 text-[#B4C2D0]">
+                <div className="flex items-center justify-between">
+                  <span>Company</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCompany(!isCustomCompany);
+                      if (!isCustomCompany) {
+                        setFormCompany("");
+                      }
+                    }}
+                    className="text-[11px] text-[#2ED8B6] hover:underline cursor-pointer"
+                  >
+                    {isCustomCompany ? "Select Existing" : "+ New Company"}
+                  </button>
+                </div>
+                {!isCustomCompany ? (
+                  <select
+                    value={formCompany}
+                    onChange={(e) => {
+                      if (e.target.value === "__NEW__") {
+                        setIsCustomCompany(true);
+                        setFormCompany("");
+                      } else {
+                        setFormCompany(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  >
+                    <option value="">Select Company (Optional)</option>
+                    {companySummaries.map((c) => (
+                      <option key={c.name} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                    <option value="__NEW__">+ Add New Company…</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    maxLength={255}
+                    value={formCompany}
+                    onChange={(e) => setFormCompany(e.target.value)}
+                    placeholder="e.g. Apex Global Logistics"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    autoFocus
+                  />
+                )}
+              </div>
 
               <label className="block space-y-1 text-[#B4C2D0]">
                 <span>Email Address *</span>
@@ -975,6 +1567,128 @@ export function CustomerProfilesView({
                   className="btn btn-primary px-5 py-2 text-xs font-bold cursor-pointer"
                 >
                   {formSaving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD COMPANY */}
+      {/* ========================================================================= */}
+      {isAddCompanyModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-company-modal-title"
+            className="w-full max-w-md bg-[#0E1520] border border-[var(--line-2)] rounded-3xl shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-[#2ED8B6]" />
+                <h3 id="add-company-modal-title" className="text-sm font-bold text-[#EAF1F8]">
+                  Add Company
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddCompanyModalOpen(false)}
+                className="p-1 rounded-lg text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCompany} className="space-y-3.5 text-xs font-mono">
+              {companyFormError && <p role="alert" className="text-[#FF7373]">{companyFormError}</p>}
+
+              <label className="block space-y-1 text-[#B4C2D0]">
+                <span>Company Name *</span>
+                <input
+                  type="text"
+                  required
+                  maxLength={255}
+                  value={companyFormName}
+                  onChange={(e) => setCompanyFormName(e.target.value)}
+                  placeholder="e.g. Acme Corporation"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  autoFocus
+                />
+              </label>
+
+              <div className="pt-2 border-t border-[var(--line)]">
+                <div className="text-[11px] font-bold text-[#8E9AA8] uppercase tracking-wider mb-2">
+                  Primary Contact (Optional)
+                </div>
+
+                <label className="block space-y-1 text-[#B4C2D0] mb-2.5">
+                  <span>Contact Name</span>
+                  <input
+                    type="text"
+                    maxLength={255}
+                    value={companyFormContactName}
+                    onChange={(e) => setCompanyFormContactName(e.target.value)}
+                    placeholder="e.g. Jane Doe"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </label>
+
+                <label className="block space-y-1 text-[#B4C2D0] mb-2.5">
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    maxLength={254}
+                    value={companyFormEmail}
+                    onChange={(e) => setCompanyFormEmail(e.target.value)}
+                    placeholder="e.g. contact@acme.com"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </label>
+
+                <label className="block space-y-1 text-[#B4C2D0] mb-2.5">
+                  <span>Phone</span>
+                  <input
+                    type="tel"
+                    maxLength={64}
+                    value={companyFormPhone}
+                    onChange={(e) => setCompanyFormPhone(e.target.value)}
+                    placeholder="e.g. +1 (555) 019-2831"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  />
+                </label>
+
+                <label className="block space-y-1 text-[#B4C2D0]">
+                  <span>Tier</span>
+                  <select
+                    value={companyFormTier}
+                    onChange={(e) => setCompanyFormTier(e.target.value as CustomerTier)}
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="premium">Premium</option>
+                    <option value="enterprise">Enterprise</option>
+                    <option value="vip">VIP</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-[var(--line)]">
+                <button
+                  type="button"
+                  disabled={companyFormSaving}
+                  onClick={() => setIsAddCompanyModalOpen(false)}
+                  className="btn btn-secondary px-4 py-2 text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={companyFormSaving}
+                  className="btn btn-primary px-5 py-2 text-xs font-bold cursor-pointer"
+                >
+                  {companyFormSaving ? "Saving…" : "Save Company"}
                 </button>
               </div>
             </form>

@@ -5,6 +5,7 @@ import { invitationStore } from "./invitation-store";
 import { sendInvitationEmail } from "./invitation-email";
 import { passwordPolicyError } from "./password-policy";
 import { tenantSlugFromId } from "./request-tenant";
+import { marketplaceService } from "@/lib/services/marketplace-service";
 
 export class AccountError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
@@ -62,6 +63,12 @@ export class AccountMembers {
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new AccountError("Member not found in this workspace.", 404);
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new AccountError("Your account no longer has member-management permission.", 403);
+        }
         throw new AccountError(response.status === 409 ? "An account with that email already exists." :
           "Account service could not complete the request. Refresh and try again.", response.status === 409 ? 409 : 503);
       }
@@ -100,6 +107,36 @@ export class AccountMembers {
   }
 
   async list(ctx: RequestTenantContext, first = 0) {
+    if (ctx.runtimeLinked) {
+      requireAccountManager(ctx);
+      const localMembers = marketplaceService.getMembers(ctx.tenantSlug);
+      const adminEmail = ctx.username || `admin@${ctx.tenantSlug}.com`;
+      const hasAdmin = localMembers.some(
+        m => m.email.toLowerCase() === adminEmail.toLowerCase() || m.id === ctx.userId
+      );
+      const members: TenantMember[] = hasAdmin
+        ? localMembers
+        : [
+            {
+              id: ctx.userId || `mem_${ctx.tenantSlug}_admin`,
+              name: ctx.displayName || "Workspace Administrator",
+              email: adminEmail,
+              role: "Owner / CX Director",
+              status: "active",
+              twoFactorEnabled: false,
+              lastActive: "Online now",
+              avatarUrl: "",
+            },
+            ...localMembers,
+          ];
+      return {
+        members,
+        hasMore: false,
+        owner: ctx.roles.includes("support_superadmin") || ctx.roles.includes("support_cx_lead"),
+        actorId: ctx.userId || `mem_${ctx.tenantSlug}_admin`,
+      };
+    }
+
     const { api, owner } = await this.manager(ctx);
     const users = await api<User[]>(`/users?q=${encodeURIComponent(`tenant_id:${ctx.tenantId}`)}&briefRepresentation=false&first=${first}&max=50`);
     const scoped = users.filter(u => !u.serviceAccountClientId && u.attributes?.tenant_id?.length === 1 && u.attributes.tenant_id[0] === ctx.tenantId);
@@ -114,6 +151,15 @@ export class AccountMembers {
 
   async profile(ctx: RequestTenantContext, updates?: { firstName: unknown; nickname: unknown }) {
     requireAccountIdentity(ctx);
+    if (ctx.runtimeLinked) {
+      const displayName = ctx.displayName || ctx.username?.split("@")[0] || "Administrator";
+      return {
+        firstName: displayName.split(" ")[0] || "Administrator",
+        nickname: displayName,
+        name: displayName,
+      };
+    }
+
     const api = await this.api();
     let user = await this.user(api, ctx, ctx.userId!);
     if (!user.enabled) throw new AccountError("This account is disabled.", 403);
@@ -134,6 +180,37 @@ export class AccountMembers {
   }
 
   async update(ctx: RequestTenantContext, id: string, updates: Record<string, unknown>) {
+    if (ctx.runtimeLinked) {
+      requireAccountManager(ctx);
+      const name = profileName(updates.name);
+      const role = updates.role as TenantMember["role"];
+      if (!Object.hasOwn(MEMBER_ROLES, role) || !["active", "disabled", "invited"].includes(String(updates.status))) {
+        throw new AccountError("Choose a supported role and account status.");
+      }
+      const updated = marketplaceService.updateMember(id, {
+        name,
+        role,
+        status: updates.status as TenantMember["status"],
+      }, ctx.tenantSlug);
+      if (updated) {
+        return updated;
+      }
+      if (id === ctx.userId || id === `mem_${ctx.tenantSlug}_admin`) {
+        const updatedSelf: TenantMember = {
+          id,
+          name,
+          email: ctx.username || `admin@${ctx.tenantSlug}.com`,
+          role,
+          status: updates.status as TenantMember["status"],
+          twoFactorEnabled: false,
+          lastActive: "Online now",
+          avatarUrl: "",
+        };
+        return marketplaceService.addMember(updatedSelf, ctx.tenantSlug);
+      }
+      throw new AccountError("Member not found in this workspace.", 404);
+    }
+
     const { api, owner } = await this.manager(ctx);
     const user = await this.user(api, ctx, id);
     const path = `/users/${encodeURIComponent(id)}`;
@@ -168,6 +245,19 @@ export class AccountMembers {
   }
 
   async invite(ctx: RequestTenantContext, input: Record<string, unknown>) {
+    if (ctx.runtimeLinked) {
+      requireAccountManager(ctx);
+      const name = profileName(input.name);
+      const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+      const role = input.role as TenantMember["role"];
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !Object.hasOwn(MEMBER_ROLES, role)) throw new AccountError("Enter a valid email and role.");
+      if (!ctx.roles.includes("support_superadmin") && (role === "Owner / CX Director" || role === "CX Operations Lead")) {
+        throw new AccountError("Only owners can invite leadership roles.", 403);
+      }
+      const member = marketplaceService.inviteMember(name, email, role, ctx.tenantSlug);
+      return { member, invitationSent: true };
+    }
+
     const { api, owner } = await this.manager(ctx);
     const name = profileName(input.name);
     const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
@@ -193,6 +283,14 @@ export class AccountMembers {
   }
 
   async resendInvite(ctx: RequestTenantContext, id: string) {
+    if (ctx.runtimeLinked) {
+      requireAccountManager(ctx);
+      const members = marketplaceService.getMembers(ctx.tenantSlug);
+      const member = members.find(m => m.id === id);
+      if (!member) throw new AccountError("Member not found in this workspace.", 404);
+      return;
+    }
+
     const { api, owner } = await this.manager(ctx);
     const user = await this.user(api, ctx, id);
     const roles = await api<Role[]>(`/users/${encodeURIComponent(id)}/role-mappings/realm/composite`);

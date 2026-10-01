@@ -591,3 +591,37 @@ export const DEFAULT_RAG_ASSISTANT = {
   hired: true
 };
 
+export type CustomerTier = "standard" | "premium" | "enterprise" | "vip";
+
+export type CustomerSourceSystem = "local" | "stripe" | "zendesk" | "intercom" | "orderv8" | "shopify" | "manual";
+
+export interface CustomerProfile {
+  id: string;
+  tenantId: string;
+  name: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  customerTier: CustomerTier;
+  sourceSystem: CustomerSourceSystem;
+  externalCustomerRef?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  lastSyncedAt?: string | null;
+}
+
+export interface CustomerCreateInput {
+  name: string;
+  companyName?: string;
+  email: string;
+  phone?: string;
+  customerTier?: CustomerTier;
+  sourceSystem?: CustomerSourceSystem;
+  externalCustomerRef?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type CustomerUpdateInput = Partial<CustomerCreateInput>;
+
+

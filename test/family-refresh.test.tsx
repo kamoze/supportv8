@@ -39,7 +39,7 @@ describe("production support family refresh", () => {
   });
   it("preserves the complete incumbent menu role filters and auth action handlers", () => {
     const page = source("app/page.tsx");
-    expect(hash(page.slice(page.indexOf("  const allNavSections ="), page.indexOf("  // Automatically enforce tab route guards")))).toBe("5a7b9d6643100dd355b51b73ef0e4d45fbb45825f408f884bf58f82406feb406");
+    expect(hash(page.slice(page.indexOf("  const allNavSections ="), page.indexOf("  // Automatically enforce tab route guards")))).toBe("78772ce464203a95f34a3395cb4fc4cad0735e640ad0d4484a7624835fd114e4");
     for (const [name, expected] of [["SignInModal", "462f2a7ea44bcc064fca87bc01d7a4337875b702ee55ea238110dee8c87bc81d"], ["SignupModal", "aad4ac72f4f4d23eb517d508f72f031bfe54ba994444390c6b025171d9b27802"]]) {
       const text = source(`components/${name}.tsx`);
       const start = text.indexOf("  if (!isOpen) return null;");

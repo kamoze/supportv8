@@ -140,4 +140,41 @@ describe("durable account permissions and profile", () => {
     expect(calls).toHaveLength(0);
   });
   it.each(["", "agent@example.com", "x".repeat(81), "Name\u0000"])("validates display names: %j", value => expect(() => profileName(value)).toThrow());
+
+  describe("runtime-linked workspace members", () => {
+    const runtimeCtx: RequestTenantContext = {
+      tenantId: "tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559",
+      tenantSlug: "runtime-acceptance",
+      authenticated: true,
+      runtimeLinked: true,
+      userId: "usr_rt_admin",
+      username: "admin@runtime-acceptance.com",
+      displayName: "Runtime Lead",
+      roles: ["support_cx_lead"],
+    };
+
+    it("lists members for runtime-linked workspace without querying Keycloak", async () => {
+      const result = await new AccountMembers().list(runtimeCtx);
+      expect(result.owner).toBe(true);
+      expect(result.members.length).toBeGreaterThanOrEqual(1);
+      expect(result.members.some(m => m.email === "admin@runtime-acceptance.com")).toBe(true);
+    });
+
+    it("invites and updates members for runtime-linked workspace", async () => {
+      const inviteResult = await new AccountMembers().invite(runtimeCtx, {
+        name: "New Specialist",
+        email: "specialist@runtime-acceptance.com",
+        role: "Tier 2 Escalation Agent",
+      });
+      expect(inviteResult.invitationSent).toBe(true);
+      expect(inviteResult.member.email).toBe("specialist@runtime-acceptance.com");
+
+      const updateResult = await new AccountMembers().update(runtimeCtx, inviteResult.member.id, {
+        name: "Senior Specialist",
+        role: "Tier 2 Escalation Agent",
+        status: "active",
+      });
+      expect(updateResult.name).toBe("Senior Specialist");
+    });
+  });
 });

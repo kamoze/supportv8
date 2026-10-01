@@ -56,6 +56,7 @@ import {
   PanelRightOpen,
   Maximize2,
   Minimize2,
+  Building,
 } from "@/components/ui/FlatIcon";
 import type {
   Issue,
@@ -65,6 +66,8 @@ import type {
   TicketMessageItem,
   TicketAttachment,
   CustomerChatSession,
+  CustomerProfile,
+  CustomerTier,
 } from "@/lib/types";
 import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
 import {
@@ -164,6 +167,8 @@ interface FocusedWorkspaceViewProps {
   onDeductCredits?: (amount: number, reason: string) => void;
   onTriggerTemporalActivity?: (ticketId: string, activityType: string, payload?: any) => void;
   onNotify: (msg: string, type?: "success" | "error" | "info") => void;
+  initialCustomerForTicket?: CustomerProfile | null;
+  onClearInitialCustomer?: () => void;
 }
 
 export type RuntimeWorkDeskTicket = {
@@ -529,6 +534,8 @@ function LegacyFocusedWorkspaceView({
   onDeductCredits,
   onTriggerTemporalActivity,
   onNotify,
+  initialCustomerForTicket,
+  onClearInitialCustomer,
 }: FocusedWorkspaceViewProps) {
   const isContractorUser = userRole === "contractor" || userRole === "technician" || userRole === "contractor_lead";
   const [selectedIssueId, setSelectedIssueId] = useState<string>(() => {
@@ -635,6 +642,44 @@ function LegacyFocusedWorkspaceView({
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [createTicketError, setCreateTicketError] = useState("");
   const [newChannel, setNewChannel] = useState<string>("manual_entry");
+
+  // Customer Selection & Combobox State
+  const [customerDirectory, setCustomerDirectory] = useState<CustomerProfile[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerProfile | null>(null);
+  const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [isInlineAddingCustomer, setIsInlineAddingCustomer] = useState(false);
+  const [inlineName, setInlineName] = useState("");
+  const [inlineCompany, setInlineCompany] = useState("");
+  const [inlineEmail, setInlineEmail] = useState("");
+  const [inlinePhone, setInlinePhone] = useState("");
+  const [inlineTier, setInlineTier] = useState<CustomerTier>("standard");
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineError, setInlineError] = useState("");
+
+  // Load customers for combobox when ticket modal opens
+  useEffect(() => {
+    if (isNewTicketModalOpen) {
+      void AuthService.authenticatedFetch("/api/customers")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            setCustomerDirectory(data.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isNewTicketModalOpen]);
+
+  // Support pre-selecting customer from Customers Directory view
+  useEffect(() => {
+    if (initialCustomerForTicket) {
+      setSelectedCustomer(initialCustomerForTicket);
+      setNewCustName(initialCustomerForTicket.name);
+      setNewCustomerEmail(initialCustomerForTicket.email);
+      setIsNewTicketModalOpen(true);
+      onClearInitialCustomer?.();
+    }
+  }, [initialCustomerForTicket, onClearInitialCustomer]);
 
   // CSV Import State
   const [csvText, setCsvText] = useState("");
@@ -1421,6 +1466,48 @@ function LegacyFocusedWorkspaceView({
     }
   };
 
+  // Inline Add Customer from Ticket Creation Combobox
+  const handleInlineSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!inlineName.trim() || !inlineEmail.trim()) {
+      setInlineError("Customer name and a valid email are required.");
+      return;
+    }
+    setInlineSaving(true);
+    setInlineError("");
+    try {
+      const res = await AuthService.authenticatedFetch("/api/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: inlineName.trim(),
+          companyName: inlineCompany.trim(),
+          email: inlineEmail.trim(),
+          phone: inlinePhone.trim(),
+          customerTier: inlineTier,
+          sourceSystem: "local",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.data) {
+        throw new Error(data.error || "Failed to create customer");
+      }
+      const newCust = data.data as CustomerProfile;
+      setCustomerDirectory((prev) => [newCust, ...prev.filter((c) => c.id !== newCust.id)]);
+      setSelectedCustomer(newCust);
+      setNewCustName(newCust.name);
+      setNewCustomerEmail(newCust.email);
+      setIsInlineAddingCustomer(false);
+      setCustomerComboboxOpen(false);
+      onNotify(`Added customer ${newCust.name} and selected for ticket`, "success");
+    } catch (err: unknown) {
+      setInlineError(err instanceof Error ? err.message : "Failed to create customer");
+    } finally {
+      setInlineSaving(false);
+    }
+  };
+
   // Create Manual Ticket
   const handleCreateManualTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1435,9 +1522,19 @@ function LegacyFocusedWorkspaceView({
     try {
       const response = await AuthService.authenticatedFetch("/api/issues", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create_manual", customerName: newCustName,
-          customerEmail: newCustomerEmail, summary: newSummary, stream: newCategory,
-          priority: newPriority, channel: newChannel }),
+        body: JSON.stringify({
+          action: "create_manual",
+          customerName: newCustName,
+          customerEmail: newCustomerEmail,
+          summary: newSummary,
+          stream: newCategory,
+          priority: newPriority,
+          channel: newChannel,
+          customerId: selectedCustomer?.id,
+          customerPhone: selectedCustomer?.phone,
+          companyName: selectedCustomer?.companyName,
+          customerTier: selectedCustomer?.customerTier,
+        }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success || !payload.data) throw new Error(payload.error || "Ticket could not be saved. Please try again.");
@@ -1448,6 +1545,9 @@ function LegacyFocusedWorkspaceView({
       setNewCustomerEmail("");
       setNewSummary("");
       setNewChannel("manual_entry");
+      setSelectedCustomer(null);
+      setCustomerComboboxOpen(false);
+      setIsInlineAddingCustomer(false);
       onNotify(`Created ticket ${payload.data.externalId}`, "success");
     } catch (error) {
       setCreateTicketError(error instanceof Error ? error.message : "Ticket could not be saved. Please try again.");
@@ -3022,23 +3122,239 @@ function LegacyFocusedWorkspaceView({
 
             <form onSubmit={handleCreateManualTicket} className="p-6 space-y-4 text-xs font-mono">
               {createTicketError && <p role="alert" className="text-[#FF7373]">{createTicketError}</p>}
-              <div className="space-y-1">
-                <label className="text-[#B4C2D0] block">Customer / Organization Name</label>
-                <input
-                  type="text"
-                  value={newCustName}
-                  maxLength={255}
-                  aria-label="Customer or organization name"
-                  onChange={(e) => setNewCustName(e.target.value)}
-                  placeholder="e.g. Apex Global Logistics"
-                  required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
-                />
+              {/* Customer Selector / Combobox */}
+              <div className="space-y-1.5 relative">
+                <label className="text-[#B4C2D0] block">Customer / Organization Name *</label>
+                {selectedCustomer ? (
+                  <div className="p-3 rounded-2xl bg-[#141C26] border border-[#2ED8B6]/30 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/30 flex items-center justify-center text-[#2ED8B6] font-bold text-xs shrink-0">
+                        {selectedCustomer.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[#EAF1F8] truncate">{selectedCustomer.name}</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-[#2ED8B6]/20 text-[#2ED8B6]">
+                            {selectedCustomer.customerTier}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#8E9AA8] truncate flex items-center gap-2">
+                          {selectedCustomer.companyName && (
+                            <span className="flex items-center gap-1">
+                              <Building className="w-3 h-3 text-[#6B7C8D]" />
+                              {selectedCustomer.companyName}
+                            </span>
+                          )}
+                          <span>{selectedCustomer.email}</span>
+                          {selectedCustomer.phone && <span>• {selectedCustomer.phone}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setCustomerComboboxOpen(true);
+                      }}
+                      className="px-2.5 py-1 text-[11px] rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-[#B4C2D0] hover:text-[#EAF1F8] border border-[var(--line-2)] shrink-0 cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : isInlineAddingCustomer ? (
+                  <div className="p-3.5 rounded-2xl bg-[#121A24] border border-[#2ED8B6]/40 space-y-3 animate-in zoom-in-95 duration-100">
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                      <span className="font-bold text-[#2ED8B6] flex items-center gap-1.5 text-xs">
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add New Customer</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsInlineAddingCustomer(false)}
+                        className="text-[#8E9AA8] hover:text-[#EAF1F8] cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {inlineError && <p role="alert" className="text-[#FF7373] text-[11px]">{inlineError}</p>}
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Customer Name *"
+                        value={inlineName}
+                        onChange={(e) => setInlineName(e.target.value)}
+                        className="bg-[#141C26] border border-[var(--line)] rounded-xl px-2.5 py-1.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Company / Org Name"
+                        value={inlineCompany}
+                        onChange={(e) => setInlineCompany(e.target.value)}
+                        className="bg-[#141C26] border border-[var(--line)] rounded-xl px-2.5 py-1.5 text-xs text-[#EAF1F8] focus:outline-none"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="email"
+                        placeholder="Email Address *"
+                        value={inlineEmail}
+                        onChange={(e) => setInlineEmail(e.target.value)}
+                        className="bg-[#141C26] border border-[var(--line)] rounded-xl px-2.5 py-1.5 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone Number"
+                        value={inlinePhone}
+                        onChange={(e) => setInlinePhone(e.target.value)}
+                        className="bg-[#141C26] border border-[var(--line)] rounded-xl px-2.5 py-1.5 text-xs text-[#EAF1F8] focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <select
+                        value={inlineTier}
+                        onChange={(e) => setInlineTier(e.target.value as CustomerTier)}
+                        className="bg-[#141C26] border border-[var(--line)] rounded-xl px-2 py-1 text-xs text-[#EAF1F8] focus:outline-none"
+                      >
+                        <option value="standard">Standard Tier</option>
+                        <option value="premium">Premium Tier</option>
+                        <option value="enterprise">Enterprise Tier</option>
+                        <option value="vip">VIP Tier</option>
+                      </select>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={inlineSaving}
+                          onClick={() => setIsInlineAddingCustomer(false)}
+                          className="px-2.5 py-1 rounded-lg text-[11px] text-[#8E9AA8] hover:text-[#EAF1F8] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={inlineSaving}
+                          onClick={handleInlineSaveCustomer}
+                          className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[#2ED8B6] text-black hover:bg-[#25BFA0] cursor-pointer"
+                        >
+                          {inlineSaving ? "Saving…" : "Save & Select"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="relative flex items-center">
+                      <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none" />
+                      <input
+                        type="text"
+                        value={newCustName}
+                        maxLength={255}
+                        aria-label="Customer or organization name"
+                        onFocus={() => setCustomerComboboxOpen(true)}
+                        onChange={(e) => {
+                          setNewCustName(e.target.value);
+                          setCustomerComboboxOpen(true);
+                        }}
+                        placeholder="Search existing customer or enter name..."
+                        required
+                        className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl pl-9 pr-8 py-2 text-xs text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      />
+                      {newCustName && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewCustName("");
+                            setSelectedCustomer(null);
+                          }}
+                          className="absolute right-2.5 text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Combobox Dropdown */}
+                    {customerComboboxOpen && (
+                      <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-[#101722] border border-[var(--line-2)] rounded-2xl shadow-2xl z-50 divide-y divide-[var(--line)]">
+                        {customerDirectory
+                          .filter((c) => {
+                            if (!newCustName.trim()) return true;
+                            const q = newCustName.trim().toLowerCase();
+                            return (
+                              c.name.toLowerCase().includes(q) ||
+                              c.companyName.toLowerCase().includes(q) ||
+                              c.email.toLowerCase().includes(q) ||
+                              c.phone.toLowerCase().includes(q)
+                            );
+                          })
+                          .slice(0, 5)
+                          .map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCustomer(c);
+                                setNewCustName(c.name);
+                                setNewCustomerEmail(c.email);
+                                setCustomerComboboxOpen(false);
+                              }}
+                              className="w-full text-left p-2.5 hover:bg-[#18222E] transition-colors flex items-center justify-between gap-2 cursor-pointer"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 font-bold text-[#EAF1F8] text-xs">
+                                  <span className="truncate">{c.name}</span>
+                                  {c.companyName && (
+                                    <span className="text-[#8E9AA8] font-normal truncate">({c.companyName})</span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-[#6B7C8D] truncate">
+                                  {c.email} {c.phone ? `• ${c.phone}` : ""}
+                                </div>
+                              </div>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded uppercase font-bold bg-[#18222E] text-[#2ED8B6] border border-[var(--line)] shrink-0">
+                                {c.customerTier}
+                              </span>
+                            </button>
+                          ))}
+
+                        {/* Inline Add Action */}
+                        <div className="p-2 bg-[#121A24]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInlineName(newCustName.trim());
+                              setInlineCompany("");
+                              setInlineEmail(newCustomerEmail.trim());
+                              setInlinePhone("");
+                              setInlineTier("standard");
+                              setInlineError("");
+                              setIsInlineAddingCustomer(true);
+                              setCustomerComboboxOpen(false);
+                            }}
+                            className="w-full py-1.5 px-2.5 rounded-xl bg-[#2ED8B6]/15 hover:bg-[#2ED8B6]/25 border border-[#2ED8B6]/30 text-[#2ED8B6] font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>
+                              {newCustName.trim()
+                                ? `+ Add "${newCustName.trim()}" as New Customer`
+                                : "+ Add New Customer to Directory"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <label className="block space-y-1 text-[#B4C2D0]">
                 <span>Customer email (optional)</span>
-                <input type="email" value={newCustomerEmail} maxLength={254} onChange={e => setNewCustomerEmail(e.target.value)} className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-base text-[#EAF1F8]" />
+                <input
+                  type="email"
+                  value={newCustomerEmail}
+                  maxLength={254}
+                  onChange={(e) => setNewCustomerEmail(e.target.value)}
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-xl px-3 py-2 text-xs text-[#EAF1F8] focus:outline-none"
+                />
               </label>
               <div className="space-y-1">
                 <label className="text-[#B4C2D0] block">Summary &amp; Problem Statement</label>

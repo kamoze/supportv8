@@ -103,6 +103,7 @@ import type {
   SentimentClass,
   TicketTimelineEvent,
   TicketMessageItem,
+  CustomerProfile,
 } from "@/lib/types";
 import { DEFAULT_RAG_ASSISTANT } from "@/lib/types";
 import type {
@@ -122,6 +123,7 @@ import {
 } from "@/lib/services/marketplace-service";
 
 import { FocusedWorkspaceView } from "@/components/views/FocusedWorkspaceView";
+import { CustomerProfilesView } from "@/components/views/CustomerProfilesView";
 import { AskWorkspaceView } from "@/components/views/AskWorkspaceView";
 import { MarketplaceConnectorsView } from "@/components/views/MarketplaceConnectorsView";
 import { StudioMarketplaceHubView } from "@/components/views/StudioMarketplaceHubView";
@@ -533,6 +535,7 @@ export default function SupportV8Dashboard() {
   const [workspaceRefundAmount, setWorkspaceRefundAmount] = useState<string>("49.00");
   const [workspaceTriageFilter, setWorkspaceTriageFilter] = useState<"all" | "enterprise" | "p1_p2" | "at_risk">("all");
   const [workspaceDrafting, setWorkspaceDrafting] = useState<boolean>(false);
+  const [preselectedCustomerForTicket, setPreselectedCustomerForTicket] = useState<CustomerProfile | null>(null);
 
   // ForgeGW Managed vs BYOM Model Governance States (GrowthV8 Architecture)
   const [isForgeGwModalOpen, setIsForgeGwModalOpen] = useState<boolean>(false);
@@ -1852,6 +1855,13 @@ export default function SupportV8Dashboard() {
           badge: isContractorRole
             ? issues.filter((i) => i.category === "contractor" || i.contractor).length || issues.length
             : issues.length,
+          roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
+        },
+        {
+          id: "customers",
+          label: "Customers",
+          icon: Users,
+          flaticon: "fi fi-rr-users",
           roles: ["contractor_lead", "contractor", "technician", "operator", "cx_lead", "superadmin"],
         },
         {
@@ -7362,7 +7372,22 @@ export default function SupportV8Dashboard() {
               });
               setIsEscalateModalOpen(true);
             }}
+            initialCustomerForTicket={preselectedCustomerForTicket}
+            onClearInitialCustomer={() => setPreselectedCustomerForTicket(null)}
             onNotify={notify}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: CUSTOMER DIRECTORY & BIODATA */}
+        {/* ========================================================================= */}
+        {activeTab === "customers" && (
+          <CustomerProfilesView
+            onCreateTicketForCustomer={(customer) => {
+              setPreselectedCustomerForTicket(customer);
+              setActiveTab("workspace");
+            }}
+            onNotify={(msg, type) => notify(msg, type || "success")}
           />
         )}
 

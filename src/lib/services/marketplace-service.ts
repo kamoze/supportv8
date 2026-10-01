@@ -1481,6 +1481,20 @@ export class MarketplaceService {
     return member;
   }
 
+  public updateMember(id: string, updates: Partial<TenantMember>, tenantSlug = "acme"): TenantMember | null {
+    const state = this.stateFor(tenantSlug);
+    const idx = state.members.findIndex((m) => m.id === id);
+    if (idx < 0) return null;
+    state.members[idx] = { ...state.members[idx], ...updates };
+    return this.clone(state.members[idx]);
+  }
+
+  public addMember(member: TenantMember, tenantSlug = "acme"): TenantMember {
+    const state = this.stateFor(tenantSlug);
+    state.members.unshift(member);
+    return this.clone(member);
+  }
+
   public updateSettings(updates: Partial<TenantSettingConfig>, tenantSlug = "acme"): TenantSettingConfig {
     const state = this.stateFor(tenantSlug);
     state.settings = { ...state.settings, ...updates };

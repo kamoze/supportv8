@@ -315,10 +315,7 @@ export function CustomerProfilesView({
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-[#EAF1F8]">Customer Directory &amp; Biodata</h1>
-              <p className="text-xs text-[#B4C2D0]">
-                Manage verified customer identities, contact numbers, corporate accounts, and omnichannel sync.
-              </p>
+              <h1 className="text-xl font-bold text-[#EAF1F8]">Customer Directory<span className="sr-only"> &amp; Biodata</span></h1>
             </div>
           </div>
         </div>

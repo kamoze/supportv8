@@ -140,11 +140,8 @@ export function WorkforceApprovalsView({ onNotify }: WorkforceApprovalsViewProps
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
               <Shield className="w-5 h-5" />
             </span>
-            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Workforce Autonomy Approvals</h1>
+            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Workforce Approvals</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Autonomous actions proposed by hired AI employees that exceed configured autonomy thresholds require human sign-off before execution.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -162,7 +159,7 @@ export function WorkforceApprovalsView({ onNotify }: WorkforceApprovalsViewProps
         <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-[#2ED8B6]" />
-            <h2 className="text-sm font-bold text-[#EAF1F8]">Pending Autonomy Action Queue</h2>
+            <h2 className="text-sm font-bold text-[#EAF1F8]">Pending Approvals</h2>
           </div>
           <span className="text-[11px] text-[#6B7C8D] font-mono">{approvals.length} requests waiting</span>
         </div>
@@ -242,7 +239,7 @@ export function WorkforceApprovalsView({ onNotify }: WorkforceApprovalsViewProps
             <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-[#EAF1F8]">No Pending Approvals</h3>
+            <h3 className="text-sm font-bold text-[#EAF1F8]">Queue Clear</h3>
             <p className="text-xs text-[#6B7C8D] max-w-md mx-auto">
               All autonomous operations are within configured policy thresholds. New high-risk actions will appear here for manager authorization.
             </p>
@@ -256,7 +253,7 @@ export function WorkforceApprovalsView({ onNotify }: WorkforceApprovalsViewProps
           <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-[#6B7C8D]" />
-              <h2 className="text-sm font-bold text-[#EAF1F8]">Recent Approval Decisions</h2>
+              <h2 className="text-sm font-bold text-[#EAF1F8]">Recent Decisions</h2>
             </div>
             <span className="text-[11px] text-[#6B7C8D] font-mono">Audit Log Synced</span>
           </div>

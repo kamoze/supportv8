@@ -137,11 +137,8 @@ export function GovernanceAuditLogsView({
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
               <ShieldCheck className="w-5 h-5" />
             </span>
-            <h1 className="text-lg font-bold text-[#EAF1F8]">Immutable Governance Audit Logs</h1>
+            <h1 className="text-lg font-bold text-[#EAF1F8]">Audit Logs</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Cryptographically sealed, append-only audit trail logging every autonomous decision, Action Gateway dispatch, and human override.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -615,7 +612,7 @@ export function GovernanceAuditLogsView({
                   <ShieldCheck className="w-4 h-4" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Audit Record Inspector</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Record Inspector</h3>
                   <p className="text-[11px] text-[#6B7C8D] font-mono">{selectedLog.id}</p>
                 </div>
               </div>

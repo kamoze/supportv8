@@ -46,11 +46,8 @@ export function GovernanceReportsView({
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
               <FileText className="w-5 h-5" />
             </span>
-            <h1 className="text-lg font-bold text-[#EAF1F8]">Governance Compliance &amp; Audit Reports</h1>
+            <h1 className="text-lg font-bold text-[#EAF1F8]">Governance Reports</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Export monthly audit trails covering autonomous resolution rate (VARR), AI hallucination drift metrics, and net dollar savings.
-          </p>
         </div>
 
         <button
@@ -93,7 +90,7 @@ export function GovernanceReportsView({
       {/* Audit Reports Log */}
       <div className="card rounded-2xl border-[var(--line)] overflow-hidden bg-[#121A24]">
         <div className="p-4 border-b border-[var(--line)] flex items-center justify-between">
-          <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Monthly Audit Logs &amp; Cryptographic Signatures</h3>
+          <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Audit Logs</h3>
           <span className="pill ok text-[10px] font-mono">CHAIN-VALIDATED</span>
         </div>
 

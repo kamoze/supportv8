@@ -450,15 +450,12 @@ export function AutonomousStudioView({
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Autonomous Studio &amp; Automations</h1>
+                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Autonomous Studio</h1>
                 <span className="pill ok text-[9px] font-mono">SERVICEV8 MANAGEMENT COCKPIT</span>
               </div>
               <span className="text-[11px] font-mono text-[#2ED8B6]">Manage All Onboarded Packages, Workflows &amp; Sweeps</span>
             </div>
           </div>
-          <p className="text-xs text-[#B4C2D0] leading-relaxed">
-            Autonomous Studio is the unified management engine for all products and solution packages onboarded from Marketplace. Configure DAG workflows, simulate trigger events, tune autonomy thresholds, and execute automated sweeps.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -489,7 +486,7 @@ export function AutonomousStudioView({
       {/* Sub-Navigation Tabs */}
       <div className="flex flex-nowrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)] overflow-x-auto max-w-full scrollbar-none">
         {[
-          { id: "setup", label: "Employee Setup Wizard", badge: "3-Step" },
+          { id: "setup", label: "Employee Setup", badge: "3-Step" },
           { id: "fleet", label: "Connector Fleet", badge: connections.length },
           { id: "workflows", label: "Active Workflows", badge: workflows.length },
           { id: "templates", label: "Scenario Templates", badge: templates.length },
@@ -674,10 +671,7 @@ export function AutonomousStudioView({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Default Deploy Industry Blueprints ({filteredTemplates.length})</h3>
-              <p className="text-[11px] text-[#6B7C8D]">
-                Pre-configured autonomous workflows ready for 1-click deployment to your tenant workspace.
-              </p>
+              <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Scenario Blueprints</h3>
             </div>
             <span className="pill ok text-[10px] font-mono">TEMPORAL ORCHESTRATED</span>
           </div>
@@ -964,11 +958,8 @@ export function AutonomousStudioView({
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#2ED8B6]" />
-                <h3 className="text-base font-bold text-[#EAF1F8]">Stale External Tickets Sweep</h3>
+                <h3 className="text-base font-bold text-[#EAF1F8]">Work Sweeper</h3>
               </div>
-              <p className="text-xs text-[#B4C2D0]">
-                {staleCandidates.length} dormant tickets verified safe to auto-close across connected CRM &amp; vertical connectors.
-              </p>
             </div>
             {staleCandidates.length > 0 && (
               <button
@@ -1037,11 +1028,8 @@ export function AutonomousStudioView({
                 <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
                   <Bot className="w-5 h-5" />
                 </span>
-                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Canonical Employee Onboarding Wizard</h2>
+                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Employee Onboarding</h2>
               </div>
-              <p className="text-xs text-[#B4C2D0]">
-                Studio 3-Step Lifecycle: Voice ($59/mo, 100 mins) &rarr; Connections (Two-Tier Model) &rarr; Review &amp; Activate.
-              </p>
             </div>
 
             {/* Target Employee Selector */}
@@ -1111,7 +1099,7 @@ export function AutonomousStudioView({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Phone className="w-5 h-5 text-[#2ED8B6]" />
-                    <h3 className="text-base font-bold text-[#EAF1F8]">Sv8-Voice Telephony Subscription</h3>
+                    <h3 className="text-base font-bold text-[#EAF1F8]">Voice Subscription</h3>
                   </div>
                   <p className="text-xs text-[#B4C2D0]">
                     Canonical voice pricing: $59 USD/month per employee. Includes 100 connected minutes, overflow billed at 90 credits/minute.
@@ -1388,11 +1376,8 @@ export function AutonomousStudioView({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-[#2ED8B6]" />
-                    <h3 className="text-base font-bold text-[#EAF1F8]">Review &amp; Preflight Activation Gate</h3>
+                    <h3 className="text-base font-bold text-[#EAF1F8]">Preflight Gate</h3>
                   </div>
-                  <p className="text-xs text-[#B4C2D0]">
-                    Verify billing entitlement, Action Gateway connector authorization, and initiate canonical hire activation.
-                  </p>
                 </div>
               </div>
 
@@ -1466,7 +1451,7 @@ export function AutonomousStudioView({
                   <div className="w-10 h-10 rounded-full bg-[#2ED8B6] text-[#04201C] flex items-center justify-center mx-auto">
                     <Check className="w-5 h-5" />
                   </div>
-                  <h4 className="text-sm font-bold text-[#EAF1F8]">AI Employee Activated &amp; Live!</h4>
+                  <h4 className="text-sm font-bold text-[#EAF1F8]">Employee Activated</h4>
                   <p className="text-xs text-[#B4C2D0] max-w-lg mx-auto">
                     This canonical employee is now fully provisioned across Runtime, Studio, and SupportV8. Inbound calls to{" "}
                     <strong>{voicePhoneNumber}</strong> will route to this employee.
@@ -1522,11 +1507,8 @@ export function AutonomousStudioView({
                 <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
                   <Plug className="w-5 h-5" />
                 </span>
-                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Connector-Centric Fleet View</h2>
+                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Connector Fleet</h2>
               </div>
-              <p className="text-xs text-[#B4C2D0]">
-                Configure provider credentials once in Action Gateway SSM, then manage capability-scoped assignments across your AI workforce.
-              </p>
             </div>
             <div className="font-mono text-xs text-[#8E9AA8]">
               Active SSM Pipes: <strong className="text-[#2ED8B6]">{connections.length}</strong>

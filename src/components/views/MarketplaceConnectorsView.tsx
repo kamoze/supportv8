@@ -182,11 +182,8 @@ export function MarketplaceConnectorsView({
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
               <Plug className="w-5 h-5" />
             </span>
-            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Connectors &amp; Vertical Mesh Hub</h1>
+            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Marketplace Connectors</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Unified integration plane: Subscribe to omnichannel ingress connectors, monitor cross-vertical service mesh apps, and test live microservice dispatches.
-          </p>
         </div>
 
         {/* Sub-View Navigation Tabs */}
@@ -397,11 +394,8 @@ export function MarketplaceConnectorsView({
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div>
                 <h3 className="text-sm font-bold text-[#EAF1F8] font-mono uppercase">
-                  ServiceV8 Cross-Vertical Apps Mesh Topology
+                  Mesh Topology
                 </h3>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Real-time microservice communication mesh enabling automated order lookups, refunds, dispatches, tenant synchronization, and circuit-breaker telemetry.
-                </p>
               </div>
               <span className="pill ok text-xs font-mono">
                 <i className="dot"></i>
@@ -465,10 +459,7 @@ export function MarketplaceConnectorsView({
           <div className="flex items-center gap-2 pb-3 border-b border-[var(--line)]">
             <Terminal className="w-5 h-5 text-[#2ED8B6]" />
             <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Interactive Cross-Vertical API Dispatcher</h3>
-              <p className="text-xs text-[#B4C2D0]">
-                Directly execute authenticated interservice operations across the ServiceV8 mesh (OrderV8, CareV8, PropV8, GrowthV8, Dominion, WorkerV8).
-              </p>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">API Dispatcher</h3>
             </div>
           </div>
 
@@ -572,11 +563,8 @@ export function MarketplaceConnectorsView({
                 <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
                   <Shield className="w-5 h-5" />
                 </span>
-                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Two-Tier Decoupled Connector Architecture</h2>
+                <h2 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Connector Architecture</h2>
               </div>
-              <p className="text-xs text-[#B4C2D0]">
-                Canonical sv8-deploy §128-159 architecture: Authenticated pipes configured once in Action Gateway SSM; explicit capability-scoped assignments bound per employee.
-              </p>
             </div>
             {onNavigateToStudio && (
               <button
@@ -598,7 +586,7 @@ export function MarketplaceConnectorsView({
                   <Zap className="w-4 h-4" />
                 </span>
                 <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                  The 3-Layer Authorization Triangle
+                  Authorization Triangle
                 </h3>
               </div>
               <span className="pill ok text-[9px] font-mono">ENFORCED AT DISPATCH</span>
@@ -638,7 +626,7 @@ export function MarketplaceConnectorsView({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                Active Tenant Connections &amp; Employee Assignments ({connections.length})
+                Active Connections
               </h3>
               <span className="text-[11px] font-mono text-[#6B7C8D]">
                 Click an employee pill to toggle their connector authorization

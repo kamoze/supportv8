@@ -64,8 +64,8 @@ export function SoundAlertToggle({ className = "", showDropdown = true }: SoundA
     <div className="relative inline-flex items-center" ref={menuRef}>
       <button
         type="button"
-        className={`family-icon-button relative group transition-colors ${
-          config.enabled ? "text-[#2ED8B6]" : "text-[#6B7C8D]"
+        className={`h-7 w-7 min-w-0 min-h-0 p-1 rounded-lg border border-[var(--line)] bg-[#101722] hover:bg-[#18222E] inline-flex items-center justify-center relative group transition-colors cursor-pointer ${
+          config.enabled ? "text-[#2ED8B6] border-[#2ED8B6]/40" : "text-[#6B7C8D]"
         } ${className}`.trim()}
         title={label}
         aria-label={label}
@@ -79,12 +79,12 @@ export function SoundAlertToggle({ className = "", showDropdown = true }: SoundA
         }}
       >
         {config.enabled ? (
-          <Volume2 size={18} className="transition-transform group-hover:scale-110" />
+          <Volume2 size={13} className="transition-transform group-hover:scale-110" />
         ) : (
-          <VolumeX size={18} className="transition-transform group-hover:scale-110 text-[#6B7C8D]" />
+          <VolumeX size={13} className="transition-transform group-hover:scale-110 text-[#6B7C8D]" />
         )}
         {config.enabled && (
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#2ED8B6] shadow-[0_0_6px_#2ED8B6]"></span>
+          <span className="absolute top-1 right-1 w-1 h-1 rounded-full bg-[#2ED8B6] shadow-[0_0_4px_#2ED8B6]"></span>
         )}
       </button>
 

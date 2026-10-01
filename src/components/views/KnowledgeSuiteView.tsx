@@ -645,18 +645,15 @@ export function KnowledgeSuiteView({
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
               <Brain className="w-5 h-5" />
             </span>
-            <h1 className="text-lg font-bold text-[#EAF1F8]">Knowledge Suite &amp; Semantic Curation Hub</h1>
+            <h1 className="text-lg font-bold text-[#EAF1F8]">Knowledge Vault</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Direct S3 document upload, heading-based chunk curation, semantic group tagging, RAG vector output editing, and 2D topology graph.
-          </p>
         </div>
 
         {/* Sub-Navigation Tabs */}
         <div className="flex flex-wrap items-center p-1 rounded-xl bg-[#18222E] border border-[var(--line)] gap-1">
           {[
-            { id: "ingest", label: "Vault & Direct Upload", icon: Upload },
-            { id: "curation", label: "Curation & Tagging", icon: Edit3 },
+            { id: "ingest", label: "Direct Upload", icon: Upload },
+            { id: "curation", label: "Curation Tagging", icon: Edit3 },
             { id: "rag_editor", label: "RAG Output Editor", icon: Sparkles },
             { id: "deficit_mapper", label: "Deficit Mapper", icon: FileText },
             { id: "graph", label: "Knowledge Graph", icon: Layers },
@@ -695,10 +692,7 @@ export function KnowledgeSuiteView({
                   <Upload className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Direct Document Upload &amp; pgvector Ingestion</h3>
-                  <p className="text-xs text-[#B4C2D0]">
-                    Drop documents straight into the enterprise vault. Supports PDF, DOCX, XLSX, CSV, Markdown, JSON, HTML, and images (up to 25MB).
-                  </p>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Document Upload</h3>
                 </div>
               </div>
               <span className="pill ok text-[10px] font-mono">
@@ -977,7 +971,7 @@ export function KnowledgeSuiteView({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Globe className="w-4 h-4 text-[#2ED8B6]" />
-                  <h3 className="text-xs font-bold text-[#EAF1F8]">Live Web Documentation Crawler</h3>
+                  <h3 className="text-xs font-bold text-[#EAF1F8]">Web Crawler</h3>
                 </div>
                 <span className="pill ok text-[9px] font-mono">PUPPETEER INGEST</span>
               </div>
@@ -1016,13 +1010,10 @@ export function KnowledgeSuiteView({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Database className="w-4 h-4 text-[#2ED8B6]" />
-                    <h3 className="text-xs font-bold text-[#EAF1F8]">KnowledgeV8 pgvector Sync</h3>
+                    <h3 className="text-xs font-bold text-[#EAF1F8]">Vector Sync</h3>
                   </div>
                   <span className="pill ok text-[9px] font-mono">1,536 DIM</span>
                 </div>
-                <p className="text-xs text-[#B4C2D0] leading-relaxed">
-                  Real-time semantic sync between supportV8 runtime memory and KnowledgeV8 enterprise vector database.
-                </p>
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
@@ -1045,10 +1036,7 @@ export function KnowledgeSuiteView({
           <div className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
               <div>
-                <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Ingested Vault Documents &amp; Curation Pipeline</h3>
-                <p className="text-[11px] text-[#6B7C8D]">
-                  Directly curate raw uploaded documents into verified articles, manage RBAC group tags, and edit vector RAG chunks.
-                </p>
+                <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Vault Documents</h3>
               </div>
 
               <div className="relative w-full sm:w-64 flex items-center">
@@ -1190,10 +1178,7 @@ export function KnowledgeSuiteView({
           <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
               <div>
-                <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Document Curation &amp; Tagging Pipeline</h3>
-                <p className="text-xs text-[#B4C2D0]">
-                  Convert raw ingested documents into authoritative Knowledge Base concepts with explicit RBAC group access and searchable semantic tags.
-                </p>
+                <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Document Curation</h3>
               </div>
               <span className="pill ok text-[10px] font-mono">KNOWLEDGEV8 SYNC READY</span>
             </div>
@@ -1579,10 +1564,7 @@ export function KnowledgeSuiteView({
           <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
               <div>
-                <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Direct Document RAG Output &amp; Vector Chunk Editor</h3>
-                <p className="text-xs text-[#B4C2D0]">
-                  Inspect and edit live vector retrieval chunks, adjust similarity weights, and re-compute 1536-dim embeddings.
-                </p>
+                <h3 className="text-sm font-bold text-[#EAF1F8] font-mono">Chunk Editor</h3>
               </div>
               <span className="pill ok text-[10px] font-mono">
                 {vectorModel === "forge-embed-text-1536" || isForgeGwActive
@@ -1865,10 +1847,7 @@ export function KnowledgeSuiteView({
           <div className="card p-6 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div>
-                <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Autonomous Knowledge Deficit Radar</h3>
-                <p className="text-[11px] text-[#6B7C8D]">
-                  Jordan (KB Specialist) scans recurring ticket clusters to mine knowledge gaps and propose draft resolutions.
-                </p>
+                <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Deficit Radar</h3>
               </div>
               <span className="pill ok text-[10px] font-mono">JORDAN SPECIALIST MINING</span>
             </div>
@@ -2125,8 +2104,7 @@ export function KnowledgeSuiteView({
                 <Sliders className="w-5 h-5" />
               </span>
               <div>
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Knowledge Base Vector Grounding &amp; Field Topology</h3>
-                <p className="text-xs text-[#8E9AA8]">Configure embeddings dimensions, chunking boundaries, cosine thresholds, and auto-sync TTL.</p>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Field Topology</h3>
               </div>
             </div>
             <button

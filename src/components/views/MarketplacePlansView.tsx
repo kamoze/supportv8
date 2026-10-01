@@ -37,11 +37,8 @@ export function MarketplacePlansView({
           <i className="dot"></i> ENTERPRISE SUBSCRIPTIONS
         </span>
         <h1 className="text-2xl font-extrabold text-[#EAF1F8]">
-          Transparent, Autonomy-Driven Pricing
+          Pricing Plans
         </h1>
-        <p className="text-xs text-[#B4C2D0]">
-          Scale customer support operations with dedicated AI employee seats, pgvector RLS partitions, and real-time SLA guarantees.
-        </p>
 
         {/* Monthly vs Annual Toggle */}
         <div className="pt-4 flex items-center justify-center gap-3">
@@ -192,11 +189,8 @@ export function MarketplacePlansView({
             <i className="dot"></i> FORGEGW ACTION CREDITS
           </span>
           <h2 className="text-xl font-bold text-[#EAF1F8]">
-            Standalone &amp; Vertical Top-Ups
+            Credit Top-Ups
           </h2>
-          <p className="text-xs text-[#B4C2D0]">
-            Replenish pooled microservice action credits on demand without altering your baseline subscription tier.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

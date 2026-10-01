@@ -73,15 +73,14 @@ export function GovernanceMembersView({ members: externalMembers, onUpdateMember
 
   return <section className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="text-xl font-semibold">Team members &amp; access</h1>
-        <p className="mt-1 text-sm text-[#B4C2D0]">Manage real workspace accounts and see current staff presence.</p></div>
+      <div><h1 className="text-xl font-semibold">Team Members</h1></div>
       <button type="button" className="btn btn-primary" disabled={loading || !!error || tab !== "roster"} onClick={() => {
         setInviting(true); setEditing(null); setName(""); setEmail(""); setRole("Tier 2 Escalation Agent"); setFormError(""); setNotice("");
       }}>Invite member</button>
     </div>
     <div className="flex flex-wrap gap-2" aria-label="Member views">
-      <button type="button" aria-pressed={tab === "roster"} className="btn btn-secondary" onClick={() => setTab("roster")}>Accounts &amp; roles</button>
-      <button type="button" aria-pressed={tab === "presence"} className="btn btn-secondary" onClick={() => setTab("presence")}>Live routing presence</button>
+      <button type="button" aria-pressed={tab === "roster"} className="btn btn-secondary" onClick={() => setTab("roster")}>Accounts</button>
+      <button type="button" aria-pressed={tab === "presence"} className="btn btn-secondary" onClick={() => setTab("presence")}>Presence</button>
     </div>
     {notice && <p role="status" className="text-sm text-[#2ED8B6]">{notice}</p>}
     {error && <div role="alert" className="text-sm text-[#FF7373]">{error} <button type="button" className="btn btn-secondary" onClick={() => void refresh()}>Retry</button></div>}

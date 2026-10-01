@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ArrowRight,
 } from "@/components/ui/FlatIcon";
+import { SupportV8Logo } from "@/components/SupportV8Logo";
 
 export interface GuideEntry {
   label: string;
@@ -535,32 +536,21 @@ export function FloatingPageGuide({ activeTab, onNotify }: FloatingPageGuideProp
 
       {/* Floating Trigger Dock */}
       <div className="flex items-center gap-2">
-        {!isOpen && (
-          <button
-            type="button"
-            onClick={() => setIsOpen(true)}
-            title={`Open guide for ${currentGuide.label}`}
-            className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#0E1520]/95 hover:bg-[#141C26] border border-[var(--line-2)] hover:border-[#2ED8B6]/50 text-[#EAF1F8] shadow-2xl text-xs font-mono transition-all cursor-pointer backdrop-blur-md group"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#2ED8B6] group-hover:scale-125 transition-transform shadow-[0_0_8px_rgba(46,216,182,0.8)]" />
-            <span className="text-[#8E9AA8] group-hover:text-[#B4C2D0]">Guide:</span>
-            <span className="font-bold text-[#2ED8B6]">{currentGuide.label}</span>
-          </button>
-        )}
-
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          aria-label={isOpen ? "Close page guide and help dock" : `Open page guide for ${currentGuide.label}`}
+          aria-label={isOpen ? "Close page guide and help dock" : "Open page guide"}
           aria-expanded={isOpen}
-          title={isOpen ? "Close page guide" : `Page Guide: ${currentGuide.label}`}
-          className={`w-11 h-11 rounded-full border flex items-center justify-center font-mono text-base font-extrabold cursor-pointer transition-all shadow-xl hover:scale-105 ${
+          title={isOpen ? "Close page guide" : "Page Guide"}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-mono transition-all cursor-pointer shadow-xl backdrop-blur-md hover:scale-105 ${
             isOpen
               ? "bg-[#2ED8B6] text-[#04201C] border-[#2ED8B6] shadow-[0_0_20px_rgba(46,216,182,0.4)]"
-              : "bg-[#121A24] text-[#2ED8B6] border-[#2ED8B6]/50 hover:border-[#2ED8B6] hover:text-[#FFFFFF] hover:shadow-[0_0_15px_rgba(46,216,182,0.3)]"
+              : "bg-[#0E1520]/95 hover:bg-[#141C26] border-[var(--line-2)] hover:border-[#2ED8B6]/50 text-[#EAF1F8] hover:text-[#FFFFFF]"
           }`}
         >
-          {isOpen ? <X className="w-5 h-5" /> : "?"}
+          <SupportV8Logo size={16} showText={false} />
+          <span className="font-bold text-xs tracking-wide">Guide</span>
+          {isOpen ? <X className="w-3.5 h-3.5 ml-0.5" /> : <span className="font-mono text-xs text-[#2ED8B6] font-bold">?</span>}
         </button>
       </div>
     </div>

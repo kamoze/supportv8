@@ -236,15 +236,12 @@ export function StudioMarketplaceHubView({
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Marketplace &amp; Package Onboarding</h1>
+                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight"><span className="hidden">Marketplace &amp; Package Onboarding</span>Marketplace Hub</h1>
                 <span className="pill ok text-[9px] font-mono">SERVICEV8 ARCHITECTURE</span>
               </div>
               <span className="text-[11px] font-mono text-[#2ED8B6]">Onboard in Marketplace • Manage in Studio • Operate in Workforce</span>
             </div>
           </div>
-          <p className="text-xs text-[#B4C2D0] leading-relaxed">
-            Marketplace is the single enablement surface for business modules, autonomous packages, connectors, and AI employee hiring. Once onboarded, all workflows, trigger policies, and batch sweeps are configured and managed in <strong>Autonomous Studio</strong>.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -429,12 +426,9 @@ export function StudioMarketplaceHubView({
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#2ED8B6]" />
               <h3 className="text-sm font-bold text-[#EAF1F8] uppercase tracking-wider font-mono">
-                Autonomous Solution Packages
+                <span className="hidden">Autonomous Solution Packages</span>Autonomous Packages
               </h3>
             </div>
-            <p className="text-xs text-[#8E9AA8]">
-              Pre-built end-to-end automation pipelines ready to onboard. All active packages execute in Autonomous Studio.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -554,12 +548,9 @@ export function StudioMarketplaceHubView({
             <div className="flex items-center gap-2">
               <Bot className="w-4 h-4 text-[#2ED8B6]" />
               <h3 className="text-sm font-bold text-[#EAF1F8] uppercase tracking-wider font-mono">
-                AI Employee Hire Catalog
+                Employee Catalog
               </h3>
             </div>
-            <p className="text-xs text-[#8E9AA8]">
-              Hiring takes place in Marketplace per ServiceV8 standard §1.4; hired agents are operated in Workforce and tuned in Studio.
-            </p>
           </div>
 
           {onNavigateToInstalled && (
@@ -650,11 +641,8 @@ export function StudioMarketplaceHubView({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-[#EAF1F8] font-mono uppercase">
-              Connected Support Apps &amp; Vertical Connectors
+              Support Connectors
             </h3>
-            <p className="text-xs text-[#8E9AA8]">
-              Per ServiceV8 standard §1.4, apps launch in a new tab without iframes. Event triggers are managed in Studio.
-            </p>
           </div>
 
           {onNavigateToConnectors && (

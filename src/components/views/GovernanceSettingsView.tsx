@@ -326,11 +326,8 @@ export function GovernanceSettingsView({
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
               <Settings className="w-5 h-5" />
             </span>
-            <h1 className="text-lg font-bold text-[#EAF1F8]">Governance &amp; AI Infrastructure Settings</h1>
+            <h1 className="text-lg font-bold text-[#EAF1F8]">Governance Settings</h1>
           </div>
-          <p className="text-xs text-[#8E9AA8]">
-            Configure multi-tenant boundary isolation, Bring-Your-Own-Model (BYOM) credentials, ForgeGW execution policy, and AI chat guardrails.
-          </p>
         </div>
 
         <button
@@ -426,12 +423,12 @@ export function GovernanceSettingsView({
       {/* Settings Navigation Tabs */}
       <div className="flex flex-wrap items-center p-1 rounded-xl bg-[#18222E] border border-[var(--line)] gap-1">
         {[
-          { id: "byom", label: "BYOM (Custom LLMs)", icon: Cpu },
-          { id: "embeddings", label: "Embeddings & Vectors", icon: Database },
+          { id: "byom", label: "BYOM Models", icon: Cpu },
+          { id: "embeddings", label: "Vector Embeddings", icon: Database },
           { id: "forgegw", label: "ForgeGW", icon: Zap },
-          { id: "guardrails", label: "AI Chat Guardrails", icon: Bot },
-          { id: "api_tokens", label: "API Keys & Access Credentials", icon: Key },
-          { id: "general", label: "Workspace & Security", icon: Shield },
+          { id: "guardrails", label: "Chat Guardrails", icon: Bot },
+          { id: "api_tokens", label: "API Keys", icon: Key },
+          { id: "general", label: "Workspace Security", icon: Shield },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -461,11 +458,8 @@ export function GovernanceSettingsView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-[#2ED8B6]" />
-                <span>Bring Your Own Model (BYOM) Configuration</span>
+                <span>BYOM Settings</span>
               </h3>
-              <p className="text-xs text-[#B4C2D0]">
-                Route autonomous resolution, RAG synthesis, and multi-turn chat to your own enterprise LLM accounts or self-hosted VPC endpoints.
-              </p>
             </div>
             <span className={`pill text-[10px] font-mono font-bold ${routingMode === "byom" ? "ok" : "warn"}`}>
               {routingMode === "byom" ? "ENTERPRISE BYOM ACTIVE" : "BYOM STANDBY (ForgeGW Active)"}
@@ -644,11 +638,8 @@ export function GovernanceSettingsView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Database className="w-4 h-4 text-[#2ED8B6]" />
-                <span>Vector Embeddings &amp; pgvector Pipeline</span>
+                <span>Vector Embeddings</span>
               </h3>
-              <p className="text-xs text-[#B4C2D0]">
-                Configure semantic vector embeddings provider, dimensionality, and chunking boundaries for RAG document retrieval.
-              </p>
             </div>
             <span className="pill ok text-[10px] font-mono">{embeddingDimensions}-DIM ACTIVE</span>
           </div>
@@ -817,11 +808,8 @@ export function GovernanceSettingsView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Zap className="w-4 h-4 text-[#2ED8B6]" />
-                <span>ServiceV8 ForgeGW Credentials</span>
+                <span>ForgeGW Credentials</span>
               </h3>
-              <p className="text-xs text-[#B4C2D0]">
-                Zero-trust execution proxy that gates autonomous external mutations (refunds, ticket escalations, DNS shifts) with idempotency keys and rate limits.
-              </p>
             </div>
             <span className={`pill text-[10px] font-mono font-bold ${routingMode === "forgegw" ? "ok" : "warn"}`}>
               {routingMode === "forgegw" ? "FORGEGW MANAGED ACTIVE" : "STANDBY (BYOM Active)"}
@@ -992,11 +980,8 @@ export function GovernanceSettingsView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Bot className="w-4 h-4 text-[#2ED8B6]" />
-                <span>AI Chat Employee Guardrails &amp; Routing Policies</span>
+                <span>Chat Guardrails</span>
               </h3>
-              <p className="text-xs text-[#B4C2D0]">
-                Control which channels AI employees respond to, set strict autonomous financial dispatch caps, and define automatic human escalation rules.
-              </p>
             </div>
             <span className="pill ok text-[10px] font-mono">Guardrails Active</span>
           </div>
@@ -1254,11 +1239,8 @@ export function GovernanceSettingsView({
               <div>
                 <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                   <Key className="w-4 h-4 text-[#2ED8B6]" />
-                  <span>SupportV8 API Keys &amp; Access Credentials</span>
+                  <span>API Keys</span>
                 </h3>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Issue scoped access credentials for external service apps (GrowthV8, OrderV8, KnowledgeV8) and automated workers to authenticate with SupportV8.
-                </p>
               </div>
 
               <button
@@ -1633,7 +1615,7 @@ export function GovernanceSettingsView({
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-[#2ED8B6]" />
-                <span>Audio & Sound Alert Notifications</span>
+                <span>Sound Alerts</span>
               </h3>
               <span
                 className={`pill text-[10px] ${
@@ -1643,10 +1625,6 @@ export function GovernanceSettingsView({
                 {soundConfig.enabled ? "ACTIVE" : "MUTED"}
               </span>
             </div>
-
-            <p className="text-xs text-[#8E9AA8]">
-              Configure acoustic chimes for real-time customer support operations. Alerts use zero-bandwidth Web Audio synthesis with graceful autoplay policy handling.
-            </p>
 
             <div className="space-y-4 text-xs">
               {/* Master Toggle */}

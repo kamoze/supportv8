@@ -224,11 +224,8 @@ export function WorkforceWorkflowsView({ onNotify }: WorkforceWorkflowsViewProps
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
               <Layers className="w-5 h-5" />
             </span>
-            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Support Workflow Pipelines</h1>
+            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Workforce Workflows</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Autonomous end-to-end execution pipelines connecting triggers, AI digital employees, policy gates, and external communication actions.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">
@@ -245,7 +242,7 @@ export function WorkforceWorkflowsView({ onNotify }: WorkforceWorkflowsViewProps
         {/* Left: Pipeline List */}
         <div className="lg:col-span-4 space-y-3">
           <h2 className="text-xs font-bold text-[#6B7C8D] uppercase tracking-wider font-mono">
-            Configured Pipelines ({pipelines.length})
+            Pipelines ({pipelines.length})
           </h2>
 
           <div className="space-y-2">
@@ -332,7 +329,7 @@ export function WorkforceWorkflowsView({ onNotify }: WorkforceWorkflowsViewProps
           {/* Node Flow Diagram */}
           <div className="space-y-3">
             <h3 className="text-xs font-mono font-bold text-[#6B7C8D] uppercase tracking-wider">
-              Execution Flow Graph ({selectedPipeline.nodes.length} Stages)
+              Execution Flow
             </h3>
 
             <div className="space-y-2">

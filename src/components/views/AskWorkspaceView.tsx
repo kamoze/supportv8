@@ -744,7 +744,7 @@ export function AskWorkspaceView({
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Clear conversation transcript</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Clear Transcript</h3>
                 <p className="text-[11px] text-[#6B7C8D]">This action cannot be undone.</p>
               </div>
             </div>
@@ -787,7 +787,7 @@ export function AskWorkspaceView({
                 <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#EAF1F8]">Dual TOTP Step-Up Authorization</h3>
+                <h3 className="text-sm font-bold text-[#EAF1F8]">Dual Authorization</h3>
                 <p className="text-[11px] text-[#6B7C8D]">Tier 3 Critical Operation &bull; 15m Timelock</p>
               </div>
             </div>

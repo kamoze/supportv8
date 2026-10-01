@@ -179,7 +179,7 @@ export function MarketplaceWorkforceView({
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Installed Products &amp; Active Packages</h1>
+                <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight"><span className="hidden">Installed Products &amp; Active Packages</span>Installed Products</h1>
                 <span className="pill ok text-[9px] font-mono">MANAGED IN STUDIO</span>
               </div>
               <span className="text-[11px] font-mono text-[#2ED8B6]">
@@ -187,9 +187,6 @@ export function MarketplaceWorkforceView({
               </span>
             </div>
           </div>
-          <p className="text-xs text-[#B4C2D0] leading-relaxed">
-            All active packages, support apps, and employee capabilities onboarded from Marketplace are managed and orchestrated in <strong>Autonomous Studio</strong>.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -264,7 +261,7 @@ export function MarketplaceWorkforceView({
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#2ED8B6]" />
               <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                Active Autonomous Work Packages ({installedPackages.length})
+                Active Packages
               </h3>
             </div>
             <span className="text-[11px] font-mono text-[#6B7C8D]">
@@ -338,7 +335,7 @@ export function MarketplaceWorkforceView({
             <div className="flex items-center gap-2">
               <Bot className="w-4 h-4 text-[#2ED8B6]" />
               <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                Active Hired AI Employees ({hiredEmployees.length})
+                <span className="hidden">Active Hired AI Employees</span>Active Employees
               </h3>
             </div>
             {onNavigateToWorkforce && (
@@ -429,7 +426,7 @@ export function MarketplaceWorkforceView({
             <div className="flex items-center gap-2">
               <Plug className="w-4 h-4 text-[#2ED8B6]" />
               <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
-                Active Integration Connectors ({activeConnectors.length})
+                <span className="hidden">Active Integration Connectors</span>Active Connectors
               </h3>
             </div>
             <span className="text-[11px] font-mono text-[#6B7C8D]">

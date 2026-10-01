@@ -33,11 +33,10 @@ describe("FloatingPageGuide Component", () => {
 
     const triggerBtn = container.querySelector("button[aria-label*='Open page guide']");
     expect(triggerBtn).not.toBeNull();
-    expect(triggerBtn?.textContent).toBe("?");
+    expect(triggerBtn?.textContent).toContain("Guide");
 
-    // Verify tab guide pill
-    expect(container.textContent).toContain("Guide:");
-    expect(container.textContent).toContain(GUIDE_CONTENT.overview.label);
+    // Verify tab guide dock text
+    expect(container.textContent).toContain("Guide");
   });
 
   it("opens flyout panel showing tab-specific description, actions, and tip", () => {

@@ -404,11 +404,8 @@ export function PoliciesAndRulesView({
             <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
               <Shield className="w-5 h-5" />
             </span>
-            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Policies, Rules &amp; Governance Matrix</h1>
+            <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Governance Policies</h1>
           </div>
-          <p className="text-xs text-[#B4C2D0]">
-            Autonomous execution boundaries, risk ceilings, financial dollar limits, sentiment gates, and regulatory guardrails.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -481,7 +478,7 @@ export function PoliciesAndRulesView({
           }`}
         >
           <Shield className="w-3.5 h-3.5" />
-          <span>Active Rules ({rules.length})</span>
+          <span>Active Rules</span>
         </button>
 
         <button
@@ -494,7 +491,7 @@ export function PoliciesAndRulesView({
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>Guardrails &amp; Ceilings</span>
+          <span>Guardrails</span>
         </button>
 
         <button
@@ -507,7 +504,7 @@ export function PoliciesAndRulesView({
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Ingest Queues &amp; Routing</span>
+          <span>Ingest Queues</span>
         </button>
 
         <button
@@ -714,7 +711,7 @@ export function PoliciesAndRulesView({
           <div className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 text-xs font-mono">
             <div className="flex items-center gap-2 border-b border-[var(--line)] pb-3">
               <Sliders className="w-4 h-4 text-[#2ED8B6]" />
-              <h3 className="text-sm font-bold text-[#EAF1F8] uppercase">Global Autonomy Controls</h3>
+              <h3 className="text-sm font-bold text-[#EAF1F8] uppercase">Autonomy Controls</h3>
             </div>
 
             <div className="space-y-3.5">
@@ -771,7 +768,7 @@ export function PoliciesAndRulesView({
           <div className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 text-xs font-mono">
             <div className="flex items-center gap-2 border-b border-[var(--line)] pb-3">
               <ShieldAlert className="w-4 h-4 text-[#F5A623]" />
-              <h3 className="text-sm font-bold text-[#EAF1F8] uppercase">Compliance &amp; Sentiment Interventions</h3>
+              <h3 className="text-sm font-bold text-[#EAF1F8] uppercase">Compliance Interventions</h3>
             </div>
 
             <div className="space-y-3.5">
@@ -829,10 +826,7 @@ export function PoliciesAndRulesView({
           <div className="flex items-center gap-2 border-b border-[var(--line)] pb-3">
             <Play className="w-4 h-4 text-[#2ED8B6]" />
             <div>
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Policy Sandbox &amp; Dry-Run Simulator</h3>
-              <p className="text-xs text-[#B4C2D0]">
-                Simulate inbound prompts and customer requests against the full policy rule tree to verify autonomous approvals vs. human gates.
-              </p>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">Policy Sandbox</h3>
             </div>
           </div>
 
@@ -954,11 +948,8 @@ export function PoliciesAndRulesView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Layers className="w-4 h-4 text-[#2ED8B6]" />
-                <span>Custom Ingest Queues &amp; Operator Routing</span>
+                <span>Ingest Queues</span>
               </h3>
-              <p className="text-xs text-[#8E9AA8]">
-                Route omnichannel inbound channels (Chat, Voice, Email, Contractor SMS) to dedicated AI employees or human lead queues.
-              </p>
             </div>
 
             <button
@@ -1068,11 +1059,8 @@ export function PoliciesAndRulesView({
             <div>
               <h3 className="text-sm font-bold text-[#EAF1F8] font-mono flex items-center gap-2">
                 <Zap className="w-4 h-4 text-[#2ED8B6]" />
-                <span>Automation Action Schedulers &amp; Cron Triggers</span>
+                <span>Automation Schedulers</span>
               </h3>
-              <p className="text-xs text-[#8E9AA8]">
-                Recurring autonomous worker triggers (Stale sweeps, SLA pre-breach alerts, knowledge vector syncs) bound to workforce employee packages.
-              </p>
             </div>
 
             <button

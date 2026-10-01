@@ -294,10 +294,7 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
       <div className="border-b border-[var(--line)] bg-[#0E1520] px-5 py-4 sm:px-7">
         <div className="mx-auto flex max-w-[1480px] flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Support portal composer</h1>
-            <p className="mt-1 max-w-2xl text-sm text-[#B4C2D0]">
-              Publish branded self-service entry points without exposing prompts, tenant identifiers, or internal knowledge.
-            </p>
+            <h1 className="text-xl font-semibold tracking-tight">Portal Composer</h1>
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-xs text-[#8E9AA8] sm:inline">
@@ -523,8 +520,7 @@ export function PortalComposerView({ tenantSlug, onNotify }: PortalComposerViewP
           <div className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">Published help actions</h2>
-                <p className="mt-1 text-sm text-[#8E9AA8]">The public URL exposes only the slug. Prompts and knowledge filters stay server-side.</p>
+                <h2 className="text-base font-semibold">Help Actions</h2>
               </div>
               <button type="button" className="btn btn-secondary" disabled={config.actions.length >= 12} onClick={addAction}>
                 <i className="fi fi-rr-plus-small mr-2" aria-hidden="true" /> Add help action

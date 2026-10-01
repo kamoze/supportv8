@@ -277,7 +277,10 @@ export function SupportWorkspaceNavigation({
               </span>
             )}
           </span>
-          {footerAction}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <FamilyThemeToggle />
+            {footerAction}
+          </div>
         </div>
       </div>
     </aside>
@@ -327,7 +330,6 @@ export function SupportWorkspaceHeader({
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <SoundAlertToggle />
-        <FamilyThemeToggle />
         {children}
       </div>
     </SupportWorkspaceHeaderFrame>

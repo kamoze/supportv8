@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Clock,
   Code2,
+  Copy,
   Cpu,
   CreditCard,
   Database,
@@ -296,6 +297,7 @@ export default function SupportV8Dashboard() {
   }, []);
   const [operatingMode, setOperatingMode] = useState<OperatingMode>("autonomous");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [rawSourceIssue, setRawSourceIssue] = useState<Issue | null>(null);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
 
   // Search & Multi-Turn Chat Modal with AI Employee selector
@@ -2392,12 +2394,9 @@ export default function SupportV8Dashboard() {
             </button>
           </div>
 
-          {/* Right: Quick Search, Refresh, Audio/Theme Toggles & Unified User/Persona Profile Dropdown */}
+          {/* Right: Quick Search, Refresh, Audio & Unified User Profile Dropdown */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div className="flex items-center gap-1 shrink-0">
-              <SoundAlertToggle />
-              <FamilyThemeToggle />
-            </div>
+            <SoundAlertToggle />
 
             {/* Quick Ask / Command Trigger */}
             <button
@@ -2749,17 +2748,13 @@ export default function SupportV8Dashboard() {
             <div className="space-y-6">
               {/* GrowthV8 Hero Banner */}
               <div className="card p-6 relative overflow-hidden bg-gradient-to-r from-[#121A24] via-[#121A24] to-[#18222E]">
-                <div className="max-w-3xl space-y-2 relative z-10">
+                <div className="max-w-3xl space-y-1 relative z-10">
                   <div className="flex items-center gap-2">
-                    <span className="eyebrow">Continuous Support Intelligence &amp; Autonomous Resolution Control Plane</span>
                     <span className="pill ok text-[10px]"><i className="dot"></i> Live Stream</span>
                   </div>
                   <h1 className="text-2xl font-bold text-[#EAF1F8] tracking-tight">
-                    Support Operations &amp; Intelligence Hub
+                    Executive Overview
                   </h1>
-                  <p className="text-xs text-[#B4C2D0] leading-relaxed">
-                    Real-time problem correlation, SLA breach prediction, autonomous workforce dispatch, and governed cross-vertical action execution for ServiceV8.
-                  </p>
                 </div>
 
                 <div className="mt-5 flex flex-wrap items-center gap-3 relative z-10">
@@ -2895,7 +2890,7 @@ export default function SupportV8Dashboard() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
                     <div className="flex items-center gap-2 min-w-0">
                       <Zap className="w-4 h-4 text-[#2ED8B6] shrink-0" />
-                      <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Resolution Velocity &amp; Autonomy Funnel</h3>
+                      <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Resolution Funnel</h3>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <span className="pill ok text-[10px]"><i className="dot"></i> High Efficiency</span>
@@ -2984,7 +2979,7 @@ export default function SupportV8Dashboard() {
                     <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
                       <div className="flex items-center gap-2">
                         <Award className="w-4 h-4 text-[#2ED8B6]" />
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">SLA &amp; Operational Efficiency</h3>
+                        <h3 className="text-sm font-bold text-[#EAF1F8]">SLA Efficiency</h3>
                       </div>
                       <span className="pill ok text-[9px]"><i className="dot"></i> Governed</span>
                     </div>
@@ -3034,7 +3029,7 @@ export default function SupportV8Dashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
                   <div className="flex items-center gap-2 min-w-0">
                     <Layers className="w-4 h-4 text-[#0091FF] shrink-0" />
-                    <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Omnichannel Ingress &amp; Live Inbound Workload</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Omnichannel Ingress</h3>
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                     <span className="text-[11px] text-[#6B7C8D] font-mono">{channelSources.length} Active Ingress Lines</span>
@@ -3107,7 +3102,7 @@ export default function SupportV8Dashboard() {
                     <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
                       <div className="flex items-center gap-2">
                         <HeartPulse className="w-4 h-4 text-[#E5484D]" />
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">Customer Sentiment &amp; Account Risk Radar</h3>
+                        <h3 className="text-sm font-bold text-[#EAF1F8]">Sentiment Radar</h3>
                       </div>
                       <span className="pill ok text-[9px]"><i className="dot"></i> Real-time NLP</span>
                     </div>
@@ -3192,7 +3187,7 @@ export default function SupportV8Dashboard() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
                       <div className="flex items-center gap-2 min-w-0">
                         <Bot className="w-4 h-4 text-[#2ED8B6] shrink-0" />
-                        <h3 className="text-sm font-bold text-[#EAF1F8] truncate">AI Workforce Productivity Scorecard</h3>
+                        <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Workforce Scorecard</h3>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <span className="text-[11px] text-[#6B7C8D] font-mono">{activeWorkforce.length} Hired Agents</span>
@@ -3272,7 +3267,7 @@ export default function SupportV8Dashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-[#F5A623]" />
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Action Required: Operations &amp; Incidents</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">Action Required</h3>
                   </div>
                   <span className="pill warn"><i className="dot"></i> {displayNeedsAttention.length} High Priority</span>
                 </div>
@@ -3333,7 +3328,7 @@ export default function SupportV8Dashboard() {
                 <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
                   <div className="flex items-center gap-2">
                     <Activity className="w-4 h-4 text-[#2ED8B6]" />
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Live Support &amp; Incident Operations</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">Operations Feed</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-[#6B7C8D] font-mono">{liveEvents.length} events logged</span>
@@ -3385,23 +3380,20 @@ export default function SupportV8Dashboard() {
               <div>
                 <div className="flex items-center gap-2">
                   <Target className="w-5 h-5 text-[#2ED8B6]" />
-                  <h2 className="text-lg font-bold text-[#EAF1F8]">CX Manager Executive Operations Cockpit</h2>
+                  <h2 className="text-lg font-bold text-[#EAF1F8]">CX Cockpit</h2>
                 </div>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Comprehensive 6-pillar operational intelligence suite for Customer Experience &amp; Support Operations Leads.
-                </p>
               </div>
 
               {/* 7 Sub-View Selector Tabs */}
               <div className="flex flex-wrap items-center gap-1.5 bg-[#18222E] p-1 rounded-lg border border-[var(--line)] text-xs">
                 {[
-                  { id: "funnel", label: "Performance Funnel & KPIs", icon: Target },
-                  { id: "sla", label: "1. SLA Predictor", icon: Clock, badge: slaData.atRiskCount > 0 ? slaData.atRiskCount : undefined, badgeColor: "warn" },
-                  { id: "health", label: "2. 360° Health & Churn", icon: HeartPulse, badge: customerHealthData.activeVipChurnAlerts?.length || (customerHealthData.criticalCount > 0 ? customerHealthData.criticalCount : undefined), badgeColor: "err" },
-                  { id: "qa", label: "3. QA & Compliance", icon: Award },
-                  { id: "voc", label: "4. VoC & CSAT Drivers", icon: BarChart3 },
-                  { id: "queue", label: "5. Queue Balancer", icon: Layers },
-                  { id: "standup", label: "6. Shift Standup Digest", icon: FileText },
+                  { id: "funnel", label: "Performance Funnel", icon: Target },
+                  { id: "sla", label: "SLA Predictor", icon: Clock, badge: slaData.atRiskCount > 0 ? slaData.atRiskCount : undefined, badgeColor: "warn" },
+                  { id: "health", label: "Account Health", icon: HeartPulse, badge: customerHealthData.activeVipChurnAlerts?.length || (customerHealthData.criticalCount > 0 ? customerHealthData.criticalCount : undefined), badgeColor: "err" },
+                  { id: "qa", label: "QA Compliance", icon: Award },
+                  { id: "voc", label: "VoC Drivers", icon: BarChart3 },
+                  { id: "queue", label: "Queue Balancer", icon: Layers },
+                  { id: "standup", label: "Shift Digest", icon: FileText },
                 ].map((sub) => {
                   const Icon = sub.icon;
                   const isActive = cxSubView === sub.id;
@@ -3556,11 +3548,8 @@ export default function SupportV8Dashboard() {
                       <div>
                         <h3 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
                           <Target className="w-4 h-4 text-[#2ED8B6] shrink-0" />
-                          <span>Autonomous Ingress-to-Resolution Conversion Funnel</span>
+                          <span>Conversion Funnel</span>
                         </h3>
-                        <p className="text-xs text-[#B4C2D0] mt-0.5">
-                          End-to-end telemetry conversion from omnichannel ingress lines down to autonomous resolution.
-                        </p>
                       </div>
 
                       <button
@@ -3635,11 +3624,8 @@ export default function SupportV8Dashboard() {
                       <div>
                         <h3 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
                           <DollarSign className="w-4 h-4 text-[#2ED8B6]" />
-                          <span>Economic Autonomy Efficiency &amp; Cost Avoidance Scorecard</span>
+                          <span>Economic Efficiency</span>
                         </h3>
-                        <p className="text-xs text-[#B4C2D0] mt-0.5">
-                          Real-time financial telemetry measuring autonomous agentic deflection versus conventional tier-2 support labor cost.
-                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="pill ok font-mono text-[10px]">+{varrFunnelRate > 0 ? Math.round(varrFunnelRate * 0.95) : 0}% ROI EFFICIENCY</span>
@@ -3771,7 +3757,7 @@ export default function SupportV8Dashboard() {
                   {/* SLA Tier Policy Rule Matrix */}
                   <div className="card p-5 space-y-4">
                     <div className="flex justify-between items-center border-b border-[var(--line)] pb-3">
-                      <h3 className="text-sm font-bold text-[#EAF1F8]">SLA Tier Policies &amp; Pre-Breach Gates</h3>
+                      <h3 className="text-sm font-bold text-[#EAF1F8]">SLA Policies</h3>
                       <span className="text-xs text-[#6B7C8D] font-mono">Early-Warning Threshold: 75% Duration</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
@@ -3836,7 +3822,7 @@ export default function SupportV8Dashboard() {
 
                   {/* Real-time At-Risk SLA Queue Table */}
                   <div className="card p-5 space-y-4">
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Real-Time SLA Live Timers &amp; Pre-Breach Queue</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">SLA Timers</h3>
                     <div className="overflow-x-auto">
                       <table className="gv8-table">
                         <thead>
@@ -4638,8 +4624,7 @@ export default function SupportV8Dashboard() {
                   <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
                       <div>
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">Automated Quality &amp; Compliance Rubric Audits</h3>
-                        <p className="text-xs text-[#B4C2D0]">Multi-criteria evaluation covering Technical Accuracy, Tone, Policy Compliance, and FCR.</p>
+                        <h3 className="text-sm font-bold text-[#EAF1F8]">QA Audits</h3>
                       </div>
                       <button
                         onClick={async () => {
@@ -4672,7 +4657,7 @@ export default function SupportV8Dashboard() {
                       {displayScorecards.length === 0 ? (
                         <div className="p-8 text-center bg-[#18222E] rounded-xl border border-[var(--line)] space-y-2">
                           <CheckCircle2 className="w-8 h-8 text-[#2ED8B6]/60 mx-auto" />
-                          <h4 className="text-sm font-bold text-[#EAF1F8]">No QA Scorecards Generated Yet</h4>
+                          <h4 className="text-sm font-bold text-[#EAF1F8]">No Scorecards</h4>
                           <p className="text-xs text-[#6B7C8D]">
                             Click &quot;Audit Real-Time Sample&quot; to perform an automated compliance and technical quality audit on active conversations.
                           </p>
@@ -4792,7 +4777,7 @@ export default function SupportV8Dashboard() {
                   {/* CSAT Distribution (1-Star to 5-Star) & Top Delight Articles */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="card p-5 space-y-4">
-                      <h3 className="text-sm font-bold text-[#EAF1F8]">CSAT Rating Distribution (1 to 5 Stars)</h3>
+                      <h3 className="text-sm font-bold text-[#EAF1F8]">CSAT Distribution</h3>
                       <div className="space-y-3 text-xs font-mono">
                         {displayCsatDist.length === 0 ? (
                           <div className="text-center py-6 text-xs text-[#6B7C8D]">No survey ratings recorded yet.</div>
@@ -4816,7 +4801,7 @@ export default function SupportV8Dashboard() {
                     </div>
 
                     <div className="card p-5 space-y-4">
-                      <h3 className="text-sm font-bold text-[#EAF1F8]">Top-Performing Knowledge Articles (Delight Drivers)</h3>
+                      <h3 className="text-sm font-bold text-[#EAF1F8]">Top Articles</h3>
                       <div className="space-y-3 text-xs font-mono">
                         {displayDelightArticles.length === 0 ? (
                           <div className="text-center py-6 text-xs text-[#6B7C8D]">No knowledge resolution data available yet.</div>
@@ -4840,10 +4825,7 @@ export default function SupportV8Dashboard() {
                   <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
                       <div>
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">Voice of the Customer (VoC) Keyphrase Sentiment Clusters</h3>
-                        <p className="text-xs text-[#B4C2D0]">
-                          AI-clustered feedback identifying primary discontent pain points and positive delight drivers.
-                        </p>
+                        <h3 className="text-sm font-bold text-[#EAF1F8]">Sentiment Clusters</h3>
                       </div>
                     </div>
 
@@ -4901,8 +4883,7 @@ export default function SupportV8Dashboard() {
                   <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
                       <div>
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">Omnichannel Live Channel Load Meters</h3>
-                        <p className="text-xs text-[#B4C2D0]">Real-time concurrency monitoring across all inbound customer support channels.</p>
+                        <h3 className="text-sm font-bold text-[#EAF1F8]">Channel Meters</h3>
                       </div>
                       <button
                         onClick={async () => {
@@ -4974,7 +4955,7 @@ export default function SupportV8Dashboard() {
 
                   {/* Skill-Based Routing Engine Rules */}
                   <div className="card p-5 space-y-4">
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Active Skill-Based Routing Rules</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]">Routing Rules</h3>
                     <div className="overflow-x-auto">
                       <table className="gv8-table">
                         <thead>
@@ -5146,9 +5127,6 @@ export default function SupportV8Dashboard() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 card p-5 rounded-2xl">
               <div>
                 <h2 className="text-lg font-bold text-[#EAF1F8]">Issues Explorer</h2>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  Universal issue repository and resolution sink across all channels, sources, and automated runs.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
@@ -5285,15 +5263,17 @@ export default function SupportV8Dashboard() {
                             >
                               Inspect Details →
                             </button>
-                            <a
-                              href={issue.sourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-secondary p-1.5 rounded-lg inline-flex items-center text-[#6B7C8D] hover:text-[#EAF1F8]"
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRawSourceIssue(issue);
+                              }}
+                              className="btn btn-secondary p-1.5 rounded-lg inline-flex items-center text-[#6B7C8D] hover:text-[#2ED8B6] hover:border-[#2ED8B6] cursor-pointer"
                               title="Open Raw Source"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -5318,17 +5298,17 @@ export default function SupportV8Dashboard() {
                 />
 
                 {/* Floating Slide-over Drawer Panel */}
-                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-6 overflow-y-auto flex flex-col justify-between space-y-6 animate-in slide-in-from-right duration-200">
-                  <div className="space-y-5">
+                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0C121A] border-l border-[var(--line)] shadow-2xl p-4 overflow-y-auto flex flex-col justify-between space-y-4 animate-in slide-in-from-right duration-200">
+                  <div className="space-y-4">
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-4">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-extrabold text-[#2ED8B6]">{selectedIssue.externalId}</span>
-                          <span className="pill uppercase text-[10px] font-mono">{selectedIssue.source}</span>
-                          <span className="pill uppercase text-[10px] font-mono">{selectedIssue.category}</span>
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs font-extrabold text-[#2ED8B6]">{selectedIssue.externalId}</span>
+                          <span className="pill uppercase text-[9px] font-mono">{selectedIssue.source}</span>
+                          <span className="pill uppercase text-[9px] font-mono">{selectedIssue.category}</span>
                           <span
-                            className={`pill text-[10px] uppercase font-mono font-bold ${
+                            className={`pill text-[9px] uppercase font-mono font-bold ${
                               selectedIssue.status === "escalated"
                                 ? "bg-[#E5484D]/20 text-[#FF7575] border border-[#E5484D]/40"
                                 : selectedIssue.status === "resolved"
@@ -5342,15 +5322,15 @@ export default function SupportV8Dashboard() {
                             {selectedIssue.status || "open"}
                           </span>
                         </div>
-                        <h3 className="text-base sm:text-lg font-bold text-[#EAF1F8] mt-1.5 leading-snug">
+                        <h3 className="text-sm font-bold text-[#EAF1F8] mt-1 truncate">
                           {selectedIssue.summary}
                         </h3>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
                           onClick={() => setIsExplorerEditMode(!isExplorerEditMode)}
-                          className={`p-2 rounded-xl text-xs font-mono flex items-center gap-1.5 cursor-pointer border transition-colors ${
+                          className={`p-1.5 rounded-lg text-xs font-mono flex items-center gap-1 cursor-pointer border transition-colors ${
                             isExplorerEditMode
                               ? "bg-[#2ED8B6] text-[#04201C] border-[#2ED8B6] font-bold"
                               : "bg-[#18222E] hover:bg-[#1E2B3A] text-[#2ED8B6] border-[var(--line-2)]"
@@ -5366,26 +5346,22 @@ export default function SupportV8Dashboard() {
                             setSelectedIssue(null);
                             setIsExplorerEditMode(false);
                           }}
-                          className="p-2 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-xl hover:bg-[#18222E] cursor-pointer"
+                          className="p-1.5 text-[#6B7C8D] hover:text-[#EAF1F8] rounded-lg hover:bg-[#18222E] cursor-pointer"
                         >
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
 
                     {/* Interactive 5-Button Status Lifecycle Bar */}
-                    <div className="space-y-1.5 p-3.5 rounded-2xl bg-[#121A24] border border-[var(--line)]">
-                      <div className="flex items-center justify-between text-[10px] font-mono uppercase font-bold text-[#8E9AA8]">
-                        <span>Ticket Lifecycle Status Actions</span>
-                        <span className="text-[#2ED8B6]">{selectedIssue.status?.toUpperCase() || "OPEN"}</span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1.5 pt-1">
+                    <div className="p-2 rounded-xl bg-[#121A24] border border-[var(--line)]">
+                      <div className="grid grid-cols-5 gap-1">
                         {[
                           { id: "open", label: "Open", color: "bg-[#18222E] text-[#2ED8B6] border-[#2ED8B6]" },
-                          { id: "in_progress", label: "In Progress", color: "bg-[#4D9FFF]/20 text-[#4D9FFF] border-[#4D9FFF]" },
-                          { id: "escalated", label: "Escalated", color: "bg-[#E5484D]/20 text-[#FF7575] border-[#E5484D]" },
-                          { id: "resolved", label: "Resolved", color: "bg-[#4CC38A]/20 text-[#4CC38A] border-[#4CC38A]" },
-                          { id: "closed", label: "Closed", color: "bg-[#6B7C8D]/20 text-[#8E9AA8] border-[#6B7C8D]" },
+                          { id: "in_progress", label: "In Prog", color: "bg-[#4D9FFF]/20 text-[#4D9FFF] border-[#4D9FFF]" },
+                          { id: "escalated", label: "Escalate", color: "bg-[#E5484D]/20 text-[#FF7575] border-[#E5484D]" },
+                          { id: "resolved", label: "Resolve", color: "bg-[#4CC38A]/20 text-[#4CC38A] border-[#4CC38A]" },
+                          { id: "closed", label: "Close", color: "bg-[#6B7C8D]/20 text-[#8E9AA8] border-[#6B7C8D]" },
                         ].map((st) => {
                           const isActive = (selectedIssue.status || "open") === st.id;
                           return (
@@ -5393,10 +5369,10 @@ export default function SupportV8Dashboard() {
                               key={st.id}
                               type="button"
                               onClick={() => handleExplorerStatusChange(st.id)}
-                              className={`py-2 px-1 rounded-xl text-xs font-mono font-bold text-center border transition-all cursor-pointer ${
+                              className={`py-1.5 px-1 rounded-lg text-[11px] font-mono font-bold text-center border transition-all cursor-pointer ${
                                 isActive
-                                  ? `${st.color} shadow-md ring-1 ring-white/20`
-                                  : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8] hover:border-[#2ED8B6]/40"
+                                  ? `${st.color} shadow-sm ring-1 ring-white/20`
+                                  : "bg-[#0E1520] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
                               }`}
                             >
                               {st.label}
@@ -5529,137 +5505,117 @@ export default function SupportV8Dashboard() {
                     ) : (
                       <>
                         {/* Customer 360 & Account Snapshot */}
-                        <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2 text-xs">
+                        <div className="p-3 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1.5 text-xs">
                           <div className="flex justify-between items-center">
-                            <span className="font-bold text-[#EAF1F8] text-sm">{selectedIssue.customerName}</span>
-                            <span className="pill ok uppercase text-[10px]">{selectedIssue.customerTier} Tier</span>
+                            <span className="font-bold text-[#EAF1F8]">{selectedIssue.customerName}</span>
+                            <span className="pill ok uppercase text-[9px]">{selectedIssue.customerTier} Tier</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B7C8D] font-mono pt-1">
+                          <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[#6B7C8D] font-mono pt-0.5">
                             <div>
                               <span>Customer Ref:</span> <strong className="text-[#EAF1F8]">{selectedIssue.customerRef || "CUST-9921"}</strong>
                             </div>
                             <div>
-                              <span>Risk Score:</span> <strong className="text-[#F5A623]">{selectedIssue.resolutionRiskScore || "Low Risk (0.18)"}</strong>
+                              <span>Risk:</span> <strong className="text-[#F5A623]">{selectedIssue.resolutionRiskScore || "0.18"}</strong>
                             </div>
                             <div>
-                              <span>Ingress Line:</span> <strong className="text-[#2ED8B6] uppercase">{selectedIssue.source}</strong>
+                              <span>Channel:</span> <strong className="text-[#2ED8B6] uppercase">{selectedIssue.source}</strong>
                             </div>
                             <div>
-                              <span>Assigned Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Unassigned"}</strong>
+                              <span>Agent:</span> <strong className="text-[#EAF1F8]">{selectedIssue.assignedTo || "Unassigned"}</strong>
                             </div>
                             <div>
-                              <span>Product / Version:</span> <strong className="text-[#EAF1F8]">{selectedIssue.product} ({selectedIssue.version})</strong>
+                              <span>Product:</span> <strong className="text-[#EAF1F8]">{selectedIssue.product}</strong>
                             </div>
                             <div>
-                              <span>Created:</span> <strong className="text-[#8E9AA8]">{selectedIssue.createdAt ? new Date(selectedIssue.createdAt).toLocaleString() : "Just now"}</strong>
+                              <span>Confidence:</span> <strong className="text-[#4CC38A]">{(selectedIssue.confidence * 100).toFixed(0)}%</strong>
                             </div>
                           </div>
                         </div>
 
                         {/* Contractor / Field Ops Dispatch Card (if contractor entity) */}
                         {selectedIssue.contractor && (
-                          <div className="p-4 rounded-2xl bg-[#141C26] border border-[#F5A623]/40 space-y-2.5 text-xs font-mono">
+                          <div className="p-3 rounded-xl bg-[#141C26] border border-[#F5A623]/40 space-y-2 text-xs font-mono">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-[#F5A623] font-bold">
-                                <HardHat className="w-4 h-4" />
-                                <span>Contractor &amp; Field Dispatch Context</span>
+                                <HardHat className="w-3.5 h-3.5" />
+                                <span>Field Dispatch</span>
                               </span>
-                              <span className="pill warn text-[10px] uppercase font-bold">{selectedIssue.contractor.dispatchStatus}</span>
+                              <span className="pill warn text-[9px] uppercase font-bold">{selectedIssue.contractor.dispatchStatus}</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-[11px] text-[#8E9AA8]">
+                            <div className="grid grid-cols-2 gap-1 text-[10px] text-[#8E9AA8]">
                               <div>
                                 <span>Company:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.company}</strong>
                               </div>
                               <div>
-                                <span>Technician:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.contactName}</strong>
+                                <span>Tech:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.contactName}</strong>
                               </div>
                               <div>
-                                <span>Site Location:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.siteLocation}</strong>
+                                <span>Site:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.siteLocation}</strong>
                               </div>
                               <div>
                                 <span>Trade:</span> <strong className="text-[#EAF1F8]">{selectedIssue.contractor.trade}</strong>
                               </div>
                             </div>
                             {selectedIssue.contractor.accessCode && (
-                              <div className="flex items-center justify-between p-2 rounded-xl bg-[#0E1520] border border-[var(--line)]">
-                                <span className="text-[10px] text-[#6B7C8D]">Electronic Lockbox PIN:</span>
-                                <span className="text-xs font-bold text-[#F5A623]">{selectedIssue.contractor.accessCode}</span>
+                              <div className="flex items-center justify-between p-1.5 rounded-lg bg-[#0E1520] border border-[var(--line)] text-[10px]">
+                                <span className="text-[#6B7C8D]">PIN:</span>
+                                <span className="font-bold text-[#F5A623]">{selectedIssue.contractor.accessCode}</span>
                               </div>
                             )}
                           </div>
                         )}
 
                         {/* AI Triage & Reasoning */}
-                        <div className="space-y-2 text-xs">
-                          <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
-                            AI Recommended Action &amp; Triage Rationale
-                          </label>
-                          <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] text-[#B4C2D0] leading-relaxed">
+                        <div className="p-3 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-1 text-xs">
+                          <span className="text-[#2ED8B6] font-mono uppercase text-[10px] font-bold block">
+                            AI Recommendation
+                          </span>
+                          <p className="text-[#B4C2D0] text-xs leading-relaxed">
                             {selectedIssue.recommendedAction || "Autonomous assessment completed. Ready for standard procedure dispatch."}
-                          </div>
-                        </div>
-
-                        {/* AI Confidence Meter */}
-                        <div className="space-y-1 text-xs font-mono p-3 rounded-2xl bg-[#141C26] border border-[var(--line)]">
-                          <div className="flex justify-between">
-                            <span className="text-[#6B7C8D]">Autonomous Confidence Score:</span>
-                            <span className="text-[#4CC38A] font-bold">{(selectedIssue.confidence * 100).toFixed(0)}%</span>
-                          </div>
-                          <div className="w-full bg-[#0E1520] h-2 rounded-full overflow-hidden border border-[var(--line)] mt-1">
-                            <div
-                              className="h-full rounded-full bg-[#4CC38A]"
-                              style={{ width: `${selectedIssue.confidence * 100}%` }}
-                            />
-                          </div>
+                          </p>
                         </div>
 
                         {/* 1-Click Save Resolution to Knowledge Base (RAG) */}
-                        <div className="p-3.5 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
+                        <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
                           <div>
                             <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-1.5">
-                              <Brain className="w-4 h-4 text-[#2ED8B6]" />
-                              <span>KnowledgeV8 RAG Ingestion</span>
-                            </div>
-                            <div className="text-[10px] text-[#6B7C8D] font-mono mt-0.5">
-                              {selectedIssue.ragIngested ? "Indexed into pgvector knowledge base" : "Ground resolution into vector corpus (20 Credits)"}
+                              <Brain className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                              <span>Knowledge Base RAG</span>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={handleExplorerIndexToRag}
                             disabled={selectedIssue.ragIngested}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all border ${
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1 cursor-pointer transition-all border ${
                               selectedIssue.ragIngested
                                 ? "bg-[#4CC38A]/20 text-[#4CC38A] border-[#4CC38A]/40"
                                 : "bg-[#182635] hover:bg-[#203348] text-[#2ED8B6] border-[#2ED8B6]/50"
                             }`}
                           >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>{selectedIssue.ragIngested ? "Ingested" : "Index to RAG"}</span>
+                            <Sparkles className="w-3 h-3" />
+                            <span>{selectedIssue.ragIngested ? "Ingested" : "Index RAG"}</span>
                           </button>
                         </div>
 
                         {/* Correlated Problem Incident */}
                         {selectedIssue.problemId && (
-                          <div className="p-3.5 rounded-2xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-xs">
+                          <div className="p-2.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 space-y-1 text-xs">
                             <div className="flex items-center justify-between">
-                              <span className="text-[#E5484D] font-bold font-mono">Correlated Systemic Problem</span>
+                              <span className="text-[#E5484D] font-bold font-mono text-[11px]">Systemic Problem</span>
                               <span className="pill err text-[9px]">{selectedIssue.problemId}</span>
                             </div>
-                            <p className="text-[#B4C2D0] text-[11px]">
-                              This ticket is correlated to active systemic incident <strong className="text-[#EAF1F8]">{selectedIssue.problemId}</strong>. Root-cause mitigations are in progress.
-                            </p>
                           </div>
                         )}
 
                         {/* Ticket Activity Timeline & Internal Notes */}
-                        <div className="space-y-2 pt-2">
-                          <label className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
-                            Activity Timeline &amp; Internal Notes
-                          </label>
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[#6B7C8D] font-mono uppercase text-[10px] font-bold block">
+                            Activity Timeline
+                          </span>
 
-                          <div className="p-3 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2">
-                            <div className="flex gap-2">
+                          <div className="p-2.5 rounded-xl bg-[#141C26] border border-[var(--line)] space-y-2">
+                            <div className="flex gap-1.5">
                               <input
                                 type="text"
                                 value={explorerNewNoteText}
@@ -5670,19 +5626,19 @@ export default function SupportV8Dashboard() {
                                     handleAddExplorerNote();
                                   }
                                 }}
-                                placeholder="Add an internal note or dispatch action..."
-                                className="flex-1 bg-[#0E1520] text-xs text-[#EAF1F8] px-3 py-1.5 rounded-xl border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
+                                placeholder="Add an internal note..."
+                                className="flex-1 bg-[#0E1520] text-xs text-[#EAF1F8] px-2.5 py-1 rounded-lg border border-[var(--line)] focus:outline-none focus:border-[#2ED8B6]"
                               />
                               <button
                                 type="button"
                                 onClick={handleAddExplorerNote}
-                                className="btn btn-secondary text-xs px-3 py-1.5 cursor-pointer font-bold"
+                                className="btn btn-secondary text-xs px-2.5 py-1 cursor-pointer font-bold"
                               >
-                                Post Note
+                                Post
                               </button>
                             </div>
 
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
                               {(selectedIssue.timeline || [
                                 {
                                   id: "tl_init",
@@ -5692,11 +5648,10 @@ export default function SupportV8Dashboard() {
                                   action: `Ticket ingested from ${selectedIssue.source}`,
                                 },
                               ]).map((ev) => (
-                                <div key={ev.id} className="p-2 rounded-xl bg-[#0E1520] border border-[var(--line)] text-xs font-mono flex items-start justify-between gap-2">
+                                <div key={ev.id} className="p-1.5 rounded-lg bg-[#0E1520] border border-[var(--line)] text-xs font-mono flex items-start justify-between gap-1.5">
                                   <div>
-                                    <div className="font-bold text-[#EAF1F8] text-[11px]">{ev.action}</div>
-                                    {ev.details && <div className="text-[10px] text-[#8E9AA8] mt-0.5">{ev.details}</div>}
-                                    <div className="text-[9px] text-[#6B7C8D] mt-0.5">{ev.actor}</div>
+                                    <div className="font-bold text-[#EAF1F8] text-[10px]">{ev.action}</div>
+                                    {ev.details && <div className="text-[9px] text-[#8E9AA8]">{ev.details}</div>}
                                   </div>
                                   <span className="text-[9px] text-[#6B7C8D] shrink-0">{ev.timestamp}</span>
                                 </div>
@@ -5709,7 +5664,7 @@ export default function SupportV8Dashboard() {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="pt-4 border-t border-[var(--line)] flex flex-col gap-2.5">
+                  <div className="pt-3 border-t border-[var(--line)] flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -5718,9 +5673,9 @@ export default function SupportV8Dashboard() {
                         setActiveTab("workspace");
                         notify(`Opened ${selectedIssue.externalId} in Focused Work Desk`, "info");
                       }}
-                      className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                      className="btn btn-primary w-full py-2 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                     >
-                      <Layers className="w-4 h-4" />
+                      <Layers className="w-3.5 h-3.5" />
                       <span>Open in Focused Work Desk →</span>
                     </button>
 
@@ -5728,25 +5683,147 @@ export default function SupportV8Dashboard() {
                       <button
                         type="button"
                         onClick={() => handleExplorerStatusChange("resolved")}
-                        className="btn btn-secondary flex-1 py-2 text-xs flex items-center justify-center gap-1.5 cursor-pointer hover:text-[#4CC38A] hover:border-[#4CC38A]"
+                        className="btn btn-secondary flex-1 py-1.5 text-xs flex items-center justify-center gap-1.5 cursor-pointer hover:text-[#4CC38A] hover:border-[#4CC38A]"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Mark Resolved</span>
                       </button>
 
-                      <a
-                        href={selectedIssue.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary py-2 px-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                      <button
+                        type="button"
+                        onClick={() => setRawSourceIssue(selectedIssue)}
+                        className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
+                        title="View Raw Ingestion Payload"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Source Link</span>
-                      </a>
+                        <span>Raw Source</span>
+                      </button>
                     </div>
                   </div>
                 </div>
               </>
+            )}
+
+            {/* ========================================================================= */}
+            {/* RAW SOURCE INGESTION MODAL */}
+            {/* ========================================================================= */}
+            {rawSourceIssue && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B1017]/80 backdrop-blur-sm animate-in fade-in duration-150"
+                onClick={() => setRawSourceIssue(null)}
+              >
+                <div
+                  className="w-full max-w-xl bg-[#0C121A] border border-[var(--line)] rounded-2xl shadow-2xl p-4 flex flex-col gap-3 font-mono animate-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                        <ExternalLink className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-[#EAF1F8]">Raw Source</h3>
+                          <span className="pill ok text-[9px] uppercase">{rawSourceIssue.source}</span>
+                        </div>
+                        <span className="text-[10px] text-[#6B7C8D] block">{rawSourceIssue.externalId}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRawSourceIssue(null)}
+                      className="p-1.5 rounded-lg hover:bg-[#18222E] text-[#6B7C8D] hover:text-[#EAF1F8] cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 rounded-xl bg-[#121A24] border border-[var(--line)] text-[10px]">
+                    <div>
+                      <span className="text-[#6B7C8D] block">Format:</span>
+                      <span className="text-[#2ED8B6] font-bold">application/json</span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B7C8D] block">Channel:</span>
+                      <span className="text-[#EAF1F8] uppercase font-bold">{rawSourceIssue.source}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B7C8D] block">Customer:</span>
+                      <span className="text-[#EAF1F8] truncate block">{rawSourceIssue.customerName}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-[#8E9AA8]">
+                      <span>Ingested Payload</span>
+                      <span>UTF-8</span>
+                    </div>
+                    <pre className="p-3 rounded-xl bg-[#080D14] border border-[var(--line)] text-[#2ED8B6] text-[11px] leading-relaxed max-h-64 overflow-auto font-mono select-all">
+                      {JSON.stringify({
+                        externalId: rawSourceIssue.externalId,
+                        source: rawSourceIssue.source,
+                        sourceUrl: rawSourceIssue.sourceUrl,
+                        customer: {
+                          name: rawSourceIssue.customerName,
+                          tier: rawSourceIssue.customerTier,
+                          ref: rawSourceIssue.customerRef,
+                        },
+                        summary: rawSourceIssue.summary,
+                        category: rawSourceIssue.category,
+                        priority: rawSourceIssue.priority,
+                        sentiment: {
+                          class: rawSourceIssue.sentiment,
+                          score: rawSourceIssue.sentimentScore,
+                          trajectory: rawSourceIssue.sentimentTrajectory,
+                        },
+                        triage: {
+                          confidence: rawSourceIssue.confidence,
+                          assignedTo: rawSourceIssue.assignedTo,
+                          recommendedAction: rawSourceIssue.recommendedAction,
+                        },
+                        tags: rawSourceIssue.tags,
+                        createdAt: rawSourceIssue.createdAt,
+                        updatedAt: rawSourceIssue.updatedAt,
+                      }, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+                    {rawSourceIssue.sourceUrl ? (
+                      <a
+                        href={rawSourceIssue.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-[#8E9AA8] hover:text-[#EAF1F8]"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Source Link</span>
+                      </a>
+                    ) : <div />}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify(rawSourceIssue, null, 2));
+                          notify("Raw JSON payload copied to clipboard", "success");
+                        }}
+                        className="btn btn-primary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy JSON</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRawSourceIssue(null)}
+                        className="btn btn-secondary text-xs py-1.5 px-3 cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -5763,11 +5840,8 @@ export default function SupportV8Dashboard() {
                   <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
                     <Users className="w-5 h-5" />
                   </span>
-                  <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">AI Workforce Hierarchy &amp; Roster</h1>
+                  <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">AI Workforce</h1>
                 </div>
-                <p className="text-xs text-[#B4C2D0]">
-                  ServiceV8 canonical workforce architecture: AI Employees are hired first to receive work; Specialized Interns operate as paired sub-agents.
-                </p>
               </div>
 
               {/* Roster Controls: Onboard Button + Filter Strip */}
@@ -5852,11 +5926,11 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Bot className="w-4 h-4 text-[#2ED8B6] shrink-0" />
                     <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase truncate">
-                      Hired AI Employees (Supervisors &amp; Work Receivers)
+                      AI Employees
                     </h3>
                   </div>
                   <span className="text-[11px] font-mono text-[#6B7C8D] shrink-0">
-                    Eligible for Direct Ticket &amp; Workflow Assignment
+                    Direct Assignment
                   </span>
                 </div>
 
@@ -6017,12 +6091,12 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Sparkles className="w-4 h-4 text-[#F5A623] shrink-0" />
                     <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase truncate">
-                      Specialized Interns (Paired Sub-Agents)
+                      AI Interns
                     </h3>
                   </div>
                   <span className="text-[11px] font-mono text-[#E5484D] flex items-center gap-1 shrink-0">
                     <Shield className="w-3 h-3" />
-                    <span>Direct Assignment Disabled (Sub-Agent Only)</span>
+                    <span>Sub-Agents Only</span>
                   </span>
                 </div>
 
@@ -6192,11 +6266,8 @@ export default function SupportV8Dashboard() {
                   <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
                     <PhoneCall className="w-5 h-5" />
                   </span>
-                  <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Voice Telephony &amp; AI Bot Operations</h1>
+                  <h1 className="text-xl font-bold text-[#EAF1F8] tracking-tight">Voice Agents</h1>
                 </div>
-                <p className="text-xs text-[#B4C2D0]">
-                  GrowthV8 voice architecture: Provision remote voice bots (Vapi &amp; Twilio) matched to local AI Employees with granular permission scopes and HMAC authentication.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -6231,7 +6302,7 @@ export default function SupportV8Dashboard() {
                 <div className="flex items-center gap-2 min-w-0">
                   <Cpu className="w-4 h-4 text-[#2ED8B6] shrink-0" />
                   <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase truncate">
-                    Provisioned Voice Connections (Remote ↔ Local Agent Matching)
+                    Telephony Fleet
                   </h3>
                 </div>
                 <span className="text-[11px] font-mono text-[#6B7C8D] shrink-0">
@@ -6420,7 +6491,7 @@ export default function SupportV8Dashboard() {
               <div className="card p-5 space-y-4">
                 <div className="flex items-center gap-2 pb-3 border-b border-[var(--line)]">
                   <Mic className="w-4 h-4 text-[#2ED8B6]" />
-                  <h3 className="text-sm font-bold text-[#EAF1F8]">Simulate Inbound Voice Call</h3>
+                  <h3 className="text-sm font-bold text-[#EAF1F8]">Simulate Call</h3>
                 </div>
 
                 <div className="space-y-3 text-xs">
@@ -6607,7 +6678,7 @@ export default function SupportV8Dashboard() {
 
             {/* Voice Sessions History Table */}
             <div className="card p-5 space-y-4">
-              <h3 className="text-sm font-bold text-[#EAF1F8]">Recent Inbound Telephony Sessions</h3>
+              <h3 className="text-sm font-bold text-[#EAF1F8]">Voice Sessions</h3>
               <div className="overflow-x-auto">
                 <table className="gv8-table">
                   <thead>
@@ -6684,7 +6755,7 @@ export default function SupportV8Dashboard() {
             <div className="card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#EAF1F8]">Problem Correlation Matrix</h2>
+                  <h2 className="text-lg font-bold text-[#EAF1F8]">Problem Matrix</h2>
                   <span className="pill ok text-[9px] font-mono uppercase"><i className="dot"></i> WORK DESK HUB</span>
                   {problems.filter((p) => p.status !== "resolved").length > 0 ? (
                     <span className="pill err text-[9px] font-mono uppercase">
@@ -6696,9 +6767,6 @@ export default function SupportV8Dashboard() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-[#B4C2D0] mt-0.5">
-                  SupportV8 is the terminal resolution hub. Root cause clusters end here with autonomous mitigation, proactive customer broadcasts, or direct human escalation.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
@@ -6736,7 +6804,7 @@ export default function SupportV8Dashboard() {
                   </div>
                   <div className="space-y-1.5 flex-1">
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                      <h3 className="text-base sm:text-lg font-bold text-[#EAF1F8]">No Active Systemic Incidents Detected</h3>
+                      <h3 className="text-base sm:text-lg font-bold text-[#EAF1F8]">Systems Nominal</h3>
                       <span className="pill ok text-[9px] font-mono uppercase"><i className="dot"></i> 0 CLUSTERS</span>
                       <span className="pill text-[9px] font-mono uppercase bg-[#18222E] text-[#6B7C8D] border border-[var(--line)]">
                         PIPELINE ONLINE (10m SLIDING WINDOW)
@@ -6987,12 +7055,9 @@ export default function SupportV8Dashboard() {
                     <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
                       <TrendingUp className="w-5 h-5" />
                     </span>
-                    <h2 className="text-xl font-bold text-[#EAF1F8]">Trend Spotting &amp; Anomaly Radar</h2>
+                    <h2 className="text-xl font-bold text-[#EAF1F8]">Trends Analysis</h2>
                     <span className="pill ok text-[10px] font-mono">EP13 / EP14 TELEMETRY</span>
                   </div>
-                  <p className="text-xs text-[#B4C2D0]">
-                    Real-time baseline tracking across contact volume, category velocity, sentiment degradation, and AI action insights.
-                  </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <button
@@ -7050,7 +7115,7 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-[#2ED8B6]" />
                     <h3 className="text-xs font-bold text-[#EAF1F8] uppercase tracking-wider font-mono">
-                      7-Day Inquiry Velocity &amp; Category Surge Matrix
+                      Velocity Matrix
                     </h3>
                   </div>
                   <span className="text-[11px] font-mono text-[#6B7C8D]">Daily Telemetry Rollup</span>
@@ -7153,7 +7218,7 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-[#E5484D]" />
                     <h3 className="text-xs font-bold text-[#EAF1F8] uppercase tracking-wider font-mono">
-                      Active Telemetry Anomalies ({displayAnomalies.length})
+                      Active Anomalies
                     </h3>
                   </div>
                   <span className="text-[11px] font-mono text-[#6B7C8D]">Auto-flagged against 7-day rolling window</span>
@@ -7204,7 +7269,7 @@ export default function SupportV8Dashboard() {
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-[#2ED8B6]" />
                     <h3 className="text-xs font-bold text-[#EAF1F8] uppercase tracking-wider font-mono">
-                      Proactive Action Insights &amp; Gateway Mitigations ({displayInsights.length})
+                      Action Insights
                     </h3>
                   </div>
                   <span className="text-[11px] font-mono text-[#2ED8B6]">One-Click Action Gateway</span>

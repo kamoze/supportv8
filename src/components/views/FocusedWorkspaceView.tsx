@@ -483,7 +483,7 @@ function WorkDeskFrame({
   );
 }
 function WorkDeskToolbar({count,subtitle,actions}:{count:number;subtitle:string;actions?:React.ReactNode}) {
-  return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Customer Care &amp; Field Resolution Work Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2><p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p></div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
+  return <div className="family-workdesk-toolbar px-6 py-3.5 bg-[#0E1520] border-b border-[var(--line)] flex flex-wrap items-center justify-between gap-4 shrink-0"><div className="flex items-center gap-3"><span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6]"><Sliders className="w-5 h-5" /></span><div><h2 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2"><span>Resolution Desk</span><span className="pill text-[9px] font-mono bg-[#141C26] text-[#2ED8B6] border border-[#2ED8B6]/30">{count} Active Queue</span></h2><p className="text-[11px] font-mono text-[#6B7C8D]">{subtitle}</p></div></div>{actions&&<div className="flex items-center gap-2.5 flex-wrap">{actions}</div>}</div>;
 }
 function TicketSummary({
   ticket,

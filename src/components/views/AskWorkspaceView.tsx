@@ -21,6 +21,7 @@ import {
   Key,
   AlertTriangle,
   Check,
+  ShoppingBag,
 } from "@/components/ui/FlatIcon";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import type { ChatMessage } from "@/app/page";
@@ -35,17 +36,18 @@ interface AskWorkspaceViewProps {
   onClearChat: () => void;
   onChatAction: (action: any) => void;
   loading: boolean;
+  onNavigateToMarketplace?: () => void;
 }
 
 const DEFAULT_FALLBACK_ASSISTANT = {
   id: "emp_rag_intelligence",
   name: "SupportV8 RAG Intelligence",
   role: "Knowledge Retrieval & Vector Copilot",
-  level: "ai_employee",
+  level: "copilot",
   status: "active",
   autonomyLevel: "L2 Assisted",
   avatarUrl: "/avatars/beaver-curator.jpg",
-  isHired: true,
+  isHired: false,
 };
 
 // Sample AgenticOS Tiered Actions to showcase the 3 governance tiers
@@ -102,6 +104,7 @@ export function AskWorkspaceView({
   onClearChat,
   onChatAction,
   loading,
+  onNavigateToMarketplace,
 }: AskWorkspaceViewProps) {
   const [inputQuery, setInputQuery] = useState<string>("");
   const [showPrompts, setShowPrompts] = useState<boolean>(true);
@@ -140,7 +143,7 @@ export function AskWorkspaceView({
     workforce.find((w) => w.id === selectedEmployeeId) ||
     workforce[0] ||
     DEFAULT_FALLBACK_ASSISTANT;
-  const hasHiredEmployee = true;
+  const hasHiredEmployee = workforce.length > 0;
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,12 +222,11 @@ export function AskWorkspaceView({
     ],
   };
 
-  const suggestions = hasHiredEmployee
-    ? PROMPT_SUGGESTIONS[selectedEmployeeId] ||
-      PROMPT_SUGGESTIONS[activeEmployee?.id] ||
-      PROMPT_SUGGESTIONS.emp_rag_intelligence ||
-      []
-    : [];
+  const suggestions =
+    PROMPT_SUGGESTIONS[selectedEmployeeId] ||
+    PROMPT_SUGGESTIONS[activeEmployee?.id] ||
+    PROMPT_SUGGESTIONS.emp_rag_intelligence ||
+    [];
 
   const formatSeconds = (sec: number) => {
     const mins = Math.floor(sec / 60);
@@ -238,6 +240,34 @@ export function AskWorkspaceView({
     <div className="p-3 sm:p-5 md:p-6 h-full min-h-0 w-full flex flex-col overflow-hidden bg-[#0B1017]">
       {/* Framed Console with Teal Border Frame */}
       <div className="flex-1 min-h-0 flex flex-col rounded-2xl border-2 border-[#2ED8B6] shadow-[0_0_30px_rgba(46,216,182,0.18)] ring-1 ring-[#2ED8B6]/40 overflow-hidden bg-[#0C121A]">
+        {/* Clean Empty Workforce Banner linking to Marketplace */}
+        {!hasHiredEmployee && (
+          <div className="bg-[#121A24] border-b border-[#2ED8B6]/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
+                <Users className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-[#EAF1F8] font-mono">Empty Workforce</h3>
+                  <span className="pill warn text-[9px] font-mono">0 HIRED AGENTS</span>
+                </div>
+                <p className="text-[11px] text-[#8E9AA8] truncate">
+                  No AI employees are provisioned. Hire specialists from Marketplace or query knowledge base below.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigateToMarketplace ? onNavigateToMarketplace() : window.open("https://marketplace.servicev8.com", "_blank", "noopener,noreferrer")}
+              className="btn btn-primary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Open Marketplace</span>
+            </button>
+          </div>
+        )}
+
         {/* Top Banner with AI Employee Selector Strip & AgenticOS Controls */}
         <div className="bg-[#121A24] border-b border-[#2ED8B6]/30 p-4 space-y-3 shrink-0">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -247,11 +277,17 @@ export function AskWorkspaceView({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-sm font-bold text-[#EAF1F8] truncate">AgenticOS Chat</h2>
-                  <span className="pill ok text-[9px] font-mono shrink-0">RUNTIME ACCEPTANCE</span>
+                  <h2 className="text-sm font-bold text-[#EAF1F8] truncate">
+                    {hasHiredEmployee ? "AgenticOS Chat" : "Workspace Copilot"}
+                  </h2>
+                  <span className="pill ok text-[9px] font-mono shrink-0">
+                    {hasHiredEmployee ? "RUNTIME ACCEPTANCE" : "VECTOR KNOWLEDGE"}
+                  </span>
                 </div>
                 <p className="text-[11px] text-[#6B7C8D] truncate">
-                  {targetMode === "all"
+                  {!hasHiredEmployee
+                    ? "Query tickets, runbooks, and pgvector knowledge directly."
+                    : targetMode === "all"
                     ? "Omnichannel Dispatch: Querying all hired AI employees concurrently."
                     : `Direct 1:1 Session with ${activeEmployee.name}.`}
                 </p>
@@ -262,16 +298,18 @@ export function AskWorkspaceView({
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <SoundAlertToggle showDropdown={false} className="p-2 min-w-0 min-h-0 h-8 w-8 rounded-lg" />
 
-              <button
-                type="button"
-                onClick={handleStartVoiceCall}
-                className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-mono text-[#2ED8B6] border-[#2ED8B6]/30 hover:bg-[#2ED8B6]/10 cursor-pointer shadow-sm"
-                title={`Start real-time voice call with ${activeEmployee.name}`}
-              >
-                <Phone className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Speak with</span>
-                <span className="truncate max-w-[120px]">{activeEmployee.name.split("—")[0].trim()}</span>
-              </button>
+              {hasHiredEmployee && (
+                <button
+                  type="button"
+                  onClick={handleStartVoiceCall}
+                  className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-mono text-[#2ED8B6] border-[#2ED8B6]/30 hover:bg-[#2ED8B6]/10 cursor-pointer shadow-sm"
+                  title={`Start real-time voice call with ${activeEmployee.name}`}
+                >
+                  <Phone className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Speak with</span>
+                  <span className="truncate max-w-[120px]">{activeEmployee.name.split("—")[0].trim()}</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -285,60 +323,70 @@ export function AskWorkspaceView({
             </div>
           </div>
 
-          {/* AI Workforce Selector Carousel + All Team Collaboration Button */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {/* All Team Collaboration Pill */}
-            <button
-              type="button"
-              onClick={() => setTargetMode("all")}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer shrink-0 ${
-                targetMode === "all"
-                  ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] shadow-md ring-1 ring-[#2ED8B6]/40"
-                  : "bg-[#18222E] border-[var(--line)] text-[#B4C2D0] hover:bg-[#1C2836]"
-              }`}
-            >
-              <div className="w-8 h-8 rounded-lg bg-[#2ED8B6]/20 text-[#2ED8B6] flex items-center justify-center shrink-0 border border-[#2ED8B6]/40">
-                <Users className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-bold truncate max-w-[130px]">All Team</div>
-                <div className="text-[10px] font-mono text-[#2ED8B6] uppercase tracking-wider">
-                  Omnichannel
+          {/* AI Workforce Selector Carousel / Copilot Pill */}
+          {hasHiredEmployee ? (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {/* All Team Collaboration Pill */}
+              <button
+                type="button"
+                onClick={() => setTargetMode("all")}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer shrink-0 ${
+                  targetMode === "all"
+                    ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] shadow-md ring-1 ring-[#2ED8B6]/40"
+                    : "bg-[#18222E] border-[var(--line)] text-[#B4C2D0] hover:bg-[#1C2836]"
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-[#2ED8B6]/20 text-[#2ED8B6] flex items-center justify-center shrink-0 border border-[#2ED8B6]/40">
+                  <Users className="w-4 h-4" />
                 </div>
-              </div>
-            </button>
-
-            {/* Individual Employee Pills */}
-            {workforce.map((emp) => {
-              const isSelected = targetMode === "single" && emp.id === selectedEmployeeId;
-              return (
-                <button
-                  key={emp.id}
-                  onClick={() => {
-                    setTargetMode("single");
-                    onSelectEmployee(emp.id);
-                  }}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer shrink-0 ${
-                    isSelected
-                      ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] shadow-md ring-1 ring-[#2ED8B6]/40"
-                      : "bg-[#18222E] border-[var(--line)] text-[#B4C2D0] hover:bg-[#1C2836]"
-                  }`}
-                >
-                  <img
-                    src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
-                    alt={emp.name}
-                    className="w-8 h-8 rounded-lg object-cover border border-[var(--line-2)] shrink-0"
-                  />
-                  <div className="text-left">
-                    <div className="text-xs font-bold truncate max-w-[130px]">{emp.name.split("—")[0]}</div>
-                    <div className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
-                      {emp.level === "ai_employee" ? "AI Lead" : "Intern"} &bull; {emp.autonomyLevel}
-                    </div>
+                <div className="text-left">
+                  <div className="text-xs font-bold truncate max-w-[130px]">All Team</div>
+                  <div className="text-[10px] font-mono text-[#2ED8B6] uppercase tracking-wider">
+                    Omnichannel
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                </div>
+              </button>
+
+              {/* Individual Employee Pills */}
+              {workforce.map((emp) => {
+                const isSelected = targetMode === "single" && emp.id === selectedEmployeeId;
+                return (
+                  <button
+                    key={emp.id}
+                    onClick={() => {
+                      setTargetMode("single");
+                      onSelectEmployee(emp.id);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer shrink-0 ${
+                      isSelected
+                        ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] shadow-md ring-1 ring-[#2ED8B6]/40"
+                        : "bg-[#18222E] border-[var(--line)] text-[#B4C2D0] hover:bg-[#1C2836]"
+                    }`}
+                  >
+                    <img
+                      src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
+                      alt={emp.name}
+                      className="w-8 h-8 rounded-lg object-cover border border-[var(--line-2)] shrink-0"
+                    />
+                    <div className="text-left">
+                      <div className="text-xs font-bold truncate max-w-[130px]">{emp.name.split("—")[0]}</div>
+                      <div className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
+                        {emp.level === "ai_employee" ? "AI Lead" : "Intern"} &bull; {emp.autonomyLevel}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#2ED8B6]/30 bg-[#2ED8B6]/10 text-[#EAF1F8]">
+                <Sparkles className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <span className="text-xs font-bold font-mono">Workspace Copilot</span>
+                <span className="text-[10px] text-[#2ED8B6] font-mono">&bull; Vector Knowledge</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Message Stream */}
@@ -567,7 +615,7 @@ export function AskWorkspaceView({
         </div>
 
         {/* Suggested Prompt Chips */}
-        {hasHiredEmployee && showPrompts ? (
+        {showPrompts ? (
           <div className="bg-[#121A24] border-t border-[#2ED8B6]/20 px-4 sm:px-6 py-2.5 shrink-0 transition-all">
             <div className="max-w-4xl mx-auto flex items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2 flex-1">
@@ -596,7 +644,7 @@ export function AskWorkspaceView({
               </button>
             </div>
           </div>
-        ) : hasHiredEmployee ? (
+        ) : (
           <div className="bg-[#121A24] border-t border-[#2ED8B6]/10 px-4 sm:px-6 py-1 shrink-0">
             <div className="max-w-4xl mx-auto flex justify-end">
               <button
@@ -609,7 +657,7 @@ export function AskWorkspaceView({
               </button>
             </div>
           </div>
-        ) : null}
+        )}
 
         {/* Query Input Bar */}
         <form onSubmit={handleSend} className="p-3 sm:p-4 bg-[#0E1520] border-t border-[#2ED8B6]/30 shrink-0">

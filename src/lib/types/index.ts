@@ -583,12 +583,12 @@ export const DEFAULT_RAG_ASSISTANT = {
   id: "emp_rag_intelligence",
   name: "SupportV8 RAG Intelligence",
   role: "Knowledge Retrieval & Vector Copilot",
-  level: "ai_employee",
+  level: "copilot",
   status: "active",
   autonomyLevel: "L2 Assisted",
   avatarUrl: "/avatars/beaver-curator.jpg",
-  isHired: true,
-  hired: true
+  isHired: false,
+  hired: false
 };
 
 export type CustomerTier = "standard" | "premium" | "enterprise" | "vip";

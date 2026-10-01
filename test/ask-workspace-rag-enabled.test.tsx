@@ -46,12 +46,16 @@ describe("AskWorkspaceView RAG Integration", () => {
 
     // Verify prompt suggestions include RAG query
     expect(container.textContent).toContain("Want to check on your inventory");
+
+    // Verify empty workforce banner linking to Marketplace is displayed
+    expect(container.textContent).toContain("Empty Workforce");
+    expect(container.textContent).toContain("Open Marketplace");
   });
 
-  it("exports DEFAULT_RAG_ASSISTANT with active role and level", () => {
+  it("exports DEFAULT_RAG_ASSISTANT with active role, copilot level, and isHired false", () => {
     expect(DEFAULT_RAG_ASSISTANT.id).toBe("emp_rag_intelligence");
     expect(DEFAULT_RAG_ASSISTANT.name).toBe("SupportV8 RAG Intelligence");
     expect(DEFAULT_RAG_ASSISTANT.role).toContain("Knowledge Retrieval");
-    expect(DEFAULT_RAG_ASSISTANT.isHired).toBe(true);
+    expect(DEFAULT_RAG_ASSISTANT.isHired).toBe(false);
   });
 });

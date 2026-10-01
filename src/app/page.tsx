@@ -326,7 +326,7 @@ export default function SupportV8Dashboard() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [workforce, setWorkforce] = useState<any[]>([DEFAULT_RAG_ASSISTANT]);
+  const [workforce, setWorkforce] = useState<any[]>([]);
   const [voiceData, setVoiceData] = useState<{
     phoneConfigs: any[];
     sessions: any[];
@@ -622,8 +622,8 @@ export default function SupportV8Dashboard() {
         setSources([]);
         setPolicy(null);
         setTrends({ series: [], anomalies: [] });
-        setWorkforce([DEFAULT_RAG_ASSISTANT]);
-        setSelectedEmployeeId("emp_rag_intelligence");
+        setWorkforce([]);
+        setSelectedEmployeeId("");
         setVoiceData({ phoneConfigs: [], sessions: [] });
         setSelectedVoiceSession(null);
         setVerticals([]);
@@ -693,13 +693,9 @@ export default function SupportV8Dashboard() {
       if (srcRes.success) setSources(srcRes.data);
       if (wfRes.success) {
         const hiredWorkforce = Array.isArray(wfRes.data) ? wfRes.data.filter((member: any) => member.hired) : [];
-        const fullWorkforce = [
-          DEFAULT_RAG_ASSISTANT,
-          ...hiredWorkforce.filter((member: any) => member.id !== DEFAULT_RAG_ASSISTANT.id),
-        ];
-        setWorkforce(fullWorkforce);
+        setWorkforce(hiredWorkforce);
         setSelectedEmployeeId((current) =>
-          fullWorkforce.some((member: any) => member.id === current) ? current : DEFAULT_RAG_ASSISTANT.id
+          hiredWorkforce.some((member: any) => member.id === current) ? current : (hiredWorkforce[0]?.id || "")
         );
       }
       if (vertRes.success) setVerticals(vertRes.data);
@@ -6075,6 +6071,27 @@ export default function SupportV8Dashboard() {
                       );
                     })}
                 </div>
+                {workforce.filter((w) => w.level === "ai_employee" && (w.hired === undefined || w.hired)).length === 0 && (
+                  <div className="card p-6 rounded-2xl border border-dashed border-[var(--line-2)] bg-[#121A24] text-center space-y-3">
+                    <div className="mx-auto w-10 h-10 rounded-xl bg-[#2ED8B6]/10 text-[#2ED8B6] flex items-center justify-center border border-[#2ED8B6]/20">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-[#EAF1F8]">Empty Workforce</h4>
+                      <p className="text-xs text-[#8E9AA8] max-w-md mx-auto">
+                        No AI employees are provisioned. Onboard specialized AI employees from Marketplace.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("market_workforce")}
+                      className="btn btn-primary text-xs py-2 px-4 font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Open Marketplace</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -7562,6 +7579,7 @@ export default function SupportV8Dashboard() {
             onClearChat={handleClearChat}
             onChatAction={handleChatAction}
             loading={chatLoading}
+            onNavigateToMarketplace={() => setActiveTab("market_workforce")}
           />
         )}
 

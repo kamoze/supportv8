@@ -946,6 +946,11 @@ export default function SupportV8Dashboard() {
         setIsSignInModalOpen(true);
       }
 
+      const tabParam = params.get("tab");
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
+
       setViewMode(workspace.viewMode);
       if (workspace.viewMode === "cockpit") {
         if (!active) {
@@ -2318,7 +2323,7 @@ export default function SupportV8Dashboard() {
         {/* Optimized Sticky Topbar Header */}
         <SupportWorkspaceHeaderFrame>
           {/* Left: Breadcrumbs & Active Tenant Tag */}
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <button
               type="button"
               aria-label="Open navigation"
@@ -2327,27 +2332,23 @@ export default function SupportV8Dashboard() {
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
-            <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
+            <div className="flex items-center gap-1 sm:gap-2 text-xs min-w-0">
               <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
                 <span className="text-white font-extrabold text-sm">support</span>
                 <span className="text-[#2ED8B6] font-mono font-extrabold text-sm tracking-[-0.02em] ml-0.5">v8</span>
               </span>
-              <span className="text-[#6B7C8D] font-mono">/</span>
-              <span className="text-[#EAF1F8] font-bold font-mono text-xs truncate max-w-[130px] sm:max-w-[200px]">
+              <span className="text-[#6B7C8D] font-mono shrink-0">/</span>
+              <span className="text-[#EAF1F8] font-bold font-mono text-xs truncate max-w-[85px] xs:max-w-[120px] sm:max-w-[200px]">
                 {navSections.flatMap((s) => s.items).find((i) => i.id === activeTab)?.label || activeTab}
               </span>
             </div>
 
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#121A24] border border-[var(--line)] text-[10px] font-mono text-[#8E9AA8]">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#121A24] border border-[var(--line)] text-[10px] font-mono text-[#8E9AA8] shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-[#2ED8B6] animate-pulse"></span>
               <span className="text-[#EAF1F8] font-bold">{currentTenantSlug}.support.servicev8.com</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <SoundAlertToggle />
-            <FamilyThemeToggle />
-          </div>
           {/* Center: Autonomy Mode & ForgeGW Credits Capsule */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
             {/* Autonomy Mode Selector */}
@@ -2391,12 +2392,17 @@ export default function SupportV8Dashboard() {
             </button>
           </div>
 
-          {/* Right: Quick Search, Refresh & Unified User/Persona Profile Dropdown */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: Quick Search, Refresh, Audio/Theme Toggles & Unified User/Persona Profile Dropdown */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
+              <SoundAlertToggle />
+              <FamilyThemeToggle />
+            </div>
+
             {/* Quick Ask / Command Trigger */}
             <button
               onClick={() => setIsChatOpen(true)}
-              className="btn btn-secondary px-2.5 sm:px-3 py-1.5 text-xs flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[#8E9AA8] hover:text-[#EAF1F8]"
+              className="btn btn-secondary px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5 sm:gap-2 cursor-pointer text-[#8E9AA8] hover:text-[#EAF1F8]"
             >
               <Search className="w-3.5 h-3.5 text-[#2ED8B6]" />
               <span className="hidden sm:inline text-[11px] font-mono">Ask / Search</span>
@@ -2409,7 +2415,7 @@ export default function SupportV8Dashboard() {
             <button
               onClick={() => fetchData()}
               title="Refresh Intelligence Data"
-              className="p-2 rounded-xl bg-[#101722] hover:bg-[#18222E] border border-[var(--line)] text-[#6B7C8D] hover:text-[#2ED8B6] cursor-pointer transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl bg-[#101722] hover:bg-[#18222E] border border-[var(--line)] text-[#6B7C8D] hover:text-[#2ED8B6] cursor-pointer transition-colors"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#2ED8B6]" : ""}`} />
             </button>
@@ -2419,7 +2425,7 @@ export default function SupportV8Dashboard() {
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
+                className={`px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer ${
                   isUserMenuOpen
                     ? "bg-[#182635] border-[#2ED8B6] text-[#EAF1F8] shadow-md shadow-[#2ED8B6]/10"
                     : "bg-[#101722] hover:bg-[#141E2B] border-[var(--line)] text-[#B4C2D0] hover:text-[#EAF1F8]"
@@ -2886,12 +2892,12 @@ export default function SupportV8Dashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Autonomy Tier Funnel */}
                 <div className="card p-5 lg:col-span-2 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[#2ED8B6]" />
-                      <h3 className="text-sm font-bold text-[#EAF1F8]">Resolution Velocity &amp; Autonomy Funnel</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Zap className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                      <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Resolution Velocity &amp; Autonomy Funnel</h3>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <span className="pill ok text-[10px]"><i className="dot"></i> High Efficiency</span>
                       <span className="text-[11px] text-[#6B7C8D] font-mono">Avg Turnaround: 1.8 mins</span>
                     </div>
@@ -2916,16 +2922,16 @@ export default function SupportV8Dashboard() {
                         title={`Escalated: ${humanEscalatedRate}%`}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-[#B4C2D0]">
-                      <span className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#B4C2D0]">
+                      <span className="flex items-center gap-1.5 shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-[#2ED8B6]"></span>
                         <span>Autonomous Tier 1 ({liveVarr}%)</span>
                       </span>
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1.5 shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-[#0091FF]"></span>
                         <span>Copilot Tier 2 ({copilotRate}%)</span>
                       </span>
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1.5 shrink-0">
                         <span className="w-2.5 h-2.5 rounded-full bg-[#F5A623]"></span>
                         <span>Specialist Tier 3 ({humanEscalatedRate}%)</span>
                       </span>
@@ -2933,11 +2939,11 @@ export default function SupportV8Dashboard() {
                   </div>
 
                   {/* Velocity Tiers Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                    <div className="p-3.5 rounded-lg bg-[#18222E]/80 border border-[#2ED8B6]/20 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[#EAF1F8]">Tier 1: Autonomous AI</span>
-                        <span className="pill ok text-[9px]">0 Hand-offs</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 pt-2">
+                    <div className="p-3.5 rounded-lg bg-[#18222E]/80 border border-[#2ED8B6]/20 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-[#EAF1F8] truncate">Tier 1: Autonomous AI</span>
+                        <span className="pill ok text-[9px] shrink-0">0 Hand-offs</span>
                       </div>
                       <div className="text-xl font-bold font-mono text-[#2ED8B6]">1.2 mins</div>
                       <p className="text-[11px] text-[#6B7C8D]">Avg Resolution Turnaround</p>
@@ -2946,10 +2952,10 @@ export default function SupportV8Dashboard() {
                       </div>
                     </div>
 
-                    <div className="p-3.5 rounded-lg bg-[#18222E]/80 border border-[#0091FF]/20 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[#EAF1F8]">Tier 2: Copilot-Assisted</span>
-                        <span className="pill route text-[9px]">HITL Review</span>
+                    <div className="p-3.5 rounded-lg bg-[#18222E]/80 border border-[#0091FF]/20 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-[#EAF1F8] truncate">Tier 2: Copilot-Assisted</span>
+                        <span className="pill route text-[9px] shrink-0">HITL Review</span>
                       </div>
                       <div className="text-xl font-bold font-mono text-[#0091FF]">14.3 mins</div>
                       <p className="text-[11px] text-[#6B7C8D]">Avg Human-in-Loop Time</p>
@@ -2958,10 +2964,10 @@ export default function SupportV8Dashboard() {
                       </div>
                     </div>
 
-                    <div className="p-3.5 rounded-lg bg-[#18222E]/80 border border-[#F5A623]/20 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[#EAF1F8]">Tier 3: Specialist Escalation</span>
-                        <span className="pill warn text-[9px]">Senior Ops</span>
+                    <div className="p-3.5 rounded-lg bg-[#18222E]/80 border border-[#F5A623]/20 space-y-1.5 min-w-0 sm:col-span-2 xl:col-span-1">
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-[#EAF1F8] truncate">Tier 3: Specialist Escalation</span>
+                        <span className="pill warn text-[9px] shrink-0">Senior Ops</span>
                       </div>
                       <div className="text-xl font-bold font-mono text-[#F5A623]">3.8 hrs</div>
                       <p className="text-[11px] text-[#6B7C8D]">Complex Incident Mean Time</p>
@@ -3025,12 +3031,12 @@ export default function SupportV8Dashboard() {
 
               {/* OMNICHANNEL INGRESS DISTRIBUTION */}
               <div className="card p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#0091FF]" />
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Omnichannel Ingress &amp; Live Inbound Workload</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Layers className="w-4 h-4 text-[#0091FF] shrink-0" />
+                    <h3 className="text-sm font-bold text-[#EAF1F8] truncate">Omnichannel Ingress &amp; Live Inbound Workload</h3>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                     <span className="text-[11px] text-[#6B7C8D] font-mono">{channelSources.length} Active Ingress Lines</span>
                     <button
                       onClick={() => setActiveTab("market_connectors")}
@@ -3042,7 +3048,7 @@ export default function SupportV8Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
                   {channelSources.length === 0 ? (
                     <div className="col-span-full text-center py-6 text-xs text-[#6B7C8D]">
                       No active ingress channels connected. Configure channels in Manage Connectors.
@@ -3067,15 +3073,15 @@ export default function SupportV8Dashboard() {
                         }`}
                         title={ch.id === "voice" ? (isSophiaVoiceEnabled ? "Launch Voice Telephony (Sophia)" : "Configure Voice in Marketplace") : undefined}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-1.5">
                           <div className="p-1.5 rounded-md bg-[#121A24] border border-[var(--line)]">
                             <Icon className="w-3.5 h-3.5 text-[#2ED8B6]" />
                           </div>
-                          <span className="pill ok text-[9px]"><i className="dot"></i> {ch.status}</span>
+                          <span className="pill ok text-[9px] shrink-0"><i className="dot"></i> {ch.status}</span>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="text-xs font-bold text-[#EAF1F8] truncate">{ch.name}</div>
-                          <div className="text-[10px] text-[#6B7C8D] font-mono">{ch.protocol}</div>
+                          <div className="text-[10px] text-[#6B7C8D] font-mono truncate">{ch.protocol}</div>
                         </div>
                         <div className="pt-1.5 border-t border-[var(--line)] flex items-end justify-between">
                           <div>
@@ -3183,14 +3189,14 @@ export default function SupportV8Dashboard() {
                 {/* AI Workforce Productivity Scorecard */}
                 <div className="card p-5 space-y-4 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-                      <div className="flex items-center gap-2">
-                        <Bot className="w-4 h-4 text-[#2ED8B6]" />
-                        <h3 className="text-sm font-bold text-[#EAF1F8]">AI Workforce Productivity Scorecard</h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Bot className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                        <h3 className="text-sm font-bold text-[#EAF1F8] truncate">AI Workforce Productivity Scorecard</h3>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <span className="text-[11px] text-[#6B7C8D] font-mono">{activeWorkforce.length} Hired Agents</span>
-                        <span className="pill ok text-[9px]"><i className="dot"></i> All Active</span>
+                        <span className="pill ok text-[9px] shrink-0"><i className="dot"></i> All Active</span>
                       </div>
                     </div>
 
@@ -3203,16 +3209,16 @@ export default function SupportV8Dashboard() {
                         activeWorkforce.map((emp) => (
                         <div
                           key={emp.id}
-                          className="p-3 rounded-lg bg-[#18222E] border border-[var(--line)] flex items-center justify-between gap-3 text-xs hover:border-[#2ED8B6]/30 transition-all"
+                          className="p-3 rounded-lg bg-[#18222E] border border-[var(--line)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 text-xs hover:border-[#2ED8B6]/30 transition-all"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${emp.avatarBg}`}>
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center font-bold text-xs border ${emp.avatarBg}`}>
                               {emp.name.charAt(0)}
                             </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-[#EAF1F8]">{emp.name}</span>
-                                <span className="text-[10px] text-[#6B7C8D] font-mono">({emp.tier})</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-[#EAF1F8] truncate">{emp.name}</span>
+                                <span className="text-[10px] text-[#6B7C8D] font-mono shrink-0">({emp.tier})</span>
                                 {emp.name.toLowerCase().includes("sophia") && isSophiaVoiceEnabled && (
                                   <a
                                     href="/api/voice/sophia/launch"
@@ -3222,7 +3228,7 @@ export default function SupportV8Dashboard() {
                                         setActiveTab("voice");
                                       }
                                     }}
-                                    className="pill ok text-[9px] hover:underline cursor-pointer flex items-center gap-1"
+                                    className="pill ok text-[9px] hover:underline cursor-pointer flex items-center gap-1 shrink-0"
                                     title="Launch Sophia Voice Telephony"
                                   >
                                     <PhoneCall className="w-2.5 h-2.5" />
@@ -3230,10 +3236,10 @@ export default function SupportV8Dashboard() {
                                   </a>
                                 )}
                               </div>
-                              <p className="text-[11px] text-[#B4C2D0] leading-tight">{emp.specialty}</p>
+                              <p className="text-[11px] text-[#B4C2D0] leading-tight truncate">{emp.specialty}</p>
                             </div>
                           </div>
-                          <div className="text-right whitespace-nowrap">
+                          <div className="text-left sm:text-right whitespace-nowrap shrink-0 pl-11 sm:pl-0">
                             <div className="font-bold font-mono text-[#2ED8B6]">{emp.handled} resolved</div>
                             <div className="text-[10px] text-[#4CC38A]">{emp.accuracy}% QA Score</div>
                           </div>
@@ -3507,37 +3513,37 @@ export default function SupportV8Dashboard() {
                 <div className="space-y-6">
                   {/* Executive KPI Scorecard */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                        <span>AI INVOLVEMENT RATE</span>
-                        <span className={`pill ${aiInvolvementFunnelRate > 0 ? "ok" : ""} text-[9px]`}>{aiInvolvementFunnelRate > 0 ? "ACTIVE" : "IDLE"}</span>
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2 min-w-0">
+                      <div className="flex items-center justify-between gap-1 text-xs font-mono text-[#6B7C8D]">
+                        <span className="truncate">AI INVOLVEMENT RATE</span>
+                        <span className={`pill ${aiInvolvementFunnelRate > 0 ? "ok" : ""} text-[9px] shrink-0`}>{aiInvolvementFunnelRate > 0 ? "ACTIVE" : "IDLE"}</span>
                       </div>
                       <div className="text-2xl font-extrabold font-mono text-[#2ED8B6]">{aiInvolvementFunnelRate}%</div>
                       <div className="text-[11px] text-[#B4C2D0]">{aiInvolvedFunnelCount.toLocaleString()} of {totalFunnelVolume.toLocaleString()} tickets touched by AI</div>
                     </div>
 
-                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                        <span>RESOLUTION RATE (VARR)</span>
-                        <span className={`pill ${varrFunnelRate > 0 ? "ok" : ""} text-[9px]`}>{varrFunnelRate > 0 ? "VERIFIED" : "0 RESOLVES"}</span>
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2 min-w-0">
+                      <div className="flex items-center justify-between gap-1 text-xs font-mono text-[#6B7C8D]">
+                        <span className="truncate">RESOLUTION RATE (VARR)</span>
+                        <span className={`pill ${varrFunnelRate > 0 ? "ok" : ""} text-[9px] shrink-0`}>{varrFunnelRate > 0 ? "VERIFIED" : "0 RESOLVES"}</span>
                       </div>
                       <div className="text-2xl font-extrabold font-mono text-[#4CC38A]">{varrFunnelRate}%</div>
                       <div className="text-[11px] text-[#B4C2D0]">{autonomousFunnelCount.toLocaleString()} tickets resolved autonomously without human</div>
                     </div>
 
-                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                        <span>CX CSAT SCORE</span>
-                        <span className={`pill ${csatVal > 0 ? "ok" : ""} text-[9px]`}>{csatVal >= 85 ? "EXCELLENT" : csatVal > 0 ? "SATISFACTORY" : "NO RATINGS"}</span>
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2 min-w-0">
+                      <div className="flex items-center justify-between gap-1 text-xs font-mono text-[#6B7C8D]">
+                        <span className="truncate">CX CSAT SCORE</span>
+                        <span className={`pill ${csatVal > 0 ? "ok" : ""} text-[9px] shrink-0`}>{csatVal >= 85 ? "EXCELLENT" : csatVal > 0 ? "SATISFACTORY" : "NO RATINGS"}</span>
                       </div>
                       <div className="text-2xl font-extrabold font-mono text-[#EAF1F8]">{csatVal} <span className="text-xs text-[#6B7C8D]">/ 100</span></div>
                       <div className="text-[11px] text-[#B4C2D0]">{csatVal > 0 ? "Post-resolution customer feedback" : "No customer feedback ratings recorded yet"}</div>
                     </div>
 
-                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2">
-                      <div className="flex items-center justify-between text-xs font-mono text-[#6B7C8D]">
-                        <span>AVG FIRST RESPONSE TIME</span>
-                        <span className="pill text-[9px]">{autonomousFunnelCount > 0 ? "P1/P2 SPEED" : "STANDARD"}</span>
+                    <div className="card p-5 bg-[#121A24] border-[var(--line)] space-y-2 min-w-0">
+                      <div className="flex items-center justify-between gap-1 text-xs font-mono text-[#6B7C8D]">
+                        <span className="truncate">AVG FIRST RESPONSE TIME</span>
+                        <span className="pill text-[9px] shrink-0">{autonomousFunnelCount > 0 ? "P1/P2 SPEED" : "STANDARD"}</span>
                       </div>
                       <div className="text-2xl font-extrabold font-mono text-[#4D9FFF]">{avgFrtMinutes} <span className="text-xs text-[#6B7C8D]">mins</span></div>
                       <div className="text-[11px] text-[#B4C2D0]">{totalFunnelVolume === 0 ? "No incoming queue traffic" : autonomousFunnelCount > 0 ? "94.2% faster than human queue" : "Standard queue latency"}</div>
@@ -3549,7 +3555,7 @@ export default function SupportV8Dashboard() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
                       <div>
                         <h3 className="text-sm font-bold text-[#EAF1F8] flex items-center gap-2">
-                          <Target className="w-4 h-4 text-[#2ED8B6]" />
+                          <Target className="w-4 h-4 text-[#2ED8B6] shrink-0" />
                           <span>Autonomous Ingress-to-Resolution Conversion Funnel</span>
                         </h3>
                         <p className="text-xs text-[#B4C2D0] mt-0.5">
@@ -3560,7 +3566,7 @@ export default function SupportV8Dashboard() {
                       <button
                         type="button"
                         onClick={() => notify("Generated Executive Performance & Audit Report package (PDF/CSV)", "success")}
-                        className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
+                        className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer shrink-0"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Generate Performance Report</span>
@@ -3571,51 +3577,51 @@ export default function SupportV8Dashboard() {
                     <div className="space-y-4 font-mono text-xs">
                       {/* Stage 1: Total Ingress */}
                       <div className="space-y-1.5">
-                        <div className="flex justify-between items-center text-xs">
+                        <div className="flex flex-wrap justify-between items-center gap-1 text-xs">
                           <span className="font-bold text-[#EAF1F8]">1. Omnichannel Ingress Volume</span>
                           <span className="text-[#B4C2D0]">{totalFunnelVolume.toLocaleString()} Events / Tickets (100%)</span>
                         </div>
                         <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                          <div className="h-full bg-gradient-to-r from-[#2ED8B6] to-[#20C997] rounded-lg w-full flex items-center px-3 text-[11px] font-bold text-[#04201C]">
+                          <div className="h-full bg-gradient-to-r from-[#2ED8B6] to-[#20C997] rounded-lg w-full flex items-center px-3 text-[11px] font-bold text-[#04201C] overflow-hidden whitespace-nowrap text-ellipsis">
                             Live Omnichannel Ingress (Email, Live Chat, Voice Telephony, Slack Connect, WhatsApp)
                           </div>
                         </div>
                       </div>
 
                       {/* Stage 2: AI Triage & Routing */}
-                      <div className="space-y-1.5 pl-4 border-l-2 border-[#2ED8B6]/40">
-                        <div className="flex justify-between items-center text-xs">
+                      <div className="space-y-1.5 pl-3 sm:pl-4 border-l-2 border-[#2ED8B6]/40">
+                        <div className="flex flex-wrap justify-between items-center gap-1 text-xs">
                           <span className="font-bold text-[#EAF1F8]">2. AI Triage &amp; Intent Categorization</span>
                           <span className="text-[#2ED8B6]">{aiTriagedFunnelCount.toLocaleString()} Tickets ({aiTriagedFunnelRate}%)</span>
                         </div>
                         <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                          <div className="h-full bg-[#2ED8B6]/80 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(5, aiTriagedFunnelRate)}%` }}>
+                          <div className="h-full bg-[#2ED8B6]/80 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C] overflow-hidden whitespace-nowrap text-ellipsis" style={{ width: `${Math.max(5, aiTriagedFunnelRate)}%` }}>
                             Sophia, Chip &amp; Alex Categorized, Root-Cause Tagged, SLA Gated
                           </div>
                         </div>
                       </div>
 
                       {/* Stage 3: Autonomous Resolution */}
-                      <div className="space-y-1.5 pl-8 border-l-2 border-[#4CC38A]/40">
-                        <div className="flex justify-between items-center text-xs">
+                      <div className="space-y-1.5 pl-5 sm:pl-8 border-l-2 border-[#4CC38A]/40">
+                        <div className="flex flex-wrap justify-between items-center gap-1 text-xs">
                           <span className="font-bold text-[#4CC38A]">3. Autonomous Resolution (VARR)</span>
                           <span className="text-[#4CC38A] font-bold">{autonomousFunnelCount.toLocaleString()} Tickets ({varrFunnelRate}%)</span>
                         </div>
                         <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                          <div className="h-full bg-gradient-to-r from-[#4CC38A] to-[#10B981] rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(autonomousFunnelCount > 0 ? 5 : 0, varrFunnelRate)}%` }}>
+                          <div className="h-full bg-gradient-to-r from-[#4CC38A] to-[#10B981] rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C] overflow-hidden whitespace-nowrap text-ellipsis" style={{ width: `${Math.max(autonomousFunnelCount > 0 ? 5 : 0, varrFunnelRate)}%` }}>
                             Zero Human Intervention (Reconciled, Refunded, Self-Served)
                           </div>
                         </div>
                       </div>
 
                       {/* Stage 4: Human Escalations */}
-                      <div className="space-y-1.5 pl-12 border-l-2 border-[#F5A623]/40">
-                        <div className="flex justify-between items-center text-xs">
+                      <div className="space-y-1.5 pl-7 sm:pl-12 border-l-2 border-[#F5A623]/40">
+                        <div className="flex flex-wrap justify-between items-center gap-1 text-xs">
                           <span className="font-bold text-[#F5A623]">4. Tier 2 Human Escalation &amp; Handoff</span>
                           <span className="text-[#F5A623]">{humanEscalatedFunnelCount.toLocaleString()} Tickets ({humanEscalatedFunnelRate}%)</span>
                         </div>
                         <div className="w-full h-8 bg-[#18222E] rounded-xl overflow-hidden p-1 border border-[var(--line-2)] flex items-center">
-                          <div className="h-full bg-[#F5A623]/70 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C]" style={{ width: `${Math.max(humanEscalatedFunnelCount > 0 ? 5 : 0, humanEscalatedFunnelRate)}%` }}>
+                          <div className="h-full bg-[#F5A623]/70 rounded-lg flex items-center px-3 text-[11px] font-bold text-[#04201C] overflow-hidden whitespace-nowrap text-ellipsis" style={{ width: `${Math.max(humanEscalatedFunnelCount > 0 ? 5 : 0, humanEscalatedFunnelRate)}%` }}>
                             Transferred with Pre-drafted Handoff Context &amp; Root Cause Analysis
                           </div>
                         </div>
@@ -5146,7 +5152,7 @@ export default function SupportV8Dashboard() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-80 md:w-96 min-w-[280px] sm:min-w-[340px] flex items-center">
+                <div className="relative flex-1 w-full sm:w-80 md:w-96 min-w-0 sm:min-w-[340px] flex items-center">
                   <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
                   <input
                     type="text"
@@ -5842,19 +5848,19 @@ export default function SupportV8Dashboard() {
             {/* SECTION 1: Hired AI Employees (Supervisors & Work Assignees) */}
             {(workforceFilter === "all" || workforceFilter === "employees") && (
               <div className="space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-[#2ED8B6]" />
-                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Bot className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase truncate">
                       Hired AI Employees (Supervisors &amp; Work Receivers)
                     </h3>
                   </div>
-                  <span className="text-[11px] font-mono text-[#6B7C8D]">
+                  <span className="text-[11px] font-mono text-[#6B7C8D] shrink-0">
                     Eligible for Direct Ticket &amp; Workflow Assignment
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                   {workforce
                     .filter((w) => w.level === "ai_employee" && (w.hired === undefined || w.hired))
                     .map((emp) => {
@@ -5868,18 +5874,18 @@ export default function SupportV8Dashboard() {
                         >
                           <div className="space-y-3.5">
                             {/* Employee Header */}
-                            <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
-                              <div className="flex items-center gap-3">
+                            <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--line)]">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <img
                                   src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
                                   alt={emp.name}
                                   className="w-12 h-12 rounded-2xl object-cover border-2 border-[#2ED8B6]/50 shadow-md shrink-0"
                                 />
-                                <div>
-                                  <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight">
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight truncate">
                                     {emp.name}
                                   </h4>
-                                  <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                                  <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5 truncate">
                                     {emp.role}
                                   </span>
                                 </div>
@@ -5961,14 +5967,14 @@ export default function SupportV8Dashboard() {
                           </div>
 
                           {/* Action Footer */}
-                          <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between gap-2">
+                          <div className="pt-3 border-t border-[var(--line)] flex flex-wrap items-center justify-between gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleOpenAssignWorkModal(emp)}
-                              className="btn btn-primary py-1.5 px-2.5 text-xs font-bold flex-1 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                              className="btn btn-primary py-1.5 px-2 text-xs font-bold flex-1 min-w-[75px] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                             >
-                              <Briefcase className="w-3.5 h-3.5" />
-                              <span>Assign Work</span>
+                              <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                              <span className="whitespace-nowrap">Assign</span>
                             </button>
 
                             <button
@@ -5977,9 +5983,9 @@ export default function SupportV8Dashboard() {
                                 setSelectedEmployeeId(emp.id);
                                 setIsChatOpen(true);
                               }}
-                              className="btn btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1.5 cursor-pointer"
+                              className="btn btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                              <MessageSquare className="w-3.5 h-3.5 text-[#2ED8B6] shrink-0" />
                               <span>Chat</span>
                             </button>
 
@@ -5990,11 +5996,11 @@ export default function SupportV8Dashboard() {
                                 setStudioEmployeeId(emp.id);
                                 setActiveTab("studio");
                               }}
-                              className="btn btn-secondary py-1.5 px-2.5 text-xs flex items-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
+                              className="btn btn-secondary py-1.5 px-2 text-xs flex-1 min-w-[90px] flex items-center justify-center gap-1.5 cursor-pointer hover:text-[#2ED8B6]"
                               title="Configure Voice, Connections, and Activation in Studio Setup Wizard"
                             >
-                              <Cpu className="w-3.5 h-3.5 text-[#2ED8B6]" />
-                              <span>Onboard &amp; Setup</span>
+                              <Cpu className="w-3.5 h-3.5 text-[#2ED8B6] shrink-0" />
+                              <span className="whitespace-nowrap">Onboard</span>
                             </button>
                           </div>
                         </div>
@@ -6007,20 +6013,20 @@ export default function SupportV8Dashboard() {
             {/* SECTION 2: Specialized Interns Matrix (Paired Sub-Agents) */}
             {(workforceFilter === "all" || workforceFilter === "interns") && (
               <div className="space-y-3.5 pt-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#F5A623]" />
-                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Sparkles className="w-4 h-4 text-[#F5A623] shrink-0" />
+                    <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase truncate">
                       Specialized Interns (Paired Sub-Agents)
                     </h3>
                   </div>
-                  <span className="text-[11px] font-mono text-[#E5484D] flex items-center gap-1">
+                  <span className="text-[11px] font-mono text-[#E5484D] flex items-center gap-1 shrink-0">
                     <Shield className="w-3 h-3" />
                     <span>Direct Assignment Disabled (Sub-Agent Only)</span>
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                   {workforce
                     .filter((w) => w.level === "ai_intern")
                     .map((intern) => {
@@ -6031,18 +6037,18 @@ export default function SupportV8Dashboard() {
                           className="card p-5 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[var(--line-2)] transition-all shadow-md flex flex-col justify-between"
                         >
                           <div className="space-y-3.5">
-                            <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
-                              <div className="flex items-center gap-3">
+                            <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--line)]">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
                                 <img
                                   src={intern.avatarUrl || "/avatars/beaver-intern.jpg"}
                                   alt={intern.name}
                                   className="w-12 h-12 rounded-2xl object-cover border-2 border-[#F5A623]/40 shadow-md shrink-0"
                                 />
-                                <div>
-                                  <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight">
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="text-xs font-bold text-[#EAF1F8] leading-tight truncate">
                                     {intern.name}
                                   </h4>
-                                  <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                                  <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5 truncate">
                                     {intern.role}
                                   </span>
                                 </div>
@@ -6180,7 +6186,7 @@ export default function SupportV8Dashboard() {
         {activeTab === "voice" && (
           <div className="space-y-6">
             {/* Top Overview & Provisioning Header */}
-            <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl">
+            <div className="card p-6 bg-gradient-to-r from-[#121A24] via-[#15202E] to-[#121A24] border-[var(--line)] flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-2xl">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
@@ -6193,15 +6199,15 @@ export default function SupportV8Dashboard() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="pill ok text-xs font-mono">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <span className="pill ok text-xs font-mono shrink-0">
                   <Radio className="w-3.5 h-3.5" />
                   <span>{voiceData.phoneConfigs.length} Active Lines Provisioned</span>
                 </span>
 
                 <a
                   href="/api/voice/sophia/launch"
-                  className="btn btn-secondary py-2 px-3 text-xs font-semibold flex items-center gap-1.5"
+                  className="btn btn-secondary py-2 px-3 text-xs font-semibold flex items-center gap-1.5 shrink-0"
                   title="Launch Sophia Voice Telephony in Platform Studio"
                 >
                   <Bot className="w-3.5 h-3.5 text-[#2ED8B6]" />
@@ -6211,7 +6217,7 @@ export default function SupportV8Dashboard() {
                 <button
                   type="button"
                   onClick={() => setIsVoiceProvisionModalOpen(true)}
-                  className="btn btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md"
+                  className="btn btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Provision New Voice Bot</span>
@@ -6221,19 +6227,19 @@ export default function SupportV8Dashboard() {
 
             {/* Inbound Voice Numbers & Remote-to-Local Agent Matching Grid */}
             <div className="space-y-3.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-[#2ED8B6]" />
-                  <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Cpu className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                  <h3 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase truncate">
                     Provisioned Voice Connections (Remote ↔ Local Agent Matching)
                   </h3>
                 </div>
-                <span className="text-[11px] font-mono text-[#6B7C8D]">
+                <span className="text-[11px] font-mono text-[#6B7C8D] shrink-0">
                   HMAC Webhook Callback: /api/voice/webhook
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
                 {voiceData.phoneConfigs.map((cfg: any) => {
                   const localEmp = workforce.find((w) => w.id === cfg.employeeId) || {
                     name: cfg.employeeName || cfg.agentName,
@@ -6247,17 +6253,17 @@ export default function SupportV8Dashboard() {
                     >
                       <div className="space-y-3.5">
                         {/* Header: Phone & Provider */}
-                        <div className="flex items-start justify-between pb-3 border-b border-[var(--line)]">
-                          <div>
-                            <div className="flex items-center gap-2">
+                        <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--line)]">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-sm font-bold text-[#2ED8B6] tracking-wide">
                                 {cfg.phoneNumber}
                               </span>
-                              <span className="pill text-[9px] uppercase font-mono bg-[#18222E] border-[var(--line-2)] text-[#4D9FFF]">
+                              <span className="pill text-[9px] uppercase font-mono bg-[#18222E] border-[var(--line-2)] text-[#4D9FFF] shrink-0">
                                 {cfg.provider.toUpperCase()}
                               </span>
                             </div>
-                            <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                            <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5 truncate">
                               Line: {cfg.serviceMode || "customer"} • Last Call: {cfg.lastCallAt || "Active"}
                             </span>
                           </div>
@@ -6274,17 +6280,17 @@ export default function SupportV8Dashboard() {
                             <span className="text-[#2ED8B6]">Remote Provider ID</span>
                           </div>
                           <div className="flex items-center justify-between gap-2 text-xs">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                               <img
                                 src={localEmp.avatarUrl || "/avatars/beaver-sophia.jpg"}
                                 alt={localEmp.name}
                                 className="w-6 h-6 rounded-lg object-cover border border-[#2ED8B6]/40 shrink-0"
                               />
-                              <span className="font-bold text-[#EAF1F8] text-[11px] truncate max-w-[140px]">
+                              <span className="font-bold text-[#EAF1F8] text-[11px] truncate">
                                 {localEmp.name?.split("—")[0]?.trim() || "Sophia"}
                               </span>
                             </div>
-                            <span className="font-mono text-[10px] text-[#2ED8B6] bg-[#121A24] px-2 py-0.5 rounded border border-[var(--line)] truncate max-w-[130px]" title={cfg.remoteAgentId}>
+                            <span className="font-mono text-[10px] text-[#2ED8B6] bg-[#121A24] px-2 py-0.5 rounded border border-[var(--line)] truncate max-w-[120px] shrink-0" title={cfg.remoteAgentId}>
                               {cfg.remoteAgentId || `asst_${cfg.provider}_${cfg.id}`}
                             </span>
                           </div>
@@ -6326,7 +6332,7 @@ export default function SupportV8Dashboard() {
                         </div>
 
                         {/* Telephony Specs */}
-                        <div className="pt-2 flex items-center justify-between text-[10px] font-mono text-[#6B7C8D] border-t border-[var(--line)]">
+                        <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-[#6B7C8D] border-t border-[var(--line)]">
                           <span>
                             Voice Model: <strong className="text-[#EAF1F8]">{cfg.voiceId || "jennifer-neural-v2"}</strong>
                           </span>
@@ -6520,21 +6526,21 @@ export default function SupportV8Dashboard() {
 
               {/* Live Audio Transcript & Tool Invocation Stream */}
               <div className="lg:col-span-2 card p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
-                  <div className="flex items-center gap-2">
-                    <Volume2 className="w-4 h-4 text-[#2ED8B6]" />
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-[var(--line)]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Volume2 className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+                    <h3 className="text-sm font-bold text-[#EAF1F8] truncate">
                       {selectedVoiceSession ? `Session: ${selectedVoiceSession.id}` : "Select Voice Call"}
                     </h3>
                   </div>
                   {selectedVoiceSession && (
-                    <div className="flex items-center gap-2">
-                      <span className="pill ok">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <span className="pill ok shrink-0">
                         <i className="dot"></i>
                         {selectedVoiceSession.verificationLevel}
                       </span>
                       <span
-                        className={`pill ${
+                        className={`pill shrink-0 ${
                           selectedVoiceSession.sentiment === "frustrated"
                             ? "err"
                             : "ok"

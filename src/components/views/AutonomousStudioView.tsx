@@ -483,39 +483,39 @@ export function AutonomousStudioView({
               <span>Installed Products</span>
             </button>
           )}
-
-          {/* Sub-Navigation Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)]">
-            {[
-              { id: "setup", label: "Employee Setup Wizard", badge: "3-Step" },
-              { id: "fleet", label: "Connector Fleet", badge: connections.length },
-              { id: "workflows", label: "Active Workflows", badge: workflows.length },
-              { id: "templates", label: "Scenario Templates", badge: templates.length },
-              { id: "simulator", label: "Autonomy Simulator" },
-              { id: "sweeps", label: "Work Sweep", badge: staleCandidates.length },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveSubTab(tab.id as any)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  activeSubTab === tab.id
-                    ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-bold"
-                    : "text-[#6B7C8D] hover:text-[#EAF1F8]"
-                }`}
-              >
-                <span>{tab.label}</span>
-                {tab.badge !== undefined && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    activeSubTab === tab.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
-                  }`}>
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
         </div>
+      </div>
+
+      {/* Sub-Navigation Tabs */}
+      <div className="flex flex-nowrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)] overflow-x-auto max-w-full scrollbar-none">
+        {[
+          { id: "setup", label: "Employee Setup Wizard", badge: "3-Step" },
+          { id: "fleet", label: "Connector Fleet", badge: connections.length },
+          { id: "workflows", label: "Active Workflows", badge: workflows.length },
+          { id: "templates", label: "Scenario Templates", badge: templates.length },
+          { id: "simulator", label: "Autonomy Simulator" },
+          { id: "sweeps", label: "Work Sweep", badge: staleCandidates.length },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveSubTab(tab.id as any)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+              activeSubTab === tab.id
+                ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-bold"
+                : "text-[#6B7C8D] hover:text-[#EAF1F8]"
+            }`}
+          >
+            <span>{tab.label}</span>
+            {tab.badge !== undefined && (
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                activeSubTab === tab.id ? "bg-[#04201C]/20 text-[#04201C]" : "bg-[#121A24] text-[#8E9AA8]"
+              }`}>
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Global Studio Filter & Search Toolbar */}
@@ -571,7 +571,7 @@ export function AutonomousStudioView({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
             {filteredWorkflows.map((wf) => {
               const isExpanded = expandedCardIds.has(wf.id);
               return (
@@ -580,23 +580,23 @@ export function AutonomousStudioView({
                   className="card p-4 rounded-2xl border-[var(--line)] bg-[#121A24] space-y-3 hover:border-[var(--line-2)] transition-all shadow-md"
                 >
                   {/* Compact Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <span className="font-mono font-bold text-xs text-[#2ED8B6] bg-[#2ED8B6]/10 px-2 py-0.5 rounded-lg border border-[#2ED8B6]/20">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <span className="font-mono font-bold text-xs text-[#2ED8B6] bg-[#2ED8B6]/10 px-2 py-0.5 rounded-lg border border-[#2ED8B6]/20 shrink-0">
                         {wf.id}
                       </span>
-                      <div>
-                        <h3 className="text-xs font-bold text-[#EAF1F8]">{wf.name}</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-[#6B7C8D] font-mono">{wf.category}</span>
-                          <span className="text-[9px] text-[#2ED8B6] font-mono bg-[#2ED8B6]/10 px-1.5 py-0.2 rounded border border-[#2ED8B6]/20">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <h3 className="text-xs font-bold text-[#EAF1F8] truncate">{wf.name}</h3>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap min-w-0">
+                          <span className="text-[10px] text-[#6B7C8D] font-mono truncate max-w-full">{wf.category}</span>
+                          <span className="text-[9px] text-[#2ED8B6] font-mono bg-[#2ED8B6]/10 px-1.5 py-0.2 rounded border border-[#2ED8B6]/20 shrink-0">
                             Onboarded Package
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 w-full sm:w-auto">
                       <span className="pill ok text-[9px] font-mono uppercase">
                         <i className="dot"></i>
                         {wf.status}
@@ -614,8 +614,8 @@ export function AutonomousStudioView({
 
                   {/* Compact Summary Preview */}
                   {!isExpanded && (
-                    <div className="flex items-center justify-between text-[11px] font-mono bg-[#18222E] px-3 py-1.5 rounded-xl border border-[var(--line)] text-[#B4C2D0]">
-                      <div className="truncate max-w-[280px]">
+                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono bg-[#18222E] px-3 py-1.5 rounded-xl border border-[var(--line)] text-[#B4C2D0]">
+                      <div className="truncate min-w-0 flex-1">
                         <span className="text-[#F5A623]">WHEN:</span> {wf.trigger}
                       </div>
                       <span className="text-[#2ED8B6] font-bold shrink-0">{wf.varrImpact} VARR</span>
@@ -682,7 +682,7 @@ export function AutonomousStudioView({
             <span className="pill ok text-[10px] font-mono">TEMPORAL ORCHESTRATED</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
             {filteredTemplates.map((tmpl) => {
               const isExpanded = expandedCardIds.has(tmpl.id);
               return (
@@ -693,13 +693,13 @@ export function AutonomousStudioView({
                   <div className="space-y-2.5">
                     {/* Compact Template Header */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-9 h-9 rounded-xl bg-[#18222E] border border-[var(--line-2)] flex items-center justify-center text-base text-[#2ED8B6] shrink-0">
                           <i className={tmpl.icon} />
                         </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-[#EAF1F8]">{tmpl.name}</h4>
-                          <span className="text-[10px] text-[#6B7C8D] font-mono uppercase">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-bold text-[#EAF1F8] truncate">{tmpl.name}</h4>
+                          <span className="text-[10px] text-[#6B7C8D] font-mono uppercase block truncate">
                             {tmpl.category} • Lead: {tmpl.aiEmployee}
                           </span>
                         </div>
@@ -722,11 +722,11 @@ export function AutonomousStudioView({
 
                     {/* Compact Triggers Preview */}
                     {!isExpanded && (
-                      <div className="flex items-center justify-between text-[10px] font-mono bg-[#18222E] px-3 py-1.5 rounded-xl border border-[var(--line)] text-[#6B7C8D]">
-                        <span className="truncate max-w-[260px]">
+                      <div className="flex items-center justify-between gap-2 text-[10px] font-mono bg-[#18222E] px-3 py-1.5 rounded-xl border border-[var(--line)] text-[#6B7C8D]">
+                        <span className="truncate min-w-0 flex-1">
                           Triggers: <strong className="text-[#2ED8B6]">{tmpl.triggers[0]}</strong> + {tmpl.triggers.length - 1} more
                         </span>
-                        <span className="text-[#4CC38A]">{tmpl.slaTarget}</span>
+                        <span className="text-[#4CC38A] shrink-0">{tmpl.slaTarget}</span>
                       </div>
                     )}
 
@@ -1067,7 +1067,7 @@ export function AutonomousStudioView({
           </div>
 
           {/* 3-Step Progress Indicator */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {[
               { id: "voice", step: "Step 1", title: "Voice Telephony", desc: "$59/mo • 100 mins • Local Pool" },
               { id: "connections", step: "Step 2", title: "Two-Tier Connections", desc: "SSM Pipes & Capability Grants" },
@@ -1397,7 +1397,7 @@ export function AutonomousStudioView({
               </div>
 
               {/* Preflight Checklist */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] space-y-3">
                   <h4 className="text-xs font-bold text-[#EAF1F8] font-mono uppercase flex items-center gap-2">
                     <Shield className="w-4 h-4 text-[#2ED8B6]" />
@@ -1564,17 +1564,17 @@ export function AutonomousStudioView({
                   className="card p-5 bg-[#121A24] border-[var(--line)] rounded-2xl space-y-4 hover:border-[#2ED8B6]/30 transition-all"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--line)]">
-                    <div className="flex items-center gap-3">
-                      <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shrink-0">
                         <Plug className="w-4 h-4" />
                       </span>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-[#EAF1F8]">{conn.name}</h4>
-                          <span className="pill ok text-[9px] font-mono uppercase">{conn.status}</span>
-                          <span className="pill text-[9px] font-mono">{conn.category}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-[#EAF1F8] truncate">{conn.name}</h4>
+                          <span className="pill ok text-[9px] font-mono uppercase shrink-0">{conn.status}</span>
+                          <span className="pill text-[9px] font-mono shrink-0">{conn.category}</span>
                         </div>
-                        <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5">
+                        <span className="text-[10px] font-mono text-[#6B7C8D] block mt-0.5 break-all">
                           SSM Path: <code>{conn.ssmPath}</code>
                         </span>
                       </div>

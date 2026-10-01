@@ -338,8 +338,8 @@ export function WorkforceWorkflowsView({ onNotify }: WorkforceWorkflowsViewProps
             <div className="space-y-2">
               {selectedPipeline.nodes.map((node, idx) => (
                 <div key={node.id} className="relative">
-                  <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                  <div className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div
                         className="w-9 h-9 rounded-xl flex items-center justify-center text-base border shrink-0"
                         style={{
@@ -350,18 +350,18 @@ export function WorkforceWorkflowsView({ onNotify }: WorkforceWorkflowsViewProps
                       >
                         <span>{node.icon}</span>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[#EAF1F8]">{node.title}</span>
-                          <span className="text-[10px] font-mono text-[#6B7C8D] uppercase">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-[#EAF1F8] truncate">{node.title}</span>
+                          <span className="text-[10px] font-mono text-[#6B7C8D] uppercase shrink-0">
                             Stage {idx + 1} • {node.type}
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#B4C2D0] mt-0.5">{node.subtitle}</p>
+                        <p className="text-[11px] text-[#B4C2D0] mt-0.5 truncate">{node.subtitle}</p>
                       </div>
                     </div>
 
-                    <span className="pill ok text-[9px] font-mono">READY</span>
+                    <span className="pill ok text-[9px] font-mono shrink-0">READY</span>
                   </div>
 
                   {idx < selectedPipeline.nodes.length - 1 && (

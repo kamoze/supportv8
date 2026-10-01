@@ -240,17 +240,17 @@ export function AskWorkspaceView({
       <div className="flex-1 min-h-0 flex flex-col rounded-2xl border-2 border-[#2ED8B6] shadow-[0_0_30px_rgba(46,216,182,0.18)] ring-1 ring-[#2ED8B6]/40 overflow-hidden bg-[#0C121A]">
         {/* Top Banner with AI Employee Selector Strip & AgenticOS Controls */}
         <div className="bg-[#121A24] border-b border-[#2ED8B6]/30 p-4 space-y-3 shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="p-2 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] border border-[#2ED8B6]/30 shadow-sm shrink-0">
                 <i className="fi fi-rr-comment-alt-dots text-base"></i>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-[#EAF1F8]">AgenticOS Chat</h2>
-                  <span className="pill ok text-[9px] font-mono">RUNTIME ACCEPTANCE</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-bold text-[#EAF1F8] truncate">AgenticOS Chat</h2>
+                  <span className="pill ok text-[9px] font-mono shrink-0">RUNTIME ACCEPTANCE</span>
                 </div>
-                <p className="text-[11px] text-[#6B7C8D]">
+                <p className="text-[11px] text-[#6B7C8D] truncate">
                   {targetMode === "all"
                     ? "Omnichannel Dispatch: Querying all hired AI employees concurrently."
                     : `Direct 1:1 Session with ${activeEmployee.name}.`}
@@ -259,7 +259,7 @@ export function AskWorkspaceView({
             </div>
 
             {/* Quick Header Actions: Sound, WebCall, Clear Chat */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <SoundAlertToggle showDropdown={false} className="p-2 min-w-0 min-h-0 h-8 w-8 rounded-lg" />
 
               <button
@@ -268,9 +268,9 @@ export function AskWorkspaceView({
                 className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-mono text-[#2ED8B6] border-[#2ED8B6]/30 hover:bg-[#2ED8B6]/10 cursor-pointer shadow-sm"
                 title={`Start real-time voice call with ${activeEmployee.name}`}
               >
-                <Phone className="w-3.5 h-3.5" />
+                <Phone className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden sm:inline">Speak with</span>
-                <span>{activeEmployee.name.split("—")[0].trim()}</span>
+                <span className="truncate max-w-[120px]">{activeEmployee.name.split("—")[0].trim()}</span>
               </button>
 
               <button
@@ -279,7 +279,7 @@ export function AskWorkspaceView({
                 className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-mono text-[#8E9AA8] hover:text-[#FF5252] cursor-pointer"
                 title="Clear conversation transcript"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden md:inline">Clear Chat</span>
               </button>
             </div>

@@ -176,23 +176,23 @@ export function WorkforceApprovalsView({ onNotify }: WorkforceApprovalsViewProps
                   key={app.id}
                   className="card p-5 rounded-xl border border-[var(--line)] bg-[#121A24] hover:border-[#2ED8B6]/30 transition-all space-y-3"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center font-mono font-bold text-xs">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center font-mono font-bold text-xs shrink-0">
                         <Bot className="w-5 h-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-[#EAF1F8] text-sm">{app.actionType}</span>
-                          <span className="pill warn text-[10px] font-mono">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-[#EAF1F8] text-sm break-all sm:break-normal">{app.actionType}</span>
+                          <span className="pill warn text-[10px] font-mono shrink-0">
                             Risk: {(app.riskScore * 100).toFixed(0)}%
                           </span>
                         </div>
-                        <p className="text-xs text-[#6B7C8D] mt-0.5">{app.employeeName} &bull; {app.timestamp}</p>
+                        <p className="text-xs text-[#6B7C8D] mt-0.5 truncate">{app.employeeName} &bull; {app.timestamp}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleDecision(app.actionId, "rejected")}

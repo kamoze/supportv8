@@ -68,6 +68,8 @@
   border: 1px solid rgba(46, 216, 182, 0.18);
   border-radius: var(--r-md);
   padding: 16px;
+  min-width: 0;
+  max-width: 100%;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -81,6 +83,8 @@
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   padding: 16px;
+  min-width: 0;
+  max-width: 100%;
   transition: border-color 0.15s ease;
 }
 

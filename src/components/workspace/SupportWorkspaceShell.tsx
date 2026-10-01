@@ -340,7 +340,7 @@ export function SupportWorkspaceHeaderFrame({
   children: ReactNode;
 }) {
   return (
-    <header className="family-header sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0 select-none">
+    <header className="family-header sticky top-0 z-20 bg-[#0B1017]/95 backdrop-blur-md border-b border-[var(--line)] px-2.5 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between shrink-0 select-none min-w-0">
       {children}
     </header>
   );

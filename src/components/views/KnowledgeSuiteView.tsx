@@ -922,21 +922,21 @@ export function KnowledgeSuiteView({
                   key={src.id}
                   className="p-4 rounded-xl bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6]/40 transition-all space-y-3"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-[#2ED8B6]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-mono text-xs font-bold text-[#2ED8B6] break-all min-w-0">
                           s3://{src.bucketName}/{src.prefix}
                         </span>
-                        <span className="pill text-[9px] uppercase font-mono">
+                        <span className="pill text-[9px] uppercase font-mono shrink-0">
                           {src.endpoint ? "MINIO S3" : "AWS S3"}
                         </span>
                       </div>
-                      <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5">
+                      <span className="text-[10px] text-[#6B7C8D] font-mono block mt-0.5 truncate">
                         Region: {src.region} &bull; Category: {src.targetCategory}
                       </span>
                     </div>
-                    <span className="pill ok text-[9px] font-mono uppercase">
+                    <span className="pill ok text-[9px] font-mono uppercase shrink-0">
                       <i className="dot"></i>
                       {src.status}
                     </span>

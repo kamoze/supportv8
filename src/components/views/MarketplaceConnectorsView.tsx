@@ -190,11 +190,11 @@ export function MarketplaceConnectorsView({
         </div>
 
         {/* Sub-View Navigation Tabs */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)] font-mono text-xs">
+        <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#18222E] border border-[var(--line)] font-mono text-xs overflow-x-auto max-w-full scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveSubTab("connectors")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSubTab === "connectors"
                 ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
                 : "text-[#6B7C8D] hover:text-[#EAF1F8]"
@@ -207,7 +207,7 @@ export function MarketplaceConnectorsView({
           <button
             type="button"
             onClick={() => setActiveSubTab("verticals")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSubTab === "verticals"
                 ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
                 : "text-[#6B7C8D] hover:text-[#EAF1F8]"
@@ -220,7 +220,7 @@ export function MarketplaceConnectorsView({
           <button
             type="button"
             onClick={() => setActiveSubTab("dispatcher")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSubTab === "dispatcher"
                 ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
                 : "text-[#6B7C8D] hover:text-[#EAF1F8]"
@@ -233,7 +233,7 @@ export function MarketplaceConnectorsView({
           <button
             type="button"
             onClick={() => setActiveSubTab("fleet")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSubTab === "fleet"
                 ? "bg-[#2ED8B6] text-[#04201C] shadow-sm"
                 : "text-[#6B7C8D] hover:text-[#EAF1F8]"
@@ -263,14 +263,14 @@ export function MarketplaceConnectorsView({
       {activeSubTab === "connectors" && (
         <div className="space-y-5">
           {/* Filter and Search Bar */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
             {/* Category Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 scrollbar-none">
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 scrollbar-none shrink min-w-0">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                     categoryFilter === cat.id
                       ? "bg-[#2ED8B6] text-[#04201C] shadow-sm font-bold"
                       : "bg-[#18222E] text-[#B4C2D0] hover:text-[#EAF1F8] border border-[var(--line)]"
@@ -282,7 +282,7 @@ export function MarketplaceConnectorsView({
             </div>
 
             {/* Search Box */}
-            <div className="relative w-full md:w-64 flex items-center">
+            <div className="relative w-full lg:w-64 flex items-center shrink-0">
               <Search className="w-3.5 h-3.5 absolute left-3 text-[#6B7C8D] pointer-events-none z-10" />
               <input
                 type="text"
@@ -308,21 +308,21 @@ export function MarketplaceConnectorsView({
                   }`}
                 >
                   <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[#18222E] border border-[var(--line-2)] flex items-center justify-center text-lg text-[#2ED8B6]">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-xl bg-[#18222E] border border-[var(--line-2)] flex items-center justify-center text-lg text-[#2ED8B6] shrink-0">
                           <i className={conn.icon} />
                         </div>
-                        <div>
-                          <h3 className="text-xs font-bold text-[#EAF1F8]">{conn.name}</h3>
-                          <span className="text-[10px] text-[#6B7C8D] font-mono uppercase">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-xs font-bold text-[#EAF1F8] truncate">{conn.name}</h3>
+                          <span className="text-[10px] text-[#6B7C8D] font-mono uppercase truncate block">
                             {conn.category} • {conn.tier}
                           </span>
                         </div>
                       </div>
 
                       <span
-                        className={`pill text-[9px] font-mono ${
+                        className={`pill text-[9px] font-mono shrink-0 ${
                           isSub ? "ok" : "border-[#6B7C8D]/40 text-[#6B7C8D]"
                         }`}
                       >
@@ -349,14 +349,14 @@ export function MarketplaceConnectorsView({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center justify-between pt-2 border-t border-[var(--line)]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--line)]">
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedConnectorConfig(conn);
                         onOpenConfig(conn);
                       }}
-                      className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
+                      className="btn btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 font-mono cursor-pointer shrink-0"
                     >
                       <Settings className="w-3.5 h-3.5" />
                       <span>Configure</span>
@@ -365,7 +365,7 @@ export function MarketplaceConnectorsView({
                     <button
                       type="button"
                       onClick={() => onToggleConnector(conn.id, !isSub)}
-                      className={`btn text-xs py-1.5 px-4 font-bold flex items-center gap-1.5 cursor-pointer ${
+                      className={`btn text-xs py-1.5 px-4 font-bold flex items-center gap-1.5 cursor-pointer shrink-0 ${
                         isSub
                           ? "btn-secondary text-[#E5484D] hover:bg-[#E5484D]/15"
                           : "btn-primary shadow-sm"

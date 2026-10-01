@@ -381,10 +381,10 @@ export function GovernanceSettingsView({
             <div className="p-2 rounded-lg bg-[#2ED8B6]/15 text-[#2ED8B6] shrink-0 mt-0.5">
               <Zap className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-[#EAF1F8] flex flex-wrap items-center gap-1.5">
                 <span>ForgeGW Managed (Recommended)</span>
-                {routingMode === "forgegw" && <span className="pill ok text-[9px] py-0 px-1 font-mono">CURRENT</span>}
+                {routingMode === "forgegw" && <span className="pill ok text-[9px] py-0 px-1 font-mono shrink-0">CURRENT</span>}
               </div>
               <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-snug">
                 Account-linked spendable credit pool ($0.003/action). Zero API keys required. Managed vector embeddings (forge-embed-text-1536) &amp; SLA guarantee.
@@ -410,10 +410,10 @@ export function GovernanceSettingsView({
             <div className="p-2 rounded-lg bg-[#4D9FFF]/15 text-[#4D9FFF] shrink-0 mt-0.5">
               <Cpu className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-bold text-[#EAF1F8] flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-[#EAF1F8] flex flex-wrap items-center gap-1.5">
                 <span>Enterprise BYOM (Custom Key)</span>
-                {routingMode === "byom" && <span className="pill warn text-[9px] py-0 px-1 font-mono">CURRENT</span>}
+                {routingMode === "byom" && <span className="pill warn text-[9px] py-0 px-1 font-mono shrink-0">CURRENT</span>}
               </div>
               <p className="text-[10px] text-[#8E9AA8] mt-0.5 leading-snug">
                 Direct OpenAI, Anthropic, Gemini, Groq, or self-hosted Ollama VPC endpoints at zero platform margin.

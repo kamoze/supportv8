@@ -1,4 +1,6 @@
 import type { ChatStreamType } from "@/lib/types";
+import { knowledgev8Connector } from "@/lib/connectors/knowledgev8-connector";
+import { tenantSlugFromId } from "@/lib/auth/request-tenant";
 
 // =============================================================================
 // Inter-Service App Mesh Client Adapters
@@ -10,6 +12,18 @@ export interface InterServiceResponse<T = unknown> {
   data?: T;
   error?: string;
   timestamp: string;
+}
+
+function safeTenantSlug(tenantId: string): string {
+  if (!tenantId) return "acme";
+  if (tenantId.startsWith("tenant_")) {
+    try {
+      return tenantSlugFromId(tenantId);
+    } catch {
+      return tenantId.slice(7).replace(/_/g, "-");
+    }
+  }
+  return tenantId;
 }
 
 // -----------------------------------------------------------------------------
@@ -25,10 +39,16 @@ export class KnowledgeV8Client {
     topK?: number;
   }): Promise<InterServiceResponse<{ citations: Array<{ id: string; title: string; snippet: string; similarity: number }> }>> {
     const timeoutMs = process.env.NODE_ENV === "test" ? 30 : 3000;
+    const tenantSlug = safeTenantSlug(params.tenantId);
+    const headers = {
+      ...knowledgev8Connector.getTenantHeaders(tenantSlug),
+      "x-tenant-id": params.tenantId,
+    };
+
     try {
       const res = await fetch(`${this.baseUrl}/api/knowledge/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-tenant-id": params.tenantId },
+        headers,
         body: JSON.stringify(params),
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -55,6 +75,84 @@ export class KnowledgeV8Client {
       },
       timestamp: new Date().toISOString(),
     };
+  }
+
+  static async ingestDocument(params: {
+    tenantId: string;
+    filename: string;
+    content: string;
+    title?: string;
+    category?: string;
+    tags?: string[];
+    groups?: string[];
+    autoCurate?: boolean;
+  }): Promise<InterServiceResponse<{ conceptId?: string; documentId?: string }>> {
+    const tenantSlug = safeTenantSlug(params.tenantId);
+    try {
+      const result = await knowledgev8Connector.ingestDocument({
+        tenantSlug,
+        filename: params.filename,
+        content: params.content,
+        title: params.title,
+        category: params.category,
+        tags: params.tags,
+        groups: params.groups,
+        autoCurate: params.autoCurate ?? true,
+      });
+      return {
+        success: true,
+        service: "knowledgev8",
+        data: result,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      return {
+        success: false,
+        service: "knowledgev8",
+        error: err instanceof Error ? err.message : "Failed to ingest to KnowledgeV8",
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  static async autoCurateConcept(params: {
+    tenantId: string;
+    conceptId?: string;
+    documentId?: string;
+    title: string;
+    content: string;
+    category?: string;
+    tags?: string[];
+    groups?: string[];
+    articleType?: string;
+  }): Promise<InterServiceResponse<{ conceptId: string }>> {
+    const tenantSlug = safeTenantSlug(params.tenantId);
+    try {
+      const result = await knowledgev8Connector.autoCurateConcept({
+        tenantSlug,
+        conceptId: params.conceptId,
+        documentId: params.documentId,
+        title: params.title,
+        content: params.content,
+        category: params.category,
+        tags: params.tags,
+        groups: params.groups,
+        articleType: params.articleType,
+      });
+      return {
+        success: true,
+        service: "knowledgev8",
+        data: result,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      return {
+        success: false,
+        service: "knowledgev8",
+        error: err instanceof Error ? err.message : "Failed to curate in KnowledgeV8",
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   static async syncDocument(params: {

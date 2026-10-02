@@ -10,7 +10,8 @@ import { chunkBody } from "../rag/chunker";
 import { db } from "../db/mock-data";
 import { pgClient as defaultPgClient, type PostgresClient } from "../db/pg-client";
 import { marketplaceService } from "./marketplace-service";
-import { tenantIdFromSlug } from "../auth/request-tenant";
+import { tenantIdFromSlug, tenantSlugFromId } from "../auth/request-tenant";
+import { knowledgev8Connector } from "../connectors/knowledgev8-connector";
 import type { KnowledgeDocument, KnowledgeDocumentChunk, KnowledgeArticle, KnowledgeS3Source, RagQueryResult, RagQueryResponse, RagQueryCitation } from "../types";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB per file — aligned with knowledgev8 pod memory guard
@@ -36,57 +37,9 @@ export class RagIngestionService {
   }
 
   private ensureInitialChunks() {
-    if (!db.documentChunks || db.documentChunks.length === 0) {
-      db.documentChunks = [
-        {
-          id: "chk_doc_s3_001_0",
-          documentId: "doc_s3_001",
-          tenantId: "tenant_default",
-          chunkIndex: 0,
-          section: "Okta SAML Overview & Metadata Exchange",
-          content: "To configure Okta SAML 2.0 with supportV8, ensure your Identity Provider Single Sign-On URL is set to https://auth.supportv8.com/saml/sso and the SP Entity ID is urn:supportv8:saml:sp. Upload the x509 public signing certificate exported from Okta Admin.",
-          weight: 1.0,
-          tokenCount: 48,
-          updatedAt: new Date().toISOString(),
-          embedding: ragService.generateEmbedding("To configure Okta SAML 2.0 with supportV8, ensure your Identity Provider Single Sign-On URL is set to https://auth.supportv8.com/saml/sso"),
-        },
-        {
-          id: "chk_doc_s3_001_1",
-          documentId: "doc_s3_001",
-          tenantId: "tenant_default",
-          chunkIndex: 1,
-          section: "Clock Skew & Token Expiry Troubleshooting",
-          content: "Clock skew errors (code SAML_CLOCK_SKEW_EXCEEDED) occur when client server time drifts more than 300 seconds from Okta NTP time. Verify system chrony or systemd-timesyncd is synchronized on your host.",
-          weight: 1.2,
-          tokenCount: 42,
-          updatedAt: new Date().toISOString(),
-          embedding: ragService.generateEmbedding("Clock skew errors occur when client server time drifts more than 300 seconds from Okta NTP time."),
-        },
-        {
-          id: "chk_doc_s3_002_0",
-          documentId: "doc_s3_002",
-          tenantId: "tenant_default",
-          chunkIndex: 0,
-          section: "504 Gateway Timeout Diagnostics",
-          content: "A 504 Gateway Timeout on /v1/checkout/charge indicates upstream Stripe webhook processing queue starvation. Check Redis connection saturation and verify pgBouncer pool count exceeds 50 concurrent connections.",
-          weight: 1.5,
-          tokenCount: 45,
-          updatedAt: new Date().toISOString(),
-          embedding: ragService.generateEmbedding("A 504 Gateway Timeout on /v1/checkout/charge indicates upstream Stripe webhook processing queue starvation."),
-        },
-        {
-          id: "chk_doc_s3_002_1",
-          documentId: "doc_s3_002",
-          tenantId: "tenant_default",
-          chunkIndex: 1,
-          section: "Circuit Breaker Mitigation & Auto-Refund",
-          content: "When circuit breaker trips for payment gateways, switch traffic to secondary Adyen gateway or invoke OrderV8 refund voucher idempotency dispatch with auth key SEC-04.",
-          weight: 1.0,
-          tokenCount: 38,
-          updatedAt: new Date().toISOString(),
-          embedding: ragService.generateEmbedding("When circuit breaker trips for payment gateways, switch traffic to secondary Adyen gateway or invoke OrderV8 refund."),
-        },
-      ];
+    // Purged local hardcoded mock chunks; real chunks and concepts are authoritative in Central KnowledgeV8
+    if (!db.documentChunks) {
+      db.documentChunks = [];
     }
   }
 
@@ -104,6 +57,7 @@ export class RagIngestionService {
   }): Promise<IngestionResult> {
     const rawTenantId = params.tenantId;
     const tenantId = marketplaceService.resolveWorkspaceId(rawTenantId) || tenantIdFromSlug(rawTenantId);
+    const tenantSlug = tenantSlugFromId(tenantId) || rawTenantId;
     const { filename, category = "general", title, groups = ["support-tier1"], tags = [] } = params;
     const buffer = Buffer.isBuffer(params.content) ? params.content : Buffer.from(params.content, "utf-8");
     const textContent = buffer.toString("utf-8");
@@ -142,7 +96,8 @@ export class RagIngestionService {
       body: textContent,
       groups,
       tags: tags.length ? tags : [category, "ingested"],
-      curatedStatus: "raw",
+      curatedStatus: "curated",
+      curatedConceptId: `cpt_auto_${docId}`,
     };
 
     // 3. Generate pgvector embeddings for each chunk
@@ -169,7 +124,44 @@ export class RagIngestionService {
       }
     );
 
-    // 4. Store in memory database / pgvector store
+    // 4. Sync to Central KnowledgeV8 RAG corpus with auto-curation
+    await knowledgev8Connector
+      .ingestDocument({
+        tenantSlug,
+        filename,
+        content: textContent,
+        title: docTitle,
+        category,
+        tags: document.tags,
+        groups,
+        autoCurate: true,
+      })
+      .catch((e) => console.warn("[RagIngestionService] KnowledgeV8 document sync warning:", e));
+
+    // 5. Auto-curate into local Support Knowledge Articles
+    const articleId = document.curatedConceptId || `art_curated_${docId}`;
+    const autoArticle: KnowledgeArticle = {
+      id: articleId,
+      source: `knowledgev8:${tenantSlug}`,
+      title: docTitle,
+      url: `/knowledge#${articleId}`,
+      category,
+      usageCount: 1,
+      csatScore: 98,
+      status: "active",
+      lastUpdated: new Date().toISOString(),
+      summary: document.summary,
+      body: textContent,
+      groups,
+      tags: Array.from(new Set([...(document.tags || []), "auto-curated", "authoritative"])),
+      curatedFromDocId: docId,
+      articleType: "runbook",
+    };
+
+    if (!db.articles) db.articles = [];
+    db.articles.unshift(autoArticle);
+
+    // 6. Store in memory database / pgvector store
     if (!db.documents) db.documents = [];
     if (!db.documentChunks) db.documentChunks = [];
     db.documents.unshift(document);
@@ -224,6 +216,34 @@ export class RagIngestionService {
               ]
             );
           }
+
+          const articleEmbedding = ragService.generateEmbedding(`${autoArticle.title}\n${autoArticle.summary}\n${autoArticle.body}`);
+          await session.query(
+            `INSERT INTO supportv8.knowledge_articles (
+              id, tenant_id, source, title, url, category, usage_count, csat_score, status, summary, content, embedding, last_updated
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              category = EXCLUDED.category,
+              summary = EXCLUDED.summary,
+              content = EXCLUDED.content,
+              embedding = EXCLUDED.embedding,
+              last_updated = NOW()`,
+            [
+              autoArticle.id,
+              tenantId,
+              autoArticle.source,
+              autoArticle.title,
+              autoArticle.url,
+              autoArticle.category,
+              autoArticle.usageCount,
+              autoArticle.csatScore,
+              autoArticle.status,
+              autoArticle.summary,
+              autoArticle.body,
+              JSON.stringify(articleEmbedding),
+            ]
+          );
         });
       } catch (err) {
         console.error("[RagIngestionService] Failed to persist uploaded document to PostgreSQL:", err);
@@ -238,8 +258,8 @@ export class RagIngestionService {
   }
 
   /**
-   * Ingest a support ticket into the RAG corpus, generate 1536-dim embeddings,
-   * persist to PostgreSQL (supportv8.knowledge_documents & knowledge_document_chunks),
+   * Ingest a support ticket into the central KnowledgeV8 RAG corpus with auto-curation,
+   * generate embeddings for pgvector backward compatibility, persist to PostgreSQL,
    * and update the ticket timeline.
    */
   public async ingestTicketToRag(params: {
@@ -256,6 +276,7 @@ export class RagIngestionService {
   }): Promise<IngestionResult> {
     const rawTenantId = params.tenantId;
     const tenantId = marketplaceService.resolveWorkspaceId(rawTenantId) || tenantIdFromSlug(rawTenantId);
+    const tenantSlug = tenantSlugFromId(tenantId) || rawTenantId;
     const { ticket } = params;
     const cleanExternalId = ticket.externalId.toLowerCase().replace(/[^a-z0-9]/g, "_");
     const docId = `doc_tkt_${cleanExternalId}`;
@@ -263,7 +284,7 @@ export class RagIngestionService {
     const category = ticket.category || "ticket_resolution";
     const docTitle = `[Ticket] ${ticket.externalId}: ${ticket.summary}`;
     const resolutionNotes = ticket.resolutionNotes || "Issue investigated, root cause mitigated, and customer access restored.";
-    const tags = Array.from(new Set([...(ticket.tags || []), category, "rag-grounded", "ticket"]));
+    const tags = Array.from(new Set([...(ticket.tags || []), category, "rag-grounded", "auto-curated", "ticket"]));
 
     const textContent = `# Ticket Resolution: ${ticket.externalId}\n\n**Customer:** ${ticket.customerName || "Customer"}\n**Product:** ${ticket.product || "Support"}\n**Category:** ${category}\n**Summary:** ${ticket.summary}\n\n## Verified Resolution\n${resolutionNotes}\n\n**Tags:** ${tags.join(", ")}`;
     const buffer = Buffer.from(textContent, "utf-8");
@@ -291,7 +312,8 @@ export class RagIngestionService {
       body: textContent,
       groups: ["support-tier1", "vip-escalations"],
       tags,
-      curatedStatus: "raw",
+      curatedStatus: "curated",
+      curatedConceptId: `KV8-TKT-${ticket.externalId.replace(/[^a-zA-Z0-9]/g, "")}`,
     };
 
     const chunks: KnowledgeDocumentChunk[] = chunksToProcess.map((chunkContent, idx) => {
@@ -315,13 +337,50 @@ export class RagIngestionService {
       };
     });
 
-    // Store in-memory
+    // 1. Sync to Central KnowledgeV8: Ingest & Auto-Curate resolved ticket
+    await knowledgev8Connector
+      .ingestResolvedTicket({
+        externalId: ticket.externalId,
+        summary: ticket.summary,
+        customerName: ticket.customerName,
+        product: ticket.product,
+        resolutionNotes,
+        category,
+        tags,
+        tenantSlug,
+      })
+      .catch((e) => console.warn("[RagIngestionService] KnowledgeV8 ticket sync warning:", e));
+
+    // 2. Auto-curate into local Support Knowledge Articles
+    const articleId = document.curatedConceptId || `art_tkt_${cleanExternalId}`;
+    const autoArticle: KnowledgeArticle = {
+      id: articleId,
+      source: `knowledgev8:${tenantSlug}`,
+      title: docTitle,
+      url: `/knowledge#${articleId}`,
+      category,
+      usageCount: 1,
+      csatScore: 98,
+      status: "active",
+      lastUpdated: new Date().toISOString(),
+      summary: ticket.summary,
+      body: textContent,
+      groups: ["support-tier1", "vip-escalations"],
+      tags: Array.from(new Set([...tags, "auto-curated", "authoritative"])),
+      curatedFromDocId: docId,
+      articleType: "runbook",
+    };
+
+    if (!db.articles) db.articles = [];
+    db.articles.unshift(autoArticle);
+
+    // 3. Store in-memory
     if (!db.documents) db.documents = [];
     if (!db.documentChunks) db.documentChunks = [];
     db.documents = [document, ...db.documents.filter((d) => d.id !== docId)];
     db.documentChunks = [...db.documentChunks.filter((c) => c.documentId !== docId), ...chunks];
 
-    // Store in PostgreSQL
+    // 4. Store in PostgreSQL
     if (process.env.DATABASE_URL) {
       try {
         await this.client.withTenantSession(tenantId, async (session) => {
@@ -371,6 +430,34 @@ export class RagIngestionService {
               ]
             );
           }
+
+          const articleEmbedding = ragService.generateEmbedding(`${autoArticle.title}\n${autoArticle.summary}\n${autoArticle.body}`);
+          await session.query(
+            `INSERT INTO supportv8.knowledge_articles (
+              id, tenant_id, source, title, url, category, usage_count, csat_score, status, summary, content, embedding, last_updated
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+              title = EXCLUDED.title,
+              category = EXCLUDED.category,
+              summary = EXCLUDED.summary,
+              content = EXCLUDED.content,
+              embedding = EXCLUDED.embedding,
+              last_updated = NOW()`,
+            [
+              autoArticle.id,
+              tenantId,
+              autoArticle.source,
+              autoArticle.title,
+              autoArticle.url,
+              autoArticle.category,
+              autoArticle.usageCount,
+              autoArticle.csatScore,
+              autoArticle.status,
+              autoArticle.summary,
+              autoArticle.body,
+              JSON.stringify(articleEmbedding),
+            ]
+          );
 
           // Mark issue as RAG-ingested in supportv8.issues timeline if present
           await session.query(
@@ -1003,6 +1090,22 @@ export class RagIngestionService {
       }
     }
 
+    // Sync to Central KnowledgeV8 curation endpoint
+    const tenantSlug = tenantSlugFromId(canonicalTenantId) || canonicalTenantId;
+    await knowledgev8Connector
+      .autoCurateConcept({
+        tenantSlug,
+        conceptId: articleId,
+        documentId,
+        title: params.title,
+        content: params.body || doc.body || params.summary,
+        category: params.category,
+        tags: params.tags,
+        groups: params.groups,
+        articleType: params.articleType,
+      })
+      .catch((e) => console.warn("[RagIngestionService] KnowledgeV8 curation sync warning:", e));
+
     return { document: { ...doc }, article };
   }
 
@@ -1117,13 +1220,41 @@ export class RagIngestionService {
     this.ensureInitialChunks();
     const rawTenantId = params.tenantId;
     const canonicalTenantId = marketplaceService.resolveWorkspaceId(rawTenantId) || tenantIdFromSlug(rawTenantId);
+    const tenantSlug = tenantSlugFromId(canonicalTenantId) || rawTenantId;
     const limit = Math.max(1, Math.min(params.limit || 5, 20));
     const minSimilarity = params.minSimilarity ?? 0.35;
     const queryEmbedding = ragService.generateEmbedding(params.query);
 
     let results: RagQueryResult[] = [];
 
-    if (process.env.DATABASE_URL) {
+    // 1. First attempt Central Tenant KnowledgeV8 semantic query with embedded API access
+    try {
+      const kv8Concepts = await knowledgev8Connector.queryFederated(params.query, {
+        topK: limit,
+        tenantSlug,
+      });
+
+      if (kv8Concepts && kv8Concepts.length > 0) {
+        results = kv8Concepts
+          .map((c, idx) => ({
+            id: c.conceptId,
+            documentId: c.conceptId,
+            chunkIndex: idx,
+            content: c.body || c.description,
+            documentTitle: c.title,
+            category: c.bundle || "knowledge",
+            filename: "",
+            similarity: Math.round((c.score || 0.94) * 1000) / 1000,
+            tags: [c.status, c.trustTier],
+          }))
+          .filter((r) => r.similarity >= minSimilarity);
+      }
+    } catch {
+      // Graceful offline fallback
+    }
+
+    // 2. Fall back to PostgreSQL pgvector query if no central results and DB is configured
+    if ((!results || results.length === 0) && process.env.DATABASE_URL) {
       try {
         results = await this.client.withTenantSession(canonicalTenantId, async (session) => {
           const rows = await session.query<{

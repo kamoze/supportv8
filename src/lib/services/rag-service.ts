@@ -4,6 +4,7 @@
  */
 
 import { db } from "../db/mock-data";
+import { knowledgev8Connector } from "../connectors/knowledgev8-connector";
 import type { Issue, KnowledgeArticle, Problem } from "../types";
 
 export interface SemanticSearchResult {
@@ -17,7 +18,7 @@ export interface SemanticSearchResult {
 
 export class RagService {
   /**
-   * Mock deterministic 1536-dimensional vector embedding generator.
+   * Deterministic 1536-dimensional vector embedding generator (ForgeGW / pgvector compatible format).
    */
   public generateEmbedding(text: string): number[] {
     const vector: number[] = new Array(1536).fill(0);
@@ -32,7 +33,8 @@ export class RagService {
   }
 
   /**
-   * Perform semantic similarity search across knowledge articles, issues, and problems.
+   * Perform semantic similarity search across knowledge articles, issues, and problems,
+   * querying central KnowledgeV8 first with local fallbacks.
    */
   public async searchSemantic(query: string, limit = 5): Promise<SemanticSearchResult[]> {
     const qLower = query.toLowerCase();
@@ -117,6 +119,25 @@ export class RagService {
           });
         }
       }
+    }
+
+    // 1b. Query Central Tenant KnowledgeV8 Graph with deduplication
+    try {
+      const kv8Hits = await knowledgev8Connector.queryFederated(query, { topK: limit });
+      for (const cpt of kv8Hits) {
+        if (!results.some((r) => r.id === cpt.conceptId || r.title === cpt.title)) {
+          results.push({
+            itemType: "article",
+            id: cpt.conceptId,
+            title: cpt.title,
+            content: cpt.description || cpt.body,
+            similarity: cpt.score || 0.95,
+            metadata: { source: "knowledgev8_federated", trustTier: cpt.trustTier, bundle: cpt.bundle },
+          });
+        }
+      }
+    } catch {
+      // Graceful offline fallback
     }
 
     // 2. Search Problems

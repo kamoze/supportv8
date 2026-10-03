@@ -5,6 +5,7 @@
 import { type CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
+import { MobileClientAppShell } from "@/components/portal/MobileClientAppShell";
 import {
   actionHref,
   emptyPortalConfig,
@@ -247,7 +248,7 @@ export function TenantLandingView({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-5 pb-20 pt-12 sm:px-8 sm:pt-16">
+      <main className="mx-auto max-w-6xl px-5 pb-24 sm:pb-20 pt-12 sm:px-8 sm:pt-16">
         <section className={`relative isolate grid items-start gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] lg:gap-16 ${config.branding.heroImageUrl ? "min-h-[430px] overflow-hidden rounded-[28px] border border-[#344354] px-6 py-9 shadow-[0_20px_60px_rgba(0,0,0,0.32)] sm:px-10 sm:py-12" : ""}`}>
           {config.branding.heroImageUrl && (
             <>
@@ -364,6 +365,19 @@ export function TenantLandingView({
         defaultStream={isMeridian ? "contractors" : "customers"}
         tenantDomain={tenantSlug}
         brandColor={config.branding.primaryColor}
+      />
+
+      <MobileClientAppShell
+        tenantSlug={cleanSlug}
+        tenantName={config.supportName}
+        onOpenChat={() => openChat()}
+        onOpenHelp={() => {
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            const searchInput = document.getElementById("portal-search");
+            searchInput?.focus();
+          }
+        }}
       />
     </div>
   );

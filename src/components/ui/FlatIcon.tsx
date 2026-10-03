@@ -123,6 +123,7 @@ export const LayoutDashboard = createFlatIcon("fi-rr-dashboard", "LayoutDashboar
 export const LayoutGrid = createFlatIcon("fi-rr-apps", "LayoutGrid");
 export const Lightbulb = createFlatIcon("fi-rr-bulb", "Lightbulb");
 export const List = createFlatIcon("fi-rr-list", "List");
+export const ListOrdered = createFlatIcon("fi-rr-list-number", "ListOrdered");
 export const Loader2 = createFlatIcon("fi-rr-spinner", "Loader2");
 export const Lock = createFlatIcon("fi-rr-lock", "Lock");
 export const LogOut = createFlatIcon("fi-rr-sign-out-alt", "LogOut");

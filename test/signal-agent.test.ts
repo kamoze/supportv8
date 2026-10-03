@@ -6,6 +6,7 @@ import {
   emitSupportCsatRecordedSignal,
   SUPPORT_SIGNAL_TYPES,
   safeEmitSignal,
+  getAgenticRuntimeCascadeUrls,
 } from "@/lib/signals/signal-agent";
 
 describe("supportv8 signal-agent", () => {
@@ -139,7 +140,7 @@ describe("supportv8 signal-agent", () => {
         subject: "ticket:iss_err",
         data: { error: true },
       },
-      { fetchImpl: mockFetch, maxRetries: 0 }
+      { fetchImpl: mockFetch }
     );
 
     expect(result.ok).toBe(false);
@@ -147,4 +148,53 @@ describe("supportv8 signal-agent", () => {
       expect(result.error).toContain("Network connection refused");
     }
   });
+
+  it("resolves multi-ingress cascade URLs in prioritized order", () => {
+    const urls = getAgenticRuntimeCascadeUrls({
+      SERVICEV8_RUNTIME_CLUSTER_URL: "http://servicev8-runtime.default.svc.cluster.local:3000",
+      SERVICEV8_RUNTIME_TAILNET_URL: "http://runtime-intake:3000",
+      SERVICEV8_RUNTIME_PUBLIC_URL: "https://runtime.servicev8.com",
+    });
+
+    expect(urls).toEqual([
+      "http://servicev8-runtime.default.svc.cluster.local:3000",
+      "http://runtime-intake:3000",
+      "https://runtime.servicev8.com",
+    ]);
+  });
+
+  it("fails over automatically across cascade ingress endpoints", async () => {
+    // First candidate (cluster local) fails with network error
+    mockFetch.mockRejectedValueOnce(new Error("connect ECONNREFUSED 10.96.0.42:3000"));
+    // Second candidate (tailnet or public) succeeds
+    mockFetch.mockResolvedValueOnce({
+      status: 202,
+      json: async () => ({ ok: true, receiptId: "rcpt_cascade_success", status: "accepted" }),
+    });
+
+    const result = await safeEmitSignal(
+      {
+        tenantId: "tenant_sup_cascade",
+        eventType: SUPPORT_SIGNAL_TYPES.TICKET_CREATED,
+        subject: "ticket:iss_cascade",
+        data: { priority: "normal" },
+      },
+      {
+        fetchImpl: mockFetch,
+        env: {
+          SERVICEV8_RUNTIME_CLUSTER_URL: "http://cluster.local:3000",
+          SERVICEV8_RUNTIME_PUBLIC_URL: "https://public.servicev8.com",
+        },
+      }
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.receiptId).toBe("rcpt_cascade_success");
+    }
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][0]).toBe("http://cluster.local:3000/api/signals/intake");
+    expect(mockFetch.mock.calls[1][0]).toBe("https://public.servicev8.com/api/signals/intake");
+  });
 });
+

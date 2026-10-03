@@ -606,7 +606,7 @@ export class ChatRepository {
       return sessionPage.session;
     });
 
-    const emitTenantId = input.tenantSlug || input.tenantId;
+    const emitTenantId = input.tenantId || input.tenantSlug;
 
     void emitSupportTicketCreatedSignal({
       tenantId: emitTenantId,

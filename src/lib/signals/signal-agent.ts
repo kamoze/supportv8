@@ -37,6 +37,28 @@ export type SignalEmitResult =
       error: string;
     };
 
+export function getAgenticRuntimeCascadeUrls(
+  env: Record<string, string | undefined> = process.env
+): string[] {
+  const candidates = [
+    env.SERVICEV8_RUNTIME_CLUSTER_URL,
+    env.SERVICEV8_RUNTIME_TAILNET_URL,
+    env.SERVICEV8_RUNTIME_PUBLIC_URL ||
+      env.SERVICEV8_RUNTIME_URL ||
+      env.SUPPORT_RUNTIME_URL ||
+      env.RUNTIME_URL,
+    getAgenticRuntimeBaseUrl(env),
+  ].filter((u): u is string => Boolean(u && u.trim().length > 0));
+
+  if (candidates.length === 0) {
+    candidates.push("http://servicev8-runtime.default.svc.cluster.local:3000");
+    candidates.push("https://runtime.servicev8.com");
+  }
+
+  // Deduplicate candidates preserving declaration priority
+  return Array.from(new Set(candidates.map((u) => u.replace(/\/+$/, ""))));
+}
+
 export function getSignalsSecret(env: Record<string, string | undefined> = process.env): string {
   return (
     env.RUNTIME_SIGNALS_SECRET ||
@@ -60,7 +82,7 @@ export async function safeEmitSignal(
 ): Promise<SignalEmitResult> {
   const env = options.env ?? process.env;
   const fetchFn = options.fetchImpl ?? fetch;
-  const baseUrl = getAgenticRuntimeBaseUrl(env);
+  const cascadeUrls = getAgenticRuntimeCascadeUrls(env);
   const secret = getSignalsSecret(env);
 
   const eventId =
@@ -79,8 +101,6 @@ export async function safeEmitSignal(
   };
 
   const accountId = params.accountId || params.tenantId;
-  const maxRetries = options.maxRetries ?? 2;
-  const retryDelay = options.retryDelayMs ?? 150;
   const startTime = Date.now();
 
   // Structured CloudEvent emission to stdout for k8s container log inspection
@@ -104,9 +124,18 @@ export async function safeEmitSignal(
     `[CLOUDEVENT:EMIT] app="supportv8" type="${params.eventType}" id="${eventId}" tenant="${params.tenantId}" subject="${params.subject}"`
   );
 
-  const url = `${baseUrl}/api/signals/intake`;
+  let lastError = "No cascade URLs available";
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  for (let i = 0; i < cascadeUrls.length; i++) {
+    const baseUrl = cascadeUrls[i];
+    const url = `${baseUrl}/api/signals/intake`;
+
+    if (i > 0) {
+      console.log(
+        `[CLOUDEVENT:CASCADE_FAILOVER] app="supportv8" failing over to candidate ${i + 1}/${cascadeUrls.length}: ${baseUrl}`
+      );
+    }
+
     try {
       const response = await fetchFn(url, {
         method: "POST",
@@ -120,12 +149,17 @@ export async function safeEmitSignal(
       });
 
       if (response.status === 200 || response.status === 202) {
-        const body = (await response.json()) as {
-          ok: boolean;
+        let body: {
+          ok?: boolean;
           receiptId?: string;
           duplicate?: boolean;
           status?: string;
-        };
+        } = {};
+        try {
+          body = (await response.json()) as any;
+        } catch {
+          body = { ok: true, status: "accepted" };
+        }
         const durationMs = Date.now() - startTime;
         console.log(
           JSON.stringify({
@@ -142,6 +176,7 @@ export async function safeEmitSignal(
             eventId: eventEnvelope.id,
             status: body.status ?? "accepted",
             receiptId: body.receiptId,
+            cascadeEndpoint: baseUrl,
             durationMs,
           })
         );
@@ -157,60 +192,62 @@ export async function safeEmitSignal(
       }
 
       const errText = await response.text().catch(() => "");
-      if (attempt < maxRetries && response.status >= 500) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
-        continue;
+      lastError = `HTTP ${response.status}: ${errText}`;
+
+      // If client error (4xx except 429), fail fast since payload is invalid
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        console.error(
+          JSON.stringify({
+            timestamp: new Date().toISOString(),
+            channel: "cloudevents",
+            direction: "outbound_error",
+            stage: "rejected",
+            app: "supportv8",
+            tenantId: params.tenantId,
+            accountId,
+            source: eventEnvelope.source,
+            type: eventEnvelope.type,
+            subject: eventEnvelope.subject,
+            eventId: eventEnvelope.id,
+            httpStatus: response.status,
+            error: errText,
+          })
+        );
+        console.warn(`[CLOUDEVENT:REJECTED] app="supportv8" intake rejected signal (${response.status}): ${errText}`);
+        return { ok: false, error: lastError };
       }
 
-      console.error(
-        JSON.stringify({
-          timestamp: new Date().toISOString(),
-          channel: "cloudevents",
-          direction: "outbound_error",
-          stage: "rejected",
-          app: "supportv8",
-          tenantId: params.tenantId,
-          accountId,
-          source: eventEnvelope.source,
-          type: eventEnvelope.type,
-          subject: eventEnvelope.subject,
-          eventId: eventEnvelope.id,
-          httpStatus: response.status,
-          error: errText,
-        })
-      );
-      console.warn(`[CLOUDEVENT:REJECTED] app="supportv8" intake rejected signal (${response.status}): ${errText}`);
-      return { ok: false, error: `HTTP ${response.status}: ${errText}` };
-    } catch (err) {
-      if (attempt < maxRetries) {
-        await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
-        continue;
-      }
+      // If server error (5xx) or rate-limited (429), try next cascade candidate
       console.warn(
-        JSON.stringify({
-          timestamp: new Date().toISOString(),
-          channel: "cloudevents",
-          direction: "outbound_error",
-          stage: "transport_error",
-          app: "supportv8",
-          tenantId: params.tenantId,
-          accountId,
-          source: eventEnvelope.source,
-          type: eventEnvelope.type,
-          subject: eventEnvelope.subject,
-          eventId: eventEnvelope.id,
-          error: err instanceof Error ? err.message : String(err),
-        })
+        `[CLOUDEVENT:WARNING] app="supportv8" intake failed at ${baseUrl} (${response.status}), trying next candidate...`
       );
-      console.warn("[CLOUDEVENT:ERROR] app=\"supportv8\" signal emission failed softly:", err);
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[CLOUDEVENT:WARNING] app="supportv8" network error reaching ${baseUrl}: ${lastError}, trying next candidate...`
+      );
     }
   }
 
-  return { ok: false, error: "max_retries_exceeded" };
+  console.warn(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      channel: "cloudevents",
+      direction: "outbound_error",
+      stage: "transport_error",
+      app: "supportv8",
+      tenantId: params.tenantId,
+      accountId,
+      source: eventEnvelope.source,
+      type: eventEnvelope.type,
+      subject: eventEnvelope.subject,
+      eventId: eventEnvelope.id,
+      error: lastError,
+    })
+  );
+  console.warn("[CLOUDEVENT:ERROR] app=\"supportv8\" signal emission failed softly across all cascade URLs:", lastError);
+
+  return { ok: false, error: lastError };
 }
 
 export async function emitSupportTicketCreatedSignal(

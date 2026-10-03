@@ -203,4 +203,32 @@ describe("SupportChatWidget Mobile Client Auth", () => {
     expect(screen.getByText("Start Live Session")).toBeDefined();
     expect(screen.queryByPlaceholderText("Type a message, ask about PINs, or status...")).toBeNull();
   });
+
+  it("sets dynamic agent title in active session header when authenticated", async () => {
+    localStorage.setItem(
+      "supportv8_client_session_acme",
+      JSON.stringify({
+        email: "sarah@jenkins.com",
+        name: "Sarah Jenkins",
+        tenantSlug: "acme",
+      })
+    );
+
+    render(<SupportChatWidget tenantSlug="acme" tenantName="Acme Logistics" />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent("supportv8:open-chat", {
+          detail: { stream: "customers" },
+        })
+      );
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Acme Logistics Support")).toBeDefined();
+  });
 });

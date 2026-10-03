@@ -98,7 +98,9 @@ function createClientChatSession(
   name: string,
   email: string,
   intakeData?: Record<string, string>,
+  tenantName?: string,
 ): CustomerChatSession {
+  const assignedTo = tenantName ? `${tenantName} Support` : "Sophia — Customer Success";
   return {
     id: `sess_client_${crypto.randomUUID().replace(/-/g, "")}`,
     tenantDomain: tenantKey || "default",
@@ -112,7 +114,8 @@ function createClientChatSession(
     },
     assignedType: "ai",
     assignedId: "emp_support_lead",
-    assignedName: "Sophia — Customer Success",
+    assignedName: assignedTo,
+    assignedTo,
     assignedAvatar: "/avatars/beaver-sophia.jpg",
     status: "active",
     priority: "normal",
@@ -245,6 +248,7 @@ export function SupportChatWidget({
           storedClient.name || "Customer",
           storedClient.email || "user@example.com",
           prefilledData,
+          tenantName,
         ),
       );
       setActiveStep("chat");
@@ -328,6 +332,8 @@ export function SupportChatWidget({
             selectedStream || defaultStream || "customers",
             name || "Customer",
             email || "user@example.com",
+            undefined,
+            tenantName,
           );
         });
         setActiveStep("chat");
@@ -364,9 +370,16 @@ export function SupportChatWidget({
           details: detail.topic || current.details || "",
         }));
         setActiveSession(
-          createClientChatSession(tenantSessionKey || tenantSlug || "default", stream, cName, cEmail, {
-            details: detail.topic || "",
-          }),
+          createClientChatSession(
+            tenantSessionKey || tenantSlug || "default",
+            stream,
+            cName,
+            cEmail,
+            {
+              details: detail.topic || "",
+            },
+            tenantName,
+          ),
         );
         if (detail.topic) {
           setInputMessage(detail.topic);
@@ -581,6 +594,8 @@ export function SupportChatWidget({
           defaultStream || "customers",
           cName,
           cEmail,
+          undefined,
+          tenantName,
         ),
       );
       setActiveStep("chat");

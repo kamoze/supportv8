@@ -38,4 +38,11 @@ describe("PWA Manifest & Service Worker", () => {
     expect(content).toContain('name="mobile-web-app-capable"');
     expect(content).toContain('name="apple-mobile-web-app-capable"');
   });
+
+  it("provides offline fallback handling in service worker fetch handler", () => {
+    const swPath = resolve(process.cwd(), "public/sw.js");
+    const content = readFileSync(swPath, "utf-8");
+    expect(content).toContain("event.request.mode === 'navigate'");
+    expect(content).toContain("Service Unavailable");
+  });
 });

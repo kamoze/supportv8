@@ -321,4 +321,18 @@ describe("MobileClientAppShell", () => {
 
     expect(screen.getByText("Install App")).toBeDefined();
   });
+
+  it("includes safe area inset bottom padding in bottom navigation bar", () => {
+    render(
+      <MobileClientAppShell
+        tenantSlug="acme"
+        onOpenChat={vi.fn()}
+        onOpenHelp={vi.fn()}
+      />
+    );
+
+    const nav = document.body.querySelector("nav[aria-label='Mobile Navigation']");
+    expect(nav).not.toBeNull();
+    expect(nav?.className).toContain("pb-[env(safe-area-inset-bottom)]");
+  });
 });

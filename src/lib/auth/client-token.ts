@@ -15,12 +15,19 @@ const DEFAULT_SECRET = "supportv8_client_auth_secret_key_fixed_signing_salt_2026
 const TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 function getSecret(): string {
-  return (
+  const secret =
     process.env.CLIENT_AUTH_SECRET ||
     process.env.SUPPORTV8_CLIENT_AUTH_SECRET ||
-    process.env.JWT_SECRET ||
-    DEFAULT_SECRET
-  );
+    process.env.JWT_SECRET;
+
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[ClientToken] Production warning: Using default client auth secret. Set CLIENT_AUTH_SECRET.");
+    }
+    return DEFAULT_SECRET;
+  }
+
+  return secret;
 }
 
 /**

@@ -544,6 +544,7 @@ export interface CustomerChatSession {
   assignedType: "human" | "ai";
   assignedId: string;
   assignedName: string;
+  assignedTo?: string;
   assignedAvatar?: string;
   status: "queued" | "active" | "escalated" | "resolved";
   priority: PriorityLevel;

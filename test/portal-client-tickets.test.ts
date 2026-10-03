@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { GET as ticketsHandler } from "@/app/api/portal/tickets/route";
 import { signClientToken } from "@/lib/auth/client-token";
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db/mock-data";
+import { pgClient } from "@/lib/db/pg-client";
 
 describe("Client Tickets API", () => {
   const tenantSlug = "acme";
@@ -110,5 +111,61 @@ describe("Client Tickets API", () => {
     expect(typeof ticket.updatedAt).toBe("string");
     expect(typeof ticket.assignedTo).toBe("string");
     expect(typeof ticket.publicNotes).toBe("string");
+  });
+
+  it("does not fall back to mock data if Postgres executes successfully with 0 results", async () => {
+    const originalDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgres://fake:fake@localhost:5432/fake";
+    const withTenantSessionSpy = vi.spyOn(pgClient, "withTenantSession").mockImplementation(async (_tenant, callback) => {
+      return callback({
+        query: async () => [],
+      } as any);
+    });
+
+    try {
+      const token = signClientToken({ email, tenantSlug, customerId: "c1" });
+      const req = new NextRequest("http://localhost:3000/api/portal/tickets", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const res = await ticketsHandler(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.tickets).toEqual([]);
+    } finally {
+      withTenantSessionSpy.mockRestore();
+      if (originalDbUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = originalDbUrl;
+      }
+    }
+  });
+
+  it("falls back to mock data if Postgres query throws an error", async () => {
+    const originalDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgres://fake:fake@localhost:5432/fake";
+    const withTenantSessionSpy = vi.spyOn(pgClient, "withTenantSession").mockRejectedValue(new Error("Connection refused"));
+
+    try {
+      const token = signClientToken({ email, tenantSlug, customerId: "c1" });
+      const req = new NextRequest("http://localhost:3000/api/portal/tickets", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const res = await ticketsHandler(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.tickets.some((t: any) => t.id === "TCK-8821")).toBe(true);
+    } finally {
+      withTenantSessionSpy.mockRestore();
+      if (originalDbUrl === undefined) {
+        delete process.env.DATABASE_URL;
+      } else {
+        process.env.DATABASE_URL = originalDbUrl;
+      }
+    }
   });
 });

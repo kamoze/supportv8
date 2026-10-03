@@ -582,7 +582,7 @@ export function MobileClientAppShell({
       {/* Bottom Navigation Dock */}
       <nav
         aria-label="Mobile Navigation"
-        className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-[var(--line)] bg-[#0B1017]/95 backdrop-blur-md safe-area-bottom"
+        className="fixed bottom-0 inset-x-0 z-50 md:hidden border-t border-[var(--line)] bg-[#0B1017]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] safe-area-bottom"
       >
         <div className="grid grid-cols-4 h-16">
           <button

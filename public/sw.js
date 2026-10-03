@@ -30,7 +30,11 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
+      if (cached) {
+        return cached;
+      }
+
+      return fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
             const clone = networkResponse.clone();
@@ -38,8 +42,28 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => cached);
-      return cached || fetchPromise;
+        .catch(async () => {
+          if (event.request.mode === 'navigate') {
+            const rootCached = await caches.match('/');
+            if (rootCached) {
+              return rootCached;
+            }
+            return new Response(
+              '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Offline</title><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="background:#090E15;color:#EAF1F8;font-family:system-ui,sans-serif;padding:2rem;text-align:center;"><h1>Offline</h1><p style="color:#8E9AA8;">Network unavailable. Please reconnect.</p></body></html>',
+              {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              }
+            );
+          }
+
+          return new Response('Network unavailable', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          });
+        });
     })
   );
 });

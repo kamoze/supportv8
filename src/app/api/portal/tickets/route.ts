@@ -131,6 +131,7 @@ export async function GET(req: NextRequest) {
   const tokenTenant = payload.tenantSlug.trim().toLowerCase().replace(/^tenant_/, "");
 
   let rawIssues: any[] = [];
+  let pgExecuted = false;
 
   if (process.env.DATABASE_URL) {
     try {
@@ -155,12 +156,13 @@ export async function GET(req: NextRequest) {
       if (rows && rows.length > 0) {
         rawIssues = rows;
       }
+      pgExecuted = true;
     } catch (dbErr) {
       console.warn("[PortalTickets] Postgres query failed, falling back to mock database:", dbErr);
     }
   }
 
-  if (rawIssues.length === 0) {
+  if (!pgExecuted) {
     const mockPool = [...db.issues];
     if (typeof db.getTenantData === "function") {
       try {

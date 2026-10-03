@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { signClientToken, verifyClientToken } from "@/lib/auth/client-token";
 import { POST as sendOtpHandler } from "@/app/api/portal/auth/otp/send/route";
 import { POST as verifyOtpHandler } from "@/app/api/portal/auth/otp/verify/route";
@@ -134,5 +134,33 @@ describe("Client OTP Auth Subsystem", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.authenticated).toBe(false);
+  });
+
+  it("warns when using default secret in production if no secret is configured", () => {
+    const originalEnv = process.env.NODE_ENV;
+    const origClientSecret = process.env.CLIENT_AUTH_SECRET;
+    const origSupportSecret = process.env.SUPPORTV8_CLIENT_AUTH_SECRET;
+    const origJwtSecret = process.env.JWT_SECRET;
+
+    delete process.env.CLIENT_AUTH_SECRET;
+    delete process.env.SUPPORTV8_CLIENT_AUTH_SECRET;
+    delete process.env.JWT_SECRET;
+    (process.env as any).NODE_ENV = "production";
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const token = signClientToken({ email: "user@example.com", tenantSlug: "acme", customerId: "c1" });
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[ClientToken] Production warning: Using default client auth secret. Set CLIENT_AUTH_SECRET."
+      );
+      expect(typeof token).toBe("string");
+    } finally {
+      warnSpy.mockRestore();
+      (process.env as any).NODE_ENV = originalEnv;
+      if (origClientSecret !== undefined) process.env.CLIENT_AUTH_SECRET = origClientSecret;
+      if (origSupportSecret !== undefined) process.env.SUPPORTV8_CLIENT_AUTH_SECRET = origSupportSecret;
+      if (origJwtSecret !== undefined) process.env.JWT_SECRET = origJwtSecret;
+    }
   });
 });

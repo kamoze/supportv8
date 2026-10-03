@@ -7,7 +7,7 @@ import {
 } from "node:crypto";
 import Redis from "ioredis";
 
-export type OtpPurpose = "signup" | "password-recovery";
+export type OtpPurpose = "signup" | "password-recovery" | "client-access";
 
 const OTP_TTL_SECONDS = 10 * 60;
 const OTP_MAX_ATTEMPTS = 5;

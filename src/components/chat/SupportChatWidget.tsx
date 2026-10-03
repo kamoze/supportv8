@@ -62,6 +62,66 @@ function readableInk(hex: string): string {
   return (red * 299 + green * 587 + blue * 114) / 1000 > 150 ? "#04110E" : "#FFFFFF";
 }
 
+interface ClientIdentity {
+  name?: string;
+  email?: string;
+  tenantSlug?: string;
+  customerId?: string;
+}
+
+function getStoredClientSession(tenantKey?: string, domainKey?: string): ClientIdentity | null {
+  if (typeof window === "undefined") return null;
+  const keys = [
+    tenantKey ? `supportv8_client_session_${tenantKey}` : null,
+    domainKey && domainKey !== tenantKey ? `supportv8_client_session_${domainKey}` : null,
+  ].filter(Boolean) as string[];
+
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.email || parsed.name)) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore parse or storage errors
+    }
+  }
+  return null;
+}
+
+function createClientChatSession(
+  tenantKey: string,
+  stream: ChatStreamType,
+  name: string,
+  email: string,
+  intakeData?: Record<string, string>,
+): CustomerChatSession {
+  return {
+    id: `sess_client_${crypto.randomUUID().replace(/-/g, "")}`,
+    tenantDomain: tenantKey || "default",
+    stream,
+    customerName: name || "Customer",
+    customerEmail: email || "user@example.com",
+    intakeData: {
+      name: name || "Customer",
+      email: email || "user@example.com",
+      ...(intakeData || {}),
+    },
+    assignedType: "ai",
+    assignedId: "emp_support_lead",
+    assignedName: "Sophia — Customer Success",
+    assignedAvatar: "/avatars/beaver-sophia.jpg",
+    status: "active",
+    priority: "normal",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    messages: [],
+  };
+}
+
 export function SupportChatWidget({
   tenantSlug,
   tenantName = "Acme Corp",
@@ -171,12 +231,33 @@ export function SupportChatWidget({
         ? "enquiries"
         : null;
 
-    if (effectiveStream) {
+    // Check for authenticated client session
+    const storedClient = getStoredClientSession(tenantSlug, tenantSessionKey);
+    if (storedClient && (storedClient.email || storedClient.name)) {
+      if (storedClient.name) prefilledData.name = storedClient.name;
+      if (storedClient.email) prefilledData.email = storedClient.email;
+      const initialStream = effectiveStream || defaultStream || "customers";
+      setSelectedStream(initialStream);
+      setActiveSession(
+        createClientChatSession(
+          tenantSessionKey || tenantSlug || "default",
+          initialStream,
+          storedClient.name || "Customer",
+          storedClient.email || "user@example.com",
+          prefilledData,
+        ),
+      );
+      setActiveStep("chat");
+    } else if (effectiveStream) {
       setSelectedStream(effectiveStream);
       setActiveStep("intake_form");
       setIsOpen(true);
     } else if (isGuest || orderId || topic) {
       setIsOpen(true);
+    }
+
+    if (Object.keys(prefilledData).length > 0) {
+      setFormData(prefilledData);
     }
 
     if (!readStoredChatSessionId(window.sessionStorage, tenantSessionKey)) return;
@@ -211,7 +292,53 @@ export function SupportChatWidget({
     return () => {
       cancelled = true;
     };
-  }, [defaultStream, tenantSessionKey]);
+  }, [defaultStream, tenantSessionKey, tenantSlug]);
+
+  useEffect(() => {
+    const handleClientAuthenticated = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        customer?: { name?: string; email?: string };
+        name?: string;
+        email?: string;
+      }>).detail;
+      if (!detail) return;
+      const name = detail.customer?.name || detail.name || "";
+      const email = detail.customer?.email || detail.email || "";
+      if (name || email) {
+        setFormData((prev) => ({
+          ...prev,
+          name: name || prev.name || "",
+          email: email || prev.email || "",
+        }));
+        setActiveSession((current) => {
+          if (current) {
+            return {
+              ...current,
+              customerName: name || current.customerName,
+              customerEmail: email || current.customerEmail,
+              intakeData: {
+                ...current.intakeData,
+                name: name || current.customerName,
+                email: email || current.customerEmail,
+              },
+            };
+          }
+          return createClientChatSession(
+            tenantSessionKey || tenantSlug || "default",
+            selectedStream || defaultStream || "customers",
+            name || "Customer",
+            email || "user@example.com",
+          );
+        });
+        setActiveStep("chat");
+      }
+    };
+
+    window.addEventListener("supportv8:client-authenticated", handleClientAuthenticated);
+    return () => {
+      window.removeEventListener("supportv8:client-authenticated", handleClientAuthenticated);
+    };
+  }, [defaultStream, selectedStream, tenantSessionKey, tenantSlug]);
 
   useEffect(() => {
     const openFromPortal = (event: Event) => {
@@ -219,18 +346,41 @@ export function SupportChatWidget({
       const stream = detail.stream && workflows[detail.stream] ? detail.stream : defaultStream;
       setIsOpen(true);
       setIsPromptMinimized(true);
-      if (!activeSession) {
+
+      const client = getStoredClientSession(tenantSlug, tenantSessionKey);
+      if (activeSession) {
+        if (detail.topic) {
+          setInputMessage(detail.topic);
+        }
+        setActiveStep("chat");
+      } else if (client && (client.email || client.name)) {
+        const cName = client.name || "Customer";
+        const cEmail = client.email || "user@example.com";
+        setSelectedStream(stream);
+        setFormData((current) => ({
+          ...current,
+          name: cName,
+          email: cEmail,
+          details: detail.topic || current.details || "",
+        }));
+        setActiveSession(
+          createClientChatSession(tenantSessionKey || tenantSlug || "default", stream, cName, cEmail, {
+            details: detail.topic || "",
+          }),
+        );
+        if (detail.topic) {
+          setInputMessage(detail.topic);
+        }
+        setActiveStep("chat");
+      } else {
         setSelectedStream(stream);
         setActiveStep("intake_form");
         setFormData((current) => ({ ...current, details: detail.topic || current.details || "" }));
-      } else if (detail.topic) {
-        setInputMessage(detail.topic);
-        setActiveStep("chat");
       }
     };
     window.addEventListener("supportv8:open-chat", openFromPortal);
     return () => window.removeEventListener("supportv8:open-chat", openFromPortal);
-  }, [activeSession, defaultStream, workflows]);
+  }, [activeSession, defaultStream, tenantSessionKey, tenantSlug, workflows]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -331,15 +481,47 @@ export function SupportChatWidget({
     );
 
     try {
+      let currentSession = activeSession;
+      if (currentSession.id.startsWith("sess_client_")) {
+        const initResponse = await fetch("/api/chat/session", {
+          method: "POST",
+          signal: AbortSignal.timeout(15_000),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenantSlug: tenantSessionKey,
+            stream: currentSession.stream,
+            customerName: currentSession.customerName,
+            customerEmail: currentSession.customerEmail,
+            intakeData: currentSession.intakeData || {
+              name: currentSession.customerName,
+              email: currentSession.customerEmail,
+            },
+          }),
+        });
+        const initRes = await initResponse.json();
+        if (!initResponse.ok || !initRes?.session) {
+          throw new Error(initRes?.error || "Unable to start a durable chat session");
+        }
+        currentSession = {
+          ...initRes.session,
+          messages: currentSession.messages,
+        };
+        setActiveSession(currentSession);
+        if (typeof window !== "undefined") {
+          storeChatSessionId(window.sessionStorage, tenantSessionKey, currentSession.id);
+          window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: currentSession }));
+        }
+      }
+
       const response = await fetch("/api/chat/message", {
         method: "POST",
         signal: AbortSignal.timeout(15_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId: activeSession.id,
+          sessionId: currentSession.id,
           content: textToSend,
           sender: "customer",
-          senderName: activeSession.customerName,
+          senderName: currentSession.customerName,
           clientMessageId,
         }),
       });
@@ -387,10 +569,27 @@ export function SupportChatWidget({
     if (typeof window !== "undefined") {
       clearStoredChatSessionId(window.sessionStorage, tenantSessionKey);
     }
-    setActiveSession(null);
-    setFormData({});
-    setFormErrors({});
-    setActiveStep("select_stream");
+    const client = getStoredClientSession(tenantSlug, tenantSessionKey);
+    if (client && (client.email || client.name)) {
+      const cName = client.name || "Customer";
+      const cEmail = client.email || "user@example.com";
+      setFormData({ name: cName, email: cEmail });
+      setFormErrors({});
+      setActiveSession(
+        createClientChatSession(
+          tenantSessionKey || tenantSlug || "default",
+          defaultStream || "customers",
+          cName,
+          cEmail,
+        ),
+      );
+      setActiveStep("chat");
+    } else {
+      setActiveSession(null);
+      setFormData({});
+      setFormErrors({});
+      setActiveStep("select_stream");
+    }
     setInputMessage("");
     setChatError(null);
   };
@@ -399,7 +598,7 @@ export function SupportChatWidget({
     <div style={brandStyle}>
       {/* Floating Action Trigger Button (Bottom-Right) */}
       {!isOpen && (
-        <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+        <div className="fixed bottom-20 sm:bottom-5 right-5 z-40 flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3 duration-300">
           {!isPromptMinimized && (
             <div className="hidden sm:flex items-center gap-2 bg-[#0E1520] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-2 rounded-2xl shadow-xl shadow-black/50 text-xs font-mono">
               <span className="w-2 h-2 rounded-full bg-[var(--chat-brand)] animate-pulse" />
@@ -427,7 +626,7 @@ export function SupportChatWidget({
 
       {/* Expanded Modal / Native Fullscreen Phone Flyout */}
       {isOpen && (
-        <div className="fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 w-full sm:w-[480px] h-[100dvh] sm:h-[640px] sm:max-h-[88vh] bg-[#0E1520] border-0 sm:border sm:border-[var(--line-2)] rounded-none sm:rounded-3xl shadow-2xl shadow-black/90 flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 text-[#EAF1F8]">
+        <div className="fixed inset-0 bottom-20 sm:bottom-6 sm:right-6 sm:inset-auto z-50 w-full sm:w-[480px] h-[100dvh] max-h-[calc(100dvh-5rem)] sm:h-[640px] sm:max-h-[88vh] bg-[#0E1520] border-0 sm:border sm:border-[var(--line-2)] rounded-none sm:rounded-3xl shadow-2xl shadow-black/90 flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 text-[#EAF1F8]">
           {/* Widget Header */}
           <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between shrink-0 pt-[max(env(safe-area-inset-top),12px)] sm:pt-4">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">

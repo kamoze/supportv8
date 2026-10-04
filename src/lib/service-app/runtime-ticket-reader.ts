@@ -241,7 +241,7 @@ export class RuntimeSupportTicketReader {
 
     // Emit OLG Domain Signal: support.ticket-created
     void emitSupportTicketCreatedSignal({
-      tenantId: access.workspaceId,
+      tenantId: scope.tenantId,
       accountId: scope.accountId,
       ticket: {
         id: createdTicket.id,
@@ -256,7 +256,7 @@ export class RuntimeSupportTicketReader {
 
     if (createdTicket.priority === "urgent") {
       void emitSupportTicketEscalatedSignal({
-        tenantId: access.workspaceId,
+        tenantId: scope.tenantId,
         accountId: scope.accountId,
         ticketId: createdTicket.id,
         ticketRef: createdTicket.ticketRef,
@@ -297,7 +297,7 @@ export class RuntimeSupportTicketReader {
     if (updatedTicket) {
       if (input.priority === "urgent" || input.status === "escalated") {
         void emitSupportTicketEscalatedSignal({
-          tenantId: access.workspaceId,
+          tenantId: scope.tenantId,
           accountId: scope.accountId,
           ticketId: updatedTicket.id,
           ticketRef: updatedTicket.ticketRef,
@@ -307,7 +307,7 @@ export class RuntimeSupportTicketReader {
       }
       if (input.status === "resolved" || input.status === "closed") {
         void emitSupportTicketResolvedSignal({
-          tenantId: access.workspaceId,
+          tenantId: scope.tenantId,
           accountId: scope.accountId,
           ticketId: updatedTicket.id,
           ticketRef: updatedTicket.ticketRef,

@@ -105,4 +105,31 @@ describe("Runtime Support durable ticket reader",()=>{
     await expect(h.reader.update(scope,"chat-1",{status:"resolved"})).rejects.toThrow("unsupported_ticket_source");
     expect(h.calls.some(call=>call.sql.startsWith("UPDATE supportv8.issues"))).toBe(false);
   });
+  it("emits ticket domain signals attributed to canonical scope.tenantId rather than workspaceId", async () => {
+    const signalAgent = await import("@/lib/signals/signal-agent");
+    const emitSpy = vi.spyOn(signalAgent, "emitSupportTicketCreatedSignal");
+    const h = harness([
+      row("ticket-olg-1", "runtime_manual", "2026-09-16T12:00:00.000Z"),
+    ]);
+    (h.reader as unknown as { resolve: unknown }).resolve = async () => ({
+      ...access,
+      capability: "support:manage",
+    });
+    await h.reader.create(scope, {
+      customerName: "Amara Okafor",
+      summary: "Asthma kit order triage",
+      priority: "normal",
+    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: scope.tenantId,
+        accountId: scope.accountId,
+      })
+    );
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: scope.workspaceId,
+      })
+    );
+  });
 });

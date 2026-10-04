@@ -606,7 +606,10 @@ export class ChatRepository {
       return sessionPage.session;
     });
 
-    const emitTenantId = input.tenantId || input.tenantSlug;
+    let emitTenantId = input.tenantId || input.tenantSlug;
+    if (emitTenantId?.startsWith("tenant_rt_") && input.accountId?.startsWith("acct_")) {
+      emitTenantId = `tenant_${input.accountId.replace("acct_", "")}`;
+    }
 
     void emitSupportTicketCreatedSignal({
       tenantId: emitTenantId,

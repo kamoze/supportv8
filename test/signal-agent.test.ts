@@ -196,5 +196,34 @@ describe("supportv8 signal-agent", () => {
     expect(mockFetch.mock.calls[0][0]).toBe("http://cluster.local:3000/api/signals/intake");
     expect(mockFetch.mock.calls[1][0]).toBe("https://public.servicev8.com/api/signals/intake");
   });
+
+  it("canonicalizes external runtime tenant ID to canonical registry tenant ID", async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 202,
+      json: async () => ({ ok: true, receiptId: "rcpt_canonical_1", status: "accepted" }),
+    });
+
+    const result = await emitSupportTicketCreatedSignal(
+      {
+        tenantId: "tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559",
+        accountId: "acct_5c88ae327c3a",
+        ticket: {
+          id: "iss_a733b7508a5a4348bbc48545481416f4",
+          ticketRef: "SV8-MANUAL-A733B7508A5A",
+          customerName: "Amara Okafor",
+          summary: "Purchase asthma kit 100pcs for pharmacy",
+          priority: "normal",
+        },
+      },
+      { fetchImpl: mockFetch }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    const [, init] = mockFetch.mock.calls[0];
+    expect(init.headers["x-servicev8-tenant-id"]).toBe("tenant_5c88ae327c3a");
+    expect(init.headers["x-servicev8-account-id"]).toBe("acct_5c88ae327c3a");
+  });
 });
 

@@ -100,7 +100,13 @@ export async function safeEmitSignal(
     data: params.data,
   };
 
+  let targetTenantId = params.tenantId;
   const accountId = params.accountId || params.tenantId;
+
+  if (targetTenantId.startsWith("tenant_rt_") && accountId.startsWith("acct_")) {
+    targetTenantId = `tenant_${accountId.replace("acct_", "")}`;
+  }
+
   const startTime = Date.now();
 
   // Structured CloudEvent emission to stdout for k8s container log inspection
@@ -111,7 +117,8 @@ export async function safeEmitSignal(
       direction: "outbound",
       stage: "emitted",
       app: "supportv8",
-      tenantId: params.tenantId,
+      tenantId: targetTenantId,
+      rawTenantId: params.tenantId !== targetTenantId ? params.tenantId : undefined,
       accountId,
       source: eventEnvelope.source,
       type: eventEnvelope.type,
@@ -121,7 +128,7 @@ export async function safeEmitSignal(
     })
   );
   console.log(
-    `[CLOUDEVENT:EMIT] app="supportv8" type="${params.eventType}" id="${eventId}" tenant="${params.tenantId}" subject="${params.subject}"`
+    `[CLOUDEVENT:EMIT] app="supportv8" type="${params.eventType}" id="${eventId}" tenant="${targetTenantId}" subject="${params.subject}"`
   );
 
   let lastError = "No cascade URLs available";
@@ -142,7 +149,7 @@ export async function safeEmitSignal(
         headers: {
           "content-type": "application/json",
           "x-servicev8-signal-secret": secret,
-          "x-servicev8-tenant-id": params.tenantId,
+          "x-servicev8-tenant-id": targetTenantId,
           "x-servicev8-account-id": accountId,
         },
         body: JSON.stringify(eventEnvelope),

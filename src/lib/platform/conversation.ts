@@ -1,0 +1,202 @@
+/**
+ * Unified AgenticOS Conversation & Turn Lifecycle
+ * Implements CHAT-01 to CHAT-05:
+ * - One workspace AgenticOS turn lifecycle
+ * - Admission check before model inference (unhired employee denied)
+ * - Exact idempotency by clientTurnId (identical body resumes turn; conflicting body rejected)
+ * - Private thread ACL and cross-tenant non-disclosing denial
+ * - Per-recipient status without fabricated responses
+ */
+
+export interface AgenticTurn {
+  turnId: string;
+  clientTurnId: string;
+  threadId: string;
+  tenantSlug: string;
+  actorId: string;
+  employeeId: string;
+  prompt: string;
+  isPrivate: boolean;
+  participants: string[];
+  status: "admitted" | "running" | "completed" | "failed";
+  createdAt: string;
+  recipientStates?: Record<string, "ready" | "unavailable">;
+}
+
+const turnsByClientTurnId = new Map<string, AgenticTurn>();
+const threadsMap = new Map<string, AgenticTurn[]>();
+
+export function clearConversationStoreForTesting(): void {
+  turnsByClientTurnId.clear();
+  threadsMap.clear();
+}
+
+export function admitAgenticTurn(options: {
+  tenantSlug: string;
+  actorId: string;
+  clientTurnId: string;
+  threadId?: string;
+  employeeId: string;
+  prompt: string;
+  activeHires: string[];
+  isPrivate?: boolean;
+  participants?: string[];
+  additionalRecipients?: string[];
+}): {
+  success: boolean;
+  status: number;
+  turnId?: string;
+  threadId?: string;
+  admitted?: boolean;
+  recipientStates?: Record<string, "ready" | "unavailable">;
+  error?: string;
+} {
+  const {
+    tenantSlug,
+    actorId,
+    clientTurnId,
+    employeeId,
+    prompt,
+    activeHires,
+    isPrivate = false,
+    participants = [actorId],
+    additionalRecipients,
+  } = options;
+
+  // CHAT-02: Idempotency check by clientTurnId
+  if (turnsByClientTurnId.has(clientTurnId)) {
+    const existing = turnsByClientTurnId.get(clientTurnId)!;
+    if (existing.tenantSlug !== tenantSlug) {
+      return { success: false, status: 409, error: "Conflicting clientTurnId across tenants." };
+    }
+    if (existing.actorId !== actorId || existing.employeeId !== employeeId) {
+      return { success: false, status: 409, error: "Conflicting actor or employee for clientTurnId replay." };
+    }
+    if (!activeHires.includes(employeeId)) {
+      return { success: false, status: 409, error: `Employee '${employeeId}' is not hired or active for workspace.` };
+    }
+    if (existing.prompt === prompt) {
+      return {
+        success: true,
+        status: 200,
+        turnId: existing.turnId,
+        threadId: existing.threadId,
+        admitted: true,
+        recipientStates: existing.recipientStates,
+      };
+    } else {
+      return {
+        success: false,
+        status: 409,
+        error: "Conflicting prompt payload for existing clientTurnId.",
+      };
+    }
+  }
+
+  // Cross-tenant & private thread access check when threadId is specified
+  if (options.threadId && threadsMap.has(options.threadId)) {
+    const threadTurns = threadsMap.get(options.threadId)!;
+    if (threadTurns.length > 0) {
+      const threadOwner = threadTurns[0];
+      if (threadOwner.tenantSlug.toLowerCase() !== tenantSlug.toLowerCase()) {
+        return { success: false, status: 403, error: "Cross-tenant thread append denied." };
+      }
+      if (threadOwner.isPrivate && !threadOwner.participants.includes(actorId)) {
+        return { success: false, status: 403, error: "Private thread access denied." };
+      }
+    }
+  }
+
+  // CHAT-01: Admission check before inference
+  if (!activeHires.includes(employeeId)) {
+    return {
+      success: false,
+      status: 409,
+      error: `Employee '${employeeId}' is not hired or active for workspace.`,
+    };
+  }
+
+  // CHAT-05: Per-recipient status tracking
+  const recipientStates: Record<string, "ready" | "unavailable"> = {
+    [employeeId]: activeHires.includes(employeeId) ? "ready" : "unavailable",
+  };
+  if (additionalRecipients) {
+    for (const r of additionalRecipients) {
+      recipientStates[r] = activeHires.includes(r) ? "ready" : "unavailable";
+    }
+  }
+
+  const turnId = `turn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const threadId = options.threadId || `th_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  const turn: AgenticTurn = {
+    turnId,
+    clientTurnId,
+    threadId,
+    tenantSlug,
+    actorId,
+    employeeId,
+    prompt,
+    isPrivate,
+    participants,
+    status: "admitted",
+    createdAt: new Date().toISOString(),
+    recipientStates,
+  };
+
+  turnsByClientTurnId.set(clientTurnId, turn);
+
+  if (!threadsMap.has(threadId)) {
+    threadsMap.set(threadId, []);
+  }
+  threadsMap.get(threadId)!.push(turn);
+
+  return {
+    success: true,
+    status: 200,
+    turnId,
+    threadId,
+    admitted: true,
+    recipientStates,
+  };
+}
+
+export function getThreadTurnHistory(options: {
+  tenantSlug: string;
+  callerSubject: string;
+  threadId: string;
+}): {
+  allowed: boolean;
+  status: number;
+  turns?: AgenticTurn[];
+  error?: string;
+} {
+  const { tenantSlug, callerSubject, threadId } = options;
+  const turns = threadsMap.get(threadId);
+
+  if (!turns || turns.length === 0) {
+    return { allowed: false, status: 404, error: "Thread not found." };
+  }
+
+  const firstTurn = turns[0];
+
+  // Cross-tenant non-disclosing denial
+  if (firstTurn.tenantSlug.toLowerCase() !== tenantSlug.toLowerCase()) {
+    return { allowed: false, status: 404, error: "Thread not found." };
+  }
+
+  // CHAT-04: Private thread ACL
+  if (firstTurn.isPrivate && !firstTurn.participants.includes(callerSubject)) {
+    return {
+      allowed: false,
+      status: 403,
+      error: "Access denied: you do not have permission to view this private thread.",
+    };
+  }
+
+  return {
+    allowed: true,
+    status: 200,
+    turns: JSON.parse(JSON.stringify(turns)),
+  };
+}

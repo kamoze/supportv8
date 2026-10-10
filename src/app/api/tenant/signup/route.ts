@@ -73,11 +73,17 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanAdminEmail = adminEmail.trim().toLowerCase();
-    const hasVerification = await otpStore.consumeSignupReceipt(
-      String(verificationReceipt || ""),
-      cleanAdminEmail,
-      cleanDomain
-    );
+    const hasVerification = typeof otpStore.verifySignupReceipt === "function"
+      ? await otpStore.verifySignupReceipt(
+          String(verificationReceipt || ""),
+          cleanAdminEmail,
+          cleanDomain
+        )
+      : await otpStore.consumeSignupReceipt(
+          String(verificationReceipt || ""),
+          cleanAdminEmail,
+          cleanDomain
+        );
     if (!hasVerification) {
       return NextResponse.json(
         { success: false, error: "Email verification is required before creating a workspace." },
@@ -179,6 +185,12 @@ export async function POST(req: NextRequest) {
       });
 
       const tenant = db.getTenantData(cleanDomain).tenant;
+
+      await otpStore.consumeSignupReceipt(
+        String(verificationReceipt || ""),
+        cleanAdminEmail,
+        cleanDomain
+      ).catch(() => undefined);
 
       return NextResponse.json({
         success: true,

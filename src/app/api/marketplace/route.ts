@@ -4,6 +4,10 @@ import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenan
 import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-security";
 import { accountMembers, AccountError } from "@/lib/auth/account-members";
 import { requireSameOrigin } from "@/lib/auth/account-error";
+import { isDemoTenant } from "@/lib/platform/workforce";
+import { handleAppAcquisition, handleAppLaunch } from "@/lib/platform/acquisition";
+
+const deductionReceipts = new Map<string, { deducted: number; remaining: number; reason: string }>();
 
 function marketplaceError(error: unknown) {
   if (error instanceof RequestAuthError || error instanceof AccountError) {
@@ -49,11 +53,45 @@ export async function POST(req: NextRequest) {
       );
     }
     const body = await req.json();
-    const { action } = body;
+    const action = body.action || (body.operation === "appAcquire" ? "app_acquire" : body.operation === "appLaunch" ? "app_launch" : undefined);
+
+    if (action === "app_acquire") {
+      const result = handleAppAcquisition(tenant, body);
+      return NextResponse.json(
+        { success: result.success, error: result.error, data: result.data },
+        { status: result.status }
+      );
+    }
+
+    if (action === "app_launch") {
+      const result = handleAppLaunch(tenant, body);
+      return NextResponse.json(
+        { success: result.success, error: result.error, launchUrl: result.launchUrl },
+        { status: result.status }
+      );
+    }
 
     if (action === "deduct_credits") {
-      const { amount, reason } = body;
-      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction", tenant.tenantSlug, tenant);
+      const { amount, reason, idempotencyKey } = body;
+      const key = idempotencyKey ? `${tenant.tenantSlug}:${idempotencyKey}` : null;
+      if (key && deductionReceipts.has(key)) {
+        const cached = deductionReceipts.get(key)!;
+        return NextResponse.json({
+          success: true,
+          message: `Deducted ${cached.deducted} credits (idempotent). Balance: ${cached.remaining}`,
+          data: cached,
+        });
+      }
+
+      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction", tenant.tenantSlug, {
+        accountId: tenant.accountId,
+        runtimeLinked: tenant.runtimeLinked,
+      });
+
+      if (key) {
+        deductionReceipts.set(key, result);
+      }
+
       return NextResponse.json({
         success: true,
         message: `Deducted ${result.deducted} credits. Balance: ${result.remaining}`,
@@ -62,6 +100,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "add_credits" || action === "purchase_credits") {
+      if (!isDemoTenant(tenant.tenantSlug)) {
+        return NextResponse.json(
+          { success: false, error: "Credit purchases require canonical Forge billing operations." },
+          { status: 403 }
+        );
+      }
       const { amount, reason } = body;
       const result = marketplaceService.addCredits(amount || 0, reason || "Credit purchase", tenant.tenantSlug, tenant);
       return NextResponse.json({
@@ -72,6 +116,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "toggle_connector") {
+      if (!isDemoTenant(tenant.tenantSlug)) {
+        return NextResponse.json(
+          { success: false, error: "Connector configuration requires canonical Studio/Gateway setup." },
+          { status: 403 }
+        );
+      }
       const { connectorId, isSubscribed } = body;
       const updated = marketplaceService.toggleConnector(connectorId, isSubscribed, tenant.tenantSlug);
       return NextResponse.json({
@@ -82,6 +132,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "hire_agent") {
+      if (!isDemoTenant(tenant.tenantSlug)) {
+        return NextResponse.json(
+          { success: false, error: "Hiring requires canonical Marketplace acquisition." },
+          { status: 403 }
+        );
+      }
       const { agentId } = body;
       const updated = marketplaceService.hireWorkforceAgent(agentId, tenant.tenantSlug);
       return NextResponse.json({
@@ -93,7 +149,11 @@ export async function POST(req: NextRequest) {
 
     if (action === "select_plan") {
       const { planId } = body;
+      const prevCredits = marketplaceService.getCredits(tenant.tenantSlug, tenant);
       const plan = marketplaceService.selectPlan(planId, tenant.tenantSlug, tenant);
+      if (!isDemoTenant(tenant.tenantSlug) && prevCredits === 0) {
+        marketplaceService.setCredits(0, tenant.tenantSlug, tenant);
+      }
       const currentCredits = marketplaceService.getCredits(tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,

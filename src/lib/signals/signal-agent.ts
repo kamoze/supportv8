@@ -165,8 +165,16 @@ export async function safeEmitSignal(
         try {
           body = (await response.json()) as any;
         } catch {
-          body = { ok: true, status: "accepted" };
+          body = { ok: false, status: "accepted" };
         }
+
+        if (!body.receiptId) {
+          return {
+            ok: false,
+            error: "Signal delivery did not produce a durable receipt",
+          };
+        }
+
         const durationMs = Date.now() - startTime;
         console.log(
           JSON.stringify({

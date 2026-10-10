@@ -194,6 +194,14 @@ export function readRuntimeSupportCookie(request: Request): string | null {
   const value = values[0]!.slice(RUNTIME_SUPPORT_COOKIE.length + 1);
   return value && value.length <= 8192 ? value : null;
 }
+let customRuntimeAccessResolver: ((scope: SupportRuntimeScope) => Promise<OperationalSupportAccess | null>) | null = null;
+
+export function setCustomRuntimeAccessResolverForTesting(
+  resolver: ((scope: SupportRuntimeScope) => Promise<OperationalSupportAccess | null>) | null
+) {
+  customRuntimeAccessResolver = resolver;
+}
+
 export async function authorizeRuntimeSupportRequest(
   request: Request,
   deps: {
@@ -228,7 +236,8 @@ export async function authorizeRuntimeSupportRequest(
     workspaceId: session.workspaceId,
     subject: session.sub,
   };
-  const access = await (deps.resolve ?? resolveOperationalSupportAccess)(scope);
+  const resolver = deps.resolve ?? customRuntimeAccessResolver ?? resolveOperationalSupportAccess;
+  const access = await resolver(scope);
   if (
     !access ||
     session.exp <= (deps.now?.() ?? Math.floor(Date.now() / 1000)) ||

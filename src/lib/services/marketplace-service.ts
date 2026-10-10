@@ -1326,10 +1326,6 @@ export class MarketplaceService {
       return this.getCommonPoolCredits();
     }
     const state = this.stateFor(tenantSlug);
-    const activePlan = state.plans.find((p) => p.isCurrent);
-    if (activePlan && state.credits === 0 && (activePlan.creditsAllowance ?? 0) > 0) {
-      state.credits = activePlan.creditsAllowance ?? 0;
-    }
     return state.credits;
   }
 
@@ -1572,6 +1568,11 @@ export class MarketplaceService {
     item.isHired = true;
     item.hiredCount += 1;
     return { ...item };
+  }
+
+  public isDemoTenant(tenantSlug: string): boolean {
+    const clean = tenantSlug.trim().toLowerCase();
+    return clean === "acme" || clean === "meridian";
   }
 
   public selectPlan(

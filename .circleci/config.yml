@@ -2,6 +2,7 @@ version: 2.1
 
 jobs:
   build:
+    resource_class: redoosolutions/servicev8
     docker:
       - image: cimg/node:22.13
         environment:

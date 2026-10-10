@@ -73,6 +73,8 @@ export async function dispatchAgenticTurn(
     tenantSlug: string;
     tenantId: string;
     prompt: string;
+    clientTurnId?: string;
+    instanceId?: string;
     stream?: string;
     recipientId?: string;
     actorEmail?: string | null;
@@ -119,6 +121,8 @@ export async function dispatchAgenticTurn(
         slug: input.tenantSlug,
         prompt: input.prompt,
         recipientId: input.recipientId || "support_lead",
+        clientTurnId: input.clientTurnId,
+        instanceId: input.instanceId,
         domainContext,
       }),
       cache: "no-store",

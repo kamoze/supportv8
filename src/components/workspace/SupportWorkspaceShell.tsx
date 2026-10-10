@@ -32,77 +32,14 @@ import { SupportV8Logo } from "@/components/SupportV8Logo";
 import { FamilyThemeToggle } from "@/components/FamilyControls";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 
-export type WorkspaceNavItem = {
-  id: string;
-  label: string;
-  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-  available?: boolean;
-  badge?: number;
-};
-export type WorkspaceNavSection = { title: string; items: WorkspaceNavItem[] };
-export const fullSupportNavigation: WorkspaceNavSection[] = [
-  {
-    title: "Work Desk",
-    items: [
-      { id: "workspace", label: "Work Desk", icon: Briefcase, available: true },
-      { id: "problems", label: "Problem Matrix", icon: AlertTriangle },
-      {
-        id: "issues",
-        label: "Issues Explorer",
-        icon: MessageSquare,
-        available: true,
-      },
-      { id: "cx_cockpit", label: "CX Cockpit", icon: Target },
-    ],
-  },
-  {
-    title: "Core Intelligence",
-    items: [
-      {
-        id: "overview",
-        label: "Overview",
-        icon: LayoutDashboard,
-        available: true,
-      },
-      { id: "studio", label: "Autonomous Studio", icon: Cpu },
-      { id: "trends", label: "Trend Radar", icon: TrendingUp },
-      { id: "knowledge", label: "Knowledge Suite", icon: Brain },
-      { id: "portal_composer", label: "Support Portal", icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: "Workforce",
-    items: [
-      { id: "workforce", label: "Workforce", icon: Users },
-      { id: "ask", label: "AgenticOS Chat", icon: MessageSquare },
-      { id: "approvals", label: "Approvals", icon: CheckCircle2 },
-      { id: "workflows", label: "Workflows", icon: Layers },
-      { id: "gov_audit", label: "Audit & Logs", icon: ShieldCheck },
-    ],
-  },
-  {
-    title: "Marketplace",
-    items: [
-      {
-        id: "studio_marketplace",
-        label: "Browse Marketplace",
-        icon: ShoppingBag,
-      },
-      { id: "market_workforce", label: "Installed Products", icon: Users },
-      { id: "market_connectors", label: "Connectors", icon: Plug },
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      { id: "gov_settings", label: "Settings", icon: Settings },
-      { id: "gov_members", label: "Members", icon: User },
-      { id: "market_plans", label: "Plans & Credits", icon: CreditCard },
-      { id: "policies", label: "Policies & Rules", icon: Shield },
-      { id: "gov_reports", label: "Reports", icon: FileText },
-    ],
-  },
-];
+import {
+  canonicalSupportNavigation,
+  type WorkspaceNavItem,
+  type WorkspaceNavSection,
+} from "@/lib/platform/navigation";
+
+export type { WorkspaceNavItem, WorkspaceNavSection };
+export const fullSupportNavigation: WorkspaceNavSection[] = canonicalSupportNavigation;
 
 export function SupportWorkspaceShell({
   navigation,

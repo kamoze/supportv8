@@ -29,6 +29,9 @@ const knownRuntimeViews = new Set([
   "gov_settings",
   "gov_members",
   "gov_audit",
+  "gov_audits",
+  "gov_logs",
+  "gov_api_keys",
   "gov_reports",
   "policies",
 ]);

@@ -3,6 +3,7 @@ import { workforceManager } from "@/lib/workforce";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-security";
+import { isDemoTenant, canExecuteWorkforceAction } from "@/lib/platform/workforce";
 
 export async function GET(req: NextRequest) {
   try {
@@ -38,6 +39,12 @@ export async function POST(req: NextRequest) {
     const { action, memberId, task, employeeId, issueDescription } = await req.json();
 
     if (action === "hire") {
+      if (!isDemoTenant(tenant.tenantSlug)) {
+        return NextResponse.json(
+          { success: false, error: "Hiring requires canonical Marketplace acquisition." },
+          { status: 403 }
+        );
+      }
       const hired = marketplaceService.hireWorkforceAgent(employeeId || memberId, tenant.tenantSlug);
       const member = workforceManager.getById(hired.id);
       return NextResponse.json({ success: true, message: `${hired.name} hired for this workspace.`, data: member });
@@ -45,17 +52,27 @@ export async function POST(req: NextRequest) {
 
     if (action === "assign_work") {
       const targetId = memberId || employeeId;
-      const isHired = marketplaceService.getWorkforceCatalog(tenant.tenantSlug)
-        .some((member) => member.id === targetId && member.isHired);
-      if (!isHired) {
-        return NextResponse.json({ success: false, error: "This AI employee is not hired for the workspace." }, { status: 409 });
+      const executionCheck = canExecuteWorkforceAction({
+        tenantSlug: tenant.tenantSlug,
+        employeeId: targetId,
+      });
+      if (!executionCheck.allowed) {
+        return NextResponse.json({ success: false, error: executionCheck.error }, { status: executionCheck.status });
       }
       const result = workforceManager.assignWork(targetId, issueDescription || task);
       return NextResponse.json({ success: result.success, message: result.message, supervisor: result.supervisor });
     }
 
     if (action === "delegate") {
-      const result = workforceManager.delegateTask(memberId, task);
+      const targetId = memberId || employeeId;
+      const executionCheck = canExecuteWorkforceAction({
+        tenantSlug: tenant.tenantSlug,
+        employeeId: targetId,
+      });
+      if (!executionCheck.allowed) {
+        return NextResponse.json({ success: false, error: executionCheck.error }, { status: executionCheck.status });
+      }
+      const result = workforceManager.delegateTask(targetId, task);
       return NextResponse.json({ success: true, data: result });
     }
 

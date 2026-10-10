@@ -121,7 +121,7 @@ export function StudioMarketplaceHubView({
             className="btn btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5 font-mono cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-[#2ED8B6]" />
-            <span>Manage in Studio</span>
+            <span>Manage Studio</span>
           </a>
 
           {onNavigateToInstalled && (

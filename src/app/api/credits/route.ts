@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
 import { marketplaceService } from "@/lib/services/marketplace-service";
+import { isDemoTenant } from "@/lib/platform/workforce";
 
 function creditError(error: unknown) {
   if (error instanceof RequestAuthError) {
@@ -42,7 +43,12 @@ export async function POST(req: NextRequest) {
     const { action, amount, reason } = body;
 
     if (action === "deduct") {
-      const result = marketplaceService.deductCredits(amount || 0, reason || "API credit deduction", tenant.tenantSlug, tenant);
+      const result = marketplaceService.deductCredits(
+        amount || 0,
+        reason || "API credit deduction",
+        tenant.tenantSlug,
+        { accountId: tenant.accountId, runtimeLinked: tenant.runtimeLinked }
+      );
       return NextResponse.json({
         success: true,
         message: `Deducted ${result.deducted} ForgeGW Credits. Balance: ${result.remaining}`,
@@ -51,6 +57,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "add" || action === "topup") {
+      if (!isDemoTenant(tenant.tenantSlug)) {
+        return NextResponse.json(
+          { success: false, error: "Credit grants and mutations require canonical Forge billing operations." },
+          { status: 403 }
+        );
+      }
       const result = marketplaceService.addCredits(amount || 0, reason || "API credit top-up", tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,
@@ -60,6 +72,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "set") {
+      if (!isDemoTenant(tenant.tenantSlug)) {
+        return NextResponse.json(
+          { success: false, error: "Credit grants and mutations require canonical Forge billing operations." },
+          { status: 403 }
+        );
+      }
       const updated = marketplaceService.setCredits(amount || 0, tenant.tenantSlug, tenant);
       return NextResponse.json({
         success: true,

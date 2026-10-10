@@ -458,6 +458,18 @@ export class OtpStore {
     return verified ? receipt : null;
   }
 
+  async verifySignupReceipt(
+    receipt: string,
+    email: string,
+    tenantSlug: string
+  ): Promise<boolean> {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(receipt)) return false;
+    const key = signupReceiptKey(receipt);
+    const expected = signupReceiptBinding(email, tenantSlug);
+    const val = await this.callBackend(() => this.backend.get(key));
+    return val === expected;
+  }
+
   async consumeSignupReceipt(
     receipt: string,
     email: string,

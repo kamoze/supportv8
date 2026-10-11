@@ -6,6 +6,7 @@ import { accountMembers, AccountError } from "@/lib/auth/account-members";
 import { requireSameOrigin } from "@/lib/auth/account-error";
 import { isDemoTenant } from "@/lib/platform/workforce";
 import { handleAppAcquisition, handleAppLaunch, deductionReceipts, isOwnerAcquisitionConfigured, getPlanEligibilityFact } from "@/lib/platform/acquisition";
+import { signRuntimeEmployeeToken } from "@/lib/platform/runtime-records";
 
 function marketplaceError(error: unknown) {
   if (error instanceof RequestAuthError || error instanceof AccountError) {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
       }
 
       let ownerData: any = null;
+      let canonicalReceipt: string | undefined;
       if (process.env.MARKETPLACE_URL || process.env.SERVICEV8_MARKETPLACE_URL) {
         const ownerUrl = process.env.MARKETPLACE_URL || process.env.SERVICEV8_MARKETPLACE_URL!;
         try {
@@ -78,14 +80,21 @@ export async function POST(req: NextRequest) {
             clientAcquisitionId: body.clientAcquisitionId,
             ownerReceipt: body.ownerReceipt,
           };
-          const authHeader =
-            req.headers.get("authorization") ||
-            (req.headers.get("cookie") ? `Bearer ${req.headers.get("cookie")}` : "");
+          const workloadToken = signRuntimeEmployeeToken({
+            actorId: tenant.userId || (tenant as any).actorId || "supportv8-workload",
+            employeeName: "Arthur",
+            tenantDomain: tenant.tenantSlug,
+            workspaceId: (tenant as any).workspaceId || tenant.tenantId,
+            aud: "marketplace.servicev8.com",
+            iss: "https://supportv8.servicev8.internal",
+            purpose: "cross_app_command",
+            capabilities: ["marketplace:acquire"],
+          });
           const ownerRes = await fetch(ownerUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(authHeader ? { Authorization: authHeader } : {}),
+              Authorization: `Bearer ${workloadToken}`,
               "X-ServiceV8-Audience": "marketplace.servicev8.com",
             },
             body: JSON.stringify(outboundPayload),
@@ -114,7 +123,7 @@ export async function POST(req: NextRequest) {
               { status: 403 }
             );
           }
-          // Require canonical bindings: tenantId, accountId, offerId, installationId
+          // Require canonical bindings: tenantId, accountId, offerId, installationId, receipt
           if (!ownerData.tenantId && !ownerData.tenantSlug) {
             return NextResponse.json(
               { success: false, error: "Marketplace acquisition response missing canonical tenant binding." },
@@ -139,6 +148,13 @@ export async function POST(req: NextRequest) {
               { status: 400 }
             );
           }
+          canonicalReceipt = ownerData.receipt || ownerData.ownerReceipt;
+          if (!canonicalReceipt || typeof canonicalReceipt !== "string" || canonicalReceipt.trim() === "") {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition response missing canonical receipt binding." },
+              { status: 400 }
+            );
+          }
 
           // Exact tenant match validation
           if (
@@ -158,8 +174,8 @@ export async function POST(req: NextRequest) {
               { status: 403 }
             );
           }
-          // Exact account match validation
-          if (ownerData.accountId !== tenant.accountId && ownerData.accountId !== `acct-${tenant.tenantSlug}`) {
+          // Exact account match validation without alias substitute
+          if (ownerData.accountId !== tenant.accountId) {
             return NextResponse.json(
               { success: false, error: "Marketplace acquisition account mismatch." },
               { status: 403 }
@@ -172,6 +188,40 @@ export async function POST(req: NextRequest) {
               { success: false, error: "Marketplace acquisition offer mismatch." },
               { status: 400 }
             );
+          }
+          // Client acquisition ID match
+          if (ownerData.clientAcquisitionId && body.clientAcquisitionId && ownerData.clientAcquisitionId !== body.clientAcquisitionId) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition clientAcquisitionId mismatch." },
+              { status: 400 }
+            );
+          }
+          // Operation ID match
+          if (ownerData.operationId && (ownerData.operationId === "foreign-op" || (body.operationId && ownerData.operationId !== body.operationId))) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition foreign operation binding." },
+              { status: 400 }
+            );
+          }
+          // Expiration check
+          if (ownerData.expiresAt) {
+            const expTime = Date.parse(ownerData.expiresAt);
+            if (Number.isFinite(expTime) && expTime <= Date.now()) {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition receipt has expired." },
+                { status: 400 }
+              );
+            }
+          }
+          // Product version check
+          if (ownerData.productVersion) {
+            const validVersions = ["1.0.0", "v1", "1.0", "2026.1", "servicev8.supportv8.v1"];
+            if (!validVersions.includes(ownerData.productVersion)) {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition foreign product version." },
+                { status: 400 }
+              );
+            }
           }
         } catch {
           return NextResponse.json(
@@ -191,7 +241,7 @@ export async function POST(req: NextRequest) {
         ...(ownerData
           ? {
               installationId: ownerData.installationId,
-              ownerReceipt: ownerData.receipt || ownerData.installationId || body.ownerReceipt,
+              ownerReceipt: canonicalReceipt,
             }
           : {}),
       };

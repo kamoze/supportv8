@@ -7,6 +7,7 @@ import {
   getScenarioConfig,
   CANONICAL_WORKFORCE_AGENT_IDS,
   isScenarioAcquiredForTenant,
+  getAcquiredScenarioForTenant,
 } from "@/lib/platform/scenarios";
 
 import { marketplaceService } from "@/lib/services/marketplace-service";
@@ -87,12 +88,50 @@ export async function POST(request: NextRequest) {
         .getWorkforceCatalog(tenant.tenantSlug)
         .filter((employee) => employee.isHired)
         .map((employee) => employee.id);
+      const acquired = getAcquiredScenarioForTenant(tenant.tenantSlug, config.scenarioId);
+      let executionStatus: "running" | "unavailable" | "failed" = "running";
+      let failureReason: string | undefined;
+
+      // Contact execution owner dispatcher if configured
+      if (acquired?.dispatcherId) {
+        try {
+          const dispatchUrl =
+            process.env.WORKFLOW_DISPATCH_URL ||
+            `https://dispatch.servicev8.internal/api/v1/scenarios/${config.scenarioId}/dispatch`;
+          const res = await fetch(dispatchUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-ServiceV8-Tenant": tenant.tenantSlug,
+              "X-ServiceV8-Dispatcher": acquired.dispatcherId,
+            },
+            body: JSON.stringify({
+              scenarioId: config.scenarioId,
+              configId: body.configId,
+              revision: config.revision,
+              participants: config.participants,
+              assignedConnectors: acquired.assignedConnectors,
+              idempotencyKey: body.idempotencyKey,
+            }),
+          });
+          if (!res.ok) {
+            executionStatus = "unavailable";
+            failureReason = `Execution owner rejected dispatch (${res.status})`;
+          }
+        } catch (err: any) {
+          executionStatus = "unavailable";
+          failureReason = err?.message || "Execution owner unavailable";
+        }
+      }
+
       const runResult = startScenarioRun({
         tenantSlug: tenant.tenantSlug,
         configId: body.configId,
         activeHires: hiredEmployees,
         idempotencyKey: body.idempotencyKey,
         requireAcquisition: true,
+        executionStatus,
+        failureReason,
       });
       return NextResponse.json(
         { success: runResult.success, data: runResult.run, error: runResult.error },

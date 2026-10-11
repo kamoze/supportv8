@@ -33,7 +33,7 @@ export interface ScenarioRun {
   configId: string;
   pinnedRevision: number;
   pinnedParticipants: ScenarioParticipant[];
-  status: "running" | "completed" | "failed" | "stopped";
+  status: "running" | "completed" | "failed" | "stopped" | "unavailable";
   idempotencyKey?: string;
   startedAt: string;
   completedAt?: string;
@@ -222,8 +222,10 @@ export function startScenarioRun(options: {
   activeHires: string[];
   idempotencyKey?: string;
   requireAcquisition?: boolean;
+  executionStatus?: "running" | "unavailable" | "failed";
+  failureReason?: string;
 }): { success: boolean; status: number; run?: ScenarioRun; error?: string } {
-  const { tenantSlug, configId, activeHires, idempotencyKey, requireAcquisition } = options;
+  const { tenantSlug, configId, activeHires, idempotencyKey, requireAcquisition, executionStatus, failureReason } = options;
 
   // Config ownership check
   const config = getScenarioConfig(tenantSlug, configId);
@@ -313,7 +315,8 @@ export function startScenarioRun(options: {
     configId,
     pinnedRevision: config.revision,
     pinnedParticipants: JSON.parse(JSON.stringify(config.participants)),
-    status: "running",
+    status: executionStatus || "running",
+    failureReason: failureReason || undefined,
     idempotencyKey,
     startedAt: new Date().toISOString(),
     dispatcherId: acquiredRecord?.dispatcherId,

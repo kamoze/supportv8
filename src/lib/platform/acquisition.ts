@@ -169,7 +169,7 @@ export function handleAppAcquisition(
     clientAcquisitionId: clientKey,
     status: "active",
     acquiredAt: new Date().toISOString(),
-    ownerReceipt: payload.ownerReceipt || canonicalInstallationId,
+    ownerReceipt: payload.ownerReceipt,
   };
 
   appAcquisitionsByTenant.set(tenant.tenantSlug, installation);

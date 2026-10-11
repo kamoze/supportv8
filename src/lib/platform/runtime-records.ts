@@ -449,10 +449,11 @@ async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<
     });
     const client = await pool.connect();
     try {
-      await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [cleanTenant]).catch(() => {});
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [cleanTenant]);
       const colCheck = await client.query(
         "SELECT column_name FROM information_schema.columns WHERE table_schema = 'supportv8' AND table_name = 'issues'"
-      ).catch(() => ({ rows: [] }));
+      );
       const cols = new Set(colCheck.rows.map((r: any) => r.column_name.toLowerCase()));
       const hasCategory = cols.has("category");
       const hasCustomerRef = cols.has("customer_ref");
@@ -485,6 +486,7 @@ async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<
         `SELECT ${selectCols} FROM supportv8.issues WHERE tenant_id = $1 ORDER BY ${hasUpdatedAt ? "updated_at DESC, " : ""}id DESC`,
         [cleanTenant]
       );
+      await client.query("COMMIT");
       return res.rows.map((row: any) => ({
         id: row.id,
         ticketRef: row.external_id || `SV8-${cleanTenant}-${row.id}`,
@@ -500,8 +502,9 @@ async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       }));
-    } catch {
-      return tenantTicketsStore.get(cleanTenant) || [];
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
     } finally {
       client.release();
       await pool.end();

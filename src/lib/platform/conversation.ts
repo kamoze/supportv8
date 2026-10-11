@@ -9,6 +9,8 @@
  */
 
 import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 
 export interface AgenticTurn {
   turnId: string;
@@ -21,6 +23,7 @@ export interface AgenticTurn {
   prompt: string;
   isPrivate: boolean;
   participants: string[];
+  additionalRecipients?: string[];
   status: "admitted" | "running" | "completed" | "failed";
   createdAt: string;
   recipientStates?: Record<string, "ready" | "unavailable">;
@@ -37,26 +40,50 @@ function getConversationStorageFile(): string {
   return process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
 }
 
+function getSharedOperationDirs(): string[] {
+  const file = getConversationStorageFile();
+  const dirs = [
+    path.join(path.dirname(file), ".turns"),
+    path.join(os.tmpdir(), "supportv8-shared-operations"),
+  ];
+  return dirs;
+}
+
+function persistTurnAtomic(turn: AgenticTurn): void {
+  for (const dir of getSharedOperationDirs()) {
+    try {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const p = path.join(dir, `${turn.clientTurnId}.json`);
+      fs.writeFileSync(p, JSON.stringify(turn));
+    } catch {
+      // Ignore directory write error
+    }
+  }
+}
+
 function loadFromDisk(): void {
   const file = getConversationStorageFile();
   try {
     if (fs.existsSync(file)) {
       const stat = fs.statSync(file);
-      if (!stat.isFile()) return;
-      const raw = fs.readFileSync(file, "utf-8");
-      const data = JSON.parse(raw);
-      if (data && typeof data === "object") {
-        if (data.turns) {
-          for (const [k, v] of Object.entries(data.turns)) {
-            if (!turnsByClientTurnId.has(k)) {
-              turnsByClientTurnId.set(k, v as AgenticTurn);
+      if (stat.isFile()) {
+        const raw = fs.readFileSync(file, "utf-8");
+        const data = JSON.parse(raw);
+        if (data && typeof data === "object") {
+          if (data.turns) {
+            for (const [k, v] of Object.entries(data.turns)) {
+              if (!turnsByClientTurnId.has(k)) {
+                turnsByClientTurnId.set(k, v as AgenticTurn);
+              }
             }
           }
-        }
-        if (data.threads) {
-          for (const [k, v] of Object.entries(data.threads)) {
-            if (!threadsMap.has(k)) {
-              threadsMap.set(k, v as AgenticTurn[]);
+          if (data.threads) {
+            for (const [k, v] of Object.entries(data.threads)) {
+              if (!threadsMap.has(k)) {
+                threadsMap.set(k, v as AgenticTurn[]);
+              }
             }
           }
         }
@@ -64,9 +91,43 @@ function loadFromDisk(): void {
     }
   } catch (err: any) {
     if (err && err.code === "ENOENT") {
-      return;
+      // Normal when file does not exist yet
     }
-    // Ignore read errors
+    // Storage may be corrupted or unreadable; recover from atomic turn claims below
+  }
+
+  // Recover / reconcile from durable shared operation claims across volumes and processes
+  for (const dir of getSharedOperationDirs()) {
+    try {
+      if (fs.existsSync(dir)) {
+        const entries = fs.readdirSync(dir);
+        for (const entry of entries) {
+          if (entry.endsWith(".json")) {
+            try {
+              const content = fs.readFileSync(path.join(dir, entry), "utf-8");
+              const turn = JSON.parse(content) as AgenticTurn;
+              if (turn && turn.clientTurnId) {
+                const existing = turnsByClientTurnId.get(turn.clientTurnId);
+                if (!existing || turn.status === "running" || turn.status === "completed") {
+                  turnsByClientTurnId.set(turn.clientTurnId, turn);
+                }
+                if (turn.threadId) {
+                  const list = threadsMap.get(turn.threadId) || [];
+                  if (!list.some((t) => t.turnId === turn.turnId)) {
+                    list.push(turn);
+                    threadsMap.set(turn.threadId, list);
+                  }
+                }
+              }
+            } catch {
+              // Ignore invalid single turn claim
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore read error
+    }
   }
 }
 
@@ -75,6 +136,7 @@ function saveToDisk(): void {
   const turnsObj: Record<string, AgenticTurn> = {};
   for (const [k, v] of turnsByClientTurnId.entries()) {
     turnsObj[k] = v;
+    persistTurnAtomic(v);
   }
   const threadsObj: Record<string, AgenticTurn[]> = {};
   for (const [k, v] of threadsMap.entries()) {
@@ -96,6 +158,13 @@ export function clearConversationStoreForTesting(): void {
     }
   } catch {
     // Ignore
+  }
+  for (const dir of getSharedOperationDirs()) {
+    try {
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    } catch {}
   }
 }
 
@@ -242,6 +311,20 @@ export function admitAgenticTurn(options: {
         error: "Conflicting prompt payload for existing clientTurnId.",
       };
     }
+    const incomingRecipients = options.additionalRecipients || [];
+    const existingRecipients = existing.additionalRecipients || [];
+    const sortedIncomingR = [...incomingRecipients].sort();
+    const sortedExistingR = [...existingRecipients].sort();
+    const recipientsEqual =
+      sortedIncomingR.length === sortedExistingR.length &&
+      sortedIncomingR.every((val, idx) => val === sortedExistingR[idx]);
+    if (!recipientsEqual) {
+      return {
+        success: false,
+        status: 409,
+        error: "Conflicting additionalRecipients for existing clientTurnId.",
+      };
+    }
     return {
       success: true,
       status: 200,
@@ -302,6 +385,7 @@ export function admitAgenticTurn(options: {
     prompt,
     isPrivate,
     participants,
+    additionalRecipients: options.additionalRecipients ? [...options.additionalRecipients] : [],
     status: "admitted",
     createdAt: new Date().toISOString(),
     recipientStates,

@@ -5,9 +5,7 @@ import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-securit
 import { accountMembers, AccountError } from "@/lib/auth/account-members";
 import { requireSameOrigin } from "@/lib/auth/account-error";
 import { isDemoTenant } from "@/lib/platform/workforce";
-import { handleAppAcquisition, handleAppLaunch } from "@/lib/platform/acquisition";
-
-const deductionReceipts = new Map<string, { deducted: number; remaining: number; reason: string }>();
+import { handleAppAcquisition, handleAppLaunch, deductionReceipts } from "@/lib/platform/acquisition";
 
 function marketplaceError(error: unknown) {
   if (error instanceof RequestAuthError || error instanceof AccountError) {
@@ -73,23 +71,35 @@ export async function POST(req: NextRequest) {
 
     if (action === "deduct_credits") {
       const { amount, reason, idempotencyKey } = body;
+      const parsedAmount = typeof amount === "number" ? amount : 0;
+      const parsedReason = reason || "Operation deduction";
       const key = idempotencyKey ? `${tenant.tenantSlug}:${idempotencyKey}` : null;
       if (key && deductionReceipts.has(key)) {
         const cached = deductionReceipts.get(key)!;
+        if (cached.amount !== parsedAmount || (reason !== undefined && cached.reason !== parsedReason)) {
+          return NextResponse.json(
+            { success: false, error: "Idempotency conflict: payload does not match original request" },
+            { status: 409 }
+          );
+        }
         return NextResponse.json({
           success: true,
-          message: `Deducted ${cached.deducted} credits (idempotent). Balance: ${cached.remaining}`,
-          data: cached,
+          message: `Deducted ${cached.result.deducted} credits (idempotent). Balance: ${cached.result.remaining}`,
+          data: cached.result,
         });
       }
 
-      const result = marketplaceService.deductCredits(amount || 0, reason || "Operation deduction", tenant.tenantSlug, {
+      const result = marketplaceService.deductCredits(parsedAmount, parsedReason, tenant.tenantSlug, {
         accountId: tenant.accountId,
         runtimeLinked: tenant.runtimeLinked,
       });
 
       if (key) {
-        deductionReceipts.set(key, result);
+        deductionReceipts.set(key, {
+          amount: parsedAmount,
+          reason: parsedReason,
+          result,
+        });
       }
 
       return NextResponse.json({

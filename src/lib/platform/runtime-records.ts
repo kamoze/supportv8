@@ -91,6 +91,7 @@ export interface RuntimeRecordAuditEntry {
 // In-memory test state
 const actorGrants = new Map<string, "active" | "revoked">();
 const tenantEntitlements = new Map<string, "active" | "revoked">();
+const tenantTicketsStore = new Map<string, Array<Record<string, unknown>>>();
 let outageMode = false;
 const auditLogs: RuntimeRecordAuditEntry[] = [];
 
@@ -100,6 +101,10 @@ export function setRuntimeActorGrant(actorId: string, status: "active" | "revoke
 
 export function setTenantEntitlementFact(tenantDomain: string, status: "active" | "revoked"): void {
   tenantEntitlements.set(tenantDomain, status);
+}
+
+export function setTenantTicketsForTesting(tenantDomain: string, tickets: Array<Record<string, unknown>>): void {
+  tenantTicketsStore.set(tenantDomain.replace(/^tenant_/, "").toLowerCase(), tickets);
 }
 
 export function setRuntimeRecordOutage(outage: boolean): void {
@@ -121,8 +126,29 @@ export function clearRuntimeRecordAuditLogsForTesting(): void {
 export function clearRuntimeRecordsStateForTesting(): void {
   actorGrants.clear();
   tenantEntitlements.clear();
+  tenantTicketsStore.clear();
   outageMode = false;
   auditLogs.length = 0;
+
+  // Initialize known test tenants with isolated domain records
+  const seedTenants = ["tenant-a", "tenant-b"];
+  for (const t of seedTenants) {
+    tenantTicketsStore.set(
+      t,
+      INITIAL_ISSUES.map((issue) => ({
+        id: `${t}-${issue.id}`,
+        ticketRef: `SV8-${t}-${issue.id}`,
+        customerRef: `${t}-${issue.customerRef}`,
+        customerName: issue.customerName,
+        status: issue.sourceStatus,
+        priority: issue.priority,
+        summary: issue.summary,
+        source: issue.source,
+        createdAt: issue.createdAt,
+        updatedAt: issue.updatedAt,
+      }))
+    );
+  }
 }
 
 export function logRuntimeRecordAccess(entry: Omit<RuntimeRecordAuditEntry, "id" | "timestamp">): void {
@@ -245,13 +271,22 @@ export function verifyRuntimeEmployeeToken(
 
   const now = options.now ?? Math.floor(Date.now() / 1000);
 
-  // Expiration check
-  if (typeof payload.exp !== "number" || payload.exp <= now) {
-    return { valid: false, status: 401, error: "Token expired" };
+  // Issued-at validation
+  if (typeof payload.iat !== "number" || !Number.isFinite(payload.iat)) {
+    return { valid: false, status: 401, error: "Missing or invalid iat claim" };
+  }
+  if (payload.iat > now + 60) {
+    return { valid: false, status: 401, error: "Token issued in future" };
   }
 
-  // TTL limit check: max 300s
-  if (typeof payload.iat === "number" && (payload.exp - payload.iat > 300 || payload.exp - payload.iat <= 0)) {
+  // Expiration check
+  if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp) || payload.exp <= now) {
+    return { valid: false, status: 401, error: "Token expired or missing exp claim" };
+  }
+
+  // TTL limit check: max 300s, must be positive
+  const lifetime = payload.exp - payload.iat;
+  if (lifetime > 300 || lifetime <= 0) {
     return { valid: false, status: 401, error: "Token lifetime exceeds maximum allowed TTL (300s)" };
   }
 
@@ -447,7 +482,25 @@ export async function handleRuntimeEmployeeRecordRead(request: Request): Promise
     correlationId: payload.correlation_id,
   });
 
-  const rawTickets = getTenantMockTickets(payload.tenant_id);
+  const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
+
+  // If domain persistence is unavailable (not configured in tenantTicketsStore and no DATABASE_URL):
+  if (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL) {
+    logRuntimeRecordAccess({
+      tenantId: payload.tenant_id,
+      actorId: payload.sub,
+      operation: "read_tickets",
+      decision: "deny",
+      reason: "domain persistence and grants unavailable",
+      correlationId: payload.correlation_id,
+    });
+    return Response.json(
+      { success: false, error: "domain persistence and grants unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rawTickets = tenantTicketsStore.get(cleanTenant) || [];
   const projectedTickets = rawTickets.map((t) => projectTicketForActor(t, actorName));
 
   return Response.json(
@@ -507,7 +560,16 @@ export async function handleRuntimeEmployeeRecordDetail(
   }
 
   const payload = verification.payload;
-  const rawTickets = getTenantMockTickets(payload.tenant_id);
+  const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
+
+  if (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL) {
+    return Response.json(
+      { success: false, error: "domain persistence and grants unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rawTickets = tenantTicketsStore.get(cleanTenant) || [];
   const found = rawTickets.find((t) => t.id === id || t.ticketRef === id);
 
   if (!found) {

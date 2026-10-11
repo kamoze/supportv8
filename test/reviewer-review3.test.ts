@@ -10,6 +10,7 @@ import {signRuntimeSupportSession,setCustomRuntimeAccessResolverForTesting,RUNTI
 import {clearConversationStoreForTesting,getThreadTurnHistory} from '../src/lib/platform/conversation';
 import {clearScenarioStoreForTesting} from '../src/lib/platform/scenarios';
 import {ragIngestion} from '../src/lib/services/rag-ingestion-service';
+import {marketplaceService} from '../src/lib/services/marketplace-service';
 const secret='review-only-fixture-not-production';
 function req(path:string,body:any,cap:'support:manage'|'support:read'='support:manage') {
  const workspaceId='tenant_rt_'+'a'.repeat(48);
@@ -60,7 +61,8 @@ it('shared debit cannot report success with no canonical ledger receiver',async(
  console.log('ownerless-debit',r.status,await r.clone().json());expect([409,502,503]).toContain(r.status);
 });
 it('scenario replay with a different config conflicts',async()=>{
- const save=async(name:string)=>(await (await scenarios(req('/api/scenarios',{action:'save',scenarioId:'unacquired',name,participants:[]}))).json()).data.id;
+ marketplaceService.hireWorkforceAgent('emp_support_lead', 'tenant-a');
+ const save=async(name:string)=>(await (await scenarios(req('/api/scenarios',{action:'save',scenarioId:'sc_support_triage',name,participants:['emp_support_lead']}))).json()).data.id;
  const a=await save('a'),b=await save('b');
  const first=await scenarios(req('/api/scenarios',{action:'run',configId:a,idempotencyKey:'conflicting-run'}));expect(first.status).toBe(200);
  const second=await scenarios(req('/api/scenarios',{action:'run',configId:b,idempotencyKey:'conflicting-run'}));console.log('scenario-conflicting-replay',second.status,await second.clone().json());expect(second.status).toBe(409);

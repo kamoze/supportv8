@@ -209,6 +209,7 @@ describe('Review 2 Acceptance Suite (U1-R2, U2-R2, U3-R2, U9-R2)', () => {
         headers: {
           host: 'tenant-a.support.servicev8.com',
           cookie: `${RUNTIME_SUPPORT_COOKIE}=${sessionToken}`,
+          'x-servicev8-credits': '100',
           'content-type': 'application/json',
         },
         body: JSON.stringify(body),

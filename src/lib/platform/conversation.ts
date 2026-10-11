@@ -8,6 +8,8 @@
  * - Per-recipient status without fabricated responses
  */
 
+import * as fs from "node:fs";
+
 export interface AgenticTurn {
   turnId: string;
   clientTurnId: string;
@@ -28,24 +30,87 @@ export interface AgenticTurn {
 const turnsByClientTurnId = new Map<string, AgenticTurn>();
 const threadsMap = new Map<string, AgenticTurn[]>();
 
+const CONVERSATION_STORAGE_FILE = process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
+
+function loadFromDisk(): void {
+  try {
+    if (fs.existsSync(CONVERSATION_STORAGE_FILE)) {
+      const raw = fs.readFileSync(CONVERSATION_STORAGE_FILE, "utf-8");
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        if (data.turns) {
+          for (const [k, v] of Object.entries(data.turns)) {
+            turnsByClientTurnId.set(k, v as AgenticTurn);
+          }
+        }
+        if (data.threads) {
+          for (const [k, v] of Object.entries(data.threads)) {
+            threadsMap.set(k, v as AgenticTurn[]);
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+}
+
+function saveToDisk(): void {
+  try {
+    const turnsObj: Record<string, AgenticTurn> = {};
+    for (const [k, v] of turnsByClientTurnId.entries()) {
+      turnsObj[k] = v;
+    }
+    const threadsObj: Record<string, AgenticTurn[]> = {};
+    for (const [k, v] of threadsMap.entries()) {
+      threadsObj[k] = v;
+    }
+    fs.writeFileSync(CONVERSATION_STORAGE_FILE, JSON.stringify({ turns: turnsObj, threads: threadsObj }));
+  } catch {
+    // Ignore write errors
+  }
+}
+
 export function clearConversationStoreForTesting(): void {
   turnsByClientTurnId.clear();
   threadsMap.clear();
+  try {
+    if (fs.existsSync(CONVERSATION_STORAGE_FILE)) {
+      fs.unlinkSync(CONVERSATION_STORAGE_FILE);
+    }
+  } catch {
+    // Ignore
+  }
 }
 
 export function completeAgenticTurn(
   turnId: string,
   result: { answer?: string; response?: Record<string, unknown> }
 ): AgenticTurn | null {
+  loadFromDisk();
+  let foundTurn: AgenticTurn | null = null;
   for (const turn of turnsByClientTurnId.values()) {
     if (turn.turnId === turnId) {
       turn.status = "completed";
       if (result.answer) turn.answer = result.answer;
       if (result.response) turn.response = result.response;
-      return turn;
+      foundTurn = turn;
+      break;
     }
   }
-  return null;
+  for (const turns of threadsMap.values()) {
+    for (const t of turns) {
+      if (t.turnId === turnId) {
+        t.status = "completed";
+        if (result.answer) t.answer = result.answer;
+        if (result.response) t.response = result.response;
+      }
+    }
+  }
+  if (foundTurn) {
+    saveToDisk();
+  }
+  return foundTurn;
 }
 
 export function admitAgenticTurn(options: {
@@ -81,6 +146,7 @@ export function admitAgenticTurn(options: {
     participants = [actorId],
     additionalRecipients,
   } = options;
+  loadFromDisk();
 
   // CHAT-02: Idempotency check by clientTurnId
   if (turnsByClientTurnId.has(clientTurnId)) {
@@ -171,6 +237,7 @@ export function admitAgenticTurn(options: {
     threadsMap.set(threadId, []);
   }
   threadsMap.get(threadId)!.push(turn);
+  saveToDisk();
 
   return {
     success: true,
@@ -192,6 +259,7 @@ export function getThreadTurnHistory(options: {
   turns?: AgenticTurn[];
   error?: string;
 } {
+  loadFromDisk();
   const { tenantSlug, callerSubject, threadId } = options;
   const turns = threadsMap.get(threadId);
 

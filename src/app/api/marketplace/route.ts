@@ -71,16 +71,6 @@ export async function POST(req: NextRequest) {
 
     if (action === "deduct_credits") {
       const { amount, reason, idempotencyKey } = body;
-      // Canonical shared debit requires a qualified ledger receiver
-      if (
-        idempotencyKey === "review-debit" ||
-        (typeof idempotencyKey === "string" && idempotencyKey.startsWith("review-"))
-      ) {
-        return NextResponse.json(
-          { success: false, error: "Canonical billing ledger receiver is unavailable or unconfigured." },
-          { status: 503 }
-        );
-      }
       const parsedAmount = typeof amount === "number" ? amount : 0;
       const parsedReason = reason || "Operation deduction";
       const key = idempotencyKey ? `${tenant.tenantSlug}:${idempotencyKey}` : null;
@@ -103,6 +93,14 @@ export async function POST(req: NextRequest) {
         accountId: tenant.accountId,
         runtimeLinked: tenant.runtimeLinked,
       });
+
+      // Never report a requested charge as successfully completed from local balances or a zero deduction
+      if (parsedAmount > 0 && result.deducted === 0) {
+        return NextResponse.json(
+          { success: false, error: "Canonical billing ledger receiver is unavailable or insufficient balance." },
+          { status: 503 }
+        );
+      }
 
       if (key) {
         deductionReceipts.set(key, {

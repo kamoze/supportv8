@@ -15,7 +15,7 @@ import { dispatchAgenticTurn } from '@/lib/chat/agenticos-chat-client';
 import { safeEmitSignal } from '@/lib/signals/signal-agent';
 import { otpStore } from '@/lib/auth/otp-store';
 import { tenantSignupRegistry, TenantRegistryUnavailableError } from '@/lib/auth/tenant-signup-registry';
-import { clearAcquisitionState } from '@/lib/platform/acquisition';
+import { clearAcquisitionState, setPlanEligibilityFact } from '@/lib/platform/acquisition';
 
 const fixtureSecret = 'independent-review-synthetic-session-' + randomUUID();
 const fetchSpy = vi.fn(async () => { throw new Error('review blocks external network'); });
@@ -118,6 +118,8 @@ it('U1: tenant A and B receive tenant-isolated ticket IDs', async () => {
 
 // U2: App Acquisition and Launch
 it('U2: client-key acquisition is scoped per tenant, preventing cross-tenant collision', async () => {
+  setPlanEligibilityFact('tenant-a', true);
+  setPlanEligibilityFact('tenant-b', true);
   const key = randomUUID();
   const a = await marketplace(tenantRequest('tenant-a', { action: 'app_acquire', clientAcquisitionId: key }));
   const b = await marketplace(tenantRequest('tenant-b', { action: 'app_acquire', clientAcquisitionId: key }));
@@ -198,10 +200,26 @@ it('U5: foreign tenant cannot overwrite scenario configuration by ID', () => {
 });
 
 it('U5: scenario run idempotency key is tenant-scoped', () => {
-  const config = saveScenarioConfig({ tenantSlug: 'tenant-a', scenarioId: 'definition-a', name: 'A', participants: [], parameters: {} });
-  const first = startScenarioRun({ tenantSlug: 'tenant-a', configId: config.id, activeHires: [], idempotencyKey: 'same' });
+  const config = saveScenarioConfig({
+    tenantSlug: 'tenant-a',
+    scenarioId: 'sc_support_triage',
+    name: 'A',
+    participants: [{ employeeId: 'emp_support_lead', role: 'operator' }],
+    parameters: {},
+  });
+  const first = startScenarioRun({
+    tenantSlug: 'tenant-a',
+    configId: config.id,
+    activeHires: ['emp_support_lead'],
+    idempotencyKey: 'same',
+  });
   expect(first.status).toBe(200);
-  const foreign = startScenarioRun({ tenantSlug: 'tenant-b', configId: 'nonexistent', activeHires: [], idempotencyKey: 'same' });
+  const foreign = startScenarioRun({
+    tenantSlug: 'tenant-b',
+    configId: 'nonexistent',
+    activeHires: ['emp_support_lead'],
+    idempotencyKey: 'same',
+  });
   expect(foreign.status).toBe(403);
 });
 

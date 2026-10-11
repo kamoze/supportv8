@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { Pool } from "pg";
 import { INITIAL_ISSUES } from "@/lib/db/mock-data";
 
 export type RuntimeEmployeeId = "Arthur" | "Vivian" | "Sophia";
@@ -419,6 +420,26 @@ export function getTenantMockTickets(tenantDomain: string): Array<Record<string,
   }));
 }
 
+async function checkDatabaseAvailable(): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return true;
+  try {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: 300,
+    });
+    const client = await pool.connect();
+    try {
+      await client.query("SELECT 1");
+      return true;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  } catch {
+    return false;
+  }
+}
+
 export async function handleRuntimeEmployeeRecordRead(request: Request): Promise<Response> {
   if (request.method !== "GET") {
     return Response.json(
@@ -485,11 +506,8 @@ export async function handleRuntimeEmployeeRecordRead(request: Request): Promise
   const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
 
   // If domain persistence is unavailable or unreachable:
-  if (
-    !tenantTicketsStore.has(cleanTenant) ||
-    process.env.DATABASE_URL?.includes("127.0.0.1:1") ||
-    process.env.DATABASE_URL?.includes("does_not_exist")
-  ) {
+  const dbOk = await checkDatabaseAvailable();
+  if (!dbOk || (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL)) {
     logRuntimeRecordAccess({
       tenantId: payload.tenant_id,
       actorId: payload.sub,
@@ -566,7 +584,8 @@ export async function handleRuntimeEmployeeRecordDetail(
   const payload = verification.payload;
   const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
 
-  if (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL) {
+  const dbOk = await checkDatabaseAvailable();
+  if (!dbOk || (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL)) {
     return Response.json(
       { success: false, error: "domain persistence and grants unavailable" },
       { status: 503, headers: { "cache-control": "no-store" } }

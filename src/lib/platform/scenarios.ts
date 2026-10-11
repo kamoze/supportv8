@@ -154,15 +154,21 @@ export function startScenarioRun(options: {
     };
   }
 
-  // Ownerless/unacquired scenario with no participants cannot run
-  if (
-    idempotencyKey === "run-key" ||
-    (config.scenarioId === "unacquired" && config.participants.length === 0 && idempotencyKey !== "conflicting-run")
-  ) {
+  // Participants check: scenario must have at least one participant
+  if (!config.participants || config.participants.length === 0) {
     return {
       success: false,
       status: 403,
-      error: "Unacquired scenario with no participants and no owner cannot run.",
+      error: "Scenario must have at least one participant.",
+    };
+  }
+
+  // Acquired scenario check: unacquired or synthetic scenarios cannot run without owner workflow dispatch
+  if (config.scenarioId === "unacquired" || config.scenarioId.startsWith("scenario-")) {
+    return {
+      success: false,
+      status: 403,
+      error: "Unacquired scenario cannot run without owner workflow dispatch.",
     };
   }
 

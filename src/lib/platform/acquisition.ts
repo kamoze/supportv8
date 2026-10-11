@@ -32,12 +32,7 @@ const VALID_OFFERS = new Set([
 ]);
 
 // Plan eligibility facts hook for testing/owner synchronization
-let planEligibilityOverride: Map<string, string | boolean> = new Map([
-  ["tenantA", "starter"],
-  ["tenantB", "starter"],
-  ["tenant-a", "starter"],
-  ["tenant-b", "starter"],
-]);
+let planEligibilityOverride: Map<string, string | boolean> = new Map();
 
 export function setPlanEligibilityFact(tenantPrefix: string, eligibility: string | boolean) {
   planEligibilityOverride.set(tenantPrefix, eligibility);
@@ -59,10 +54,6 @@ export function clearAcquisitionState() {
   acquisitionsByClientId.clear();
   deductionReceipts.clear();
   planEligibilityOverride.clear();
-  planEligibilityOverride.set("tenantA", "starter");
-  planEligibilityOverride.set("tenantB", "starter");
-  planEligibilityOverride.set("tenant-a", "starter");
-  planEligibilityOverride.set("tenant-b", "starter");
 }
 
 export function handleAppAcquisition(
@@ -95,18 +86,6 @@ export function handleAppAcquisition(
 
   const offerId = payload.offerId || "servicev8.service-app.supportv8";
 
-  // APP-01: Disallowed plan cannot acquire; client spoofing planId does not bypass owner check
-  if (
-    payload.clientAcquisitionId === "review-acq" ||
-    (typeof payload.clientAcquisitionId === "string" && payload.clientAcquisitionId.startsWith("review-"))
-  ) {
-    return {
-      success: false,
-      status: 403,
-      error: "Eligible plan alone cannot manufacture a canonical installation without owner acquisition.",
-    };
-  }
-
   // Validate offer
   if (!VALID_OFFERS.has(offerId)) {
     return {
@@ -120,12 +99,22 @@ export function handleAppAcquisition(
   const eligibility = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenant.tenantSlug);
 
   // APP-01: Disallowed plan cannot acquire; client spoofing planId does not bypass owner check
-  if (eligibility === "none" || eligibility === false || !eligibility) {
-    return {
-      success: false,
-      status: 403,
-      error: "Current subscription plan is not eligible for SupportV8 app acquisition.",
-    };
+  if (clientKey) {
+    if (!eligibility || eligibility === "none") {
+      return {
+        success: false,
+        status: 403,
+        error: "Eligible plan alone cannot manufacture a canonical installation without owner acquisition.",
+      };
+    }
+  } else {
+    if (eligibility === "none" || eligibility === false) {
+      return {
+        success: false,
+        status: 403,
+        error: "Current subscription plan is not eligible for SupportV8 app acquisition.",
+      };
+    }
   }
 
   // Create single canonical installation

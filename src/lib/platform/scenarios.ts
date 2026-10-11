@@ -136,6 +136,30 @@ export function listScenarioConfigs(
   return results;
 }
 
+export const CANONICAL_WORKFORCE_AGENT_IDS = new Set([
+  "emp_support_lead",
+  "emp_incident_analyst",
+  "emp_kb_refresh",
+  "emp_compliance_officer",
+  "emp_voice_coordinator",
+  "emp_rag_intelligence",
+  "emp_intern_triage",
+  "emp_tier2_finance",
+  "emp_voice_specialist",
+  "emp_1",
+  "emp_2",
+  "emp_3",
+]);
+
+// Canonical acquired scenarios for SupportV8
+export const CANONICAL_ACQUIRED_SCENARIO_IDS = new Set([
+  "sc_support_triage",
+  "sc_support_escalation",
+  "sc_support_sweep",
+  "support-triage",
+  "stale-sweep",
+]);
+
 export function startScenarioRun(options: {
   tenantSlug: string;
   configId: string;
@@ -163,21 +187,24 @@ export function startScenarioRun(options: {
     };
   }
 
-// Canonical acquired scenarios for SupportV8
-const CANONICAL_ACQUIRED_SCENARIO_IDS = new Set([
-  "sc_support_triage",
-  "sc_support_escalation",
-  "sc_support_sweep",
-  "support-triage",
-  "stale-sweep",
-]);
-
   // Acquired scenario check: unacquired or synthetic scenarios cannot run without owner workflow dispatch
   if (!CANONICAL_ACQUIRED_SCENARIO_IDS.has(config.scenarioId)) {
     return {
       success: false,
       status: 403,
       error: "Unacquired scenario cannot run without owner workflow dispatch.",
+    };
+  }
+
+  // Authorized exact workforce resource check
+  const unauthorizedParticipants = config.participants.filter(
+    (p) => !CANONICAL_WORKFORCE_AGENT_IDS.has(p.employeeId)
+  );
+  if (unauthorizedParticipants.length > 0) {
+    return {
+      success: false,
+      status: 403,
+      error: `Participants not verified or authorized workforce agents for scenario: ${unauthorizedParticipants.map((m) => m.employeeId).join(", ")}`,
     };
   }
 

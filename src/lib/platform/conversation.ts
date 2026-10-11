@@ -14,6 +14,7 @@ export interface AgenticTurn {
   turnId: string;
   clientTurnId: string;
   threadId: string;
+  requestedThreadId?: string;
   tenantSlug: string;
   actorId: string;
   employeeId: string;
@@ -34,44 +35,36 @@ function getConversationStorageFile(): string {
   return process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
 }
 
-function getCandidateFiles(): string[] {
-  const list = [
-    process.env.SUPPORTV8_CONVERSATION_FILE,
-    "/tmp/support-independent-conversations.json",
-    "/tmp/support-expanded-conversations.json",
-    "/tmp/supportv8-conversations.json",
-  ].filter(Boolean) as string[];
-  return Array.from(new Set(list));
-}
-
 function loadFromDisk(): void {
-  for (const file of getCandidateFiles()) {
-    try {
-      if (fs.existsSync(file)) {
-        const stat = fs.statSync(file);
-        if (!stat.isFile()) continue;
-        const raw = fs.readFileSync(file, "utf-8");
-        const data = JSON.parse(raw);
-        if (data && typeof data === "object") {
-          if (data.turns) {
-            for (const [k, v] of Object.entries(data.turns)) {
-              if (!turnsByClientTurnId.has(k)) {
-                turnsByClientTurnId.set(k, v as AgenticTurn);
-              }
+  const file = getConversationStorageFile();
+  try {
+    if (fs.existsSync(file)) {
+      const stat = fs.statSync(file);
+      if (!stat.isFile()) return;
+      const raw = fs.readFileSync(file, "utf-8");
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        if (data.turns) {
+          for (const [k, v] of Object.entries(data.turns)) {
+            if (!turnsByClientTurnId.has(k)) {
+              turnsByClientTurnId.set(k, v as AgenticTurn);
             }
           }
-          if (data.threads) {
-            for (const [k, v] of Object.entries(data.threads)) {
-              if (!threadsMap.has(k)) {
-                threadsMap.set(k, v as AgenticTurn[]);
-              }
+        }
+        if (data.threads) {
+          for (const [k, v] of Object.entries(data.threads)) {
+            if (!threadsMap.has(k)) {
+              threadsMap.set(k, v as AgenticTurn[]);
             }
           }
         }
       }
-    } catch {
-      // Ignore read errors
     }
+  } catch (err: any) {
+    if (err && err.code === "ENOENT") {
+      return;
+    }
+    // Ignore read errors
   }
 }
 
@@ -91,17 +84,16 @@ function saveToDisk(): void {
 export function clearConversationStoreForTesting(): void {
   turnsByClientTurnId.clear();
   threadsMap.clear();
-  for (const file of getCandidateFiles()) {
-    try {
-      if (fs.existsSync(file)) {
-        const stat = fs.statSync(file);
-        if (stat.isFile()) {
-          fs.unlinkSync(file);
-        }
+  const file = getConversationStorageFile();
+  try {
+    if (fs.existsSync(file)) {
+      const stat = fs.statSync(file);
+      if (stat.isFile()) {
+        fs.unlinkSync(file);
       }
-    } catch {
-      // Ignore
     }
+  } catch {
+    // Ignore
   }
 }
 
@@ -182,8 +174,16 @@ export function admitAgenticTurn(options: {
     if (!activeHires.includes(employeeId)) {
       return { success: false, status: 409, error: `Employee '${employeeId}' is not hired or active for workspace.` };
     }
-    if (options.threadId !== undefined && existing.threadId && existing.threadId !== options.threadId) {
-      return { success: false, status: 409, error: "Conflicting threadId for existing clientTurnId." };
+    const incomingThreadId = options.threadId ?? undefined;
+    const originalRequestedThreadId = existing.requestedThreadId;
+    if (originalRequestedThreadId !== undefined) {
+      if (incomingThreadId !== originalRequestedThreadId) {
+        return { success: false, status: 409, error: "Conflicting threadId for existing clientTurnId." };
+      }
+    } else {
+      if (incomingThreadId !== undefined && incomingThreadId !== existing.threadId) {
+        return { success: false, status: 409, error: "Conflicting threadId for existing clientTurnId." };
+      }
     }
     if (existing.isPrivate !== isPrivate) {
       return { success: false, status: 409, error: "Conflicting privacy setting for existing clientTurnId." };
@@ -257,6 +257,7 @@ export function admitAgenticTurn(options: {
     turnId,
     clientTurnId,
     threadId,
+    requestedThreadId: options.threadId ?? undefined,
     tenantSlug,
     actorId,
     employeeId,

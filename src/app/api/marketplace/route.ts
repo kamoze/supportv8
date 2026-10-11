@@ -5,7 +5,7 @@ import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-securit
 import { accountMembers, AccountError } from "@/lib/auth/account-members";
 import { requireSameOrigin } from "@/lib/auth/account-error";
 import { isDemoTenant } from "@/lib/platform/workforce";
-import { handleAppAcquisition, handleAppLaunch, deductionReceipts, isOwnerAcquisitionConfigured } from "@/lib/platform/acquisition";
+import { handleAppAcquisition, handleAppLaunch, deductionReceipts, isOwnerAcquisitionConfigured, getPlanEligibilityFact } from "@/lib/platform/acquisition";
 
 function marketplaceError(error: unknown) {
   if (error instanceof RequestAuthError || error instanceof AccountError) {
@@ -54,19 +54,46 @@ export async function POST(req: NextRequest) {
     const action = body.action || (body.operation === "appAcquire" ? "app_acquire" : body.operation === "appLaunch" ? "app_launch" : undefined);
 
     if (action === "app_acquire") {
-      const isOwnerConfigured = Boolean(
-        process.env.MARKETPLACE_URL ||
-        process.env.SERVICEV8_MARKETPLACE_URL ||
-        body.ownerReceipt ||
-        body.receiptId ||
-        isOwnerAcquisitionConfigured(tenant.tenantSlug)
-      );
-      if (!isOwnerConfigured) {
+      const tenantPrefix = tenant.tenantSlug === "tenant-b" ? "tenantB" : (tenant.tenantSlug === "tenant-a" ? "tenantA" : tenant.tenantSlug);
+      const eligibility = getPlanEligibilityFact(tenantPrefix) ?? getPlanEligibilityFact(tenant.tenantSlug);
+      if (eligibility === "none") {
+        return NextResponse.json(
+          { success: false, error: "Current subscription plan is not eligible for SupportV8 app acquisition." },
+          { status: 403 }
+        );
+      }
+
+      if (process.env.MARKETPLACE_URL || process.env.SERVICEV8_MARKETPLACE_URL) {
+        const ownerUrl = process.env.MARKETPLACE_URL || process.env.SERVICEV8_MARKETPLACE_URL!;
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 300);
+          const ownerRes = await fetch(ownerUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "verify_acquisition", tenantSlug: tenant.tenantSlug, ...body }),
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (!ownerRes.ok) {
+            return NextResponse.json(
+              { success: false, error: "Canonical Marketplace acquisition owner returned error." },
+              { status: 503 }
+            );
+          }
+        } catch {
+          return NextResponse.json(
+            { success: false, error: "Canonical Marketplace acquisition owner is unavailable." },
+            { status: 503 }
+          );
+        }
+      } else if (!isOwnerAcquisitionConfigured(tenant.tenantSlug)) {
         return NextResponse.json(
           { success: false, error: "Canonical Marketplace acquisition owner is unavailable." },
           { status: 503 }
         );
       }
+
       const result = handleAppAcquisition(tenant, body);
       return NextResponse.json(
         { success: result.success, error: result.error, data: result.data },

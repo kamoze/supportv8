@@ -17,7 +17,7 @@ function req(path:string,body:any,cap:'support:manage'|'support:read'='support:m
  return new NextRequest('https://tenant-a.support.servicev8.com'+path,{method:'POST',headers:{host:'tenant-a.support.servicev8.com',cookie:`${RUNTIME_SUPPORT_COOKIE}=${token}`,'content-type':'application/json'},body:JSON.stringify(body)});
 }
 beforeEach(()=>{process.env.SUPPORTV8_RUNTIME_SESSION_SECRET=secret;process.env.SUPPORTV8_CONVERSATION_FILE=process.env.SUPPORTV8_CONVERSATION_FILE||'/tmp/support-expanded-conversations.json';delete process.env.DATABASE_URL;clearRuntimeRecordsStateForTesting();clearAcquisitionState();clearConversationStoreForTesting();clearScenarioStoreForTesting();setCustomRuntimeAccessResolverForTesting(async scope=>({...scope,capability:'support:manage',email:'review@example.test',domain:'tenant-a'} as any));});
-afterEach(()=>{vi.restoreAllMocks();delete process.env.DATABASE_URL;setCustomRuntimeAccessResolverForTesting(null);});
+afterEach(()=>{vi.restoreAllMocks();delete process.env.DATABASE_URL;delete process.env.SUPPORTV8_CONVERSATION_FILE;setCustomRuntimeAccessResolverForTesting(null);});
 
 import {randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';

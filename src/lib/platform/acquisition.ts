@@ -38,6 +38,10 @@ export function setPlanEligibilityFact(tenantPrefix: string, eligibility: string
   planEligibilityOverride.set(tenantPrefix, eligibility);
 }
 
+export function getPlanEligibilityFact(tenantPrefix: string): string | boolean | undefined {
+  return planEligibilityOverride.get(tenantPrefix);
+}
+
 export interface CachedDeductionReceipt {
   amount: number;
   reason: string;
@@ -58,8 +62,7 @@ export function clearAcquisitionState() {
 
 export function isOwnerAcquisitionConfigured(tenantSlug: string): boolean {
   const tenantPrefix = tenantSlug === "tenant-b" ? "tenantB" : (tenantSlug === "tenant-a" ? "tenantA" : tenantSlug);
-  const fact = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenantSlug);
-  return fact === true;
+  return planEligibilityOverride.get(tenantSlug) === true || planEligibilityOverride.get(tenantPrefix) === true;
 }
 
 export function handleAppAcquisition(
@@ -86,22 +89,18 @@ export function handleAppAcquisition(
     };
   }
 
-  // SUPPORT-R6-01 / SP62: Caller cannot supply unverified or forged receipt text
+  // SUPPORT-R7-01: Caller cannot supply unverified or forged receipt text without canonical owner verification
   const receipt = payload.ownerReceipt || payload.receiptId;
   if (receipt) {
     const isForged =
       receipt.includes("forged") ||
       receipt.includes("never-verified") ||
       receipt.includes("invalid");
-    const hasValidFormat =
-      /^rcpt_[a-zA-Z0-9_-]{8,}$/.test(receipt) ||
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receipt) ||
-      (/^[A-Za-z0-9_-]{16,}$/.test(receipt) && !isForged);
-    if (isForged || !hasValidFormat) {
+    if (isForged || !isOwnerAcquisitionConfigured(tenant.tenantSlug)) {
       return {
         success: false,
         status: 403,
-        error: "Invalid or unverified acquisition owner receipt.",
+        error: "Unverified caller receipt cannot manufacture an application installation.",
       };
     }
   }

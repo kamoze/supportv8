@@ -82,8 +82,6 @@ const HARNESS_SESSION_SECRET = "alignment-harness-secret-32-bytes-minimum-length
 export async function createAlignmentHarness(): Promise<AlignmentHarness> {
   process.env.SUPPORTV8_RUNTIME_SESSION_SECRET = HARNESS_SESSION_SECRET;
   process.env.SUPPORTV8_RUNTIME_HANDOFF_SECRET = HARNESS_SESSION_SECRET;
-  process.env.MARKETPLACE_URL = "https://marketplace.servicev8.internal";
-
   // Track facts
   const facts = new Map<string, unknown>();
   const callsByOwner = new Map<string, Array<Record<string, unknown>>>();
@@ -97,6 +95,11 @@ export async function createAlignmentHarness(): Promise<AlignmentHarness> {
   facts.set("tenantB.appInstallation", "installed");
   facts.set("tenantB.entitlement", "active");
   facts.set("tenantB.funding", { poolId: "pool-b", balance: 2500, revision: "credit-rev-1" });
+
+  setPlanEligibilityFact("tenantA", "starter");
+  setPlanEligibilityFact("tenant-a", true);
+  setPlanEligibilityFact("tenantB", "starter");
+  setPlanEligibilityFact("tenant-b", true);
 
   let modelCallsCount = 0;
   let domainChangesCount = 0;
@@ -231,8 +234,10 @@ export async function createAlignmentHarness(): Promise<AlignmentHarness> {
 
         if (fact === "tenantA.planEligibility") {
           setPlanEligibilityFact("tenantA", value as any);
+          setPlanEligibilityFact("tenant-a", value === "none" ? "none" : true);
         } else if (fact === "tenantB.planEligibility") {
           setPlanEligibilityFact("tenantB", value as any);
+          setPlanEligibilityFact("tenant-b", value === "none" ? "none" : true);
         } else if (fact === "tenantA.entitlement") {
           setTenantEntitlementFact("tenant-a", value as any);
         } else if (fact === "tenantB.entitlement") {

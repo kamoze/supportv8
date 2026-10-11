@@ -458,7 +458,7 @@ async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<
         ticketRef: row.external_id || `SV8-${cleanTenant}-${row.id}`,
         customerRef: row.customer_ref,
         customerName: row.customer_name,
-        customerEmail: row.customer_email || `${(row.customer_name || "user").toLowerCase().replace(/[^a-z0-9]/g, "")}@example.com`,
+        customerEmail: row.customer_email || undefined,
         status: row.source_status,
         priority: row.priority,
         category: row.category,

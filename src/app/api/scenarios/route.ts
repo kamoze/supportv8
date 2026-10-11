@@ -5,6 +5,7 @@ import {
   saveScenarioConfig,
   startScenarioRun,
   getScenarioConfig,
+  CANONICAL_WORKFORCE_AGENT_IDS,
 } from "@/lib/platform/scenarios";
 
 import { marketplaceService } from "@/lib/services/marketplace-service";
@@ -50,7 +51,9 @@ export async function POST(request: NextRequest) {
       const config = getScenarioConfig(tenant.tenantSlug, body.configId);
       if (config) {
         const unverifiedParticipants = config.participants.filter(
-          (p) => !marketplaceService.isAgentHired(p.employeeId, tenant.tenantSlug)
+          (p) =>
+            !CANONICAL_WORKFORCE_AGENT_IDS.has(p.employeeId) ||
+            !marketplaceService.isAgentHired(p.employeeId, tenant.tenantSlug)
         );
         if (unverifiedParticipants.length > 0) {
           return NextResponse.json(

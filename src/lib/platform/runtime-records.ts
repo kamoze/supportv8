@@ -442,36 +442,35 @@ async function checkDatabaseAvailable(): Promise<boolean> {
 
 async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<string, unknown>>> {
   if (process.env.DATABASE_URL) {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: false,
+      connectionTimeoutMillis: 2000,
+    });
+    const client = await pool.connect();
     try {
-      const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: false,
-        connectionTimeoutMillis: 2000,
-      });
-      const client = await pool.connect();
-      try {
-        const res = await client.query(
-          "SELECT id, summary, description, customer_name, customer_email, status, priority, category, created_at FROM supportv8.issues WHERE tenant_id = $1 ORDER BY created_at DESC",
-          [cleanTenant]
-        );
-        return res.rows.map((row: any) => ({
-          id: row.id,
-          ticketRef: `SV8-${cleanTenant}-${row.id}`,
-          summary: row.summary,
-          description: row.description,
-          customerName: row.customer_name,
-          customerEmail: row.customer_email,
-          status: row.status,
-          priority: row.priority,
-          category: row.category,
-          createdAt: row.created_at,
-        }));
-      } finally {
-        client.release();
-        await pool.end();
-      }
-    } catch {
-      return [];
+      const res = await client.query(
+        "SELECT id, external_id, customer_ref, customer_name, source_status, priority, summary, source, category, created_at::text AS created_at, updated_at::text AS updated_at FROM supportv8.issues WHERE tenant_id = $1 ORDER BY updated_at DESC, id DESC",
+        [cleanTenant]
+      );
+      return res.rows.map((row: any) => ({
+        id: row.id,
+        ticketRef: row.external_id || `SV8-${cleanTenant}-${row.id}`,
+        customerRef: row.customer_ref,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email || `${(row.customer_name || "user").toLowerCase().replace(/[^a-z0-9]/g, "")}@example.com`,
+        status: row.source_status,
+        priority: row.priority,
+        category: row.category,
+        summary: row.summary,
+        description: row.summary,
+        source: row.source,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } finally {
+      client.release();
+      await pool.end();
     }
   }
   return tenantTicketsStore.get(cleanTenant) || [];
@@ -559,7 +558,23 @@ export async function handleRuntimeEmployeeRecordRead(request: Request): Promise
     );
   }
 
-  const rawTickets = await fetchTenantRawTickets(cleanTenant);
+  let rawTickets: Array<Record<string, unknown>>;
+  try {
+    rawTickets = await fetchTenantRawTickets(cleanTenant);
+  } catch (err) {
+    logRuntimeRecordAccess({
+      tenantId: payload.tenant_id,
+      actorId: payload.sub,
+      operation: "read_tickets",
+      decision: "deny",
+      reason: "ticket repository schema or database unavailable",
+      correlationId: payload.correlation_id,
+    });
+    return Response.json(
+      { success: false, error: "ticket repository schema or database unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
   const projectedTickets = rawTickets.map((t) => projectTicketForActor(t, actorName));
 
   return Response.json(
@@ -629,7 +644,15 @@ export async function handleRuntimeEmployeeRecordDetail(
     );
   }
 
-  const rawTickets = await fetchTenantRawTickets(cleanTenant);
+  let rawTickets: Array<Record<string, unknown>>;
+  try {
+    rawTickets = await fetchTenantRawTickets(cleanTenant);
+  } catch (err) {
+    return Response.json(
+      { success: false, error: "ticket repository schema or database unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
   const found = rawTickets.find((t) => t.id === id || t.ticketRef === id);
 
   if (!found) {

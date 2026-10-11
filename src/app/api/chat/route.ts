@@ -155,14 +155,23 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // SP54: coalesced pending turn must check changed request before replay
+      // SP54 / SP64: coalesced pending turn must check changed request before replay
+      const incomingParticipants = participants || [actorId];
+      const existingParticipants = existing.participants || [existing.actorId];
+      const sortedIncoming = [...incomingParticipants].sort();
+      const sortedExisting = [...existingParticipants].sort();
+      const participantsEqual =
+        sortedIncoming.length === sortedExisting.length &&
+        sortedIncoming.every((val, idx) => val === sortedExisting[idx]);
+
       if (
         existing.query !== query ||
         existing.employeeId !== employeeId ||
         (existing.threadId !== undefined && threadId !== undefined && existing.threadId !== threadId) ||
         (existing.threadId && !threadId) ||
         (!existing.threadId && threadId) ||
-        existing.isPrivate !== isPrivate
+        existing.isPrivate !== isPrivate ||
+        !participantsEqual
       ) {
         return NextResponse.json(
           {

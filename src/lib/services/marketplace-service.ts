@@ -1570,6 +1570,11 @@ export class MarketplaceService {
     return { ...item };
   }
 
+  public isAgentHired(id: string, tenantSlug = "acme"): boolean {
+    const item = this.stateFor(tenantSlug).workforce.find((w) => w.id === id);
+    return Boolean(item?.isHired);
+  }
+
   public isDemoTenant(tenantSlug: string): boolean {
     const clean = tenantSlug.trim().toLowerCase();
     return clean === "acme" || clean === "meridian";

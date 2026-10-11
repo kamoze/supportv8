@@ -5,7 +5,7 @@ import { isRestrictedDemoOperator } from "@/lib/chatbot/security/ingress-securit
 import { accountMembers, AccountError } from "@/lib/auth/account-members";
 import { requireSameOrigin } from "@/lib/auth/account-error";
 import { isDemoTenant } from "@/lib/platform/workforce";
-import { handleAppAcquisition, handleAppLaunch, deductionReceipts } from "@/lib/platform/acquisition";
+import { handleAppAcquisition, handleAppLaunch, deductionReceipts, isOwnerAcquisitionConfigured } from "@/lib/platform/acquisition";
 
 function marketplaceError(error: unknown) {
   if (error instanceof RequestAuthError || error instanceof AccountError) {
@@ -54,6 +54,19 @@ export async function POST(req: NextRequest) {
     const action = body.action || (body.operation === "appAcquire" ? "app_acquire" : body.operation === "appLaunch" ? "app_launch" : undefined);
 
     if (action === "app_acquire") {
+      const isOwnerConfigured = Boolean(
+        process.env.MARKETPLACE_URL ||
+        process.env.SERVICEV8_MARKETPLACE_URL ||
+        body.ownerReceipt ||
+        body.receiptId ||
+        isOwnerAcquisitionConfigured(tenant.tenantSlug)
+      );
+      if (!isOwnerConfigured) {
+        return NextResponse.json(
+          { success: false, error: "Canonical Marketplace acquisition owner is unavailable." },
+          { status: 503 }
+        );
+      }
       const result = handleAppAcquisition(tenant, body);
       return NextResponse.json(
         { success: result.success, error: result.error, data: result.data },

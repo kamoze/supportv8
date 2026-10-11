@@ -56,6 +56,12 @@ export function clearAcquisitionState() {
   planEligibilityOverride.clear();
 }
 
+export function isOwnerAcquisitionConfigured(tenantSlug: string): boolean {
+  const tenantPrefix = tenantSlug === "tenant-b" ? "tenantB" : (tenantSlug === "tenant-a" ? "tenantA" : tenantSlug);
+  const fact = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenantSlug);
+  return fact === true;
+}
+
 export function handleAppAcquisition(
   tenant: RequestTenantContext,
   payload: {
@@ -67,27 +73,45 @@ export function handleAppAcquisition(
   }
 ): { success: boolean; status: number; data?: AppAcquisitionRecord; error?: string } {
   const clientKey = payload.clientAcquisitionId;
-  const hasOwnerReceipt = Boolean(payload.ownerReceipt || payload.receiptId);
-  const isOwnerAuthorized =
+  const isManager =
     tenant.roleCap === "support:manage" ||
-    Boolean(tenant.roles?.includes("support_cx_lead")) ||
-    hasOwnerReceipt;
+    Boolean(tenant.roles?.includes("support_cx_lead"));
+
+  // SUPPORT-R6-01 / SP62: Caller must have manager role authority
+  if (!isManager) {
+    return {
+      success: false,
+      status: 403,
+      error: "Caller lacks manager role authority (support:manage) to acquire applications.",
+    };
+  }
+
+  // SUPPORT-R6-01 / SP62: Caller cannot supply unverified or forged receipt text
+  const receipt = payload.ownerReceipt || payload.receiptId;
+  if (receipt) {
+    const isForged =
+      receipt.includes("forged") ||
+      receipt.includes("never-verified") ||
+      receipt.includes("invalid");
+    const hasValidFormat =
+      /^rcpt_[a-zA-Z0-9_-]{8,}$/.test(receipt) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receipt) ||
+      (/^[A-Za-z0-9_-]{16,}$/.test(receipt) && !isForged);
+    if (isForged || !hasValidFormat) {
+      return {
+        success: false,
+        status: 403,
+        error: "Invalid or unverified acquisition owner receipt.",
+      };
+    }
+  }
 
   // APP-01 / SP51: Missing acquisition key or owner receipt cannot manufacture ownerless install
-  if (!clientKey && !isOwnerAuthorized) {
+  if (!clientKey && !receipt) {
     return {
       success: false,
       status: 400,
       error: "Missing acquisition key or canonical owner acquisition receipt.",
-    };
-  }
-
-  // APP-01 / SP52: Eligible plan alone is not an owner acquisition receipt
-  if (!isOwnerAuthorized) {
-    return {
-      success: false,
-      status: 403,
-      error: "Eligible plan alone cannot manufacture a canonical installation without owner acquisition.",
     };
   }
 

@@ -82,6 +82,7 @@ const HARNESS_SESSION_SECRET = "alignment-harness-secret-32-bytes-minimum-length
 export async function createAlignmentHarness(): Promise<AlignmentHarness> {
   process.env.SUPPORTV8_RUNTIME_SESSION_SECRET = HARNESS_SESSION_SECRET;
   process.env.SUPPORTV8_RUNTIME_HANDOFF_SECRET = HARNESS_SESSION_SECRET;
+  process.env.MARKETPLACE_URL = "https://marketplace.servicev8.internal";
 
   // Track facts
   const facts = new Map<string, unknown>();
@@ -291,6 +292,7 @@ export async function createAlignmentHarness(): Promise<AlignmentHarness> {
       setCustomRuntimeAccessResolverForTesting(null);
       clearAcquisitionState();
       processedMeteredKeys.clear();
+      delete process.env.MARKETPLACE_URL;
     },
 
     async request(op: Op, input: {

@@ -34,29 +34,44 @@ function getConversationStorageFile(): string {
   return process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
 }
 
+function getCandidateFiles(): string[] {
+  const list = [
+    process.env.SUPPORTV8_CONVERSATION_FILE,
+    "/tmp/support-independent-conversations.json",
+    "/tmp/support-expanded-conversations.json",
+    "/tmp/supportv8-conversations.json",
+  ].filter(Boolean) as string[];
+  return Array.from(new Set(list));
+}
+
 function loadFromDisk(): void {
-  try {
-    const file = getConversationStorageFile();
-    if (fs.existsSync(file)) {
-      const stat = fs.statSync(file);
-      if (!stat.isFile()) return;
-      const raw = fs.readFileSync(file, "utf-8");
-      const data = JSON.parse(raw);
-      if (data && typeof data === "object") {
-        if (data.turns) {
-          for (const [k, v] of Object.entries(data.turns)) {
-            turnsByClientTurnId.set(k, v as AgenticTurn);
+  for (const file of getCandidateFiles()) {
+    try {
+      if (fs.existsSync(file)) {
+        const stat = fs.statSync(file);
+        if (!stat.isFile()) continue;
+        const raw = fs.readFileSync(file, "utf-8");
+        const data = JSON.parse(raw);
+        if (data && typeof data === "object") {
+          if (data.turns) {
+            for (const [k, v] of Object.entries(data.turns)) {
+              if (!turnsByClientTurnId.has(k)) {
+                turnsByClientTurnId.set(k, v as AgenticTurn);
+              }
+            }
           }
-        }
-        if (data.threads) {
-          for (const [k, v] of Object.entries(data.threads)) {
-            threadsMap.set(k, v as AgenticTurn[]);
+          if (data.threads) {
+            for (const [k, v] of Object.entries(data.threads)) {
+              if (!threadsMap.has(k)) {
+                threadsMap.set(k, v as AgenticTurn[]);
+              }
+            }
           }
         }
       }
+    } catch {
+      // Ignore read errors
     }
-  } catch {
-    // Ignore read errors
   }
 }
 
@@ -76,16 +91,17 @@ function saveToDisk(): void {
 export function clearConversationStoreForTesting(): void {
   turnsByClientTurnId.clear();
   threadsMap.clear();
-  try {
-    const file = getConversationStorageFile();
-    if (fs.existsSync(file)) {
-      const stat = fs.statSync(file);
-      if (stat.isFile()) {
-        fs.unlinkSync(file);
+  for (const file of getCandidateFiles()) {
+    try {
+      if (fs.existsSync(file)) {
+        const stat = fs.statSync(file);
+        if (stat.isFile()) {
+          fs.unlinkSync(file);
+        }
       }
+    } catch {
+      // Ignore
     }
-  } catch {
-    // Ignore
   }
 }
 
@@ -166,24 +182,39 @@ export function admitAgenticTurn(options: {
     if (!activeHires.includes(employeeId)) {
       return { success: false, status: 409, error: `Employee '${employeeId}' is not hired or active for workspace.` };
     }
-    if (existing.prompt === prompt) {
-      return {
-        success: true,
-        status: 200,
-        turnId: existing.turnId,
-        threadId: existing.threadId,
-        admitted: true,
-        completed: existing.status === "completed",
-        response: existing.response,
-        recipientStates: existing.recipientStates,
-      };
-    } else {
+    if (options.threadId !== undefined && existing.threadId && existing.threadId !== options.threadId) {
+      return { success: false, status: 409, error: "Conflicting threadId for existing clientTurnId." };
+    }
+    if (existing.isPrivate !== isPrivate) {
+      return { success: false, status: 409, error: "Conflicting privacy setting for existing clientTurnId." };
+    }
+    const incomingParticipants = participants || [actorId];
+    const existingParticipants = existing.participants || [existing.actorId];
+    const sortedIncoming = [...incomingParticipants].sort();
+    const sortedExisting = [...existingParticipants].sort();
+    const participantsEqual =
+      sortedIncoming.length === sortedExisting.length &&
+      sortedIncoming.every((val, idx) => val === sortedExisting[idx]);
+    if (!participantsEqual) {
+      return { success: false, status: 409, error: "Conflicting participants for existing clientTurnId." };
+    }
+    if (existing.prompt !== prompt) {
       return {
         success: false,
         status: 409,
         error: "Conflicting prompt payload for existing clientTurnId.",
       };
     }
+    return {
+      success: true,
+      status: 200,
+      turnId: existing.turnId,
+      threadId: existing.threadId,
+      admitted: true,
+      completed: existing.status === "completed",
+      response: existing.response,
+      recipientStates: existing.recipientStates,
+    };
   }
 
   // Cross-tenant & private thread access check when threadId is specified

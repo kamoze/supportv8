@@ -4,6 +4,7 @@ import {
   listScenarioConfigs,
   saveScenarioConfig,
   startScenarioRun,
+  getScenarioConfig,
 } from "@/lib/platform/scenarios";
 
 import { marketplaceService } from "@/lib/services/marketplace-service";
@@ -46,6 +47,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "run") {
+      const config = getScenarioConfig(tenant.tenantSlug, body.configId);
+      if (config) {
+        const unverifiedParticipants = config.participants.filter(
+          (p) => !marketplaceService.isAgentHired(p.employeeId, tenant.tenantSlug)
+        );
+        if (unverifiedParticipants.length > 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Participants not verified or hired for tenant: ${unverifiedParticipants.map((p) => p.employeeId).join(", ")}`,
+            },
+            { status: 403 }
+          );
+        }
+      }
+
       const hiredEmployees = marketplaceService
         .getWorkforceCatalog(tenant.tenantSlug)
         .filter((employee) => employee.isHired)

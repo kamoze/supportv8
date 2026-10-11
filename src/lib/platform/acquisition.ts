@@ -16,6 +16,8 @@ export interface AppAcquisitionRecord {
   accountId: string;
   offerId: string;
   clientAcquisitionId?: string;
+  operationId?: string;
+  productVersion?: string;
   status: "active" | "revoked" | "provisioning";
   acquiredAt: string;
   ownerReceipt?: string;
@@ -73,6 +75,8 @@ export function handleAppAcquisition(
     offerId?: string;
     planId?: string;
     clientAcquisitionId?: string;
+    operationId?: string;
+    productVersion?: string;
     ownerReceipt?: string;
     receiptId?: string;
     installationId?: string;
@@ -141,6 +145,20 @@ export function handleAppAcquisition(
         error: "Acquisition conflict: duplicate clientAcquisitionId with conflicting payload",
       };
     }
+    if (payload.operationId && existing.operationId && payload.operationId !== existing.operationId) {
+      return {
+        success: false,
+        status: 409,
+        error: "Acquisition conflict: duplicate clientAcquisitionId with conflicting operationId",
+      };
+    }
+    if (payload.productVersion && existing.productVersion && payload.productVersion !== existing.productVersion) {
+      return {
+        success: false,
+        status: 409,
+        error: "Acquisition conflict: duplicate clientAcquisitionId with conflicting productVersion",
+      };
+    }
     return {
       success: true,
       status: 200,
@@ -167,6 +185,8 @@ export function handleAppAcquisition(
     accountId: tenant.accountId || `acct-${tenant.tenantSlug}`,
     offerId,
     clientAcquisitionId: clientKey,
+    operationId: payload.operationId,
+    productVersion: payload.productVersion,
     status: "active",
     acquiredAt: new Date().toISOString(),
     ownerReceipt: payload.ownerReceipt,

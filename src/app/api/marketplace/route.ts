@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
             offerId: body.offerId,
             clientAcquisitionId: body.clientAcquisitionId,
             ownerReceipt: body.ownerReceipt,
+            operationId: body.operationId,
+            productVersion: body.productVersion,
           };
           const workloadToken = signRuntimeEmployeeToken({
             actorId: tenant.userId || (tenant as any).actorId || "supportv8-workload",
@@ -189,32 +191,81 @@ export async function POST(req: NextRequest) {
               { status: 400 }
             );
           }
-          // Client acquisition ID match
-          if (ownerData.clientAcquisitionId && body.clientAcquisitionId && ownerData.clientAcquisitionId !== body.clientAcquisitionId) {
+          // Client acquisition ID strict binding
+          if (body.operationId || (body.clientAcquisitionId && ownerData.clientAcquisitionId)) {
+            if (
+              !ownerData.clientAcquisitionId ||
+              typeof ownerData.clientAcquisitionId !== "string" ||
+              ownerData.clientAcquisitionId !== body.clientAcquisitionId
+            ) {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition clientAcquisitionId binding mismatch or missing." },
+                { status: 400 }
+              );
+            }
+          } else if (ownerData.clientAcquisitionId) {
             return NextResponse.json(
-              { success: false, error: "Marketplace acquisition clientAcquisitionId mismatch." },
+              { success: false, error: "Marketplace acquisition returned unbound clientAcquisitionId." },
               { status: 400 }
             );
           }
-          // Operation ID match
-          if (ownerData.operationId && (ownerData.operationId === "foreign-op" || (body.operationId && ownerData.operationId !== body.operationId))) {
+
+          // Operation ID strict binding
+          if (body.operationId) {
+            if (
+              !ownerData.operationId ||
+              typeof ownerData.operationId !== "string" ||
+              ownerData.operationId !== body.operationId
+            ) {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition operationId binding mismatch or missing." },
+                { status: 400 }
+              );
+            }
+          } else if (ownerData.operationId) {
             return NextResponse.json(
-              { success: false, error: "Marketplace acquisition foreign operation binding." },
+              { success: false, error: "Marketplace acquisition returned unbound operationId." },
               { status: 400 }
             );
           }
-          // Expiration check
-          if (ownerData.expiresAt) {
+
+          // Strict ISO-8601 expiration parsing and validation
+          if (ownerData.expiresAt !== undefined && ownerData.expiresAt !== null) {
+            if (typeof ownerData.expiresAt !== "string") {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition receipt has malformed expiration date." },
+                { status: 400 }
+              );
+            }
             const expTime = Date.parse(ownerData.expiresAt);
-            if (Number.isFinite(expTime) && expTime <= Date.now()) {
+            if (!Number.isFinite(expTime)) {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition receipt has malformed expiration date." },
+                { status: 400 }
+              );
+            }
+            if (expTime <= Date.now()) {
               return NextResponse.json(
                 { success: false, error: "Marketplace acquisition receipt has expired." },
                 { status: 400 }
               );
             }
           }
-          // Product version check
-          if (ownerData.productVersion) {
+
+          // Offer product version binding
+          const requestedProductVersion = body.productVersion;
+          if (requestedProductVersion) {
+            if (
+              !ownerData.productVersion ||
+              typeof ownerData.productVersion !== "string" ||
+              ownerData.productVersion !== requestedProductVersion
+            ) {
+              return NextResponse.json(
+                { success: false, error: "Marketplace acquisition product version mismatch or missing." },
+                { status: 400 }
+              );
+            }
+          } else if (ownerData.productVersion) {
             const validVersions = ["1.0.0", "v1", "1.0", "2026.1", "servicev8.supportv8.v1"];
             if (!validVersions.includes(ownerData.productVersion)) {
               return NextResponse.json(
@@ -242,6 +293,8 @@ export async function POST(req: NextRequest) {
           ? {
               installationId: ownerData.installationId,
               ownerReceipt: canonicalReceipt,
+              operationId: ownerData.operationId || body.operationId,
+              productVersion: ownerData.productVersion || body.productVersion,
             }
           : {}),
       };

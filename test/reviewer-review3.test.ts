@@ -30,8 +30,9 @@ it('eligible plan alone cannot manufacture a canonical installation',()=>{
  console.log('ownerless-acquisition',r);expect(r.success).toBe(false);
 });
 it('launch reevaluates revoked plan or installation authority',()=>{
- const tenant={tenantSlug:'tenant-a',accountId:'acct-a'} as any;
- const r=handleAppAcquisition(tenant,{offerId:'servicev8.service-app.supportv8'});expect(r.success).toBe(true);
+ setPlanEligibilityFact('tenant-a','starter');
+ const tenant={tenantSlug:'tenant-a',accountId:'acct-a',roleCap:'support:manage'} as any;
+ const r=handleAppAcquisition(tenant,{offerId:'servicev8.service-app.supportv8',clientAcquisitionId:'acq-owner-initial'});expect(r.success).toBe(true);
  setPlanEligibilityFact('tenantA',false);setPlanEligibilityFact('tenant-a',false);
  const launch=handleAppLaunch(tenant,{installationId:r.data!.installationId});console.log('revoked-launch',launch);expect(launch.success).toBe(false);
 });

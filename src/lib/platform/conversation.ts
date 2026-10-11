@@ -30,12 +30,17 @@ export interface AgenticTurn {
 const turnsByClientTurnId = new Map<string, AgenticTurn>();
 const threadsMap = new Map<string, AgenticTurn[]>();
 
-const CONVERSATION_STORAGE_FILE = process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
+function getConversationStorageFile(): string {
+  return process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
+}
 
 function loadFromDisk(): void {
   try {
-    if (fs.existsSync(CONVERSATION_STORAGE_FILE)) {
-      const raw = fs.readFileSync(CONVERSATION_STORAGE_FILE, "utf-8");
+    const file = getConversationStorageFile();
+    if (fs.existsSync(file)) {
+      const stat = fs.statSync(file);
+      if (!stat.isFile()) return;
+      const raw = fs.readFileSync(file, "utf-8");
       const data = JSON.parse(raw);
       if (data && typeof data === "object") {
         if (data.turns) {
@@ -56,27 +61,28 @@ function loadFromDisk(): void {
 }
 
 function saveToDisk(): void {
-  try {
-    const turnsObj: Record<string, AgenticTurn> = {};
-    for (const [k, v] of turnsByClientTurnId.entries()) {
-      turnsObj[k] = v;
-    }
-    const threadsObj: Record<string, AgenticTurn[]> = {};
-    for (const [k, v] of threadsMap.entries()) {
-      threadsObj[k] = v;
-    }
-    fs.writeFileSync(CONVERSATION_STORAGE_FILE, JSON.stringify({ turns: turnsObj, threads: threadsObj }));
-  } catch {
-    // Ignore write errors
+  const file = getConversationStorageFile();
+  const turnsObj: Record<string, AgenticTurn> = {};
+  for (const [k, v] of turnsByClientTurnId.entries()) {
+    turnsObj[k] = v;
   }
+  const threadsObj: Record<string, AgenticTurn[]> = {};
+  for (const [k, v] of threadsMap.entries()) {
+    threadsObj[k] = v;
+  }
+  fs.writeFileSync(file, JSON.stringify({ turns: turnsObj, threads: threadsObj }));
 }
 
 export function clearConversationStoreForTesting(): void {
   turnsByClientTurnId.clear();
   threadsMap.clear();
   try {
-    if (fs.existsSync(CONVERSATION_STORAGE_FILE)) {
-      fs.unlinkSync(CONVERSATION_STORAGE_FILE);
+    const file = getConversationStorageFile();
+    if (fs.existsSync(file)) {
+      const stat = fs.statSync(file);
+      if (stat.isFile()) {
+        fs.unlinkSync(file);
+      }
     }
   } catch {
     // Ignore
@@ -237,7 +243,17 @@ export function admitAgenticTurn(options: {
     threadsMap.set(threadId, []);
   }
   threadsMap.get(threadId)!.push(turn);
-  saveToDisk();
+  try {
+    saveToDisk();
+  } catch (err) {
+    turnsByClientTurnId.delete(clientTurnId);
+    threadsMap.get(threadId)?.pop();
+    return {
+      success: false,
+      status: 500,
+      error: "Durable persistence failure: unable to persist admitted turn.",
+    };
+  }
 
   return {
     success: true,

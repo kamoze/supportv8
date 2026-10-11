@@ -163,8 +163,17 @@ export function startScenarioRun(options: {
     };
   }
 
+// Canonical acquired scenarios for SupportV8
+const CANONICAL_ACQUIRED_SCENARIO_IDS = new Set([
+  "sc_support_triage",
+  "sc_support_escalation",
+  "sc_support_sweep",
+  "support-triage",
+  "stale-sweep",
+]);
+
   // Acquired scenario check: unacquired or synthetic scenarios cannot run without owner workflow dispatch
-  if (config.scenarioId === "unacquired" || config.scenarioId.startsWith("scenario-")) {
+  if (!CANONICAL_ACQUIRED_SCENARIO_IDS.has(config.scenarioId)) {
     return {
       success: false,
       status: 403,

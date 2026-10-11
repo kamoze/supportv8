@@ -62,10 +62,48 @@ export function handleAppAcquisition(
     offerId?: string;
     planId?: string;
     clientAcquisitionId?: string;
+    ownerReceipt?: string;
+    receiptId?: string;
   }
 ): { success: boolean; status: number; data?: AppAcquisitionRecord; error?: string } {
-  // APP-02: Duplicate acquisition requests with stable clientAcquisitionId are idempotent per tenant
   const clientKey = payload.clientAcquisitionId;
+  const hasOwnerReceipt = Boolean(payload.ownerReceipt || payload.receiptId);
+  const isOwnerAuthorized =
+    tenant.roleCap === "support:manage" ||
+    Boolean(tenant.roles?.includes("support_cx_lead")) ||
+    hasOwnerReceipt;
+
+  // APP-01 / SP51: Missing acquisition key or owner receipt cannot manufacture ownerless install
+  if (!clientKey && !isOwnerAuthorized) {
+    return {
+      success: false,
+      status: 400,
+      error: "Missing acquisition key or canonical owner acquisition receipt.",
+    };
+  }
+
+  // APP-01 / SP52: Eligible plan alone is not an owner acquisition receipt
+  if (!isOwnerAuthorized) {
+    return {
+      success: false,
+      status: 403,
+      error: "Eligible plan alone cannot manufacture a canonical installation without owner acquisition.",
+    };
+  }
+
+  const tenantPrefix = tenant.tenantSlug === "tenant-b" ? "tenantB" : (tenant.tenantSlug === "tenant-a" ? "tenantA" : tenant.tenantSlug);
+  const eligibility = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenant.tenantSlug);
+
+  // APP-01: Disallowed or missing plan cannot acquire
+  if (!eligibility || eligibility === "none") {
+    return {
+      success: false,
+      status: 403,
+      error: "Current subscription plan is not eligible for SupportV8 app acquisition.",
+    };
+  }
+
+  // APP-02: Duplicate acquisition requests with stable clientAcquisitionId are idempotent per tenant
   const scopedKey = clientKey ? `${tenant.tenantSlug}:${clientKey}` : null;
   if (scopedKey && acquisitionsByClientId.has(scopedKey)) {
     const existing = acquisitionsByClientId.get(scopedKey)!;
@@ -93,28 +131,6 @@ export function handleAppAcquisition(
       status: 400,
       error: `Unknown offerId: ${offerId}.`,
     };
-  }
-
-  const tenantPrefix = tenant.tenantSlug === "tenant-b" ? "tenantB" : (tenant.tenantSlug === "tenant-a" ? "tenantA" : tenant.tenantSlug);
-  const eligibility = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenant.tenantSlug);
-
-  // APP-01: Disallowed plan cannot acquire; client spoofing planId does not bypass owner check
-  if (clientKey) {
-    if (!eligibility || eligibility === "none") {
-      return {
-        success: false,
-        status: 403,
-        error: "Eligible plan alone cannot manufacture a canonical installation without owner acquisition.",
-      };
-    }
-  } else {
-    if (eligibility === "none" || eligibility === false) {
-      return {
-        success: false,
-        status: 403,
-        error: "Current subscription plan is not eligible for SupportV8 app acquisition.",
-      };
-    }
   }
 
   // Create single canonical installation

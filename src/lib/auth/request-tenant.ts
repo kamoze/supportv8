@@ -35,6 +35,7 @@ export interface RequestTenantContext {
   username?: string;
   displayName?: string;
   roles: string[];
+  roleCap?: string;
   runtimeLinked?: boolean;
   accountId?: string;
   sourceHandoff?: string;
@@ -189,6 +190,7 @@ export async function resolveRequestTenant(
       userId: session.sub,
       username: access.email,
       roles: role === "support:manage" ? ["support_cx_lead"] : ["support_operator", "support_observer"],
+      roleCap: role,
       sourceHandoff: "servicev8-runtime",
       boundApps: ["servicev8-runtime", "runtime", "supportv8"],
     };

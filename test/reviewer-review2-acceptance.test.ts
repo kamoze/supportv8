@@ -147,21 +147,21 @@ describe('Review 2 Acceptance Suite (U1-R2, U2-R2, U3-R2, U9-R2)', () => {
   it('U2-R2: duplicate acquisition with changed body conflicts with 409', () => {
     setPlanEligibilityFact('tenant-a', 'starter');
     const first = handleAppAcquisition(
-      { tenantSlug: 'tenant-a', accountId: 'acct-a' } as any,
+      { tenantSlug: 'tenant-a', accountId: 'acct-a', roleCap: 'support:manage' } as any,
       { offerId: 'servicev8.service-app.supportv8', clientAcquisitionId: 'acq-key-1' }
     );
     expect(first.success).toBe(true);
 
     // Duplicate with same body -> 200
     const duplicateSame = handleAppAcquisition(
-      { tenantSlug: 'tenant-a', accountId: 'acct-a' } as any,
+      { tenantSlug: 'tenant-a', accountId: 'acct-a', roleCap: 'support:manage' } as any,
       { offerId: 'servicev8.service-app.supportv8', clientAcquisitionId: 'acq-key-1' }
     );
     expect(duplicateSame.status).toBe(200);
 
     // Duplicate with different offerId -> 409 Conflict
     const duplicateDiff = handleAppAcquisition(
-      { tenantSlug: 'tenant-a', accountId: 'acct-a' } as any,
+      { tenantSlug: 'tenant-a', accountId: 'acct-a', roleCap: 'support:manage' } as any,
       { offerId: 'other-offer', clientAcquisitionId: 'acq-key-1' }
     );
     expect(duplicateDiff.status).toBe(409);

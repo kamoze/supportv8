@@ -440,6 +440,43 @@ async function checkDatabaseAvailable(): Promise<boolean> {
   }
 }
 
+async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<string, unknown>>> {
+  if (process.env.DATABASE_URL) {
+    try {
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: false,
+        connectionTimeoutMillis: 2000,
+      });
+      const client = await pool.connect();
+      try {
+        const res = await client.query(
+          "SELECT id, summary, description, customer_name, customer_email, status, priority, category, created_at FROM supportv8.issues WHERE tenant_id = $1 ORDER BY created_at DESC",
+          [cleanTenant]
+        );
+        return res.rows.map((row: any) => ({
+          id: row.id,
+          ticketRef: `SV8-${cleanTenant}-${row.id}`,
+          summary: row.summary,
+          description: row.description,
+          customerName: row.customer_name,
+          customerEmail: row.customer_email,
+          status: row.status,
+          priority: row.priority,
+          category: row.category,
+          createdAt: row.created_at,
+        }));
+      } finally {
+        client.release();
+        await pool.end();
+      }
+    } catch {
+      return [];
+    }
+  }
+  return tenantTicketsStore.get(cleanTenant) || [];
+}
+
 export async function handleRuntimeEmployeeRecordRead(request: Request): Promise<Response> {
   if (request.method !== "GET") {
     return Response.json(
@@ -522,7 +559,7 @@ export async function handleRuntimeEmployeeRecordRead(request: Request): Promise
     );
   }
 
-  const rawTickets = tenantTicketsStore.get(cleanTenant) || [];
+  const rawTickets = await fetchTenantRawTickets(cleanTenant);
   const projectedTickets = rawTickets.map((t) => projectTicketForActor(t, actorName));
 
   return Response.json(
@@ -592,7 +629,7 @@ export async function handleRuntimeEmployeeRecordDetail(
     );
   }
 
-  const rawTickets = tenantTicketsStore.get(cleanTenant) || [];
+  const rawTickets = await fetchTenantRawTickets(cleanTenant);
   const found = rawTickets.find((t) => t.id === id || t.ticketRef === id);
 
   if (!found) {

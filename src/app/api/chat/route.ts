@@ -94,7 +94,19 @@ function buildTenantContext(tenantSlug: string): {
   };
 }
 
-const inFlightChatTurns = new Map<string, Promise<{ status: number; body: any }>>();
+interface InFlightChatTurn {
+  actorId: string;
+  tenantSlug: string;
+  clientTurnId: string;
+  threadId?: string;
+  employeeId: string;
+  query: string;
+  isPrivate: boolean;
+  participants?: string[];
+  promise: Promise<{ status: number; body: any }>;
+}
+
+const inFlightChatTurns = new Map<string, InFlightChatTurn>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -126,8 +138,42 @@ export async function POST(request: NextRequest) {
     const participants = Array.isArray(body.participants) ? body.participants : undefined;
 
     const scopedTurnKey = `${tenant.tenantSlug}:${clientTurnId}`;
+    const actorId = tenant.userId || "anonymous-actor";
+
     if (inFlightChatTurns.has(scopedTurnKey)) {
-      const awaited = await inFlightChatTurns.get(scopedTurnKey)!;
+      const existing = inFlightChatTurns.get(scopedTurnKey)!;
+      // SP55: another actor cannot obtain a pending private answer via shared turn key
+      if (existing.actorId !== actorId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: existing.isPrivate
+              ? "Private turn cannot be accessed by another actor."
+              : "Conflicting actor for in-flight turn.",
+          },
+          { status: existing.isPrivate ? 403 : 409 }
+        );
+      }
+
+      // SP54: coalesced pending turn must check changed request before replay
+      if (
+        existing.query !== query ||
+        existing.employeeId !== employeeId ||
+        (existing.threadId !== undefined && threadId !== undefined && existing.threadId !== threadId) ||
+        (existing.threadId && !threadId) ||
+        (!existing.threadId && threadId) ||
+        existing.isPrivate !== isPrivate
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Conflicting request payload for pending turn.",
+          },
+          { status: 409 }
+        );
+      }
+
+      const awaited = await existing.promise;
       return NextResponse.json(awaited.body, { status: awaited.status });
     }
 
@@ -361,12 +407,24 @@ export async function POST(request: NextRequest) {
       return { status: 200, body: forgePayload };
     })();
 
-    inFlightChatTurns.set(scopedTurnKey, turnPromise);
+    inFlightChatTurns.set(scopedTurnKey, {
+      actorId,
+      tenantSlug: tenant.tenantSlug,
+      clientTurnId,
+      threadId,
+      employeeId,
+      query,
+      isPrivate,
+      participants,
+      promise: turnPromise,
+    });
     try {
       const result = await turnPromise;
       return NextResponse.json(result.body, { status: result.status });
     } finally {
-      inFlightChatTurns.delete(scopedTurnKey);
+      if (inFlightChatTurns.get(scopedTurnKey)?.promise === turnPromise) {
+        inFlightChatTurns.delete(scopedTurnKey);
+      }
     }
   } catch (error) {
     if (

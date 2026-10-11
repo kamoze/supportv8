@@ -63,15 +63,25 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      let ownerData: any = null;
       if (process.env.MARKETPLACE_URL || process.env.SERVICEV8_MARKETPLACE_URL) {
         const ownerUrl = process.env.MARKETPLACE_URL || process.env.SERVICEV8_MARKETPLACE_URL!;
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 300);
+          const timer = setTimeout(() => controller.abort(), 500);
+          const outboundPayload = {
+            action: "verify_acquisition",
+            tenantSlug: tenant.tenantSlug,
+            accountId: tenant.accountId,
+            tenantId: (tenant as any).workspaceId || tenant.tenantId,
+            offerId: body.offerId,
+            clientAcquisitionId: body.clientAcquisitionId,
+            ownerReceipt: body.ownerReceipt,
+          };
           const ownerRes = await fetch(ownerUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "verify_acquisition", tenantSlug: tenant.tenantSlug, ...body }),
+            body: JSON.stringify(outboundPayload),
             signal: controller.signal,
           });
           clearTimeout(timer);
@@ -79,6 +89,54 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
               { success: false, error: "Canonical Marketplace acquisition owner returned error." },
               { status: 503 }
+            );
+          }
+          ownerData = await ownerRes.json().catch(() => null);
+          if (!ownerData || typeof ownerData !== "object") {
+            return NextResponse.json(
+              { success: false, error: "Canonical Marketplace acquisition owner returned invalid payload." },
+              { status: 503 }
+            );
+          }
+          if (ownerData.status !== "accepted") {
+            return NextResponse.json(
+              {
+                success: false,
+                error: ownerData.reason || "Canonical Marketplace acquisition owner rejected acquisition.",
+              },
+              { status: 403 }
+            );
+          }
+          // Exact tenant match validation
+          if (
+            ownerData.tenantId &&
+            ownerData.tenantId !== tenant.tenantId &&
+            ownerData.tenantId !== (tenant as any).workspaceId &&
+            ownerData.tenantId !== tenant.tenantSlug
+          ) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition tenant mismatch." },
+              { status: 403 }
+            );
+          }
+          if (ownerData.tenantSlug && ownerData.tenantSlug !== tenant.tenantSlug) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition tenant mismatch." },
+              { status: 403 }
+            );
+          }
+          // Exact account match validation
+          if (ownerData.accountId && ownerData.accountId !== tenant.accountId) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition account mismatch." },
+              { status: 403 }
+            );
+          }
+          // Exact offer match validation
+          if (ownerData.offerId && body.offerId && ownerData.offerId !== body.offerId) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition offer mismatch." },
+              { status: 400 }
             );
           }
         } catch {
@@ -94,7 +152,16 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const result = handleAppAcquisition(tenant, body);
+      const acquisitionPayload = {
+        ...body,
+        ...(ownerData
+          ? {
+              installationId: ownerData.installationId,
+              ownerReceipt: ownerData.receipt || ownerData.installationId || body.ownerReceipt,
+            }
+          : {}),
+      };
+      const result = handleAppAcquisition(tenant, acquisitionPayload);
       return NextResponse.json(
         { success: result.success, error: result.error, data: result.data },
         { status: result.status }

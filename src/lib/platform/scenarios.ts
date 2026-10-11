@@ -40,15 +40,54 @@ export interface ScenarioRun {
   failureReason?: string;
 }
 
+export interface AcquiredScenarioRecord {
+  scenarioId: string;
+  tenantSlug: string;
+  status: "active" | "suspended";
+  acquiredAt: string;
+  dispatcherId?: string;
+  assignedConnectors?: string[];
+}
+
 // Durable in-memory store simulating owner persistence
 const scenarioConfigs = new Map<string, ScenarioConfig>();
 const scenarioRuns = new Map<string, ScenarioRun>();
 const runsByIdempotencyKey = new Map<string, ScenarioRun>();
+const acquiredScenariosByTenant = new Map<string, Map<string, AcquiredScenarioRecord>>();
+
+export function isScenarioAcquiredForTenant(tenantSlug: string, scenarioId: string): boolean {
+  const cleanTenant = tenantSlug.toLowerCase();
+  const tenantMap = acquiredScenariosByTenant.get(cleanTenant);
+  return Boolean(tenantMap && tenantMap.has(scenarioId));
+}
+
+export function acquireScenarioForTenant(
+  tenantSlug: string,
+  scenarioId: string,
+  details?: Partial<AcquiredScenarioRecord>
+): AcquiredScenarioRecord {
+  const cleanTenant = tenantSlug.toLowerCase();
+  if (!acquiredScenariosByTenant.has(cleanTenant)) {
+    acquiredScenariosByTenant.set(cleanTenant, new Map());
+  }
+  const record: AcquiredScenarioRecord = {
+    scenarioId,
+    tenantSlug: cleanTenant,
+    status: "active",
+    acquiredAt: new Date().toISOString(),
+    dispatcherId: details?.dispatcherId || `wf_disp_${Date.now()}`,
+    assignedConnectors: details?.assignedConnectors || ["conn_default"],
+    ...details,
+  };
+  acquiredScenariosByTenant.get(cleanTenant)!.set(scenarioId, record);
+  return record;
+}
 
 export function clearScenarioStoreForTesting(): void {
   scenarioConfigs.clear();
   scenarioRuns.clear();
   runsByIdempotencyKey.clear();
+  acquiredScenariosByTenant.clear();
 }
 
 export function saveScenarioConfig(input: {
@@ -165,8 +204,9 @@ export function startScenarioRun(options: {
   configId: string;
   activeHires: string[];
   idempotencyKey?: string;
+  requireAcquisition?: boolean;
 }): { success: boolean; status: number; run?: ScenarioRun; error?: string } {
-  const { tenantSlug, configId, activeHires, idempotencyKey } = options;
+  const { tenantSlug, configId, activeHires, idempotencyKey, requireAcquisition } = options;
 
   // Config ownership check
   const config = getScenarioConfig(tenantSlug, configId);
@@ -188,7 +228,15 @@ export function startScenarioRun(options: {
   }
 
   // Acquired scenario check: unacquired or synthetic scenarios cannot run without owner workflow dispatch
-  if (!CANONICAL_ACQUIRED_SCENARIO_IDS.has(config.scenarioId)) {
+  if (requireAcquisition) {
+    if (!isScenarioAcquiredForTenant(tenantSlug, config.scenarioId)) {
+      return {
+        success: false,
+        status: 403,
+        error: "Scenario is not acquired for tenant or lacks workflow dispatch authority.",
+      };
+    }
+  } else if (!CANONICAL_ACQUIRED_SCENARIO_IDS.has(config.scenarioId) && !isScenarioAcquiredForTenant(tenantSlug, config.scenarioId)) {
     return {
       success: false,
       status: 403,

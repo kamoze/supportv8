@@ -8,6 +8,7 @@
 
 import { db } from "../db/mock-data";
 import { reportingService } from "./reporting-service";
+import { acquireScenarioForTenant } from "@/lib/platform/scenarios";
 import type {
   MarketplaceConnector,
   MarketplaceWorkforceItem,
@@ -1567,6 +1568,37 @@ export class MarketplaceService {
     if (!item) throw new Error(`Workforce item ${id} not found`);
     item.isHired = true;
     item.hiredCount += 1;
+
+    // Automatically bind canonical scenario execution and connector assignment for hired workforce agents
+    const cleanTenant = tenantSlug.toLowerCase();
+    const scenarioMap: Record<string, string[]> = {
+      emp_support_lead: ["sc_support_triage", "sc_support_escalation"],
+      emp_incident_analyst: ["sc_support_escalation"],
+      emp_kb_refresh: ["sc_support_sweep"],
+    };
+    const scenarios = scenarioMap[id] || ["sc_support_triage"];
+    for (const scId of scenarios) {
+      acquireScenarioForTenant(cleanTenant, scId, {
+        dispatcherId: `wf_disp_${id}_${cleanTenant}`,
+        assignedConnectors: [`conn_${cleanTenant}_default`],
+      });
+    }
+
+    const state = this.stateFor(tenantSlug);
+    const existingAssignment = state.connectorAssignments.find((a) => a.employeeId === id);
+    if (!existingAssignment) {
+      state.connectorAssignments.push({
+        id: `asgn_${id}_${Date.now()}`,
+        connectionId: `conn_${cleanTenant}_default`,
+        connectorKey: "orderv8",
+        employeeId: id,
+        employeeName: item.name,
+        grantedCapabilities: ["order.lookup", "shipping.track", "return.initiate"],
+        status: "active",
+        assignedAt: new Date().toISOString(),
+      });
+    }
+
     return { ...item };
   }
 

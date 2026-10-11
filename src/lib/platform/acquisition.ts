@@ -73,6 +73,7 @@ export function handleAppAcquisition(
     clientAcquisitionId?: string;
     ownerReceipt?: string;
     receiptId?: string;
+    installationId?: string;
   }
 ): { success: boolean; status: number; data?: AppAcquisitionRecord; error?: string } {
   const clientKey = payload.clientAcquisitionId;

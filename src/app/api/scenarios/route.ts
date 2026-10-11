@@ -6,6 +6,7 @@ import {
   startScenarioRun,
   getScenarioConfig,
   CANONICAL_WORKFORCE_AGENT_IDS,
+  isScenarioAcquiredForTenant,
 } from "@/lib/platform/scenarios";
 
 import { marketplaceService } from "@/lib/services/marketplace-service";
@@ -49,21 +50,37 @@ export async function POST(request: NextRequest) {
 
     if (action === "run") {
       const config = getScenarioConfig(tenant.tenantSlug, body.configId);
-      if (config) {
-        const unverifiedParticipants = config.participants.filter(
-          (p) =>
-            !CANONICAL_WORKFORCE_AGENT_IDS.has(p.employeeId) ||
-            !marketplaceService.isAgentHired(p.employeeId, tenant.tenantSlug)
+      if (!config) {
+        return NextResponse.json(
+          { success: false, error: "Access denied to requested scenario config." },
+          { status: 403 }
         );
-        if (unverifiedParticipants.length > 0) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `Participants not verified or hired for tenant: ${unverifiedParticipants.map((p) => p.employeeId).join(", ")}`,
-            },
-            { status: 403 }
-          );
-        }
+      }
+
+      // Catalog scenario check: unacquired scenario or scenario lacking dispatch authority cannot run
+      if (!isScenarioAcquiredForTenant(tenant.tenantSlug, config.scenarioId)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Scenario '${config.scenarioId}' is not acquired for tenant '${tenant.tenantSlug}' or lacks workflow dispatch authority.`,
+          },
+          { status: 403 }
+        );
+      }
+
+      const unverifiedParticipants = config.participants.filter(
+        (p) =>
+          !CANONICAL_WORKFORCE_AGENT_IDS.has(p.employeeId) ||
+          !marketplaceService.isAgentHired(p.employeeId, tenant.tenantSlug)
+      );
+      if (unverifiedParticipants.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Participants not verified or hired for tenant: ${unverifiedParticipants.map((p) => p.employeeId).join(", ")}`,
+          },
+          { status: 403 }
+        );
       }
 
       const hiredEmployees = marketplaceService
@@ -75,6 +92,7 @@ export async function POST(request: NextRequest) {
         configId: body.configId,
         activeHires: hiredEmployees,
         idempotencyKey: body.idempotencyKey,
+        requireAcquisition: true,
       });
       return NextResponse.json(
         { success: runResult.success, data: runResult.run, error: runResult.error },

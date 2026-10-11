@@ -38,12 +38,14 @@ export interface ScenarioRun {
   startedAt: string;
   completedAt?: string;
   failureReason?: string;
+  dispatcherId?: string;
+  assignedConnectors?: string[];
 }
 
 export interface AcquiredScenarioRecord {
   scenarioId: string;
   tenantSlug: string;
-  status: "active" | "suspended";
+  status: "active" | "suspended" | "revoked";
   acquiredAt: string;
   dispatcherId?: string;
   assignedConnectors?: string[];
@@ -55,10 +57,25 @@ const scenarioRuns = new Map<string, ScenarioRun>();
 const runsByIdempotencyKey = new Map<string, ScenarioRun>();
 const acquiredScenariosByTenant = new Map<string, Map<string, AcquiredScenarioRecord>>();
 
+export function getAcquiredScenarioForTenant(
+  tenantSlug: string,
+  scenarioId: string
+): AcquiredScenarioRecord | undefined {
+  const cleanTenant = tenantSlug.toLowerCase();
+  const tenantMap = acquiredScenariosByTenant.get(cleanTenant);
+  return tenantMap?.get(scenarioId);
+}
+
 export function isScenarioAcquiredForTenant(tenantSlug: string, scenarioId: string): boolean {
   const cleanTenant = tenantSlug.toLowerCase();
   const tenantMap = acquiredScenariosByTenant.get(cleanTenant);
-  return Boolean(tenantMap && tenantMap.has(scenarioId));
+  if (!tenantMap) return false;
+  const record = tenantMap.get(scenarioId);
+  if (!record) return false;
+  if (record.status !== "active") return false;
+  if (!record.dispatcherId || record.dispatcherId.trim() === "") return false;
+  if (!Array.isArray(record.assignedConnectors) || record.assignedConnectors.length === 0) return false;
+  return true;
 }
 
 export function acquireScenarioForTenant(
@@ -286,6 +303,8 @@ export function startScenarioRun(options: {
     };
   }
 
+  const acquiredRecord = getAcquiredScenarioForTenant(tenantSlug, config.scenarioId);
+
   // Create immutable run with pinned revision and pinned participants
   const run: ScenarioRun = {
     runId: `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -297,6 +316,8 @@ export function startScenarioRun(options: {
     status: "running",
     idempotencyKey,
     startedAt: new Date().toISOString(),
+    dispatcherId: acquiredRecord?.dispatcherId,
+    assignedConnectors: acquiredRecord?.assignedConnectors ? [...acquiredRecord.assignedConnectors] : undefined,
   };
 
   scenarioRuns.set(run.runId, run);

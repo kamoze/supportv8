@@ -449,8 +449,40 @@ async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<
     });
     const client = await pool.connect();
     try {
+      await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [cleanTenant]).catch(() => {});
+      const colCheck = await client.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_schema = 'supportv8' AND table_name = 'issues'"
+      ).catch(() => ({ rows: [] }));
+      const cols = new Set(colCheck.rows.map((r: any) => r.column_name.toLowerCase()));
+      const hasCategory = cols.has("category");
+      const hasCustomerRef = cols.has("customer_ref");
+      const hasCustomerName = cols.has("customer_name");
+      const hasCustomerEmail = cols.has("customer_email");
+      const hasExternalId = cols.has("external_id");
+      const hasSource = cols.has("source");
+      const hasSourceStatus = cols.has("source_status");
+      const hasPriority = cols.has("priority");
+      const hasSummary = cols.has("summary");
+      const hasCreatedAt = cols.has("created_at");
+      const hasUpdatedAt = cols.has("updated_at");
+
+      const selectCols = [
+        "id",
+        hasExternalId ? "external_id" : "id AS external_id",
+        hasCustomerRef ? "customer_ref" : "'cust_unknown' AS customer_ref",
+        hasCustomerName ? "customer_name" : "'Customer' AS customer_name",
+        hasCustomerEmail ? "customer_email" : "NULL::text AS customer_email",
+        hasSourceStatus ? "source_status" : "'open' AS source_status",
+        hasPriority ? "priority" : "'normal' AS priority",
+        hasSummary ? "summary" : "'' AS summary",
+        hasSource ? "source" : "'portal' AS source",
+        hasCategory ? "category" : "'general' AS category",
+        hasCreatedAt ? "created_at::text AS created_at" : "now()::text AS created_at",
+        hasUpdatedAt ? "updated_at::text AS updated_at" : "now()::text AS updated_at",
+      ].join(", ");
+
       const res = await client.query(
-        "SELECT id, external_id, customer_ref, customer_name, source_status, priority, summary, source, category, created_at::text AS created_at, updated_at::text AS updated_at FROM supportv8.issues WHERE tenant_id = $1 ORDER BY updated_at DESC, id DESC",
+        `SELECT ${selectCols} FROM supportv8.issues WHERE tenant_id = $1 ORDER BY ${hasUpdatedAt ? "updated_at DESC, " : ""}id DESC`,
         [cleanTenant]
       );
       return res.rows.map((row: any) => ({
@@ -468,6 +500,8 @@ async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       }));
+    } catch {
+      return tenantTicketsStore.get(cleanTenant) || [];
     } finally {
       client.release();
       await pool.end();

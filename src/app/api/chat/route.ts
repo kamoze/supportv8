@@ -28,7 +28,7 @@ import {
   executeAgenticChatAsk,
 } from "@/lib/chat/agenticos-chat-client";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
-import { admitAgenticTurn, completeAgenticTurn } from "@/lib/platform/conversation";
+import { admitAgenticTurn, completeAgenticTurn, markTurnInFlight } from "@/lib/platform/conversation";
 
 const DEMO_HIRE_IDS: Record<string, string> = {
   acme: "hi_supportv8_demo_acme",
@@ -231,6 +231,35 @@ export async function POST(request: NextRequest) {
         };
       }
 
+      // SUPPORT-R9-CHAT-RECOVERY: If turn was already running / dispatched to external model boundary
+      // before an abrupt restart or crash, reconcile with truthful pending recovery without duplicating model boundary work.
+      if ((admission as any).running) {
+        const pendingResponsePayload = {
+          success: true,
+          data: {
+            turnId: admission.turnId,
+            threadId: admission.threadId,
+            query,
+            employeeId: employee.id,
+            employeeName: employee.name,
+            employeeRole: employee.role,
+            employeeAvatar: (employee as any).avatar || "/avatars/beaver-curator.jpg",
+            answer: "Turn execution in progress or recovering from interruption.",
+            status: "pending",
+            reconciled: true,
+            recovering: true,
+            citations: [],
+            suggestedActions: [
+              { label: "Inspect in RAG Output Editor", action: "navigate", targetTab: "knowledge" },
+              { label: "View Tickets & Issues", action: "navigate", targetTab: "issues" },
+            ],
+            timestamp: new Date().toISOString(),
+            runtime: "pgvector_rag",
+          },
+        };
+        return { status: 200, body: pendingResponsePayload };
+      }
+
       if (isRestrictedDemoOperator(tenant)) {
         await demoRateLimiter.enforce({
           action: "ask",
@@ -244,55 +273,8 @@ export async function POST(request: NextRequest) {
       const instanceId = DEMO_HIRE_IDS[tenant.tenantSlug];
       // If querying the RAG Copilot or workspace has no demo-metered instance:
       if (employeeId === "emp_rag_intelligence" || !instanceId) {
-        // SUPPORT-R8-RECOVERY: Durable execution recovery / reconciliation
-        // If external model boundary already accepted work for this turn (e.g. abrupt restart / SIGKILL recovery),
-        // reconcile the accepted result without duplicating model boundary work.
-        const hasAcceptedOwnerWork = () => {
-          if (process.env.REVIEW_CALLS) {
-            try {
-              if (fs.existsSync(process.env.REVIEW_CALLS)) {
-                const callsContent = fs.readFileSync(process.env.REVIEW_CALLS, "utf-8");
-                return callsContent.includes('"accepted":true') || callsContent.includes('"accepted": true');
-              }
-            } catch {
-              return false;
-            }
-          }
-          return false;
-        };
-
-        if (hasAcceptedOwnerWork()) {
-          const reconciledAnswer = "Synthetic accepted answer83";
-          const reconciledPayload = {
-            success: true,
-            data: {
-              turnId: admission.turnId,
-              threadId: admission.threadId,
-              query,
-              employeeId: employee.id,
-              employeeName: employee.name,
-              employeeRole: employee.role,
-              employeeAvatar: (employee as any).avatar || "/avatars/beaver-curator.jpg",
-              answer: reconciledAnswer,
-              citations: [],
-              suggestedActions: [
-                { label: "Inspect in RAG Output Editor", action: "navigate", targetTab: "knowledge" },
-                { label: "View Tickets & Issues", action: "navigate", targetTab: "issues" },
-              ],
-              timestamp: new Date().toISOString(),
-              runtime: "pgvector_rag",
-              reconciled: true,
-            },
-          };
-
-          if (admission.turnId) {
-            completeAgenticTurn(admission.turnId, {
-              answer: reconciledAnswer,
-              response: reconciledPayload,
-            });
-          }
-
-          return { status: 200, body: reconciledPayload };
+        if (admission.turnId) {
+          markTurnInFlight(admission.turnId, { owner: "emp_rag_intelligence" });
         }
 
         const ragResult = await ragIngestion.queryRag({

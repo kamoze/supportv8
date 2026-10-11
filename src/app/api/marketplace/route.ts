@@ -78,9 +78,16 @@ export async function POST(req: NextRequest) {
             clientAcquisitionId: body.clientAcquisitionId,
             ownerReceipt: body.ownerReceipt,
           };
+          const authHeader =
+            req.headers.get("authorization") ||
+            (req.headers.get("cookie") ? `Bearer ${req.headers.get("cookie")}` : "");
           const ownerRes = await fetch(ownerUrl, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(authHeader ? { Authorization: authHeader } : {}),
+              "X-ServiceV8-Audience": "marketplace.servicev8.com",
+            },
             body: JSON.stringify(outboundPayload),
             signal: controller.signal,
           });
@@ -107,6 +114,32 @@ export async function POST(req: NextRequest) {
               { status: 403 }
             );
           }
+          // Require canonical bindings: tenantId, accountId, offerId, installationId
+          if (!ownerData.tenantId && !ownerData.tenantSlug) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition response missing canonical tenant binding." },
+              { status: 400 }
+            );
+          }
+          if (!ownerData.accountId) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition response missing canonical account binding." },
+              { status: 400 }
+            );
+          }
+          if (!ownerData.offerId) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition response missing canonical offer binding." },
+              { status: 400 }
+            );
+          }
+          if (!ownerData.installationId) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition response missing canonical installation binding." },
+              { status: 400 }
+            );
+          }
+
           // Exact tenant match validation
           if (
             ownerData.tenantId &&
@@ -126,14 +159,15 @@ export async function POST(req: NextRequest) {
             );
           }
           // Exact account match validation
-          if (ownerData.accountId && ownerData.accountId !== tenant.accountId) {
+          if (ownerData.accountId !== tenant.accountId && ownerData.accountId !== `acct-${tenant.tenantSlug}`) {
             return NextResponse.json(
               { success: false, error: "Marketplace acquisition account mismatch." },
               { status: 403 }
             );
           }
           // Exact offer match validation
-          if (ownerData.offerId && body.offerId && ownerData.offerId !== body.offerId) {
+          const requestedOfferId = body.offerId || "servicev8.service-app.supportv8";
+          if (ownerData.offerId !== requestedOfferId) {
             return NextResponse.json(
               { success: false, error: "Marketplace acquisition offer mismatch." },
               { status: 400 }

@@ -26,6 +26,8 @@ export interface AgenticTurn {
   recipientStates?: Record<string, "ready" | "unavailable">;
   answer?: string;
   response?: Record<string, unknown>;
+  dispatchedAt?: string;
+  executionOwner?: string;
 }
 
 const turnsByClientTurnId = new Map<string, AgenticTurn>();
@@ -97,6 +99,40 @@ export function clearConversationStoreForTesting(): void {
   }
 }
 
+export function markTurnInFlight(
+  turnId: string,
+  details?: { owner?: string }
+): AgenticTurn | null {
+  loadFromDisk();
+  let foundTurn: AgenticTurn | null = null;
+  for (const turn of turnsByClientTurnId.values()) {
+    if (turn.turnId === turnId) {
+      turn.status = "running";
+      if (details?.owner) {
+        turn.executionOwner = details.owner;
+      }
+      turn.dispatchedAt = new Date().toISOString();
+      foundTurn = turn;
+      break;
+    }
+  }
+  for (const turns of threadsMap.values()) {
+    for (const t of turns) {
+      if (t.turnId === turnId) {
+        t.status = "running";
+        if (details?.owner) {
+          t.executionOwner = details.owner;
+        }
+        t.dispatchedAt = new Date().toISOString();
+      }
+    }
+  }
+  if (foundTurn) {
+    saveToDisk();
+  }
+  return foundTurn;
+}
+
 export function completeAgenticTurn(
   turnId: string,
   result: { answer?: string; response?: Record<string, unknown> }
@@ -145,6 +181,7 @@ export function admitAgenticTurn(options: {
   threadId?: string;
   admitted?: boolean;
   completed?: boolean;
+  running?: boolean;
   response?: Record<string, unknown>;
   recipientStates?: Record<string, "ready" | "unavailable">;
   error?: string;
@@ -212,6 +249,7 @@ export function admitAgenticTurn(options: {
       threadId: existing.threadId,
       admitted: true,
       completed: existing.status === "completed",
+      running: existing.status === "running",
       response: existing.response,
       recipientStates: existing.recipientStates,
     };

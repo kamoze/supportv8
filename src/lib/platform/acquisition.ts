@@ -7,6 +7,7 @@
  * - APP-04: Revoked installation denial
  */
 
+import { randomUUID } from "node:crypto";
 import type { RequestTenantContext } from "@/lib/auth/request-tenant";
 
 export interface AppAcquisitionRecord {
@@ -17,6 +18,7 @@ export interface AppAcquisitionRecord {
   clientAcquisitionId?: string;
   status: "active" | "revoked" | "provisioning";
   acquiredAt: string;
+  ownerReceipt?: string;
 }
 
 // In-memory registry of acquisitions (survives requests, resets on restart)
@@ -158,14 +160,16 @@ export function handleAppAcquisition(
   }
 
   // Create single canonical installation
+  const canonicalInstallationId = payload.installationId || `install-${tenant.tenantSlug}`;
   const installation: AppAcquisitionRecord = {
-    installationId: `install-${tenant.tenantSlug}`,
+    installationId: canonicalInstallationId,
     tenantSlug: tenant.tenantSlug,
     accountId: tenant.accountId || `acct-${tenant.tenantSlug}`,
     offerId,
     clientAcquisitionId: clientKey,
     status: "active",
     acquiredAt: new Date().toISOString(),
+    ownerReceipt: payload.ownerReceipt || canonicalInstallationId,
   };
 
   appAcquisitionsByTenant.set(tenant.tenantSlug, installation);

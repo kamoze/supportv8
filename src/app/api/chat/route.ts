@@ -28,7 +28,7 @@ import {
   executeAgenticChatAsk,
 } from "@/lib/chat/agenticos-chat-client";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
-import { admitAgenticTurn, completeAgenticTurn, markTurnInFlight } from "@/lib/platform/conversation";
+import { admitAgenticTurn, completeAgenticTurn, markTurnInFlight, isValidClientTurnId } from "@/lib/platform/conversation";
 
 const DEMO_HIRE_IDS: Record<string, string> = {
   acme: "hi_supportv8_demo_acme",
@@ -133,7 +133,20 @@ export async function POST(request: NextRequest) {
     // SupportV8 RAG Intelligence copilot is always accessible to all workspaces
     hiredIds.add("emp_rag_intelligence");
 
-    const clientTurnId = typeof body.clientTurnId === "string" && body.clientTurnId ? body.clientTurnId : `turn_req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const rawClientTurnId = body.clientTurnId;
+    if (rawClientTurnId !== undefined && rawClientTurnId !== null) {
+      if (typeof rawClientTurnId !== "string" || !isValidClientTurnId(rawClientTurnId)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Invalid clientTurnId: must be a safe identifier without path traversal segments.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const clientTurnId = typeof rawClientTurnId === "string" && rawClientTurnId ? rawClientTurnId : `turn_req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const threadId = typeof body.threadId === "string" ? body.threadId : undefined;
     const isPrivate = Boolean(body.isPrivate);
     const participants = Array.isArray(body.participants) ? body.participants : undefined;

@@ -11,6 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import * as crypto from "node:crypto";
 
 export interface AgenticTurn {
   turnId: string;
@@ -49,14 +50,47 @@ function getSharedOperationDirs(): string[] {
   return dirs;
 }
 
+export function isValidClientTurnId(id: unknown): id is string {
+  if (typeof id !== "string") return false;
+  const trimmed = id.trim();
+  if (!trimmed || trimmed.length > 128) return false;
+  if (
+    trimmed.includes("/") ||
+    trimmed.includes("\\") ||
+    trimmed.includes("..") ||
+    trimmed.toLowerCase().includes("%2e") ||
+    trimmed.toLowerCase().includes("%2f") ||
+    trimmed.toLowerCase().includes("%5c") ||
+    trimmed.includes("\0")
+  ) {
+    return false;
+  }
+  return /^[a-zA-Z0-9_\-:][a-zA-Z0-9_\-.:]*$/.test(trimmed) && !trimmed.includes("..");
+}
+
+export function getOpaqueTurnStorageKey(tenantSlug: string, clientTurnId: string): string {
+  const hash = crypto.createHash("sha256").update(`${tenantSlug}:${clientTurnId}`).digest("hex");
+  const sanitized = clientTurnId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 32);
+  return `turn_${sanitized}_${hash}.json`;
+}
+
 function persistTurnAtomic(turn: AgenticTurn): void {
+  if (!isValidClientTurnId(turn.clientTurnId)) {
+    return;
+  }
+  const filename = getOpaqueTurnStorageKey(turn.tenantSlug || "default", turn.clientTurnId);
   for (const dir of getSharedOperationDirs()) {
     try {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      const resolvedDir = path.resolve(dir);
+      if (!fs.existsSync(resolvedDir)) {
+        fs.mkdirSync(resolvedDir, { recursive: true });
       }
-      const p = path.join(dir, `${turn.clientTurnId}.json`);
-      fs.writeFileSync(p, JSON.stringify(turn));
+      const targetPath = path.resolve(resolvedDir, filename);
+      const relative = path.relative(resolvedDir, targetPath);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        continue;
+      }
+      fs.writeFileSync(targetPath, JSON.stringify(turn));
     } catch {
       // Ignore directory write error
     }
@@ -266,6 +300,15 @@ export function admitAgenticTurn(options: {
     participants = [actorId],
     additionalRecipients,
   } = options;
+
+  if (!isValidClientTurnId(clientTurnId)) {
+    return {
+      success: false,
+      status: 400,
+      error: "Invalid clientTurnId: must be a safe identifier without path traversal segments.",
+    };
+  }
+
   loadFromDisk();
 
   // CHAT-02: Idempotency check by clientTurnId

@@ -332,15 +332,19 @@ export function SignInModal({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
+                  <label htmlFor="panel-login-workspace" className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <Building2 className="w-4 h-4 text-[#2ED8B6]" />
                       <span>Workspace Domain</span>
                     </span>
                     <span className="text-xs text-[#6B7C8D] font-mono">.support.servicev8.com</span>
                   </label>
-                  <input aria-label="Workspace"
+                  <input
+                    id="panel-login-workspace"
+                    name="workspace"
+                    aria-label="Workspace"
                     type="text"
+                    autoComplete="organization"
                     value={tenantSlug}
                     onChange={(e) => setTenantSlug(e.target.value)}
                     placeholder="e.g. acme or meridian"
@@ -352,12 +356,16 @@ export function SignInModal({
 
               {/* Email Address */}
               <div className="space-y-1.5">
-                <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
+                <label htmlFor="tenant-login-email" className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
                   <Mail className="w-4 h-4 text-[#4D9FFF]" />
                   <span>Work Email</span>
                 </label>
-                <input aria-label="Work email"
+                <input
+                  id="tenant-login-email"
+                  name="email"
+                  aria-label="Work email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={lockedTenantSlug ? `staff@${lockedTenantSlug}.com` : "name@company.com"}
@@ -368,7 +376,7 @@ export function SignInModal({
 
               {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
+                <label htmlFor="tenant-login-password" className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Lock className="w-4 h-4 text-[#F5A623]" />
                     <span>Password</span>
@@ -387,8 +395,12 @@ export function SignInModal({
                   </button>
                 </label>
                 <div className="relative">
-                  <input aria-label="Password"
+                  <input
+                    id="tenant-login-password"
+                    name="password"
+                    aria-label="Password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"

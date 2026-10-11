@@ -27,7 +27,7 @@ import {
   executeAgenticChatAsk,
 } from "@/lib/chat/agenticos-chat-client";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
-import { admitAgenticTurn } from "@/lib/platform/conversation";
+import { admitAgenticTurn, completeAgenticTurn } from "@/lib/platform/conversation";
 
 const DEMO_HIRE_IDS: Record<string, string> = {
   acme: "hi_supportv8_demo_acme",
@@ -141,6 +141,10 @@ export async function POST(request: NextRequest) {
         { status: admission.status }
       );
     }
+
+    if ((admission as any).completed && (admission as any).response) {
+      return NextResponse.json((admission as any).response);
+    }
     let employee = workforceManager.getById(employeeId);
     if (!employee && employeeId === "emp_rag_intelligence") {
       employee = {
@@ -178,9 +182,11 @@ export async function POST(request: NextRequest) {
         limit: 5,
       });
 
-      return NextResponse.json({
+      const ragResponsePayload = {
         success: true,
         data: {
+          turnId: admission.turnId,
+          threadId: admission.threadId,
           query,
           employeeId: employee.id,
           employeeName: employee.name,
@@ -195,7 +201,16 @@ export async function POST(request: NextRequest) {
           timestamp: new Date().toISOString(),
           runtime: "pgvector_rag",
         },
-      });
+      };
+
+      if (admission.turnId) {
+        completeAgenticTurn(admission.turnId, {
+          answer: ragResult.answer,
+          response: ragResponsePayload,
+        });
+      }
+
+      return NextResponse.json(ragResponsePayload);
     }
 
     if (employeeId !== "emp_support_lead") {
@@ -219,9 +234,11 @@ export async function POST(request: NextRequest) {
         });
 
         if (centralResult?.answer) {
-          return NextResponse.json({
+          const centralPayload = {
             success: true,
             data: {
+              turnId: admission.turnId,
+              threadId: admission.threadId,
               query,
               employeeId: employee.id,
               employeeName: employee.name,
@@ -235,7 +252,14 @@ export async function POST(request: NextRequest) {
               timestamp: new Date().toISOString(),
               runtime: "agenticos_central",
             },
-          });
+          };
+          if (admission.turnId) {
+            completeAgenticTurn(admission.turnId, {
+              answer: centralResult.answer,
+              response: centralPayload,
+            });
+          }
+          return NextResponse.json(centralPayload);
         }
       } catch (err) {
         console.warn("[chat-route] Central agentic chat execution failed, falling back to local forge gateway:", err);
@@ -296,9 +320,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const forgePayload = {
       success: true,
       data: {
+        turnId: admission.turnId,
+        threadId: admission.threadId,
         query,
         employeeId: employee.id,
         employeeName: employee.name,
@@ -312,7 +338,15 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
         runtime: "forge_gateway",
       },
-    });
+    };
+    if (admission.turnId) {
+      completeAgenticTurn(admission.turnId, {
+        answer,
+        response: forgePayload,
+      });
+    }
+
+    return NextResponse.json(forgePayload);
   } catch (error) {
     if (
       error instanceof RequestAuthError ||

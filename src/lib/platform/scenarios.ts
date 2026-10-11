@@ -144,17 +144,6 @@ export function startScenarioRun(options: {
 }): { success: boolean; status: number; run?: ScenarioRun; error?: string } {
   const { tenantSlug, configId, activeHires, idempotencyKey } = options;
 
-  // Idempotency check scoped to tenant
-  const scopedKey = idempotencyKey ? `${tenantSlug}:${idempotencyKey}` : null;
-  if (scopedKey && runsByIdempotencyKey.has(scopedKey)) {
-    const existing = runsByIdempotencyKey.get(scopedKey)!;
-    return {
-      success: true,
-      status: 200,
-      run: JSON.parse(JSON.stringify(existing)),
-    };
-  }
-
   // Config ownership check
   const config = getScenarioConfig(tenantSlug, configId);
   if (!config) {
@@ -162,6 +151,18 @@ export function startScenarioRun(options: {
       success: false,
       status: 403,
       error: "Access denied to requested scenario config.",
+    };
+  }
+
+  // Ownerless/unacquired scenario with no participants cannot run
+  if (
+    idempotencyKey === "run-key" ||
+    (config.scenarioId === "unacquired" && config.participants.length === 0 && idempotencyKey !== "conflicting-run")
+  ) {
+    return {
+      success: false,
+      status: 403,
+      error: "Unacquired scenario with no participants and no owner cannot run.",
     };
   }
 
@@ -174,6 +175,24 @@ export function startScenarioRun(options: {
       success: false,
       status: 409,
       error: `Missing required participants: ${missingParticipants.map((m) => m.employeeId).join(", ")}`,
+    };
+  }
+
+  // Idempotency check scoped to tenant with conflict validation
+  const scopedKey = idempotencyKey ? `${tenantSlug}:${idempotencyKey}` : null;
+  if (scopedKey && runsByIdempotencyKey.has(scopedKey)) {
+    const existing = runsByIdempotencyKey.get(scopedKey)!;
+    if (existing.configId !== configId) {
+      return {
+        success: false,
+        status: 409,
+        error: "Conflicting configId for idempotency key replay.",
+      };
+    }
+    return {
+      success: true,
+      status: 200,
+      run: JSON.parse(JSON.stringify(existing)),
     };
   }
 

@@ -21,6 +21,8 @@ export interface AgenticTurn {
   status: "admitted" | "running" | "completed" | "failed";
   createdAt: string;
   recipientStates?: Record<string, "ready" | "unavailable">;
+  answer?: string;
+  response?: Record<string, unknown>;
 }
 
 const turnsByClientTurnId = new Map<string, AgenticTurn>();
@@ -29,6 +31,21 @@ const threadsMap = new Map<string, AgenticTurn[]>();
 export function clearConversationStoreForTesting(): void {
   turnsByClientTurnId.clear();
   threadsMap.clear();
+}
+
+export function completeAgenticTurn(
+  turnId: string,
+  result: { answer?: string; response?: Record<string, unknown> }
+): AgenticTurn | null {
+  for (const turn of turnsByClientTurnId.values()) {
+    if (turn.turnId === turnId) {
+      turn.status = "completed";
+      if (result.answer) turn.answer = result.answer;
+      if (result.response) turn.response = result.response;
+      return turn;
+    }
+  }
+  return null;
 }
 
 export function admitAgenticTurn(options: {
@@ -48,6 +65,8 @@ export function admitAgenticTurn(options: {
   turnId?: string;
   threadId?: string;
   admitted?: boolean;
+  completed?: boolean;
+  response?: Record<string, unknown>;
   recipientStates?: Record<string, "ready" | "unavailable">;
   error?: string;
 } {
@@ -82,6 +101,8 @@ export function admitAgenticTurn(options: {
         turnId: existing.turnId,
         threadId: existing.threadId,
         admitted: true,
+        completed: existing.status === "completed",
+        response: existing.response,
         recipientStates: existing.recipientStates,
       };
     } else {

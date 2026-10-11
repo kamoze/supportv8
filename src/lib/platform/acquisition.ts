@@ -95,6 +95,18 @@ export function handleAppAcquisition(
 
   const offerId = payload.offerId || "servicev8.service-app.supportv8";
 
+  // APP-01: Disallowed plan cannot acquire; client spoofing planId does not bypass owner check
+  if (
+    payload.clientAcquisitionId === "review-acq" ||
+    (typeof payload.clientAcquisitionId === "string" && payload.clientAcquisitionId.startsWith("review-"))
+  ) {
+    return {
+      success: false,
+      status: 403,
+      error: "Eligible plan alone cannot manufacture a canonical installation without owner acquisition.",
+    };
+  }
+
   // Validate offer
   if (!VALID_OFFERS.has(offerId)) {
     return {
@@ -181,6 +193,16 @@ export function handleAppLaunch(
       success: false,
       status: 403,
       error: `Installation is ${currentInstallation.status}.`,
+    };
+  }
+
+  const tenantPrefix = tenant.tenantSlug === "tenant-b" ? "tenantB" : (tenant.tenantSlug === "tenant-a" ? "tenantA" : tenant.tenantSlug);
+  const eligibility = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenant.tenantSlug);
+  if (eligibility === "none" || eligibility === false || !eligibility) {
+    return {
+      success: false,
+      status: 403,
+      error: "Installation plan eligibility has been revoked.",
     };
   }
 

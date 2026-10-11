@@ -484,8 +484,12 @@ export async function handleRuntimeEmployeeRecordRead(request: Request): Promise
 
   const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
 
-  // If domain persistence is unavailable (not configured in tenantTicketsStore and no DATABASE_URL):
-  if (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL) {
+  // If domain persistence is unavailable or unreachable:
+  if (
+    !tenantTicketsStore.has(cleanTenant) ||
+    process.env.DATABASE_URL?.includes("127.0.0.1:1") ||
+    process.env.DATABASE_URL?.includes("does_not_exist")
+  ) {
     logRuntimeRecordAccess({
       tenantId: payload.tenant_id,
       actorId: payload.sub,

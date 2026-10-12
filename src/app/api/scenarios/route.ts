@@ -8,6 +8,7 @@ import {
   CANONICAL_WORKFORCE_AGENT_IDS,
   isScenarioAcquiredForTenant,
   getAcquiredScenarioForTenant,
+  getScenarioRunByIdempotencyKey,
 } from "@/lib/platform/scenarios";
 
 import { marketplaceService } from "@/lib/services/marketplace-service";
@@ -88,6 +89,44 @@ export async function POST(request: NextRequest) {
         .getWorkforceCatalog(tenant.tenantSlug)
         .filter((employee) => employee.isHired)
         .map((employee) => employee.id);
+
+      // Pre-dispatch: check that all required participants are currently hired in active hires
+      const missingParticipants = config.participants.filter(
+        (p) => !hiredEmployees.includes(p.employeeId)
+      );
+      if (missingParticipants.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Missing required participants: ${missingParticipants.map((m) => m.employeeId).join(", ")}`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Pre-dispatch: check durable operation / idempotency cache before contacting execution owner
+      if (body.idempotencyKey) {
+        const existingRun = getScenarioRunByIdempotencyKey(tenant.tenantSlug, body.idempotencyKey);
+        if (existingRun) {
+          if (existingRun.configId !== body.configId) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: "Conflicting configId for idempotency key replay.",
+              },
+              { status: 409 }
+            );
+          }
+          return NextResponse.json(
+            {
+              success: true,
+              data: existingRun,
+            },
+            { status: 200 }
+          );
+        }
+      }
+
       const acquired = getAcquiredScenarioForTenant(tenant.tenantSlug, config.scenarioId);
       let executionStatus: "running" | "unavailable" | "failed" = "running";
       let failureReason: string | undefined;
@@ -117,6 +156,20 @@ export async function POST(request: NextRequest) {
           if (!res.ok) {
             executionStatus = "unavailable";
             failureReason = `Execution owner rejected dispatch (${res.status})`;
+          } else {
+            const data = await res.json().catch(() => ({}));
+            if (data?.status === "accepted" || data?.status === "running") {
+              executionStatus = "running";
+            } else if (data?.status === "pending") {
+              executionStatus = "unavailable";
+              failureReason = "Execution owner dispatch pending";
+            } else if (data?.status === "rejected") {
+              executionStatus = "failed";
+              failureReason = data?.reason || "Execution owner rejected scenario execution";
+            } else {
+              executionStatus = "unavailable";
+              failureReason = "Execution owner returned invalid dispatch receipt";
+            }
           }
         } catch (err: any) {
           executionStatus = "unavailable";

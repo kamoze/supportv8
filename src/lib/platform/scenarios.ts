@@ -66,6 +66,15 @@ export function getAcquiredScenarioForTenant(
   return tenantMap?.get(scenarioId);
 }
 
+export function getScenarioRunByIdempotencyKey(
+  tenantSlug: string,
+  idempotencyKey: string
+): ScenarioRun | undefined {
+  const scopedKey = `${tenantSlug.toLowerCase()}:${idempotencyKey}`;
+  const run = runsByIdempotencyKey.get(scopedKey);
+  return run ? JSON.parse(JSON.stringify(run)) : undefined;
+}
+
 export function isScenarioAcquiredForTenant(tenantSlug: string, scenarioId: string): boolean {
   const cleanTenant = tenantSlug.toLowerCase();
   const tenantMap = acquiredScenariosByTenant.get(cleanTenant);
@@ -288,7 +297,7 @@ export function startScenarioRun(options: {
   }
 
   // Idempotency check scoped to tenant with conflict validation
-  const scopedKey = idempotencyKey ? `${tenantSlug}:${idempotencyKey}` : null;
+  const scopedKey = idempotencyKey ? `${tenantSlug.toLowerCase()}:${idempotencyKey}` : null;
   if (scopedKey && runsByIdempotencyKey.has(scopedKey)) {
     const existing = runsByIdempotencyKey.get(scopedKey)!;
     if (existing.configId !== configId) {

@@ -42,6 +42,38 @@ export async function GET(req: NextRequest) {
   }
 }
 
+function isValidIsoCalendarDate(dateStr: unknown): boolean {
+  if (typeof dateStr !== "string") return false;
+  const isoRegex = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+  const match = isoRegex.exec(dateStr);
+  if (!match) return false;
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > 31) return false;
+  const parsed = new Date(dateStr);
+  const time = parsed.getTime();
+  if (!Number.isFinite(time)) return false;
+
+  if (match[7] === "Z") {
+    if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() + 1 !== month || parsed.getUTCDate() !== day) {
+      return false;
+    }
+  } else {
+    const tzMatch = match[7];
+    const sign = tzMatch[0] === "+" ? 1 : -1;
+    const hours = parseInt(tzMatch.slice(1, 3), 10);
+    const mins = parseInt(tzMatch.slice(4, 6), 10);
+    const offsetMinutes = sign * (hours * 60 + mins);
+    const expectedUtc =
+      Date.UTC(year, month - 1, day, parseInt(match[4], 10), parseInt(match[5], 10), parseInt(match[6], 10)) -
+      offsetMinutes * 60000;
+    if (Math.floor(time / 1000) !== Math.floor(expectedUtc / 1000)) return false;
+  }
+  return true;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
@@ -158,12 +190,11 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // Exact tenant match validation
+          // Exact tenant match validation: strictly match canonical workspace ID, rejecting raw tenant slug
+          const canonicalWorkspaceId = (tenant as any).workspaceId || tenant.tenantId;
           if (
-            ownerData.tenantId &&
-            ownerData.tenantId !== tenant.tenantId &&
-            ownerData.tenantId !== (tenant as any).workspaceId &&
-            ownerData.tenantId !== tenant.tenantSlug
+            !ownerData.tenantId ||
+            (ownerData.tenantId !== canonicalWorkspaceId && ownerData.tenantId !== tenant.tenantId)
           ) {
             return NextResponse.json(
               { success: false, error: "Marketplace acquisition tenant mismatch." },
@@ -191,88 +222,71 @@ export async function POST(req: NextRequest) {
               { status: 400 }
             );
           }
-          // Client acquisition ID strict binding
-          if (body.operationId || (body.clientAcquisitionId && ownerData.clientAcquisitionId)) {
-            if (
-              !ownerData.clientAcquisitionId ||
-              typeof ownerData.clientAcquisitionId !== "string" ||
-              ownerData.clientAcquisitionId !== body.clientAcquisitionId
-            ) {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition clientAcquisitionId binding mismatch or missing." },
-                { status: 400 }
-              );
-            }
-          } else if (ownerData.clientAcquisitionId) {
+
+          // Client acquisition ID strict binding (required on both sides)
+          if (
+            !body.clientAcquisitionId ||
+            typeof body.clientAcquisitionId !== "string" ||
+            body.clientAcquisitionId.trim() === "" ||
+            !ownerData.clientAcquisitionId ||
+            typeof ownerData.clientAcquisitionId !== "string" ||
+            ownerData.clientAcquisitionId !== body.clientAcquisitionId
+          ) {
             return NextResponse.json(
-              { success: false, error: "Marketplace acquisition returned unbound clientAcquisitionId." },
+              { success: false, error: "Marketplace acquisition clientAcquisitionId binding mismatch or missing." },
               { status: 400 }
             );
           }
 
-          // Operation ID strict binding
-          if (body.operationId) {
-            if (
-              !ownerData.operationId ||
-              typeof ownerData.operationId !== "string" ||
-              ownerData.operationId !== body.operationId
-            ) {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition operationId binding mismatch or missing." },
-                { status: 400 }
-              );
-            }
-          } else if (ownerData.operationId) {
+          // Operation ID strict binding (required on both sides)
+          if (
+            !body.operationId ||
+            typeof body.operationId !== "string" ||
+            body.operationId.trim() === "" ||
+            !ownerData.operationId ||
+            typeof ownerData.operationId !== "string" ||
+            ownerData.operationId !== body.operationId
+          ) {
             return NextResponse.json(
-              { success: false, error: "Marketplace acquisition returned unbound operationId." },
+              { success: false, error: "Marketplace acquisition operationId binding mismatch or missing." },
               { status: 400 }
             );
           }
 
-          // Strict ISO-8601 expiration parsing and validation
-          if (ownerData.expiresAt !== undefined && ownerData.expiresAt !== null) {
-            if (typeof ownerData.expiresAt !== "string") {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition receipt has malformed expiration date." },
-                { status: 400 }
-              );
-            }
-            const expTime = Date.parse(ownerData.expiresAt);
-            if (!Number.isFinite(expTime)) {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition receipt has malformed expiration date." },
-                { status: 400 }
-              );
-            }
-            if (expTime <= Date.now()) {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition receipt has expired." },
-                { status: 400 }
-              );
-            }
+          // Offer product version binding (required on both sides)
+          if (
+            !body.productVersion ||
+            typeof body.productVersion !== "string" ||
+            body.productVersion.trim() === "" ||
+            !ownerData.productVersion ||
+            typeof ownerData.productVersion !== "string" ||
+            ownerData.productVersion !== body.productVersion
+          ) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition product version mismatch or missing." },
+              { status: 400 }
+            );
           }
 
-          // Offer product version binding
-          const requestedProductVersion = body.productVersion;
-          if (requestedProductVersion) {
-            if (
-              !ownerData.productVersion ||
-              typeof ownerData.productVersion !== "string" ||
-              ownerData.productVersion !== requestedProductVersion
-            ) {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition product version mismatch or missing." },
-                { status: 400 }
-              );
-            }
-          } else if (ownerData.productVersion) {
-            const validVersions = ["1.0.0", "v1", "1.0", "2026.1", "servicev8.supportv8.v1"];
-            if (!validVersions.includes(ownerData.productVersion)) {
-              return NextResponse.json(
-                { success: false, error: "Marketplace acquisition foreign product version." },
-                { status: 400 }
-              );
-            }
+          // Strict ISO-8601 expiration parsing and validation (required, future, impossible calendar date rejection)
+          if (!ownerData.expiresAt || typeof ownerData.expiresAt !== "string") {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition receipt missing or invalid expiration date." },
+              { status: 400 }
+            );
+          }
+          if (!isValidIsoCalendarDate(ownerData.expiresAt)) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition receipt has malformed expiration date." },
+              { status: 400 }
+            );
+          }
+          const expTime = new Date(ownerData.expiresAt).getTime();
+          if (expTime <= Date.now()) {
+            return NextResponse.json(
+              { success: false, error: "Marketplace acquisition receipt has expired." },
+              { status: 400 }
+            );
           }
         } catch {
           return NextResponse.json(

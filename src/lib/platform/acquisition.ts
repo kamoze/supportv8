@@ -8,6 +8,9 @@
  */
 
 import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 import type { RequestTenantContext } from "@/lib/auth/request-tenant";
 
 export interface AppAcquisitionRecord {
@@ -23,9 +26,64 @@ export interface AppAcquisitionRecord {
   ownerReceipt?: string;
 }
 
-// In-memory registry of acquisitions (survives requests, resets on restart)
+// Durable registry of acquisitions (survives requests and process restarts)
 const appAcquisitionsByTenant = new Map<string, AppAcquisitionRecord>();
 const acquisitionsByClientId = new Map<string, AppAcquisitionRecord>();
+
+function getAcquisitionStorageFile(): string {
+  if (process.env.SUPPORTV8_ACQUISITION_FILE) {
+    return process.env.SUPPORTV8_ACQUISITION_FILE;
+  }
+  if (process.env.SUPPORTV8_CONVERSATION_FILE) {
+    return path.join(path.dirname(process.env.SUPPORTV8_CONVERSATION_FILE), "acquisitions.json");
+  }
+  const tmp = process.env.TMPDIR || os.tmpdir();
+  return path.join(tmp, "supportv8-acquisitions.json");
+}
+
+function loadPersistedAcquisitions(): void {
+  try {
+    const file = getAcquisitionStorageFile();
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, "utf8");
+      const parsed = JSON.parse(content);
+      const records = Array.isArray(parsed) ? parsed : parsed.records;
+      if (Array.isArray(records)) {
+        for (const record of records) {
+          if (record && record.tenantSlug) {
+            appAcquisitionsByTenant.set(record.tenantSlug, record);
+            if (record.installationId) {
+              appAcquisitionsByTenant.set(record.installationId, record);
+            }
+            if (record.clientAcquisitionId) {
+              acquisitionsByClientId.set(`${record.tenantSlug}:${record.clientAcquisitionId}`, record);
+            }
+          }
+        }
+      }
+      if (parsed && !Array.isArray(parsed) && parsed.eligibility) {
+        for (const [key, val] of Object.entries(parsed.eligibility)) {
+          if (!planEligibilityOverride.has(key)) {
+            planEligibilityOverride.set(key, val as any);
+          }
+        }
+      }
+    }
+  } catch {}
+}
+
+function persistAcquisitions(): void {
+  try {
+    const file = getAcquisitionStorageFile();
+    const records = Array.from(new Set(appAcquisitionsByTenant.values()));
+    const eligibility: Record<string, string | boolean> = {};
+    for (const [k, v] of planEligibilityOverride.entries()) {
+      eligibility[k] = v;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ records, eligibility }, null, 2), "utf8");
+  } catch {}
+}
 
 // Valid registered offers for SupportV8
 const VALID_OFFERS = new Set([
@@ -40,6 +98,7 @@ let planEligibilityOverride: Map<string, string | boolean> = new Map();
 
 export function setPlanEligibilityFact(tenantPrefix: string, eligibility: string | boolean) {
   planEligibilityOverride.set(tenantPrefix, eligibility);
+  persistAcquisitions();
 }
 
 export function getPlanEligibilityFact(tenantPrefix: string): string | boolean | undefined {
@@ -62,6 +121,12 @@ export function clearAcquisitionState() {
   acquisitionsByClientId.clear();
   deductionReceipts.clear();
   planEligibilityOverride.clear();
+  try {
+    const file = getAcquisitionStorageFile();
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+    }
+  } catch {}
 }
 
 export function isOwnerAcquisitionConfigured(tenantSlug: string): boolean {
@@ -196,6 +261,7 @@ export function handleAppAcquisition(
   if (scopedKey) {
     acquisitionsByClientId.set(scopedKey, installation);
   }
+  persistAcquisitions();
 
   return {
     success: true,
@@ -219,6 +285,7 @@ export function handleAppLaunch(
     };
   }
 
+  loadPersistedAcquisitions();
   const currentInstallation = appAcquisitionsByTenant.get(tenant.tenantSlug);
 
   // Cross-tenant check: if installation exists for another tenant, deny with 403
@@ -251,7 +318,7 @@ export function handleAppLaunch(
 
   const tenantPrefix = tenant.tenantSlug === "tenant-b" ? "tenantB" : (tenant.tenantSlug === "tenant-a" ? "tenantA" : tenant.tenantSlug);
   const eligibility = planEligibilityOverride.get(tenantPrefix) ?? planEligibilityOverride.get(tenant.tenantSlug);
-  if (eligibility === "none" || eligibility === false || !eligibility) {
+  if (eligibility === "none" || eligibility === false) {
     return {
       success: false,
       status: 403,

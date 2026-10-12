@@ -124,6 +124,7 @@ export function middleware(request: NextRequest) {
     "/api/knowledge/upload", "/api/knowledge/s3-source", "/api/knowledge/crawl", "/api/knowledge/query",
     "/api/marketplace",
     "/api/customers", "/api/customers/sync",
+    "/api/scenarios",
   ]);
   const isAllowedMutation =
     scopedRuntimeMutations.has(url.pathname) ||

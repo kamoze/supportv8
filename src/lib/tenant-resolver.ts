@@ -96,6 +96,14 @@ export async function resolveTenantBySlug(slug: string): Promise<TenantWorkspace
     }
   }
 
+  // In production, when database/directory service is unconfigured, do not fall back to dev tenants
+  if (process.env.NODE_ENV === "production") {
+    if (KNOWN_DEV_TENANTS.has(clean)) {
+      throw new WorkspaceLookupError("Directory service unavailable", "workspace_lookup_unavailable", 503);
+    }
+    return null;
+  }
+
   if (KNOWN_DEV_TENANTS.has(clean)) {
     return {
       id: `tenant_${clean}`,

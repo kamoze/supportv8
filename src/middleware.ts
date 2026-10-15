@@ -82,14 +82,20 @@ function tokenHasDemoOperatorRole(token: string | undefined): boolean {
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
-  const hostname = request.headers.get("host") || "";
+  const rawHostHeader = request.headers.get("host") || "";
+  const rawForwardedHost = request.headers.get("x-forwarded-host");
+  const hostWithoutPort = rawHostHeader.trim().toLowerCase().replace(/:\d+$/, "");
+  const effectiveHostname =
+    (rawForwardedHost && (hostWithoutPort === "localhost" || hostWithoutPort === "127.0.0.1"))
+      ? rawForwardedHost
+      : rawHostHeader;
 
   // Public chat intake is only accepted on an exact ServiceV8 tenant or root
   // hostname. This prevents a forged Host such as tenant.support.attacker.tld
   // from becoming trusted tenant context.
   if (
     url.pathname.startsWith("/api/chat/") &&
-    !isTrustedServiceV8Hostname(hostname)
+    !isTrustedServiceV8Hostname(effectiveHostname)
   ) {
     return NextResponse.json(
       { error: "Unknown SupportV8 host" },
@@ -107,6 +113,7 @@ export function middleware(request: NextRequest) {
       { status: hostCheck.status || 400 }
     );
   }
+  const trustedHostname = hostCheck.hostname || effectiveHostname;
 
   const authorization = request.headers.get("authorization");
   const bearer = authorization?.startsWith("Bearer ")
@@ -150,7 +157,7 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  const hostedTenant = browserTenantSlugFromHostname(hostname);
+  const hostedTenant = browserTenantSlugFromHostname(trustedHostname);
   const inboundTenant = (request.headers.get("x-servicev8-tenant-domain") || url.searchParams.get("tenant") || "").trim().toLowerCase();
   const validInboundTenant = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(inboundTenant) && !["www", "support", "localhost"].includes(inboundTenant) ? inboundTenant : null;
   const tenantDomain = hostedTenant || validInboundTenant || "tenant_default";
@@ -191,10 +198,11 @@ export function middleware(request: NextRequest) {
         const accept = request.headers.get("accept") || "";
         const isHtml = accept.includes("text/html");
         if (isHtml) {
-          const loginUrl = request.nextUrl.clone();
-          loginUrl.pathname = "/login";
-          loginUrl.searchParams.set("next", url.pathname);
-          return NextResponse.redirect(loginUrl, 302);
+          const returnPath = url.search ? `${url.pathname}${url.search}` : url.pathname;
+          const rawHost = request.headers.get("x-forwarded-host") || request.headers.get("host") || effectiveHostname;
+          const proto = request.headers.get("x-forwarded-proto") || (request.url.startsWith("https") ? "https" : "http");
+          const redirectUrl = new URL(`/login?next=${encodeURIComponent(returnPath)}`, `${proto}://${rawHost}`);
+          return NextResponse.redirect(redirectUrl, 302);
         }
         return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }

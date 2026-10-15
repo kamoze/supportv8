@@ -54,29 +54,34 @@ export function validateIngressHost(
   if (!rawHost) return { valid: false, error: "missing_host_header", status: 400 };
   const host = hostnameWithoutPort(rawHost);
 
+  let effectiveHost = host;
   // Check X-Forwarded-Host mismatch
   if (rawForwardedHost) {
     const fwdHost = hostnameWithoutPort(rawForwardedHost);
     if (fwdHost !== host) {
-      return { valid: false, error: "host_mismatch", status: 400 };
+      if (host === "localhost" || host === "127.0.0.1") {
+        effectiveHost = fwdHost;
+      } else {
+        return { valid: false, error: "host_mismatch", status: 400 };
+      }
     }
   }
 
   // Check foreign product host (e.g. *.care.servicev8.com, *.voice.servicev8.com, evil.com)
   if (
-    host.includes(".care.servicev8.") ||
-    host.includes(".voice.servicev8.") ||
-    host.includes(".orderv8.") ||
-    host.includes(".growthv8.")
+    effectiveHost.includes(".care.servicev8.") ||
+    effectiveHost.includes(".voice.servicev8.") ||
+    effectiveHost.includes(".orderv8.") ||
+    effectiveHost.includes(".growthv8.")
   ) {
     return { valid: false, error: "foreign_product_host", status: 400 };
   }
 
-  if (!isTrustedServiceV8Hostname(host)) {
+  if (!isTrustedServiceV8Hostname(effectiveHost)) {
     return { valid: false, error: "untrusted_host", status: 400 };
   }
 
-  return { valid: true, hostname: host };
+  return { valid: true, hostname: effectiveHost };
 }
 
 export function safeNextPath(nextParam?: string | null): string {

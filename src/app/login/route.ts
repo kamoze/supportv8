@@ -34,7 +34,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: hostCheck.error }, { status: hostCheck.status || 400 });
   }
 
-  const tenantSlug = browserTenantSlugFromHostname(req.headers.get("host") || "");
+  const hostname = hostCheck.hostname || req.headers.get("host") || "";
+  const tenantSlug =
+    req.headers.get("x-servicev8-tenant-slug") ||
+    browserTenantSlugFromHostname(hostname);
   const nextPath = safeNextPath(req.nextUrl.searchParams.get("next"));
 
   const tenantHeader = tenantSlug
@@ -110,7 +113,11 @@ export async function POST(req: NextRequest) {
 
   let email = "";
   let password = "";
-  let tenantSlug = browserTenantSlugFromHostname(req.headers.get("host") || "") || "";
+  const hostname = hostCheck.hostname || req.headers.get("host") || "";
+  let tenantSlug =
+    req.headers.get("x-servicev8-tenant-slug") ||
+    browserTenantSlugFromHostname(hostname) ||
+    "";
 
   if (contentType.includes("application/x-www-form-urlencoded")) {
     const text = await req.text();

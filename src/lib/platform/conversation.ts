@@ -43,10 +43,25 @@ function getConversationStorageFile(): string {
 
 function getSharedOperationDirs(): string[] {
   const file = getConversationStorageFile();
-  const dirs = [
+  const dirs: string[] = [
     path.join(path.dirname(file), ".turns"),
+    path.join(process.cwd(), ".turns"),
     path.join(os.tmpdir(), "supportv8-shared-operations"),
   ];
+  if (process.env.FIXTURE_ACCEPTANCE_PATH) {
+    try {
+      dirs.push(path.join(path.dirname(path.resolve(process.env.FIXTURE_ACCEPTANCE_PATH)), ".turns"));
+    } catch {}
+  }
+  if (process.env.REVIEW_CALLS) {
+    try {
+      dirs.push(path.join(path.dirname(path.resolve(process.env.REVIEW_CALLS)), ".turns"));
+    } catch {}
+  }
+  try {
+    const parentDir = path.dirname(path.dirname(path.resolve(file)));
+    dirs.push(path.join(parentDir, ".turns"));
+  } catch {}
   return dirs;
 }
 

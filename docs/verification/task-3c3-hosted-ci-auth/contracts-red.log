@@ -1,0 +1,65 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ❯ test/hosted-native-sql-gate.test.ts (13 tests | 2 failed) 46ms
+   × uses disposable GHA PostgreSQL trust only behind an explicit loopback port binding 3ms
+     → expected '      postgres:\n        image: postg…' to match /env:\n(?: {10}[^\n]+\n)* {10}POSTGRES…/
+   × uses matching trust only in the disposable CircleCI PostgreSQL service 0ms
+     → expected '        environment:\n          POSTG…' to match /environment:\n(?: {10}[^\n]+\n)* {10}…/
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/hosted-native-sql-gate.test.ts > uses disposable GHA PostgreSQL trust only behind an explicit loopback port binding
+AssertionError: expected '      postgres:\n        image: postg…' to match /env:\n(?: {10}[^\n]+\n)* {10}POSTGRES…/
+
+- Expected:
+/env:\n(?: {10}[^\n]+\n)* {10}POSTGRES_HOST_AUTH_METHOD: trust(?:\n|$)/
+
++ Received:
+"      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: support-workspace-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd \"pg_isready -U postgres\"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+"
+
+ ❯ test/hosted-native-sql-gate.test.ts:18:20
+     16|   const postgres=services!.slice(services!.indexOf('      postgres:'));
+     17|   expect(postgres).toContain('image: postgres:17-alpine');
+     18|   expect(postgres).toMatch(/env:\n(?: {10}[^\n]+\n)* {10}POSTGRES_HOST…
+       |                    ^
+     19|   expect(postgres).toMatch(/ports:\n {10}- 127\.0\.0\.1:5432:5432\n/);
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/hosted-native-sql-gate.test.ts > uses matching trust only in the disposable CircleCI PostgreSQL service
+AssertionError: expected '        environment:\n          POSTG…' to match /environment:\n(?: {10}[^\n]+\n)* {10}…/
+
+- Expected:
+/environment:\n(?: {10}[^\n]+\n)* {10}POSTGRES_HOST_AUTH_METHOD: trust(?:\n|$)/
+
++ Received:
+"        environment:
+          POSTGRES_PASSWORD: support-workspace-test"
+
+ ❯ test/hosted-native-sql-gate.test.ts:25:20
+     23|   const postgres=workflow.match(/      - image: postgres:17-alpine\n([…
+     24|   expect(postgres).toBeDefined();
+     25|   expect(postgres).toMatch(/environment:\n(?: {10}[^\n]+\n)* {10}POSTG…
+       |                    ^
+     26| });
+     27|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+   Start at  08:34:50
+   Duration  297ms (transform 23ms, setup 7ms, collect 17ms, tests 46ms, environment 0ms, prepare 31ms)

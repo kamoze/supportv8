@@ -9,3 +9,18 @@ it('accepts only a successful complete native23 report',()=>{const dir=mkdtempSy
 it.each(['zero','skipped','duplicate','wrong-file','failed-hook','missing-assertions','malformed'])('rejects an invalid required native report: %s',kind=>{const dir=mkdtempSync(join(tmpdir(),'support-ci-gate-'));try{const value=report();if(kind==='zero')value.numTotalTests=0;if(kind==='skipped')value.testResults[0].assertionResults[0].status='pending';if(kind==='duplicate')value.testResults[0].assertionResults[1].fullName=value.testResults[0].assertionResults[0].fullName;if(kind==='wrong-file')value.testResults[0].name='/work/test/other.test.ts';if(kind==='failed-hook')value.testResults[0].status='failed';if(kind==='missing-assertions')value.testResults[0].assertionResults=[];const file=join(dir,'report.json');writeFileSync(file,kind==='malformed'?'not json':JSON.stringify(value));expect(()=>validateOperationalSqlReport(file,0)).toThrow();}finally{rmSync(dir,{recursive:true});}});
 it('requires an explicit owned loopback admin fixture before any runner dispatch',()=>{expect(()=>requireOperationalSqlFixture(undefined)).toThrow('operational_sql_ci_fixture_required');expect(()=>requireOperationalSqlFixture('postgresql://postgres@production.invalid:5432/postgres')).toThrow();expect(()=>requireOperationalSqlFixture('postgresql://postgres:synthetic@127.0.0.1:5432/postgres')).not.toThrow();const child=spawnSync(process.execPath,['scripts/test-operational-sql-ci.mjs'],{env:{PATH:process.env.PATH!,NODE_ENV:'test'},encoding:'utf8'});expect(child.status).not.toBe(0);expect(child.stderr).toContain('operational_sql_ci_fixture_required');});
 it.each(['.github/workflows/ci.yml','.circleci/config.yml'])('requires guarded units/native tests and native23 before role-creating migrations: %s',file=>{const text=readFileSync(file,'utf8');expect(text).not.toMatch(/npx\s+vitest|node_modules\/vitest/);expect(text).toContain('node scripts/test-local-only.mjs');const gate=text.indexOf('node scripts/test-operational-sql-ci.mjs');expect(gate).toBeGreaterThan(0);expect(gate).toBeLessThan(text.indexOf('Rehearse Runtime Support workspace migration'));expect(text.slice(gate,text.indexOf('Rehearse Runtime Support workspace migration'))).toContain('SUPPORT_OPERATIONAL_TEST_ADMIN_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres');});
+it('uses disposable GHA PostgreSQL trust only behind an explicit loopback port binding',()=>{
+  const workflow=readFileSync('.github/workflows/ci.yml','utf8');
+  const services=workflow.match(/    services:\n([\s\S]*?)\n    steps:/)?.[1];
+  expect(services).toBeDefined();
+  const postgres=services!.slice(services!.indexOf('      postgres:'));
+  expect(postgres).toContain('image: postgres:17-alpine');
+  expect(postgres).toMatch(/env:\n(?: {10}[^\n]+\n)* {10}POSTGRES_HOST_AUTH_METHOD: trust(?:\n|$)/);
+  expect(postgres).toMatch(/ports:\n {10}- 127\.0\.0\.1:5432:5432\n/);
+});
+it('uses matching trust only in the disposable CircleCI PostgreSQL service',()=>{
+  const workflow=readFileSync('.circleci/config.yml','utf8');
+  const postgres=workflow.match(/      - image: postgres:17-alpine\n([\s\S]*?)\n    steps:/)?.[1];
+  expect(postgres).toBeDefined();
+  expect(postgres).toMatch(/environment:\n(?: {10}[^\n]+\n)* {10}POSTGRES_HOST_AUTH_METHOD: trust(?:\n|$)/);
+});

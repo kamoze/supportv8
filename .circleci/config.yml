@@ -11,8 +11,10 @@ jobs:
       - image: redis:7.4-alpine
         command: ["redis-server", "--requirepass", "ci-supportv8-auth"]
       - image: postgres:17-alpine
+        # Disposable shared-loopback fixture; restricted roles have no passwords.
         environment:
           POSTGRES_PASSWORD: support-workspace-test
+          POSTGRES_HOST_AUTH_METHOD: trust
     steps:
       - checkout
       - run:

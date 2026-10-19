@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/hosted-native-sql-gate.test.ts (13 tests) 44ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  08:34:50
+   Duration  220ms (transform 19ms, setup 7ms, collect 16ms, tests 44ms, environment 0ms, prepare 22ms)

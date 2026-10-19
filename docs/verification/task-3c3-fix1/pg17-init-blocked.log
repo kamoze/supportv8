@@ -1,0 +1,22 @@
+The files belonging to this database system will be owned by user "inigodwin".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "C.UTF-8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /private/tmp/support-fix1-pg17-qRf9dq ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... sysv
+selecting default "max_connections" ... 25
+selecting default "shared_buffers" ... 400kB
+selecting default time zone ... America/Toronto
+creating configuration files ... ok
+running bootstrap script ... 2026-10-19 00:13:19.981 EDT [84192] FATAL:  could not create shared memory segment: No space left on device
+2026-10-19 00:13:19.981 EDT [84192] DETAIL:  Failed system call was shmget(key=166524586, size=56, 03600).
+2026-10-19 00:13:19.981 EDT [84192] HINT:  This error does *not* mean that you have run out of disk space.  It occurs either if all available shared memory IDs have been taken, in which case you need to raise the SHMMNI parameter in your kernel, or because the system's overall limit for shared memory has been reached.
+	The PostgreSQL documentation contains more information about shared memory configuration.
+child process exited with exit code 1
+initdb: removing contents of data directory "/private/tmp/support-fix1-pg17-qRf9dq"

@@ -1,3 +1,4 @@
+import {OperationalPgClient,type OperationalSqlBudget} from '@/lib/db/operational-sql-budget';
 import { spawnSync } from 'node:child_process';
 import { recordFixtureReceipt } from './fixtures/support-receiver-fixture';
 import { readFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ import { OperationalOutboxStore, drainOperationalOutbox } from '@/lib/signals/op
 import { canonicalJson, descriptorDigest } from '@/lib/signals/operational-contract';
 const enabled = !!process.env.SUPPORT_OPERATIONAL_TEST_ADMIN_URL;
 // A fresh, uniquely named database and restricted role are owned by this suite.
-const database = `support_outbox_${process.pid}`, role = `support_outbox_${process.pid}`;
+const database = `support_outbox_${process.pid}`, role = "supportv8_app";
 let admin: Pool, owner: Pool, app: Pool, client: PostgresClient, store: OperationalOutboxStore;
 import { target, certificate, pin } from './operational-fixtures';
 import { qualifySupportSource, sourceResolver, currentLocalSource } from '@/lib/signals/operational-source';
@@ -32,10 +33,12 @@ describe.skipIf(!enabled)('Support native transactional operational outbox', () 
             throw Error('owned Support fixture required');
         admin = new Pool({ connectionString: raw });
         await admin.query(`create database ${database}`);
-        await admin.query(`create role ${role} login`);
+        await admin.query(`create role ${role} login; create role supportv8_relay; create role supportv8_scaler`);
         url.pathname = '/' + database;
         owner = new Pool({ connectionString: url.toString() });
-        await owner.query('create schema supportv8; set search_path=supportv8,public');
+        await owner.query(`create schema supportv8 authorization postgres; set search_path=supportv8,public; grant usage on schema supportv8 to supportv8_app,supportv8_relay,supportv8_scaler; alter default privileges for role postgres in schema supportv8 grant select,insert,update,delete on tables to supportv8_app; create table supportv8.default_acl_probe(id text);`);
+        expect((await owner.query("select tableowner from pg_tables where schemaname='supportv8' and tablename='default_acl_probe'")).rows[0].tableowner).toBe('postgres');
+        expect((await owner.query("select has_table_privilege('supportv8_app','supportv8.default_acl_probe','INSERT,UPDATE,DELETE') inherited")).rows[0].inherited).toBe(true);
         const initial = await readFile(new URL('../migrations/001_initial_schema.sql', import.meta.url), 'utf8');
         await owner.query(initial.slice(0, initial.indexOf('-- 3. Problems Table')).replace('CREATE EXTENSION IF NOT EXISTS "vector";', '').replace(/^    embedding vector.*\n/m, '').replace(/^CREATE INDEX IF NOT EXISTS idx_issues_embedding.*\n/m, ''));
         await owner.query("create function supportv8.current_tenant_id() returns text language sql stable as $$select current_setting('app.current_tenant_id',true)$$");
@@ -49,13 +52,13 @@ describe.skipIf(!enabled)('Support native transactional operational outbox', () 
         await owner.query(`create schema support_receiver_fixture; create table support_receiver_fixture.receipts(event_id text primary key,digest text not null,pin jsonb not null,ack jsonb not null);create table support_receiver_fixture.normalized(event_id text primary key references support_receiver_fixture.receipts(event_id));grant usage on schema support_receiver_fixture to ${role};grant select,insert on all tables in schema support_receiver_fixture to ${role};`);
         await owner.query(`grant usage on schema supportv8 to ${role}; grant select,insert,update on supportv8.issues,supportv8.voice_tool_effects to ${role}; grant select on supportv8.operational_outbox,supportv8.tenants,supportv8.runtime_support_workspaces,supportv8.managed_support_registration_jobs to ${role}; grant execute on function supportv8.qualify_operational_source(varchar,varchar,jsonb,jsonb) to ${role}; grant execute on function supportv8.claim_operational_outbox(varchar,integer),supportv8.finish_operational_outbox(uuid,varchar,bigint,uuid,varchar,varchar,jsonb,integer) to ${role}`);
         url.username = role;
-        app = new Pool({ connectionString: url.toString() });
+        app = new Pool({ connectionString: url.toString(),Client:OperationalPgClient,connectionTimeoutMillis:1000 });
         client = new PostgresClient(undefined, app);
         store = new OperationalOutboxStore(app);
     }, 30000);
     afterAll(async () => { await app?.end(); await owner?.end(); if (admin) {
         await admin.query(`drop database if exists ${database}`);
-        await admin.query(`drop role if exists ${role}`);
+        await admin.query(`drop role if exists ${role},supportv8_relay,supportv8_scaler`);
         await admin.end();
     } });
     it('preserves an immutable held fact when qualification is absent, never promotes history', async () => { await create(); const held = (await rows())[0]; expect(held.state).toBe('pending_authority'); expect(held.last_error_code).toBe('qualification_absent'); expect(held.provenance).toBeNull(); await qualify(); expect((await rows())[0]).toEqual(held); expect(await store.claim('worker', 8)).toEqual([]); });
@@ -81,6 +84,19 @@ describe.skipIf(!enabled)('Support native transactional operational outbox', () 
     it('voice refuses ambiguous native references without changing tickets or recording an effect', async () => { const one = await create(), two = await create(); await client.withTenantSession(target.workspaceId, db => db.query('update supportv8.issues set external_id=$1 where id=$2', [one.ticketRef, two.id])); const n = (await rows()).length; const voice = createSupportVoiceStore(client); expect(await voice.ticket(target.workspaceId, one.ticketRef)).toBeNull(); expect(await voice.escalate({ tenantId: target.workspaceId, hireId: 'employee', installationId: 'employee-install', sessionId: 'ambiguous', toolCallId: 'ambiguous', ticketReference: one.ticketRef, reason: 'PRIVATE', urgency: 'urgent' })).toBeNull(); expect((await rows()).length).toBe(n); expect((await owner.query("select 1 from supportv8.voice_tool_effects where session_id='ambiguous'")).rowCount).toBe(0); });
     it('rejects immutable event/pin rewriting and tenant-RLS reads', async () => { const r = (await rows()).find(r => r.provenance); await expect(owner.query("update supportv8.operational_outbox set provenance=null where id=$1", [r.id])).rejects.toThrow(); await expect(owner.query("update supportv8.operational_outbox set event=jsonb_set(event,'{id}','\"changed\"') where id=$1", [r.id])).rejects.toThrow(); expect(await client.withTenantSession('tenant_native_b', db => db.query('select * from supportv8.operational_outbox'))).toEqual([]); expect((await app.query('select rolsuper,rolbypassrls from pg_roles where rolname=current_user')).rows[0]).toEqual({ rolsuper: false, rolbypassrls: false }); });
     it('restricts worker functions and evidence writes while fixing definer search_path',async()=>{const grants=(await owner.query("select has_table_privilege($1,'supportv8.operational_qualifications','INSERT') insert_qualification,has_table_privilege($1,'supportv8.operational_outbox','UPDATE') update_evidence",[role])).rows[0];expect(grants).toEqual({insert_qualification:false,update_evidence:false});const functions=(await owner.query("select p.prosecdef,p.proconfig,exists(select 1 from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where a.grantee=0 and a.privilege_type='EXECUTE') public_execute from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='supportv8' and p.proname in('capture_operational_issue','claim_operational_outbox','finish_operational_outbox','qualify_operational_source')")).rows;expect(functions).toHaveLength(4);expect(functions.every(f=>f.prosecdef&&!f.public_execute&&f.proconfig.includes('search_path=pg_catalog, supportv8'))).toBe(true);});
+    it('removes bootstrap-inherited evidence DML without changing unrelated default privileges',async()=>{
+      for(const table of ['operational_outbox','operational_qualifications']){
+        for(const role of ['supportv8_app','supportv8_relay','supportv8_scaler']){
+          const allowed=(await owner.query("select has_table_privilege($1,$2,'INSERT') i,has_table_privilege($1,$2,'UPDATE') u,has_table_privilege($1,$2,'DELETE') d",[role,'supportv8.'+table])).rows[0];
+          expect(allowed).toEqual({i:false,u:false,d:false});
+        }
+        await expect(client.withTenantSession(target.workspaceId,db=>db.query(`update supportv8.${table} set native_workspace_id=native_workspace_id`))).rejects.toThrow(/permission denied/);
+        await expect(client.withTenantSession(target.workspaceId,db=>db.query(`delete from supportv8.${table}`))).rejects.toThrow(/permission denied/);
+        await expect(client.withTenantSession(target.workspaceId,db=>db.query(`insert into supportv8.${table} default values`))).rejects.toThrow(/permission denied/);
+      }
+      await owner.query('create table supportv8.default_acl_after_probe(id text)');
+      expect((await owner.query("select has_table_privilege('supportv8_app','supportv8.default_acl_after_probe','INSERT,UPDATE,DELETE') inherited")).rows[0].inherited).toBe(true);
+    });
     it('fences stale workers including same owner after restart', async () => { const [first] = await store.claim('same-owner', 1); await owner.query("update supportv8.operational_outbox set lease_expires_at=now()-interval '1 second' where id=$1", [first.id]); const [current] = await store.claim('same-owner', 1); expect(current.id).toBe(first.id); expect(current.lease_token).not.toBe(first.lease_token); await expect(store.finish(first, 'retry', 'delivery_unavailable')).rejects.toThrow(/lease lost/); await store.finish(current, 'retry', 'delivery_unavailable'); });
     it('retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver', async () => { await owner.query("update supportv8.operational_outbox set next_attempt_at=now(),lease_expires_at=null where state='pending'"); let mode = 'after-receipt'; let calls = 0; const send = async (row: any) => { calls++; if (mode === 'before-receipt')
         throw Error('crash'); const receipt = await recordFixtureReceipt(app, row); if (mode === 'after-receipt')
@@ -104,4 +120,47 @@ describe.skipIf(!enabled)('Support native transactional operational outbox', () 
         await store.finish(r, 'delivered', null, ack.body, ack.status);
     } });
     it('fresh owner denial never sends, including a new tenant and revoked source', async () => { const t = { accountId: 'account-b', tenantId: 'registry-b', installationId: 'install-b', workspaceId: 'tenant_native_b' }; await qualify(t); await new RuntimeSupportTicketReader({ client, resolve: async (s) => ({ ...s, capability: 'support:manage', email: 'b@test.invalid', domain: 'b' }) }).create({ ...t, verticalId: 'runtime', subject: 'b' }, { priority: 'normal', customerName: 'B', summary: 'B' }); expect(await currentLocalSource(t, client)).toBe(true); expect(await currentLocalSource({ ...t, installationId: 'employee-install' }, client)).toBe(false); await owner.query("update supportv8.runtime_support_workspaces set state='tombstoned',deleted_at=now() where installation_id=$1", [t.installationId]); expect(await currentLocalSource(t, client)).toBe(false); let sends = 0; await drainOperationalOutbox({ store, enabled: true, limit: 64, verify: r => currentLocalSource(r.provenance, client), send: async () => { sends++; throw Error('must not send'); } }); expect(sends).toBe(0); expect((await rows()).at(-1).state).toBe('pending'); const before = (await rows()).length; await new RuntimeSupportTicketReader({ client, resolve: async (s) => ({ ...s, capability: 'support:manage', email: 'b@test.invalid', domain: 'b' }) }).create({ ...t, verticalId: 'runtime', subject: 'b' }, { priority: 'normal', customerName: 'B', summary: 'Preserved after owner revocation' }); expect((await rows()).length).toBe(before + 1); expect((await rows()).at(-1)).toMatchObject({ state: 'pending_authority', provenance: null, last_error_code: 'native_binding_unavailable' }); });
+    // Fix-round1 prepared real-SQL regressions. These must be executed against an
+    // owned fixture; default-ACL and actual-clock assertions intentionally remain
+    // RED until the corresponding migration fixes are applied and verified.
+    it.each(['operational_outbox','runtime_support_workspaces','managed_support_registration_jobs'])('bounds real locked SQL and releases its connection: %s',async table=>{
+      const blocker=await owner.connect();await blocker.query('begin');await blocker.query(`lock table supportv8.${table} in access exclusive mode`);
+      const budget:OperationalSqlBudget={deadline:Date.now()+120};
+      const task=table==='operational_outbox'?store.claim('blocked-table',1,budget):table==='runtime_support_workspaces'?currentLocalSource(target,client,budget):client.withWorkspaceProvisioningSession({tenantId:target.workspaceId,accountId:target.accountId,registryTenantId:target.tenantId},db=>db.query('select supportv8.qualify_operational_source($1,$2,$3,$4)',['qualifier',target.installationId,pin(),certificate()]),budget);
+      try{const outcome=await Promise.race([task.then(()=> 'resolved',()=> 'rejected'),new Promise<string>(r=>setTimeout(()=>r('still_pending'),500))]);expect(outcome).toBe('rejected');}
+      finally{await blocker.query('rollback');blocker.release();await task.catch(()=>{});}
+      expect(await currentLocalSource(target,client)).toBe(true);
+      expect(Number((await owner.query("select count(*) from pg_stat_activity where usename=$1 and datname=current_database() and state='idle in transaction'",[role])).rows[0].count)).toBe(0);
+    });
+    it('refuses real pool exhaustion without queued claims, then recovers after the fixture releases',async()=>{
+      const pool=new Pool({connectionString:app.options.connectionString,Client:OperationalPgClient,connectionTimeoutMillis:1000,max:1});
+      const busy=new OperationalOutboxStore(pool),held=await pool.connect();
+      try{for(let i=0;i<3;i++)await expect(busy.claim('pool-full',1,{deadline:Date.now()+100})).rejects.toThrow('operational_sql_pool_busy');expect(pool.waitingCount).toBe(0);expect(pool.totalCount).toBe(1);}
+      finally{held.release();}
+      try{expect(Array.isArray(await busy.claim('pool-recovered',1))).toBe(true);}finally{await pool.end();}
+    });
+    it('blocked delivery completion settles without a persisted ACK or late delivered state',async()=>{
+      await create();const [row]=await store.claim('blocked-ack',1);const receipt=await recordFixtureReceipt(app,row);const blocker=await owner.connect();await blocker.query('begin');await blocker.query('select id from supportv8.operational_outbox where id=$1 for update',[row.id]);
+      const task=store.finish(row,'delivered',null,receipt.body,receipt.status,{deadline:Date.now()+120});
+      try{const outcome=await Promise.race([task.then(()=> 'resolved',()=> 'rejected'),new Promise<string>(r=>setTimeout(()=>r('still_pending'),500))]);expect(outcome).toBe('rejected');}
+      finally{await blocker.query('rollback');blocker.release();await task.catch(()=>{});}
+      const held=(await rows()).find(r=>r.id===row.id);expect(held.state).toBe('pending');expect(held.receipt).toBeNull();await store.finish(row,'delivered',null,receipt.body,receipt.status);
+    });
+    it.each(['outbox','qualification'])('rejects a lease expiring while the actual SQL row lock waits: %s',async kind=>{
+      const blocker=await owner.connect();await blocker.query('begin');let row:any,task:Promise<unknown>;
+      if(kind==='outbox'){
+        await create();[row]=await store.claim('expires-under-lock',1);const receipt=await recordFixtureReceipt(app,row);
+        await owner.query("update supportv8.operational_outbox set lease_expires_at=clock_timestamp()+interval '120 milliseconds' where id=$1",[row.id]);
+        await blocker.query('select id from supportv8.operational_outbox where id=$1 for update',[row.id]);
+        task=store.finish(row,'delivered',null,receipt.body,receipt.status,{deadline:Date.now()+800});
+      }else{
+        await owner.query("update supportv8.managed_support_registration_jobs set lease_owner='expires-under-lock',lease_expires_at=clock_timestamp()+interval '120 milliseconds' where installation_id=$1",[target.installationId]);
+        await blocker.query('select installation_id from supportv8.runtime_support_workspaces where installation_id=$1 for update',[target.installationId]);
+        task=client.withWorkspaceProvisioningSession({tenantId:target.workspaceId,accountId:target.accountId,registryTenantId:target.tenantId},db=>db.query('select supportv8.qualify_operational_source($1,$2,$3,$4)',['expires-under-lock',target.installationId,pin(),certificate()]),{deadline:Date.now()+800});
+      }
+      const unlock=new Promise<void>(resolve=>setTimeout(()=>{void blocker.query('rollback').then(()=>resolve());},250));
+      try{await expect(task).rejects.toThrow(/lease/);}finally{await unlock;blocker.release();}
+      if(kind==='outbox'){const held=(await rows()).find(r=>r.id===row.id);expect(held.state).toBe('pending');expect(held.receipt).toBeNull();}
+    });
+
 });

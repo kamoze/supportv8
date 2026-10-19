@@ -118,11 +118,14 @@ Apply migration011 using the normal direct PostgreSQL migration owner, retaining
 migrations005/008/009. Trigger and bounded worker functions are SECURITY DEFINER
 with `search_path=pg_catalog,supportv8`; the definer must be the trusted migration
 owner with BYPASSRLS/superuser as in the existing owner-worker pattern. PUBLIC
-execution is revoked from capture/claim/finish/qualification functions. The app
-has no direct evidence UPDATE or qualification INSERT grant. Tenant reads use
-forced RLS. Existing `supportv8_app` gets only evidence SELECT and narrow worker
-function execution; actual deployment SQL roles and least-privilege grants must
-be reviewed by the migration/GitOps owner. Do not run the migration as the tenant
+execution is revoked from capture/claim/finish/qualification functions. Tenant reads use forced RLS. Migration011 explicitly grants evidence SELECT and
+narrow worker function execution, but its current bytes do not revoke inherited
+DML grants from the production bootstrap default privileges. Review R2 remains
+open: effective least privilege has not been established for the deployed role
+shape. Before release, add table-local revokes for PUBLIC, supportv8_app,
+supportv8_relay and supportv8_scaler before narrow grants, then repeat those
+revokes immediately after every broad DevOps bootstrap grant. Preserve unrelated
+default privileges and verify the effective ACL with the actual owner defaults. Do not run the migration as the tenant
 app role. Function execution remains a trusted backend boundary, not tenant API.
 
 Support currently has no normal new-image migration init path. Keep the source
@@ -204,3 +207,26 @@ HTTP(S), sockets, shell/curl escapes. PG fixture tools and the locked esbuild
 binary are the only non-Node child exceptions. This is test isolation, not an OS
 security sandbox against malicious code. Remote UAT must be a separate explicitly
 controlled workflow and cannot use this local-only runner.
+
+## Fix round1 held partial checkpoint (2026-10-19)
+
+The operational SQL path now opts into a remaining-deadline budget, fail-fast
+pool acquisition, connection destruction on abort, and transaction-local
+statement/lock limits. The shared activities propagate Temporal cancellation.
+Normal native business sessions keep their existing transaction behavior. A
+synchronous-scoped pg Client factory prevents delayed unrelated connections
+from inheriting expired operational budgets; queued/saturated pools are refused
+before checkout. This deliberately trades some retries under load for avoiding
+an uncancellable queued checkout. No startup SQL parameters are used, preserving
+PgBouncer transaction-pooling compatibility.
+
+This is an incomplete checkpoint. Hermetic public pg stream/handshake cleanup
+and fake blocked-client tests pass; PostgreSQL lock, pool and ACL regressions
+are prepared but unexecuted because no owned fixture could start. R1 and R2
+remain open. Explicit transactions freeze now(): finish and qualification still
+need actual-clock lease checks after locks and at the final fenced write, proven
+against an expiring real SQL lease. Migration011 has not changed, so its digest
+above is the original digest, not a newly corrected migration. The expanded
+23-case opt-in SQL suite includes currently unmet ACL/lease assertions and must
+not be represented as passing. Keep the source draft and release hold. Evidence
+and limits are in docs/verification/task-3c3-fix1 and the shared fix1 report.

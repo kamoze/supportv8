@@ -1,3 +1,5 @@
+import {pgClient} from '@/lib/db/pg-client';
+import {sqlBudgetForSignal} from '@/lib/db/operational-sql-budget';
 import { credentialFromEnv, endpoint, readJson, type Credential } from './operational-workload';
 import { publisherAudience, publisherScope, PublisherError } from './operational-contract';
 import { currentLocalSource } from './operational-source';
@@ -17,7 +19,7 @@ export async function sendOperationalFact(row: OutboxRow, signal: AbortSignal): 
     if (!credential)
         throw Error('signals_configuration_required');
     const token = await credential(signal);
-    if (!await currentLocalSource(row.provenance))
+    if (!await currentLocalSource(row.provenance,pgClient,sqlBudgetForSignal(signal)))
         throw Error('operational_source_denied');
     signal.throwIfAborted();
     const response = await fetch(new URL('/api/signals/operational/intake', origin), { method: 'POST', redirect: 'error', cache: 'no-store', signal, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ event: row.event, provenance: row.provenance }) });

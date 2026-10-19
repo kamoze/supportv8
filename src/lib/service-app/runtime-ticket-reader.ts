@@ -5,11 +5,7 @@ import {
   type OperationalSupportAccess,
   type SupportRuntimeScope,
 } from "./runtime-access";
-import {
-  emitSupportTicketCreatedSignal,
-  emitSupportTicketEscalatedSignal,
-  emitSupportTicketResolvedSignal,
-} from "@/lib/signals/signal-agent";
+
 
 export type SupportTicketSummary = {
   ticketRef: string;
@@ -239,32 +235,6 @@ export class RuntimeSupportTicketReader {
     if (!rows[0]) throw new Error("ticket_write_failed");
     const createdTicket = ticket(rows[0]);
 
-    // Emit OLG Domain Signal: support.ticket-created
-    void emitSupportTicketCreatedSignal({
-      tenantId: scope.tenantId,
-      accountId: scope.accountId,
-      ticket: {
-        id: createdTicket.id,
-        ticketRef: createdTicket.ticketRef,
-        customerName: createdTicket.customerName,
-        customerRef: createdTicket.customerRef,
-        summary: createdTicket.summary,
-        priority: createdTicket.priority,
-        status: createdTicket.status,
-      },
-    }).catch((err) => console.warn("[Signal Outbox] Ticket created warning:", err));
-
-    if (createdTicket.priority === "urgent") {
-      void emitSupportTicketEscalatedSignal({
-        tenantId: scope.tenantId,
-        accountId: scope.accountId,
-        ticketId: createdTicket.id,
-        ticketRef: createdTicket.ticketRef,
-        customerName: createdTicket.customerName,
-        reason: createdTicket.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Ticket escalated warning:", err));
-    }
-
     return createdTicket;
   }
   async update(
@@ -294,27 +264,6 @@ export class RuntimeSupportTicketReader {
       );
     });
     const updatedTicket = rows[0] ? ticket(rows[0]) : null;
-    if (updatedTicket) {
-      if (input.priority === "urgent" || input.status === "escalated") {
-        void emitSupportTicketEscalatedSignal({
-          tenantId: scope.tenantId,
-          accountId: scope.accountId,
-          ticketId: updatedTicket.id,
-          ticketRef: updatedTicket.ticketRef,
-          customerName: updatedTicket.customerName,
-          reason: updatedTicket.summary,
-        }).catch((err) => console.warn("[Signal Outbox] Ticket escalated warning:", err));
-      }
-      if (input.status === "resolved" || input.status === "closed") {
-        void emitSupportTicketResolvedSignal({
-          tenantId: scope.tenantId,
-          accountId: scope.accountId,
-          ticketId: updatedTicket.id,
-          ticketRef: updatedTicket.ticketRef,
-          resolutionSummary: updatedTicket.summary,
-        }).catch((err) => console.warn("[Signal Outbox] Ticket resolved warning:", err));
-      }
-    }
     return updatedTicket;
   }
 }

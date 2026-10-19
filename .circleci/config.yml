@@ -20,37 +20,42 @@ jobs:
           command: npm ci || npm install
       - run:
           name: Run Unit and Conformance Tests
-          command: npx vitest run
+          command: node scripts/test-local-only.mjs
       - run:
           name: Rehearse Runtime Support workspace migration and RLS
-          command: npx vitest run test/runtime-support-workspace.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-workspace.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Verify Runtime Support access and ticket RLS
-          command: npx vitest run test/runtime-support-access.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-access.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Verify Runtime Support handoff replay and RLS
-          command: npx vitest run test/runtime-support-handoff.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-handoff.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Verify Runtime Support durable ticket writes and RLS
-          command: npx vitest run test/runtime-ticket-write.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-ticket-write.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+      - run:
+          name: Verify native operational outbox, voice transactions and crash recovery
+          command: node scripts/test-local-only.mjs test/operational-outbox.postgres.test.ts
+          environment:
+            SUPPORT_OPERATIONAL_TEST_ADMIN_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Build Next.js Application
           command: npm run build
       - run:
           name: Verify standalone Runtime Support host and logout boundary
-          command: npx vitest run test/runtime-support-next-standalone.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-next-standalone.test.ts
           environment:
             SUPPORTV8_NEXT_STANDALONE_PROOF: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres

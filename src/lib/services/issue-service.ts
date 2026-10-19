@@ -6,11 +6,7 @@
 import { db } from "../db/mock-data";
 import type { Issue, SourceType, SentimentClass } from "../types";
 import { triageEngine } from "./triage-engine";
-import {
-  emitSupportTicketCreatedSignal,
-  emitSupportTicketEscalatedSignal,
-  emitSupportTicketResolvedSignal,
-} from "@/lib/signals/signal-agent";
+
 
 export class IssueService {
   public getAll(filters?: {
@@ -117,31 +113,6 @@ export class IssueService {
 
     db.addIssue(newIssue, tenantSlug);
 
-    // Emit OLG Domain Signal: support.ticket-created
-    void emitSupportTicketCreatedSignal({
-      tenantId: newIssue.tenantId,
-      ticket: {
-        id: newIssue.id,
-        ticketRef: newIssue.externalId,
-        customerName: newIssue.customerName,
-        customerRef: newIssue.customerRef,
-        summary: newIssue.summary,
-        priority: newIssue.priority,
-        category: newIssue.category,
-        status: newIssue.sourceStatus,
-      },
-    }).catch((err) => console.warn("[Signal Outbox] Issue created signal warning:", err));
-
-    if (newIssue.priority === "urgent" || newIssue.sentiment === "frustrated") {
-      void emitSupportTicketEscalatedSignal({
-        tenantId: newIssue.tenantId,
-        ticketId: newIssue.id,
-        ticketRef: newIssue.externalId,
-        customerName: newIssue.customerName,
-        reason: newIssue.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Issue escalation signal warning:", err));
-    }
-
     return newIssue;
   }
 
@@ -149,25 +120,6 @@ export class IssueService {
     const issue = this.getById(id, tenantSlug);
     if (!issue) return undefined;
     Object.assign(issue, { ...partial, updatedAt: new Date().toISOString() });
-
-    if (partial.sourceStatus === "solved" || partial.sourceStatus === "closed") {
-      void emitSupportTicketResolvedSignal({
-        tenantId: issue.tenantId,
-        ticketId: issue.id,
-        ticketRef: issue.externalId,
-        resolutionSummary: issue.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Issue resolved signal warning:", err));
-    }
-
-    if (partial.priority === "urgent") {
-      void emitSupportTicketEscalatedSignal({
-        tenantId: issue.tenantId,
-        ticketId: issue.id,
-        ticketRef: issue.externalId,
-        customerName: issue.customerName,
-        reason: issue.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Issue escalated signal warning:", err));
-    }
 
     return issue;
   }

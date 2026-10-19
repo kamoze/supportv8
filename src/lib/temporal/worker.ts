@@ -106,6 +106,8 @@ async function main() {
   const client = new Client({ connection: clientConnection, namespace: TEMPORAL_NAMESPACE });
   try { await client.workflow.start("managedSupportRegistrationReconcilerWorkflow",{workflowId:"support-managed-registration-reconciler-v1",taskQueue:TASK_QUEUE}); }
   catch(error){if((error as {name?:string}).name!=="WorkflowExecutionAlreadyStartedError")throw error;}
+  try { await client.workflow.start("operationalSupportOutboxWorkflow",{workflowId:"support-operational-outbox-v1",taskQueue:TASK_QUEUE}); }
+  catch(error){if((error as Error).name!=="WorkflowExecutionAlreadyStartedError")throw error;}
   // Register periodic Schedules (idempotent)
   try {
     const res = await ensureTemporalSchedules(client);

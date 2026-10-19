@@ -125,6 +125,24 @@ function execution; actual deployment SQL roles and least-privilege grants must
 be reviewed by the migration/GitOps owner. Do not run the migration as the tenant
 app role. Function execution remains a trusted backend boundary, not tenant API.
 
+Support currently has no normal new-image migration init path. Keep the source
+PR in draft and do not merge it to main until the reviewed migration GitOps is
+ready: main CI updates web/worker/chat-relay after its gate. Task3k must include
+an immutable mounted copy of the complete migration011 SQL and its rendering/
+application tests, rather than environment wiring alone. The reviewed source
+SHA-256 is `a1d4c7b89c5278e0eab95e9cbe13d87aaf58711cde075ceaaf0de1a25b6d8dc2`.
+Prerequisites are the native issues/tenants schema and migrations003/005/008/009,
+including exact permanent tuple indexes, forced RLS and current registration
+lifecycle functions. Run the version-bumped owner migration Job against direct
+Postgres with ON_ERROR_STOP and one transaction (for psql,
+`--set ON_ERROR_STOP=1 --single-transaction --file <mounted-011-path>`). Verify
+mounted bytes against the reviewed source, successful application and the real
+restricted-role capture/lease/ACK SQL suite before any new image can roll. The
+migration is additive evidence storage plus an active capture trigger and is not
+a safely repeatable arbitrary startup script; use the normal migration owner and
+version tracking. The exact rendered Job/name/mount, role and pre-rollout result
+are controller/DevOps acceptance evidence, not implemented by this source change.
+
 Ship one synchronized immutable image for web/API, shared worker and chat relay.
 Migration comes first. Old binaries can continue native writes through the new
 trigger but still contain overlapping legacy network emitters; keep publication

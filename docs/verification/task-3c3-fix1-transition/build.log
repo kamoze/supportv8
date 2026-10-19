@@ -1,0 +1,117 @@
+   ▲ Next.js 15.5.24
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.2s
+   Skipping validation of types
+   Linting ...
+   Collecting page data ...
+   Generating static pages (0/75) ...
+   Generating static pages (18/75) 
+   Generating static pages (37/75) 
+   Generating static pages (56/75) 
+ ✓ Generating static pages (75/75)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                   Size  First Load JS
+┌ ○ /                                       178 kB         349 kB
+├ ○ /_not-found                              995 B         104 kB
+├ ○ /accept-invite                         5.74 kB         108 kB
+├ ƒ /api/agent                               334 B         103 kB
+├ ƒ /api/auth/demo                           334 B         103 kB
+├ ƒ /api/auth/invitation                     334 B         103 kB
+├ ƒ /api/auth/login                          334 B         103 kB
+├ ƒ /api/auth/logout                         334 B         103 kB
+├ ƒ /api/auth/otp/send                       334 B         103 kB
+├ ƒ /api/auth/otp/verify                     334 B         103 kB
+├ ƒ /api/auth/password/recover               334 B         103 kB
+├ ƒ /api/auth/profile                        334 B         103 kB
+├ ƒ /api/auth/refresh                        334 B         103 kB
+├ ƒ /api/auth/workspace-session              334 B         103 kB
+├ ƒ /api/chat                                334 B         103 kB
+├ ƒ /api/chat/draft                          334 B         103 kB
+├ ƒ /api/chat/email                          334 B         103 kB
+├ ƒ /api/chat/events                         334 B         103 kB
+├ ƒ /api/chat/message                        334 B         103 kB
+├ ƒ /api/chat/session                        334 B         103 kB
+├ ƒ /api/chat/stream                         334 B         103 kB
+├ ƒ /api/chat/whatsapp                       334 B         103 kB
+├ ƒ /api/connectors/stripe                   334 B         103 kB
+├ ƒ /api/credits                             334 B         103 kB
+├ ƒ /api/customers                           334 B         103 kB
+├ ƒ /api/customers/[id]                      334 B         103 kB
+├ ƒ /api/customers/sync                      334 B         103 kB
+├ ƒ /api/cx/customer-health                  334 B         103 kB
+├ ƒ /api/cx/qa-scorecards                    334 B         103 kB
+├ ƒ /api/cx/queue                            334 B         103 kB
+├ ƒ /api/cx/sla                              334 B         103 kB
+├ ƒ /api/cx/voc-digest                       334 B         103 kB
+├ ƒ /api/groups                              334 B         103 kB
+├ ƒ /api/handoff                             334 B         103 kB
+├ ƒ /api/health                              334 B         103 kB
+├ ƒ /api/insights                            334 B         103 kB
+├ ƒ /api/interservice                        334 B         103 kB
+├ ƒ /api/issues                              334 B         103 kB
+├ ƒ /api/knowledge                           334 B         103 kB
+├ ƒ /api/knowledge/chunks                    334 B         103 kB
+├ ƒ /api/knowledge/crawl                     334 B         103 kB
+├ ƒ /api/knowledge/curate                    334 B         103 kB
+├ ƒ /api/knowledge/kv8-sync                  334 B         103 kB
+├ ƒ /api/knowledge/query                     334 B         103 kB
+├ ƒ /api/knowledge/s3-source                 334 B         103 kB
+├ ƒ /api/knowledge/upload                    334 B         103 kB
+├ ƒ /api/leads/demo-access                   334 B         103 kB
+├ ƒ /api/marketplace                         334 B         103 kB
+├ ƒ /api/members                             334 B         103 kB
+├ ƒ /api/observability/traces                334 B         103 kB
+├ ƒ /api/overview                            334 B         103 kB
+├ ƒ /api/platform/agents                     334 B         103 kB
+├ ƒ /api/policies                            334 B         103 kB
+├ ƒ /api/portal                              334 B         103 kB
+├ ƒ /api/portal/actions/[slug]               334 B         103 kB
+├ ƒ /api/portal/admin                        334 B         103 kB
+├ ƒ /api/portal/admin/media                  334 B         103 kB
+├ ƒ /api/portal/auth/me                      334 B         103 kB
+├ ƒ /api/portal/auth/otp/send                334 B         103 kB
+├ ƒ /api/portal/auth/otp/verify              334 B         103 kB
+├ ƒ /api/portal/search                       334 B         103 kB
+├ ƒ /api/portal/tickets                      334 B         103 kB
+├ ƒ /api/presence                            334 B         103 kB
+├ ƒ /api/private/email-events                334 B         103 kB
+├ ƒ /api/problems                            334 B         103 kB
+├ ƒ /api/runtime/tickets                     334 B         103 kB
+├ ƒ /api/runtime/tickets/[id]                334 B         103 kB
+├ ƒ /api/sources                             334 B         103 kB
+├ ƒ /api/stale-work                          334 B         103 kB
+├ ƒ /api/tenant/signup                       334 B         103 kB
+├ ƒ /api/trends                              334 B         103 kB
+├ ƒ /api/v1/runtime/order-case-triage        334 B         103 kB
+├ ƒ /api/v1/voice/tools                      334 B         103 kB
+├ ƒ /api/verticals                           334 B         103 kB
+├ ƒ /api/voice/provision                     334 B         103 kB
+├ ƒ /api/voice/session                       334 B         103 kB
+├ ƒ /api/voice/sophia/launch                 334 B         103 kB
+├ ƒ /api/voice/webhook                       334 B         103 kB
+├ ƒ /api/webhooks/stripe                     334 B         103 kB
+├ ƒ /api/workforce                           334 B         103 kB
+├ ƒ /api/workforce/spine                     334 B         103 kB
+├ ƒ /auth/runtime/handoff                    334 B         103 kB
+├ ƒ /auth/runtime/logout                     334 B         103 kB
+├ ƒ /handoff                                 334 B         103 kB
+├ ƒ /help/[slug]                             334 B         103 kB
+├ ○ /icon.svg                                  0 B            0 B
+├ ƒ /internal/service-app/v1/provision       334 B         103 kB
+├ ƒ /internal/service-apps/support/invoke    334 B         103 kB
+├ ƒ /runtime                               2.41 kB         168 kB
+└ ○ /signup                                4.13 kB         112 kB
++ First Load JS shared by all               103 kB
+  ├ chunks/1255-fc6c00ab2f765339.js        46.4 kB
+  ├ chunks/4bd1b696-f785427dddbba9fb.js    54.2 kB
+  └ other shared chunks (total)            1.96 kB
+
+
+ƒ Middleware                               35.1 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

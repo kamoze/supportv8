@@ -215,8 +215,11 @@ Temporal cancellation propagates. Normal native business sessions keep their
 existing transaction behavior. A synchronous pg Client factory prevents later
 unrelated connections from inheriting expired operational budgets. The public
 pg pool briefly queues idle checkout until nextTick: available idle clients now
-reserve against waitingCount, allowing legitimate concurrent checkout. A request
-requiring a future release or asynchronous new constructor is still refused.
+reserve against waitingCount, allowing legitimate concurrent checkout. If those
+reservations temporarily hide spare physical capacity, the operational caller
+yields one event-loop turn under its abort/deadline, then rechecks public counts.
+It never joins the pool queue during that yield. A request requiring a future
+release or asynchronous new constructor after recheck is still refused.
 No private queue mutation or startup SQL parameters are used.
 
 The parent executed exact b6f23ec source against isolated same-pod PostgreSQL17.11
@@ -240,3 +243,11 @@ Candidate actual SQL GREEN is pending the parent's next immutable GitOps Job.
 Do not infer it from hermetic passes or the earlier16 passing SQL cases. Keep
 source draft, owner-first immutable corrected011 migration and activation holds.
 Evidence is in docs/verification/task-3c3-fix1-resume and shared resume report.
+
+Follow-up actual GitOps SQL at5c802ef completed23 cases:20 pass/3 fail/0 skip,
+no infrastructure errors. Both ACL and both expired-clock cases now pass. The
+remaining failures expose one/two warm-client reservations hiding spare pool
+capacity: retry completion cannot persist for some rows, concurrent claim is
+refused, and verified denied B stays pending/noACK but last_error_code is null.
+The subsequent candidate adds only the bounded recheck above; denial assertions
+and migration011 remain unchanged. Actual SQL GREEN remains required.

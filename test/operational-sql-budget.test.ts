@@ -42,7 +42,9 @@ class ReadyPgStream extends Duplex {
   _read(){}
   _write(chunk:Buffer,_encoding:string,done:()=>void){
     const first=this.startup;this.startup=false;done();
-    queueMicrotask(()=>{
+    // Keep a warm client busy through the reservation recheck so spare
+    // physical clients must be constructed in the caller budget context.
+    setImmediate(()=>{
       if(this.destroyed)return;
       const ready=()=>this.push(Buffer.from([90,0,0,0,5,73]));
       const complete=()=>{const command=Buffer.from('SELECT 0\0');const header=Buffer.alloc(5);header[0]=67;header.writeInt32BE(command.length+4,1);this.push(Buffer.concat([header,command]));};
@@ -68,4 +70,34 @@ it('serves concurrent reserved idle pg clients without accepting an exhausted ch
   const outcomes=await Promise.allSettled(tasks);
   try{expect(outcomes.map(result=>result.status)).toEqual(Array(4).fill('fulfilled'));expect(pool.waitingCount).toBe(0);expect(pool.idleCount).toBe(4);}
   finally{await pool.end();}
+});
+
+it.each([['claim',1],['claim',2],['finish',1],['finish',2]] as const)('grows spare pg capacity after %s reserves %i warm clients',async(operation,warm)=>{
+  const pool=new Pool({Client:OperationalPgClient,max:4,connectionTimeoutMillis:100,stream:()=>new ReadyPgStream()} as any);
+  const held=await Promise.all(Array.from({length:warm},()=>pool.connect()));held.forEach(client=>client.release());
+  const store=new OperationalOutboxStore(pool);
+  try{for(let iteration=0;iteration<3;iteration++){
+    const outcomes=await Promise.allSettled(Array.from({length:4},()=>operation==='claim'?store.claim('transitional-idle',1):store.finish({id:'00000000-0000-4000-8000-000000000001',lease_owner:'worker',lease_generation:'1',lease_token:'00000000-0000-4000-8000-000000000002'} as any,'retry','operational_source_denied')));
+    expect(outcomes.map(result=>result.status)).toEqual(Array(4).fill('fulfilled'));
+    expect(pool.waitingCount).toBe(0);expect(pool.totalCount).toBe(4);
+  }}finally{await pool.end();}
+});
+it('cancels a transitional pool recheck without enqueueing another checkout',async()=>{
+  let connections=0;const controller=new AbortController();
+  const pool={totalCount:1,idleCount:1,waitingCount:1,options:{max:4},connect:async()=>{connections++;throw Error('must not connect');}};
+  const task=new OperationalOutboxStore(pool as unknown as Pool).claim('cancel-yield',1,{deadline:Date.now()+100,signal:controller.signal});
+  controller.abort();await expect(task).rejects.toThrow('operational_sql_deadline');
+  expect(connections).toBe(0);expect(pool.waitingCount).toBe(1);
+});
+it.each(['deadline','abort'])('cancels a new physical pg handshake after idle reservations settle: %s',async mode=>{
+  const streams:Duplex[]=[];let started:()=>void=()=>{};const constructing=new Promise<void>(resolve=>started=resolve);
+  const pool=new Pool({Client:OperationalPgClient,max:2,connectionTimeoutMillis:1000,stream:()=>{const stream=streams.length?new SilentHandshakeStream():new ReadyPgStream();streams.push(stream);if(streams.length===2)started();return stream;}} as any);
+  const warm=await pool.connect();warm.release();const reserved=pool.connect();
+  const controller=new AbortController(),task=new OperationalOutboxStore(pool).claim('post-yield-handshake',1,{deadline:Date.now()+60,signal:controller.signal});
+  const settled=task.then(()=>false,()=>false),held=await reserved;
+  try{
+    expect(await Promise.race([constructing.then(()=>true),settled,delay(200).then(()=>false)])).toBe(true);
+    if(mode==='abort')controller.abort();await expect(task).rejects.toThrow();await delay(10);
+    expect(streams[1].destroyed).toBe(true);expect(pool.waitingCount).toBe(0);expect(pool.totalCount).toBe(1);
+  }finally{controller.abort();await task.catch(()=>{});held.release();await pool.end();}
 });

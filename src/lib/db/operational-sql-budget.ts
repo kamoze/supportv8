@@ -54,11 +54,33 @@ export class OperationalPgClient extends Client {
   }
 }
 
+/** Let pg finish only its already-scheduled idle reservations. This does not
+ * call connect, enter the pool queue, or wait for a borrowed client release. */
+async function settleIdleReservations(budget: OperationalSqlBudget): Promise<void> {
+  const remaining = remainingSqlBudget(budget);
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => { clearImmediate(turn); clearTimeout(timer); budget.signal?.removeEventListener('abort', abort); };
+    const abort = () => { cleanup(); reject(deadlineError()); };
+    const turn = setImmediate(() => {
+      cleanup();
+      try { remainingSqlBudget(budget); resolve(); } catch (error) { reject(error); }
+    });
+    const timer = setTimeout(abort, remaining);
+    budget.signal?.addEventListener('abort', abort, { once: true });
+    if (budget.signal?.aborted) abort();
+  });
+}
+
 async function acquire(pool: OperationalSqlPool, budget: OperationalSqlBudget) {
   remainingSqlBudget(budget);
-  // pg queues idle checkout until nextTick. Reserve only already-idle capacity;
-  // never join a queue which needs a future release/new asynchronous constructor.
-  const waiting = pool.waitingCount ?? 0, idle = pool.idleCount ?? 0;
+  // pg queues idle checkout until nextTick. A fully reserved idle set can
+  // transiently hide spare physical capacity. Flush that scheduled work once,
+  // then recheck; never enqueue this caller while it needs a future release.
+  let waiting = pool.waitingCount ?? 0, idle = pool.idleCount ?? 0;
+  if (waiting > 0 && waiting >= idle && pool.totalCount !== undefined && pool.totalCount < (pool.options?.max ?? 10)) {
+    await settleIdleReservations(budget);
+    waiting = pool.waitingCount ?? 0; idle = pool.idleCount ?? 0;
+  }
   if ((waiting > 0 && waiting >= idle) || (pool.totalCount !== undefined && idle === 0 && pool.totalCount >= (pool.options?.max ?? 10)))
     throw Error('operational_sql_pool_busy');
   return new Promise<Pick<PoolClient, 'query' | 'release'>>((resolve, reject) => {

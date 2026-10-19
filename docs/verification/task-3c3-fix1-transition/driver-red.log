@@ -1,0 +1,105 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ❯ test/operational-sql-budget.test.ts (17 tests | 7 failed) 297ms
+   × grows spare pg capacity after claim reserves 1 warm clients 5ms
+     → expected [ 'fulfilled', 'rejected', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+   × grows spare pg capacity after claim reserves 2 warm clients 3ms
+     → expected [ 'fulfilled', 'fulfilled', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+   × grows spare pg capacity after finish reserves 1 warm clients 2ms
+     → expected [ 'fulfilled', 'rejected', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+   × grows spare pg capacity after finish reserves 2 warm clients 2ms
+     → expected [ 'fulfilled', 'fulfilled', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+   × cancels a transitional pool recheck without enqueueing another checkout 2ms
+     → expected [Function] to throw error including 'operational_sql_deadline' but got 'operational_sql_pool_busy'
+   × cancels a new physical pg handshake after idle reservations settle: deadline 1ms
+     → expected false to be true // Object.is equality
+   × cancels a new physical pg handshake after idle reservations settle: abort 1ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/operational-sql-budget.test.ts > grows spare pg capacity after claim reserves 1 warm clients
+ FAIL  test/operational-sql-budget.test.ts > grows spare pg capacity after finish reserves 1 warm clients
+AssertionError: expected [ 'fulfilled', 'rejected', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+
+- Expected
++ Received
+
+  Array [
+    "fulfilled",
+-   "fulfilled",
+-   "fulfilled",
+-   "fulfilled",
++   "rejected",
++   "rejected",
++   "rejected",
+  ]
+
+ ❯ test/operational-sql-budget.test.ts:81:49
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  test/operational-sql-budget.test.ts > grows spare pg capacity after claim reserves 2 warm clients
+ FAIL  test/operational-sql-budget.test.ts > grows spare pg capacity after finish reserves 2 warm clients
+AssertionError: expected [ 'fulfilled', 'fulfilled', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+
+- Expected
++ Received
+
+  Array [
+    "fulfilled",
+    "fulfilled",
+-   "fulfilled",
+-   "fulfilled",
++   "rejected",
++   "rejected",
+  ]
+
+ ❯ test/operational-sql-budget.test.ts:81:49
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  test/operational-sql-budget.test.ts > cancels a transitional pool recheck without enqueueing another checkout
+AssertionError: expected [Function] to throw error including 'operational_sql_deadline' but got 'operational_sql_pool_busy'
+
+Expected: "operational_sql_deadline"
+Received: "operational_sql_pool_busy"
+
+ ❯ test/operational-sql-budget.test.ts:89:22
+     87|   const pool={totalCount:1,idleCount:1,waitingCount:1,options:{max:4},…
+     88|   const task=new OperationalOutboxStore(pool as unknown as Pool).claim…
+     89|   controller.abort();await expect(task).rejects.toThrow('operational_s…
+       |                      ^
+     90|   expect(connections).toBe(0);expect(pool.waitingCount).toBe(1);
+     91| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  test/operational-sql-budget.test.ts > cancels a new physical pg handshake after idle reservations settle: deadline
+ FAIL  test/operational-sql-budget.test.ts > cancels a new physical pg handshake after idle reservations settle: abort
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ test/operational-sql-budget.test.ts:99:98
+     97|   const settled=task.then(()=>false,()=>false),held=await reserved;
+     98|   try{
+     99|     expect(await Promise.race([constructing.then(()=>true),settled,del…
+       |                                                                                                  ^
+    100|     if(mode==='abort')controller.abort();await expect(task).rejects.to…
+    101|     expect(streams[1].destroyed).toBe(true);expect(pool.waitingCount).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 10 passed (17)
+   Start at  03:33:35
+   Duration  608ms (transform 57ms, setup 7ms, collect 87ms, tests 297ms, environment 0ms, prepare 30ms)
+

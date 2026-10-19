@@ -119,10 +119,31 @@ describe.skipIf(!enabled)('Support native transactional operational outbox', () 
         const ack = await recordFixtureReceipt(app, r);
         await store.finish(r, 'delivered', null, ack.body, ack.status);
     } });
-    it('fresh owner denial never sends, including a new tenant and revoked source', async () => { const t = { accountId: 'account-b', tenantId: 'registry-b', installationId: 'install-b', workspaceId: 'tenant_native_b' }; await qualify(t); await new RuntimeSupportTicketReader({ client, resolve: async (s) => ({ ...s, capability: 'support:manage', email: 'b@test.invalid', domain: 'b' }) }).create({ ...t, verticalId: 'runtime', subject: 'b' }, { priority: 'normal', customerName: 'B', summary: 'B' }); expect(await currentLocalSource(t, client)).toBe(true); expect(await currentLocalSource({ ...t, installationId: 'employee-install' }, client)).toBe(false); await owner.query("update supportv8.runtime_support_workspaces set state='tombstoned',deleted_at=now() where installation_id=$1", [t.installationId]); expect(await currentLocalSource(t, client)).toBe(false); let sends = 0; await drainOperationalOutbox({ store, enabled: true, limit: 64, verify: r => currentLocalSource(r.provenance, client), send: async () => { sends++; throw Error('must not send'); } }); expect(sends).toBe(0); expect((await rows()).at(-1).state).toBe('pending'); const before = (await rows()).length; await new RuntimeSupportTicketReader({ client, resolve: async (s) => ({ ...s, capability: 'support:manage', email: 'b@test.invalid', domain: 'b' }) }).create({ ...t, verticalId: 'runtime', subject: 'b' }, { priority: 'normal', customerName: 'B', summary: 'Preserved after owner revocation' }); expect((await rows()).length).toBe(before + 1); expect((await rows()).at(-1)).toMatchObject({ state: 'pending_authority', provenance: null, last_error_code: 'native_binding_unavailable' }); });
-    // Fix-round1 prepared real-SQL regressions. These must be executed against an
-    // owned fixture; default-ACL and actual-clock assertions intentionally remain
-    // RED until the corresponding migration fixes are applied and verified.
+    it('fresh owner denial never sends, including a new tenant and revoked source', async () => {
+      const t = { accountId: 'account-b', tenantId: 'registry-b', installationId: 'install-b', workspaceId: 'tenant_native_b' };
+      await qualify(t);
+      const otherReader=new RuntimeSupportTicketReader({ client, resolve: async (s) => ({ ...s, capability: 'support:manage', email: 'b@test.invalid', domain: 'b' }) });
+      const issue=await otherReader.create({ ...t, verticalId: 'runtime', subject: 'b' }, { priority: 'normal', customerName: 'B', summary: 'B' });
+      const revoked=(await rows()).find(r=>r.event.subject==='ticket:'+issue.id);
+      expect(revoked.provenance).toMatchObject(t);
+      expect(await currentLocalSource(t, client)).toBe(true);
+      expect(await currentLocalSource({ ...t, installationId: 'employee-install' }, client)).toBe(false);
+      await owner.query("update supportv8.runtime_support_workspaces set state='tombstoned',deleted_at=now() where installation_id=$1", [t.installationId]);
+      expect(await currentLocalSource(t, client)).toBe(false);
+      let revokedSends=0,revokedVerified=0;
+      await drainOperationalOutbox({ store, enabled: true, limit: 64,
+        verify: async r=>{if(r.id===revoked.id){expect(r.provenance).toMatchObject(t);expect(r.event.id).toBe(revoked.event.id);revokedVerified++;}return currentLocalSource(r.provenance,client);},
+        send: async r=>{if(r.provenance.accountId===t.accountId&&r.provenance.tenantId===t.tenantId&&r.provenance.installationId===t.installationId&&r.event.id===revoked.event.id){revokedSends++;throw Error('must not send revoked fact');}return recordFixtureReceipt(app,r);}
+      });
+      expect(revokedVerified).toBe(1);expect(revokedSends).toBe(0);
+      expect((await rows()).find(r=>r.id===revoked.id)).toMatchObject({state:'pending',receipt:null,receipt_http_status:null,delivered_at:null,last_error_code:'operational_source_denied'});
+      const before=(await rows()).length;
+      const preserved=await otherReader.create({ ...t, verticalId: 'runtime', subject: 'b' }, { priority: 'normal', customerName: 'B', summary: 'Preserved after owner revocation' });
+      expect((await rows()).length).toBe(before+1);
+      expect((await rows()).find(r=>r.event.subject==='ticket:'+preserved.id)).toMatchObject({state:'pending_authority',provenance:null,last_error_code:'native_binding_unavailable'});
+    });
+    // Fix-round1 real-SQL regressions. GitOps executes these against its owned
+    // isolated fixture; actual GREEN remains required for each source candidate.
     it.each(['operational_outbox','runtime_support_workspaces','managed_support_registration_jobs'])('bounds real locked SQL and releases its connection: %s',async table=>{
       const blocker=await owner.connect();await blocker.query('begin');await blocker.query(`lock table supportv8.${table} in access exclusive mode`);
       const budget:OperationalSqlBudget={deadline:Date.now()+120};

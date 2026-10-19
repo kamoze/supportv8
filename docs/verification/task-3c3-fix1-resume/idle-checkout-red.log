@@ -1,0 +1,40 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ❯ test/operational-sql-budget.test.ts (10 tests | 1 failed) 281ms
+   × serves concurrent reserved idle pg clients without accepting an exhausted checkout 13ms
+     → expected [ 'fulfilled', 'rejected', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/operational-sql-budget.test.ts > serves concurrent reserved idle pg clients without accepting an exhausted checkout
+AssertionError: expected [ 'fulfilled', 'rejected', …(2) ] to deeply equal [ 'fulfilled', 'fulfilled', …(2) ]
+
+- Expected
++ Received
+
+  Array [
+    "fulfilled",
+-   "fulfilled",
+-   "fulfilled",
+-   "fulfilled",
++   "rejected",
++   "rejected",
++   "rejected",
+  ]
+
+ ❯ test/operational-sql-budget.test.ts:69:51
+     67|   await expect(store.claim('no-idle-capacity',1)).rejects.toThrow('ope…
+     68|   const outcomes=await Promise.allSettled(tasks);
+     69|   try{expect(outcomes.map(result=>result.status)).toEqual(Array(4).fil…
+       |                                                   ^
+     70|   finally{await pool.end();}
+     71| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  03:06:35
+   Duration  597ms (transform 40ms, setup 5ms, collect 76ms, tests 281ms, environment 0ms, prepare 31ms)
+

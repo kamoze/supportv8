@@ -1,0 +1,114 @@
+{
+  "sourceRevision": "b6f23ec82013ed430ba731616385b1d481a8bf90",
+  "summary": {
+    "phase": "qualification_summary",
+    "sourceRevision": "b6f23ec82013ed430ba731616385b1d481a8bf90",
+    "bundleSha256": "edccded514b450acc511edcf9c7352bd68b5f7670e468a585d3e4c2e1ba66ab1",
+    "dependencyImage": "redoosolutions/supportv8@sha256:42bc64c53030db9fd31537a989a0979f778c32f91778b188b02641f65522ec09",
+    "testExitCode": 1,
+    "exitCode": 1,
+    "classification": "assertion_failures_require_controller_review",
+    "actualPostgresVersion": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "total": 23,
+    "passed": 16,
+    "failed": 7,
+    "skipped": 0,
+    "infrastructureErrorCount": 0
+  },
+  "failed": [
+    {
+      "name": "Support native transactional operational outbox restricts worker functions and evidence writes while fixing definer search_path",
+      "failureMessages": [
+        "AssertionError: expected { insert_qualification: true, \u2026(1) } to deeply equal { insert_qualification: false, \u2026(1) }\n    at /work/test/operational-outbox.postgres.test.ts:86:346\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)\n    at startTests (file:///app/node_modules/@vitest/runner/dist/index.js:1271:3)\n    at file:///app/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11\n    at withEnv (file:///app/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:90:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox removes bootstrap-inherited evidence DML without changing unrelated default privileges",
+      "failureMessages": [
+        "AssertionError: expected { i: true, u: true, d: true } to deeply equal { i: false, u: false, d: false }\n    at /work/test/operational-outbox.postgres.test.ts:91:27\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)\n    at startTests (file:///app/node_modules/@vitest/runner/dist/index.js:1271:3)\n    at file:///app/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11\n    at withEnv (file:///app/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:90:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver",
+      "failureMessages": [
+        "AssertionError: expected [ { \u2026(17) }, { \u2026(17) }, { \u2026(17) } ] to have a length of +0 but got 3\n    at Proxy.<anonymous> (file:///app/node_modules/@vitest/expect/dist/index.js:1339:22)\n    at Proxy.<anonymous> (file:///app/node_modules/@vitest/expect/dist/index.js:972:17)\n    at Proxy.methodWrapper (file:///app/node_modules/chai/index.js:1686:25)\n    at /work/test/operational-outbox.postgres.test.ts:111:124\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox concurrent bounded claims are disjoint and both canonical tenants progress",
+      "failureMessages": [
+        "Error: operational_sql_pool_busy\n    at acquire (/work/src/lib/db/operational-sql-budget.ts:60:11)\n    at Module.withOperationalSql (/work/src/lib/db/operational-sql-budget.ts:89:24)\n    at OperationalOutboxStore.claim (/work/src/lib/signals/operational-outbox.ts:29:124)\n    at /work/test/operational-outbox.postgres.test.ts:117:379\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox fresh owner denial never sends, including a new tenant and revoked source",
+      "failureMessages": [
+        "AssertionError: expected 1 to be +0 // Object.is equality\n    at /work/test/operational-outbox.postgres.test.ts:122:1080\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)\n    at startTests (file:///app/node_modules/@vitest/runner/dist/index.js:1271:3)\n    at file:///app/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11\n    at withEnv (file:///app/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:90:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox rejects a lease expiring while the actual SQL row lock waits: outbox",
+      "failureMessages": [
+        "Error: promise resolved \"undefined\" instead of rejecting\n    at _Assertion.__VITEST_REJECTS__ (file:///app/node_modules/@vitest/expect/dist/index.js:1805:21)\n    at _Assertion.propertyGetter (file:///app/node_modules/chai/index.js:1557:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///app/node_modules/chai/index.js:1645:22)\n    at /work/test/operational-outbox.postgres.test.ts:162:28\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox rejects a lease expiring while the actual SQL row lock waits: qualification",
+      "failureMessages": [
+        "Error: promise resolved \"[ { \u2026(1) } ]\" instead of rejecting\n    at _Assertion.__VITEST_REJECTS__ (file:///app/node_modules/@vitest/expect/dist/index.js:1805:21)\n    at _Assertion.propertyGetter (file:///app/node_modules/chai/index.js:1557:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///app/node_modules/chai/index.js:1645:22)\n    at /work/test/operational-outbox.postgres.test.ts:162:28\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)"
+      ]
+    }
+  ],
+  "cni": [
+    {
+      "phase": "cni_diagnostic",
+      "outcome": "ECONNREFUSED",
+      "status": "observed",
+      "baseline": {
+        "endpoint": "10.201.68.100",
+        "port": 3005,
+        "observedAt": "2026-10-19T05:52:53Z",
+        "outcome": "connected",
+        "pod": "supportv8-6985b669f6-984zl",
+        "node": "sv8-h9",
+        "image": "redoosolutions/supportv8@sha256:42bc64c53030db9fd31537a989a0979f778c32f91778b188b02641f65522ec09"
+      }
+    },
+    {
+      "phase": "cni_diagnostic",
+      "outcome": "ECONNREFUSED",
+      "status": "refusal_supporting_evidence",
+      "acceptance": "controller must retain fresh same-node positive controls before and after this run, exact applied deny-all policy and placement; neither timeout nor refusal alone proves isolation"
+    }
+  ],
+  "jobUid": "488f042e-eb6c-41d0-a219-962e24f56e53",
+  "podName": "support-outbox-b6f23ec-red-v4-gmz9h",
+  "podUid": "56cf756d-11fe-4896-9cae-a4aea8258913",
+  "node": "sv8-h9",
+  "actualImageIDs": {
+    "postgres": "docker.io/library/postgres@sha256:66aafa11cf15800a3c94763f7e11d1e7b2e37e5e84bc4ce027cb6e1e4bfaf4df",
+    "qualification": "docker.io/redoosolutions/supportv8@sha256:42bc64c53030db9fd31537a989a0979f778c32f91778b188b02641f65522ec09"
+  },
+  "controls": {
+    "before": {
+      "observedAt": "2026-10-19T07:02:56.941069+00:00",
+      "node": "sv8-h9",
+      "pod": "supportv8-6985b669f6-984zl",
+      "endpoint": "10.201.68.100",
+      "port": 3005,
+      "outcome": "connected",
+      "policy": "deny-all",
+      "registrySecretReady": true
+    },
+    "after": {
+      "observedAt": "2026-10-19T07:03:27.990821+00:00",
+      "node": "sv8-h9",
+      "pod": "supportv8-6985b669f6-984zl",
+      "endpoint": "10.201.68.100",
+      "port": 3005,
+      "outcome": "connected",
+      "policy": "deny-all",
+      "registrySecretReady": true
+    }
+  }
+}

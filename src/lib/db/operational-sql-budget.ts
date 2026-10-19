@@ -56,7 +56,10 @@ export class OperationalPgClient extends Client {
 
 async function acquire(pool: OperationalSqlPool, budget: OperationalSqlBudget) {
   remainingSqlBudget(budget);
-  if ((pool.waitingCount ?? 0) > 0 || (pool.totalCount !== undefined && pool.idleCount === 0 && pool.totalCount >= (pool.options?.max ?? 10)))
+  // pg queues idle checkout until nextTick. Reserve only already-idle capacity;
+  // never join a queue which needs a future release/new asynchronous constructor.
+  const waiting = pool.waitingCount ?? 0, idle = pool.idleCount ?? 0;
+  if ((waiting > 0 && waiting >= idle) || (pool.totalCount !== undefined && idle === 0 && pool.totalCount >= (pool.options?.max ?? 10)))
     throw Error('operational_sql_pool_busy');
   return new Promise<Pick<PoolClient, 'query' | 'release'>>((resolve, reject) => {
     let settled = false;

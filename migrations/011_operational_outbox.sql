@@ -100,15 +100,26 @@ CREATE FUNCTION supportv8.claim_operational_outbox(worker varchar,claim_limit in
 CREATE FUNCTION supportv8.finish_operational_outbox(target uuid,worker varchar,generation bigint,token uuid,result varchar,code varchar,ack jsonb,http_status integer) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,supportv8 AS $$
 DECLARE o supportv8.operational_outbox;
 BEGIN
- SELECT * INTO o FROM supportv8.operational_outbox WHERE id=target AND state='pending' AND lease_owner=worker AND lease_generation=generation AND lease_token=token AND lease_expires_at>=now() FOR UPDATE;
- IF NOT FOUND THEN RAISE EXCEPTION 'operational outbox lease lost' USING ERRCODE='40001'; END IF;
+ SELECT * INTO o FROM supportv8.operational_outbox WHERE id=target AND state='pending' AND lease_owner=worker AND lease_generation=generation AND lease_token=token AND lease_expires_at>clock_timestamp() FOR UPDATE;
+ IF NOT FOUND OR o.lease_expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'operational outbox lease lost' USING ERRCODE='40001'; END IF;
  IF result NOT IN('retry','delivered','quarantined') OR (result='delivered') IS DISTINCT FROM (ack IS NOT NULL) THEN RAISE EXCEPTION 'invalid operational completion'; END IF;
  IF ack IS NOT NULL AND (http_status IS NULL OR NOT((http_status=202 AND ack->'duplicate'='false'::jsonb) OR(http_status=200 AND ack->'duplicate'='true'::jsonb)) OR octet_length(ack::text)>8192 OR EXISTS(SELECT 1 FROM jsonb_each(ack) x WHERE key IN('receiptId','inputDigest','tenantId','accountId','sourceBinding','sourceEventId','eventType','subject','receivedAt','status') AND jsonb_typeof(value)<>'string') OR jsonb_typeof(ack)<>'object' OR (SELECT count(*) FROM jsonb_object_keys(ack))<>12 OR NOT(ack ?& ARRAY['ok','duplicate','receiptId','inputDigest','tenantId','accountId','sourceBinding','sourceEventId','eventType','subject','receivedAt','status']) OR ack->'ok'<>'true'::jsonb OR NOT((ack->'duplicate'='false'::jsonb AND ack->>'status'='accepted') OR (ack->'duplicate'='true'::jsonb AND ack->>'status'='duplicate')) OR jsonb_typeof(ack->'receiptId')<>'string' OR length(trim(ack->>'receiptId')) NOT BETWEEN 1 AND 512 OR (ack->>'receiptId')~'[[:cntrl:]]' OR ack->>'inputDigest' IS DISTINCT FROM o.input_digest OR ack->>'tenantId' IS DISTINCT FROM o.provenance->>'tenantId' OR ack->>'accountId' IS DISTINCT FROM o.provenance->>'accountId' OR ack->>'sourceBinding' IS DISTINCT FROM o.event->>'source' OR ack->>'sourceEventId' IS DISTINCT FROM o.event->>'id' OR ack->>'eventType' IS DISTINCT FROM o.event->>'type' OR ack->>'subject' IS DISTINCT FROM o.event->>'subject' OR jsonb_typeof(ack->'receivedAt')<>'string' OR (ack->>'receivedAt')!~'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,9})?(Z|[+-]\d\d:\d\d)$') THEN RAISE EXCEPTION 'invalid operational receipt'; END IF;
  IF ack IS NOT NULL THEN PERFORM (ack->>'receivedAt')::timestamptz; END IF;
- UPDATE supportv8.operational_outbox SET state=CASE WHEN result='retry' THEN 'pending' ELSE result END,last_error_code=code,receipt=ack,receipt_http_status=http_status,delivered_at=CASE WHEN ack IS NOT NULL THEN now() END,
- next_attempt_at=now()+make_interval(secs=>least(900,5*power(2,least(attempt_count,7)))::integer),lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL WHERE id=target;
+ UPDATE supportv8.operational_outbox SET state=CASE WHEN result='retry' THEN 'pending' ELSE result END,last_error_code=code,receipt=ack,receipt_http_status=http_status,delivered_at=CASE WHEN ack IS NOT NULL THEN clock_timestamp() END,
+ next_attempt_at=clock_timestamp()+make_interval(secs=>least(900,5*power(2,least(attempt_count,7)))::integer),lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL WHERE id=target AND state='pending' AND lease_owner=worker AND lease_generation=generation AND lease_token=token AND lease_expires_at>clock_timestamp();
+ IF NOT FOUND THEN RAISE EXCEPTION 'operational outbox lease lost' USING ERRCODE='40001'; END IF;
 END $$;
 REVOKE ALL ON FUNCTION supportv8.claim_operational_outbox(varchar,integer),supportv8.finish_operational_outbox(uuid,varchar,bigint,uuid,varchar,varchar,jsonb,integer) FROM PUBLIC;
+-- Bootstrap owner defaults may grant DML on every new table. Remove those
+-- table-local grants before narrow access; do not alter unrelated default ACLs.
+REVOKE ALL ON supportv8.operational_outbox,supportv8.operational_qualifications FROM PUBLIC;
+DO $evidence_grants$ DECLARE role_name text; BEGIN
+ FOREACH role_name IN ARRAY ARRAY['supportv8_app','supportv8_relay','supportv8_scaler'] LOOP
+  IF to_regrole(role_name) IS NOT NULL THEN
+   EXECUTE format('REVOKE ALL ON supportv8.operational_outbox,supportv8.operational_qualifications FROM %I',role_name);
+  END IF;
+ END LOOP;
+END $evidence_grants$;
 DO $grants$ BEGIN IF to_regrole('supportv8_app') IS NOT NULL THEN
  GRANT SELECT ON supportv8.operational_outbox,supportv8.operational_qualifications TO supportv8_app;
  GRANT EXECUTE ON FUNCTION supportv8.claim_operational_outbox(varchar,integer),supportv8.finish_operational_outbox(uuid,varchar,bigint,uuid,varchar,varchar,jsonb,integer) TO supportv8_app;
@@ -116,13 +127,16 @@ END IF; END $grants$;
 -- Only the existing registration worker's current lease may persist an owner-
 -- observed capture snapshot. This snapshot cannot authorize an HTTP request.
 CREATE FUNCTION supportv8.qualify_operational_source(worker varchar,installation varchar,expected_pin jsonb,observed_certificate jsonb) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,supportv8 AS $$
-DECLARE w supportv8.runtime_support_workspaces; existing jsonb;
+DECLARE w supportv8.runtime_support_workspaces; existing jsonb; lease_deadline timestamptz;
 BEGIN
  SELECT m.* INTO w FROM supportv8.runtime_support_workspaces m
  JOIN supportv8.tenants t ON t.id=m.native_tenant_id AND t.domain=m.native_domain AND t.servicev8_account_id=m.account_id
  JOIN supportv8.managed_support_registration_jobs j ON j.installation_id=m.installation_id AND j.acquisition_id=m.operation_id AND j.account_id=m.account_id AND j.registry_tenant_id=m.registry_tenant_id AND j.native_workspace_id=m.native_tenant_id
- WHERE m.installation_id=installation AND m.state='workspace_created' AND m.deleted_at IS NULL AND j.state='ready' AND j.desired_state='active' AND j.observed_generation=0 AND j.lease_owner=worker AND j.lease_expires_at>=now() FOR SHARE OF m,t,j;
+ WHERE m.installation_id=installation AND m.state='workspace_created' AND m.deleted_at IS NULL AND j.state='ready' AND j.desired_state='active' AND j.observed_generation=0 AND j.lease_owner=worker AND j.lease_expires_at>clock_timestamp() FOR SHARE OF m,t,j;
  IF NOT FOUND THEN RAISE EXCEPTION 'operational qualification lease or owner lost' USING ERRCODE='40001'; END IF;
+ -- The row lock can wait past expiry; transaction now() is not a lease clock.
+ SELECT lease_expires_at INTO lease_deadline FROM supportv8.managed_support_registration_jobs WHERE installation_id=installation;
+ IF lease_deadline IS NULL OR lease_deadline<=clock_timestamp() THEN RAISE EXCEPTION 'operational qualification lease or owner lost' USING ERRCODE='40001'; END IF;
  IF expected_pin IS DISTINCT FROM jsonb_build_object('contract','servicev8.operational-provenance.v1','accountId',w.account_id,'tenantId',w.registry_tenant_id,'installationId',w.installation_id,'productId','servicev8.service-app.supportv8','productVersion','1.0.0','target',jsonb_build_object('kind','service','targetAppId','runtime'),'sourceBinding','urn:servicev8:app:supportv8','workspaceId',w.native_tenant_id,'baseManifestDigest',observed_certificate->>'baseManifestDigest','descriptorDigest',observed_certificate->>'descriptorDigest','nativeBinding',jsonb_build_object('kind','support-permanent-tuple'))
  OR expected_pin->>'baseManifestDigest' !~ '^sha256:[a-f0-9]{64}$'
  OR expected_pin->>'descriptorDigest' IS DISTINCT FROM 'sha256:'||encode(sha256(convert_to(supportv8.operational_canonical_json(observed_certificate->'descriptor'),'UTF8')),'hex')
@@ -132,8 +146,10 @@ BEGIN
  SELECT pin INTO existing FROM supportv8.operational_qualifications WHERE installation_id=installation;
  IF FOUND THEN
  IF existing IS DISTINCT FROM expected_pin THEN RAISE EXCEPTION 'immutable operational qualification conflict'; END IF;
+ IF lease_deadline<=clock_timestamp() THEN RAISE EXCEPTION 'operational qualification lease or owner lost' USING ERRCODE='40001'; END IF;
  RETURN false; END IF;
- INSERT INTO supportv8.operational_qualifications(installation_id,acquisition_id,account_id,registry_tenant_id,native_workspace_id,pin,certificate) VALUES(w.installation_id,w.operation_id,w.account_id,w.registry_tenant_id,w.native_tenant_id,expected_pin,observed_certificate);
+ INSERT INTO supportv8.operational_qualifications(installation_id,acquisition_id,account_id,registry_tenant_id,native_workspace_id,pin,certificate) SELECT w.installation_id,w.operation_id,w.account_id,w.registry_tenant_id,w.native_tenant_id,expected_pin,observed_certificate WHERE lease_deadline>clock_timestamp();
+ IF NOT FOUND THEN RAISE EXCEPTION 'operational qualification lease or owner lost' USING ERRCODE='40001'; END IF;
  RETURN true;
 END $$;
 REVOKE ALL ON FUNCTION supportv8.qualify_operational_source(varchar,varchar,jsonb,jsonb) FROM PUBLIC;

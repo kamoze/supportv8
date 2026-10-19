@@ -118,22 +118,21 @@ Apply migration011 using the normal direct PostgreSQL migration owner, retaining
 migrations005/008/009. Trigger and bounded worker functions are SECURITY DEFINER
 with `search_path=pg_catalog,supportv8`; the definer must be the trusted migration
 owner with BYPASSRLS/superuser as in the existing owner-worker pattern. PUBLIC
-execution is revoked from capture/claim/finish/qualification functions. Tenant reads use forced RLS. Migration011 explicitly grants evidence SELECT and
-narrow worker function execution, but its current bytes do not revoke inherited
-DML grants from the production bootstrap default privileges. Review R2 remains
-open: effective least privilege has not been established for the deployed role
-shape. Before release, add table-local revokes for PUBLIC, supportv8_app,
-supportv8_relay and supportv8_scaler before narrow grants, then repeat those
-revokes immediately after every broad DevOps bootstrap grant. Preserve unrelated
-default privileges and verify the effective ACL with the actual owner defaults. Do not run the migration as the tenant
-app role. Function execution remains a trusted backend boundary, not tenant API.
+execution is revoked from capture/claim/finish/qualification functions. Tenant reads use forced RLS. Migration011 defensively revokes all
+table-local
+privileges on the two evidence tables from PUBLIC and existing supportv8_app,
+supportv8_relay and supportv8_scaler, then grants the app evidence SELECT and
+narrow worker execution. Unrelated default privileges are unchanged. Task3k must
+repeat these table-local revokes immediately after every broad DevOps bootstrap
+grant, before narrow app SELECT. Actual candidate SQL GREEN and effective ACL
+verification against the production owner defaults remain release gates. Do not run the migration as the tenant app role. Function execution remains a trusted backend boundary, not tenant API.
 
 Support currently has no normal new-image migration init path. Keep the source
 PR in draft and do not merge it to main until the reviewed migration GitOps is
 ready: main CI updates web/worker/chat-relay after its gate. Task3k must include
 an immutable mounted copy of the complete migration011 SQL and its rendering/
-application tests, rather than environment wiring alone. The reviewed source
-SHA-256 is `a1d4c7b89c5278e0eab95e9cbe13d87aaf58711cde075ceaaf0de1a25b6d8dc2`.
+application tests, rather than environment wiring alone. The candidate source
+SHA-256 (pending re-review) is `5d88cad8d8ac8f38dd31c2148c6c099587c6ebeac21613ca20c5277b2ec00b4b`.
 Prerequisites are the native issues/tenants schema and migrations003/005/008/009,
 including exact permanent tuple indexes, forced RLS and current registration
 lifecycle functions. Run the version-bumped owner migration Job against direct
@@ -208,25 +207,36 @@ binary are the only non-Node child exceptions. This is test isolation, not an OS
 security sandbox against malicious code. Remote UAT must be a separate explicitly
 controlled workflow and cannot use this local-only runner.
 
-## Fix round1 held partial checkpoint (2026-10-19)
+## Fix round1 candidate after actual GitOps SQL RED (2026-10-19)
 
-The operational SQL path now opts into a remaining-deadline budget, fail-fast
-pool acquisition, connection destruction on abort, and transaction-local
-statement/lock limits. The shared activities propagate Temporal cancellation.
-Normal native business sessions keep their existing transaction behavior. A
-synchronous-scoped pg Client factory prevents delayed unrelated connections
-from inheriting expired operational budgets; queued/saturated pools are refused
-before checkout. This deliberately trades some retries under load for avoiding
-an uncancellable queued checkout. No startup SQL parameters are used, preserving
-PgBouncer transaction-pooling compatibility.
+Operational SQL opts into a remaining-deadline budget, fail-fast acquisition,
+connection destruction on abort and transaction-local statement/lock limits.
+Temporal cancellation propagates. Normal native business sessions keep their
+existing transaction behavior. A synchronous pg Client factory prevents later
+unrelated connections from inheriting expired operational budgets. The public
+pg pool briefly queues idle checkout until nextTick: available idle clients now
+reserve against waitingCount, allowing legitimate concurrent checkout. A request
+requiring a future release or asynchronous new constructor is still refused.
+No private queue mutation or startup SQL parameters are used.
 
-This is an incomplete checkpoint. Hermetic public pg stream/handshake cleanup
-and fake blocked-client tests pass; PostgreSQL lock, pool and ACL regressions
-are prepared but unexecuted because no owned fixture could start. R1 and R2
-remain open. Explicit transactions freeze now(): finish and qualification still
-need actual-clock lease checks after locks and at the final fenced write, proven
-against an expiring real SQL lease. Migration011 has not changed, so its digest
-above is the original digest, not a newly corrected migration. The expanded
-23-case opt-in SQL suite includes currently unmet ACL/lease assertions and must
-not be represented as passing. Keep the source draft and release hold. Evidence
-and limits are in docs/verification/task-3c3-fix1 and the shared fix1 report.
+The parent executed exact b6f23ec source against isolated same-pod PostgreSQL17.11
+via immutable GitOps Job:23 cases,16 pass/7 fail/0 skip/no infrastructure errors.
+That RED exposed inherited DML, expired leases accepted after lock waits, and
+false pool-busy refusals. The candidate adds table-local ACL revokes and uses
+clock_timestamp after locks and at the final exact fenced completion UPDATE.
+Qualification checks its locked registration lease after owner locks, at an
+existing-snapshot return and at insertion. Receipt validation and native capture
+identity remain unchanged.
+
+A shared-suite owner-denial assertion incorrectly forbade all sends after only
+B was revoked even while active A facts were due. The corrected test binds the
+exact canonical B tuple/event, requires its verification once, zero B sends,
+pending/no ACK/source-denied state, and preserved native post-revocation capture.
+It allows legitimate A receipts. No broad fixture reset or assertion skip exists.
+
+Hermetic driver tests prove four already-idle checkouts succeed concurrently
+while a fifth cannot wait for release; existing aborted/late checkout tests stay.
+Candidate actual SQL GREEN is pending the parent's next immutable GitOps Job.
+Do not infer it from hermetic passes or the earlier16 passing SQL cases. Keep
+source draft, owner-first immutable corrected011 migration and activation holds.
+Evidence is in docs/verification/task-3c3-fix1-resume and shared resume report.

@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/managed-support-source.postgres.test.ts (1 test) 304ms
+   ✓ real PostgreSQL enforces tenant-local exact reference lookup, ambiguity denial and immutable native mapping 304ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  23:46:45
+   Duration  635ms (transform 47ms, setup 5ms, collect 72ms, tests 304ms, environment 0ms, prepare 51ms)
+

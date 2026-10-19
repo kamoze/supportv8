@@ -1,0 +1,20 @@
+├ ƒ /auth/runtime/handoff                    335 B         103 kB
+├ ƒ /auth/runtime/logout                     335 B         103 kB
+├ ƒ /handoff                                 335 B         103 kB
+├ ƒ /help/[slug]                             335 B         103 kB
+├ ○ /icon.svg                                  0 B            0 B
+├ ƒ /internal/service-app/v1/provision       335 B         103 kB
+├ ƒ /internal/service-apps/support/invoke    335 B         103 kB
+├ ƒ /runtime                               2.41 kB         168 kB
+└ ○ /signup                                4.14 kB         112 kB
++ First Load JS shared by all               103 kB
+  ├ chunks/1255-fc6c00ab2f765339.js        46.4 kB
+  ├ chunks/4bd1b696-f785427dddbba9fb.js    54.2 kB
+  └ other shared chunks (total)            1.95 kB
+
+
+ƒ Middleware                                 35 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

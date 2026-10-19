@@ -1,0 +1,14 @@
+ ✓ test/runtime-support-ui.interactive.test.tsx (6 tests) 191ms
+stderr | test/ticket-source-formatting.test.tsx > Ticket source and external ID formatting suite > FocusedWorkspaceView UI rendering of ticket sources and prefixes > opens the new ticket modal with Operator Desk Manual option
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ test/ticket-source-formatting.test.tsx (15 tests) 56ms
+ ✓ test/ticket-customer-combobox.test.tsx (3 tests) 390ms
+
+ Test Files  157 passed | 14 skipped (171)
+      Tests  998 passed | 51 skipped (1049)
+   Start at  23:51:45
+   Duration  8.88s (transform 5.36s, setup 4.51s, collect 21.21s, tests 8.04s, environment 13.59s, prepare 9.36s)
+

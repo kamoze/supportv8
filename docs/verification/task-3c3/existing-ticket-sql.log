@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/runtime-ticket-write.postgres.test.ts (8 tests) 184ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  23:45:52
+   Duration  432ms (transform 31ms, setup 5ms, collect 36ms, tests 184ms, environment 0ms, prepare 32ms)
+

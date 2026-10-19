@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/runtime-support-handoff.postgres.test.ts (7 tests) 167ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  23:48:04
+   Duration  740ms (transform 29ms, setup 5ms, collect 30ms, tests 167ms, environment 0ms, prepare 44ms)
+

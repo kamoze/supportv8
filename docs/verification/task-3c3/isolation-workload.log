@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/operational-workload.test.ts (10 tests) 47ms
+ ✓ test/local-only-network-guard.test.ts (4 tests) 96ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  23:54:49
+   Duration  378ms (transform 39ms, setup 13ms, collect 58ms, tests 143ms, environment 0ms, prepare 82ms)
+

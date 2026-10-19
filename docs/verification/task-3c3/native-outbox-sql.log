@@ -1,0 +1,58 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > preserves an immutable held fact when qualification is absent, never promotes history
+[Support operational qualification] { code: 'qualification_observed' }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 4, delivered: 0, retried: 4 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 4, delivered: 0, retried: 4 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 4, delivered: 0, retried: 4 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 4, delivered: 0, retried: 4 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 4, delivered: 4, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 4, delivered: 4, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 2, delivered: 2, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver
+[Support operational outbox] { claimed: 0, delivered: 0, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > recovers a real worker process exit before-receipt without duplicate normalized facts
+[Support operational outbox] { claimed: 1, delivered: 1, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > recovers a real worker process exit after-receipt without duplicate normalized facts
+[Support operational outbox] { claimed: 1, delivered: 1, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > recovers a real worker process exit after-ack without duplicate normalized facts
+[Support operational outbox] { claimed: 1, delivered: 1, retried: 0 }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > concurrent bounded claims are disjoint and both canonical tenants progress
+[Support operational qualification] { code: 'qualification_observed' }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > fresh owner denial never sends, including a new tenant and revoked source
+[Support operational qualification] { code: 'qualification_observed' }
+
+stdout | test/operational-outbox.postgres.test.ts > Support native transactional operational outbox > fresh owner denial never sends, including a new tenant and revoked source
+[Support operational outbox] { claimed: 1, delivered: 0, retried: 1 }
+
+ ✓ test/operational-outbox.postgres.test.ts (15 tests) 3785ms
+   ✓ Support native transactional operational outbox > recovers a real worker process exit before-receipt without duplicate normalized facts 532ms
+   ✓ Support native transactional operational outbox > recovers a real worker process exit after-receipt without duplicate normalized facts 410ms
+   ✓ Support native transactional operational outbox > recovers a real worker process exit after-ack without duplicate normalized facts 792ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  23:51:49
+   Duration  4.55s (transform 98ms, setup 12ms, collect 171ms, tests 3.79s, environment 0ms, prepare 63ms)
+

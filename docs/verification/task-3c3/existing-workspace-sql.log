@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/runtime-support-workspace.postgres.test.ts (4 tests) 353ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  23:47:39
+   Duration  732ms (transform 71ms, setup 5ms, collect 87ms, tests 353ms, environment 0ms, prepare 35ms)
+

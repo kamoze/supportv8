@@ -1,0 +1,34 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ❯ test/storefront-guest-support-integration.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/storefront-guest-support-integration.test.ts [ test/storefront-guest-support-integration.test.ts ]
+Error: [vitest] No "Client" export is defined on the "pg" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+vi.mock(import("pg"), async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+ ❯ src/lib/db/operational-sql-budget.ts:34:38
+     34| }
+     35|
+     36| /** Public pg Client factory. ALS surrounds connect only, never native…
+       |                                   ^
+     37|  * Refuse queued checkout below so a later unrelated release cannot co…
+     38|  * socket outside its original budget context. No pg-pool private stat…
+ ❯ src/lib/db/pg-client.ts:1:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  08:10:16
+   Duration  456ms (transform 97ms, setup 7ms, collect 0ms, tests 0ms, environment 0ms, prepare 42ms)

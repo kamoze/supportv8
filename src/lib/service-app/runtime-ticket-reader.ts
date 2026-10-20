@@ -10,6 +10,7 @@ import {
   emitSupportTicketEscalatedSignal,
   emitSupportTicketResolvedSignal,
 } from "@/lib/signals/signal-agent";
+import { type Tasksv8Store, getTasksv8Store } from "@/lib/tasksv8/store";
 
 export type SupportTicketSummary = {
   ticketRef: string;
@@ -56,6 +57,7 @@ type Deps = {
   resolve?: (
     scope: SupportRuntimeScope,
   ) => Promise<OperationalSupportAccess | null>;
+  tasksv8Store?: Tasksv8Store;
 };
 const idPattern = /^[A-Za-z0-9_:@.-]{1,192}$/;
 const timestampPattern =
@@ -141,10 +143,12 @@ export class RuntimeSupportTicketReader {
   private resolve: (
     scope: SupportRuntimeScope,
   ) => Promise<OperationalSupportAccess | null>;
+  private readonly tasksv8Store?: Tasksv8Store;
   constructor(deps: Deps = {}) {
     this.client = deps.client ?? pgClient;
     this.resolve =
       deps.resolve ?? ((scope) => resolveOperationalSupportAccess(scope));
+    this.tasksv8Store = deps.tasksv8Store;
   }
   private async authorize(
     scope: SupportRuntimeScope,
@@ -304,6 +308,16 @@ export class RuntimeSupportTicketReader {
           customerName: updatedTicket.customerName,
           reason: updatedTicket.summary,
         }).catch((err) => console.warn("[Signal Outbox] Ticket escalated warning:", err));
+      }
+      if (
+        input.status === "escalated" &&
+        process.env.SUPPORTV8_TASKSV8_ENABLED === "true"
+      ) {
+        const store = this.tasksv8Store ?? getTasksv8Store();
+        await store.recordEscalation(
+          { tenantId: scope.tenantId, accountId: scope.accountId },
+          updatedTicket
+        );
       }
       if (input.status === "resolved" || input.status === "closed") {
         void emitSupportTicketResolvedSignal({

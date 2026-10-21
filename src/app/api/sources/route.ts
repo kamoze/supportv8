@@ -2,27 +2,41 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/mock-data";
 import { interactionGateway } from "@/lib/services/interaction-gateway";
 import { issueService } from "@/lib/services/issue-service";
+import {
+  authorizeMvpRead,
+  authorizeMvpManage,
+  requestAuthResponse,
+} from "@/lib/auth/route-authorization";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
-  const tenantData = db.getTenantData(tenant);
-  return NextResponse.json({
-    success: true,
-    count: tenantData.sources.length,
-    data: tenantData.sources,
-  });
+  try {
+    const auth = await authorizeMvpRead(req);
+    const tenantData = db.getTenantData(auth.tenantSlug);
+    return NextResponse.json({
+      success: true,
+      count: tenantData.sources.length,
+      data: tenantData.sources,
+    });
+  } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Failed to load sources" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeMvpManage(req);
     const body = await req.json();
     const { action, sourceId, eventPayload } = body;
 
     if (action === "test_webhook") {
       // Simulate ingress through Interaction Gateway
       const normEvent = interactionGateway.normalize({
-        tenantId: db.tenant.tenantId,
+        tenantId: auth.tenantId,
         source: eventPayload.source || "zendesk",
         sourceRef: eventPayload.sourceRef || `ZD-${Date.now().toString().slice(-6)}`,
         customerRef: eventPayload.customerRef || "C-9900",
@@ -38,6 +52,7 @@ export async function POST(req: NextRequest) {
         customerName: eventPayload.customerName || "Simulated Customer",
         customerTier: eventPayload.customerTier || "pro",
         text: normEvent.content.text,
+        tenant: auth.tenantSlug,
       });
 
       return NextResponse.json({
@@ -50,6 +65,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Source action failed" },
       { status: 400 }

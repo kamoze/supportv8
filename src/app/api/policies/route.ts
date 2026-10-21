@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { policyEngine } from "@/lib/services/policy-engine";
+import {
+  authorizeMvpRead,
+  authorizeMvpManage,
+  requestAuthResponse,
+} from "@/lib/auth/route-authorization";
 
 export async function GET(req: NextRequest) {
-  const searchParams = new URL(req.url).searchParams;
-  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || req.headers.get("x-tenant-id") || undefined;
-  const policy = policyEngine.getPolicy(tenant);
-  return NextResponse.json({
-    success: true,
-    data: policy,
-  });
+  try {
+    const auth = await authorizeMvpRead(req);
+    const policy = policyEngine.getPolicy(auth.tenantSlug);
+    return NextResponse.json({
+      success: true,
+      data: policy,
+    });
+  } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Failed to load policy" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeMvpManage(req);
     const body = await req.json();
     const { action, policyUpdates, sampleMessage, customerTier, rule, ruleId, ruleUpdates, preset } = body;
 
@@ -41,6 +55,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Policy operation failed" },
       { status: 400 }

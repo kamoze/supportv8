@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { problemService } from "@/lib/services/problem-service";
+import {
+  authorizeMvpRead,
+  authorizeMvpManage,
+  requestAuthResponse,
+} from "@/lib/auth/route-authorization";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || undefined;
-  const problems = problemService.getAll(tenant);
-  return NextResponse.json({
-    success: true,
-    count: problems.length,
-    data: problems,
-  });
+  try {
+    const auth = await authorizeMvpRead(req);
+    const problems = problemService.getAll(auth.tenantSlug);
+    return NextResponse.json({
+      success: true,
+      count: problems.length,
+      data: problems,
+    });
+  } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Failed to load problems" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || undefined;
+    const auth = await authorizeMvpManage(req);
     const body = await req.json();
     const { action, problemId, issueId, issueIds, title, suspectedCause, status } = body;
 
@@ -32,12 +44,14 @@ export async function POST(req: NextRequest) {
       const problem = problemService.updateStatus(problemId, status);
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "simulate" || action === "seed") {
-      const problems = problemService.seedDemoProblems(tenant);
+      const problems = problemService.seedDemoProblems(auth.tenantSlug);
       return NextResponse.json({ success: true, data: problems });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Problem operation failed" },
       { status: 400 }

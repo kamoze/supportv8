@@ -1,19 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { insightsService } from "@/lib/services/insights-service";
+import {
+  authorizeMvpRead,
+  authorizeMvpManage,
+  requestAuthResponse,
+} from "@/lib/auth/route-authorization";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const tenant = searchParams.get("tenant") || req.headers.get("x-tenant-slug") || undefined;
-  const insights = insightsService.getAll(tenant);
-  return NextResponse.json({
-    success: true,
-    count: insights.length,
-    data: insights,
-  });
+  try {
+    const auth = await authorizeMvpRead(req);
+    const insights = insightsService.getAll(auth.tenantSlug);
+    return NextResponse.json({
+      success: true,
+      count: insights.length,
+      data: insights,
+    });
+  } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : "Failed to load insights" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeMvpManage(req);
     const body = await req.json();
     const { action, insightId, status } = body;
 
@@ -27,6 +41,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: unknown) {
+    const authRes = requestAuthResponse(err);
+    if (authRes) return authRes;
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Insight action failed" },
       { status: 400 }

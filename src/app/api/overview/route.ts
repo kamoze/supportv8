@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/mock-data";
 import { chatRepository } from "@/lib/db/chat-repository";
-import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
+import {
+  authorizeMvpRead,
+  requestAuthResponse,
+} from "@/lib/auth/route-authorization";
 import type { Issue, OverviewMetrics } from "@/lib/types";
 
 const hasDurableDatabase = () => Boolean(process.env.DATABASE_URL);
@@ -89,19 +92,18 @@ function computeOverviewMetricsFromIssues(issues: Issue[]): OverviewMetrics {
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
-    const { searchParams } = new URL(req.url);
-    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
-    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+    const auth = await authorizeMvpRead(req);
+    const tenantSlug = auth.tenantSlug;
+    const tenantId = auth.tenantId;
     const tenantData = db.getTenantData(tenantSlug);
 
     let overview: OverviewMetrics;
     if (hasDurableDatabase()) {
-      const issues = tenantCtx?.runtimeLinked
+      const issues = auth.runtimeLinked
         ? await chatRepository.listWorkspaceIssues(tenantId)
         : await chatRepository.listChatIssues(tenantId, undefined, true);
       overview = computeOverviewMetricsFromIssues(issues);
-    } else if (tenantData.isClean || tenantCtx?.runtimeLinked) {
+    } else if (tenantData.isClean || auth.runtimeLinked) {
       overview = computeOverviewMetricsFromIssues(tenantData.issues || []);
     } else {
       overview = db.getOverviewMetrics(tenantSlug);
@@ -112,7 +114,9 @@ export async function GET(req: NextRequest) {
       data: overview,
       tenant: tenantData.tenant,
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const authRes = requestAuthResponse(error);
+    if (authRes) return authRes;
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : "Failed to load overview" },
       { status: 500 }

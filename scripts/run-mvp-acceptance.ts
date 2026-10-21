@@ -72,6 +72,10 @@ async function main() {
     const migrationSql = await readFile(migrationPath, "utf8");
     await dbAdminPool.query(migrationSql);
 
+    const migration012Path = resolve(__dirname, "../migrations/012_retention_maintenance.sql");
+    const migration012Sql = await readFile(migration012Path, "utf8");
+    await dbAdminPool.query(migration012Sql);
+
     // Verify non-superuser does not have BYPASSRLS
     const roleRes = await dbAdminPool.query(
       `SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1`,

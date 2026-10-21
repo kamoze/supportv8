@@ -1,8 +1,8 @@
 {
   "acceptanceGate": "ZENDESK_INBOUND_ROUNDTRIP",
-  "verifiedAt": "2026-10-21T19:44:24.744Z",
+  "verifiedAt": "2026-10-21T20:17:16.630Z",
   "latency": {
-    "elapsedMs": 5,
+    "elapsedMs": 4,
     "nearRealTimeThresholdMs": 5000,
     "status": "PASS"
   },
@@ -17,19 +17,19 @@
   "actionGatewayCorrelation": {
     "connectionId": "conn_acme_zendesk_01",
     "connectorKey": "zendesk",
-    "correlationId": "corr_7eeb5f34-acb6-44b5-a3d5-38e6b10d43b9",
+    "correlationId": "corr_217bfe6c-a95c-4cd8-bf25-6b93a37991e4",
     "forwardSignatureVerified": true
   },
   "supportv8Ingress": {
-    "eventId": "evt_zd_sb_1792611864738_01",
-    "interactionId": "evt_12c0b5f754dc43999da69db5ed02e855",
+    "eventId": "evt_zd_sb_1792613836625_01",
+    "interactionId": "evt_df0538be85c244bf8f80378f56df9c0f",
     "replayed": false,
     "persistenceTable": "supportv8.interaction_events",
     "rlsEnforced": true
   },
   "temporalDerivation": {
-    "workflowId": "support-interaction:tenant_acme_prod:evt_zd_sb_1792611864738_01",
-    "issueId": "iss_8bc2eb2c555f46e592ebf3700641228a",
+    "workflowId": "support-interaction:tenant_acme_prod:evt_zd_sb_1792613836625_01",
+    "issueId": "iss_683c1918fb1549f3b243f69a5943da04",
     "sourceStatus": "open",
     "confidence": 0.85,
     "category": "checkout_failure",

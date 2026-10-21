@@ -1,8 +1,8 @@
 # SupportV8 MVP Acceptance Gate Report (2026-10-21)
 
 **Release Decision:** `MVP_ACCEPTED`
-**Release Timestamp:** 2026-10-21T19:44:24.786Z
-**PostgreSQL Disposable Target:** `support_mvp_acceptance_ad3a72a4` (Role: `support_app_ad3a72a4`, `rolbypassrls = false`)
+**Release Timestamp:** 2026-10-21T20:17:16.693Z
+**PostgreSQL Disposable Target:** `support_mvp_acceptance_ab19a137` (Role: `support_app_ab19a137`, `rolbypassrls = false`)
 
 ---
 
@@ -23,10 +23,10 @@ This document certifies that the **SupportV8 MVP Alignment Plan** (Tasks 1 throu
 | Gate 7: Webhook Signature Verification | Base64 HMAC-SHA256, 5-min tolerance, timing-safe | PASS | `servicev8-action-gateway/test/zendesk.test.ts` |
 | Gate 8: Private Inbound Pipeline | Workload token, RS256, envelope validation, 202 ack | PASS | `zendesk-roundtrip.json` |
 | Gate 9: Idempotent Ingestion | Duplicate provider event returns `200 { replayed: true }` | PASS | `zendesk-roundtrip.json` |
-| Gate 10: Near-Real-Time Derivation | Webhook to durable Issue in < 5000ms (5ms actual) | PASS | `zendesk-roundtrip.json` |
-| Gate 11: Multi-Ticket Correlation | Related tickets linked to durable Problem with impact | PASS | Problem `PRB-74991A72` |
+| Gate 10: Near-Real-Time Derivation | Webhook to durable Issue in < 5000ms (4ms actual) | PASS | `zendesk-roundtrip.json` |
+| Gate 11: Multi-Ticket Correlation | Related tickets linked to durable Problem with impact | PASS | Problem `PRB-D12DCC4E` |
 | Gate 12: Grounded Agentic Chat | Context bounded (20/10/10), citations, zero PII | PASS | `test/chat-durable-intelligence.test.ts` |
-| Gate 13: Governed Write-Back | Ticket mutation executes via Action Gateway | PASS | Receipt `ag_exec_1792611864778_d84192` |
+| Gate 13: Governed Write-Back | Ticket mutation executes via Action Gateway | PASS | Receipt `ag_exec_1792613836685_c71d88` |
 | Gate 14: Retention Separation | Purge redacts text/payload, preserves durable Issues | PASS | `retention.json` |
 | Gate 15: Telemetry Isolation | Traces partitioned by tenant, credentials scrubbed | PASS | `observability.json` |
 

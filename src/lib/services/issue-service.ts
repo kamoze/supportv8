@@ -25,6 +25,15 @@ function normalizeTenantId(tenant?: string): string {
   return `tenant_${slug.replace(/[^a-z0-9_]/g, "_")}`;
 }
 
+export function safeParseJson<T>(value: unknown, fallback: T): T {
+  if (typeof value !== "string") return (value as T) ?? fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 export function mapRowToIssue(row: any): Issue {
   const sentimentScore =
     typeof row.sentiment_score === "number"
@@ -67,14 +76,8 @@ export function mapRowToIssue(row: any): Issue {
     assignedAgent: row.assigned_agent || undefined,
     recommendedAction: row.recommended_action || undefined,
     tags: Array.isArray(row.tags) ? row.tags : [],
-    timeline:
-      typeof row.timeline === "string"
-        ? JSON.parse(row.timeline)
-        : row.timeline || [],
-    messages:
-      typeof row.messages === "string"
-        ? JSON.parse(row.messages)
-        : row.messages || [],
+    timeline: safeParseJson(row.timeline, []),
+    messages: safeParseJson(row.messages, []),
     createdAt:
       row.created_at instanceof Date
         ? row.created_at.toISOString()

@@ -98,19 +98,20 @@ export class ProblemService {
     suspectedCause: string = ""
   ): Promise<Problem> {
     const canonicalTenantId = normalizeTenantId(tenantId);
+    const uniqueIssueIds = Array.from(new Set(issueIds));
 
     return this.client.withTenantSession(canonicalTenantId, async (session) => {
       // 1. Load every Issue within the tenant session
       const issueRows = await session.query<any>(
         `SELECT * FROM supportv8.issues
          WHERE tenant_id = $1 AND id = ANY($2)`,
-        [canonicalTenantId, issueIds]
+        [canonicalTenantId, uniqueIssueIds]
       );
 
       // 2. Reject if any Issue is missing or foreign to the tenant
-      if (issueRows.length !== issueIds.length) {
+      if (issueRows.length !== uniqueIssueIds.length) {
         throw new Error(
-          `Cannot correlate: expected ${issueIds.length} issues for tenant ${canonicalTenantId}, but found ${issueRows.length}`
+          `Cannot correlate: expected ${uniqueIssueIds.length} issues for tenant ${canonicalTenantId}, but found ${issueRows.length}`
         );
       }
 

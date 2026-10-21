@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
       const problem = await problemService.updateStatus(auth.tenantId, problemId, status);
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "simulate" || action === "seed") {
-      return NextResponse.json({ success: true, data: [] });
+      const problems = problemService.seedDemoProblems(auth.tenantSlug);
+      return NextResponse.json({ success: true, data: problems });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as fs from "node:fs";
-import { db } from "@/lib/db/mock-data";
 import { workforceManager } from "@/lib/workforce";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 import { RequestAuthError, resolveRequestTenant } from "@/lib/auth/request-tenant";
@@ -29,6 +28,7 @@ import {
 } from "@/lib/chat/agenticos-chat-client";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
 import { admitAgenticTurn, completeAgenticTurn, markTurnInFlight, isValidClientTurnId } from "@/lib/platform/conversation";
+import { buildSupportIntelligenceContext } from "@/lib/chat/support-intelligence-context";
 
 const DEMO_HIRE_IDS: Record<string, string> = {
   acme: "hi_supportv8_demo_acme",
@@ -47,52 +47,6 @@ function boundedQuery(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const query = value.trim();
   return query.length > 0 && query.length <= 2_000 ? query : null;
-}
-
-function buildTenantContext(tenantSlug: string): {
-  prompt: string;
-  citations: Citation[];
-} {
-  const tenantData = db.getTenantData(tenantSlug);
-  const issues = tenantData.issues.slice(0, 12).map((issue) => ({
-    id: issue.id,
-    summary: issue.summary,
-    status: issue.status,
-    priority: issue.priority,
-    category: issue.category,
-    sentiment: issue.sentiment,
-  }));
-  const problems = tenantData.problems.slice(0, 5).map((problem) => ({
-    id: problem.id,
-    title: problem.title,
-    status: problem.status,
-    affectedCustomers: problem.affectedCustomerCount,
-    revenueExposure: problem.estimatedRevenueExposure,
-  }));
-  const citations: Citation[] = [
-    ...issues.slice(0, 3).map((issue) => ({
-      type: "issue" as const,
-      id: issue.id,
-      title: issue.summary,
-    })),
-    ...problems.slice(0, 2).map((problem) => ({
-      type: "problem" as const,
-      id: problem.id,
-      title: problem.title,
-    })),
-  ];
-
-  return {
-    prompt: JSON.stringify({
-      workspace: {
-        tenantId: tenantData.tenant.tenantId,
-        name: tenantData.tenant.name,
-      },
-      issues,
-      problems,
-    }),
-    citations,
-  };
 }
 
 interface InFlightChatTurn {
@@ -334,7 +288,7 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      const scopedContext = buildTenantContext(tenant.tenantSlug);
+      const scopedContext = await buildSupportIntelligenceContext(tenant.tenantId, query);
 
       if (isCentralAgenticChatEnabled()) {
         try {
@@ -382,6 +336,36 @@ export async function POST(request: NextRequest) {
 
       const forgeConfig = forgeGatewayConfigFromEnv();
       if (!forgeConfig) {
+        if (!scopedContext.hasIntelligence) {
+          const emptyResponsePayload = {
+            success: true,
+            data: {
+              turnId: admission.turnId,
+              threadId: admission.threadId,
+              query,
+              employeeId: employee.id,
+              employeeName: employee.name,
+              employeeRole: employee.role,
+              employeeAvatar: (employee as any).avatar || "/avatars/alex.jpg",
+              answer: "No support intelligence or active issues were found for your workspace. Once tickets or interactions are received from your connected sources, intelligence will be projected here.",
+              citations: [],
+              suggestedActions: [
+                { label: "Connect Source", action: "navigate", targetTab: "sources" },
+                { label: "View Tickets & Issues", action: "navigate", targetTab: "issues" },
+              ],
+              timestamp: new Date().toISOString(),
+              runtime: "durable_intelligence",
+            },
+          };
+          if (admission.turnId) {
+            completeAgenticTurn(admission.turnId, {
+              answer: emptyResponsePayload.data.answer,
+              response: emptyResponsePayload,
+            });
+          }
+          return { status: 200, body: emptyResponsePayload };
+        }
+
         return {
           status: 503,
           body: { success: false, error: "The managed AI runtime is not configured." },

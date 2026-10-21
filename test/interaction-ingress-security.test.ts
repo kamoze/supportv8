@@ -5,10 +5,8 @@ import {
   setInteractionIngressAuthKeyForTesting,
 } from "@/lib/service-app/interaction-ingress-auth";
 import { validateInteractionEnvelope } from "@/lib/connectors/interaction-envelope";
-import {
-  POST,
-  setInteractionRepositoryForTesting,
-} from "@/app/api/private/interaction-events/route";
+import { POST } from "@/app/api/private/interaction-events/route";
+import { setInteractionRepositoryForTesting } from "@/lib/connectors/interaction-repository-registry";
 
 describe("Interaction Ingress Security & Envelope Validation", () => {
   let keyPair: GenerateKeyPairResult;

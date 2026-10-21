@@ -5,6 +5,7 @@
  */
 
 import type { OperationRegistry, OperationRisk } from "@servicev8/agentic-runtime";
+import type { SourceConnectionRecord } from "../types";
 import { buildSupportRegistry } from "./operations";
 import {
   actionGatewayHttpClient,

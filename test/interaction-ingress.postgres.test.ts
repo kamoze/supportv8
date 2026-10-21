@@ -5,10 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateKeyPair, SignJWT, type GenerateKeyPairResult } from "jose";
 import { PostgresClient } from "@/lib/db/pg-client";
 import { PgSupportIntelligenceRepository } from "@/lib/db/support-intelligence-repository";
-import {
-  POST,
-  setInteractionRepositoryForTesting,
-} from "@/app/api/private/interaction-events/route";
+import { POST } from "@/app/api/private/interaction-events/route";
+import { setInteractionRepositoryForTesting } from "@/lib/connectors/interaction-repository-registry";
 import { setInteractionIngressAuthKeyForTesting } from "@/lib/service-app/interaction-ingress-auth";
 import { InteractionWorker } from "@/lib/temporal/interaction-workflow";
 

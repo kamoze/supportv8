@@ -1,23 +1,8 @@
 import { NextResponse } from "next/server";
 import { authenticateInteractionIngress } from "@/lib/service-app/interaction-ingress-auth";
 import { validateInteractionEnvelope } from "@/lib/connectors/interaction-envelope";
-import {
-  supportIntelligenceRepository,
-} from "@/lib/db/support-intelligence-repository";
-import type { SupportIntelligenceRepository } from "@/lib/types";
+import { getInteractionRepository } from "@/lib/connectors/interaction-repository-registry";
 import { enqueueSupportInteraction } from "@/lib/temporal/client";
-
-let repositoryOverride: SupportIntelligenceRepository | null = null;
-
-export function setInteractionRepositoryForTesting(
-  repo: SupportIntelligenceRepository | null
-): void {
-  repositoryOverride = repo;
-}
-
-function getRepository(): SupportIntelligenceRepository {
-  return repositoryOverride ?? supportIntelligenceRepository;
-}
 
 /**
  * POST /api/private/interaction-events
@@ -71,7 +56,7 @@ export async function POST(request: Request) {
   }
 
   // 5. Durable PostgreSQL Persistence before acknowledgement (under forced RLS)
-  const repo = getRepository();
+  const repo = getInteractionRepository();
   const { replayed, interactionId } = await repo.recordInteraction(event);
 
   // 6. Asynchronous Issue Derivation via Temporal workflow (best-effort dispatch)

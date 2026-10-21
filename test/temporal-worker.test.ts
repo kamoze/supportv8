@@ -4,7 +4,7 @@ import { TASK_QUEUE, TEMPORAL_NAMESPACE } from "../src/lib/temporal/config";
 
 describe("SupportV8 Temporal Worker & Scheduled Sweeper Engine", () => {
   it("should define scheduled events matching required periodic cron intervals and args", () => {
-    expect(SUPPORT_SCHEDULED_EVENTS.length).toBe(3);
+    expect(SUPPORT_SCHEDULED_EVENTS.length).toBe(4);
 
     const staleSweep = SUPPORT_SCHEDULED_EVENTS.find((e) => e.scheduleId === "stale-work-sweep");
     expect(staleSweep).toBeDefined();
@@ -23,6 +23,11 @@ describe("SupportV8 Temporal Worker & Scheduled Sweeper Engine", () => {
     expect(dailyRag?.workflowType).toBe("dailyKnowledgeRagSyncWorkflow");
     expect(dailyRag?.spec.cronExpressions?.[0]).toBe("0 0 * * *");
     expect(dailyRag?.args).toBeDefined();
+
+    const retentionPurge = SUPPORT_SCHEDULED_EVENTS.find((e) => e.scheduleId === "supportv8-retention-purge");
+    expect(retentionPurge).toBeDefined();
+    expect(retentionPurge?.workflowType).toBe("runRetentionPurgeWorkflow");
+    expect(retentionPurge?.spec.intervals?.[0].every).toBe("1 hour");
   });
 
   it("should target supportv8-spine task queue and default namespace", () => {

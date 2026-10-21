@@ -38,6 +38,14 @@ export const SUPPORT_SCHEDULED_EVENTS: ScheduledEventConfig[] = [
     defaultWorkflowId: "support-daily-rag-sync-run",
     args: [{ tenantId: "tenant_default", stream: "customers" }],
   },
+  {
+    scheduleId: "supportv8-retention-purge",
+    workflowType: "runRetentionPurgeWorkflow",
+    spec: { intervals: [{ every: "1 hour" }] },
+    description: "Periodic hourly purge of expired raw interaction context across tenant policies.",
+    defaultWorkflowId: "support-retention-purge-run",
+    args: [],
+  },
 ];
 
 export async function ensureTemporalSchedules(

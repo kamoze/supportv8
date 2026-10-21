@@ -138,7 +138,8 @@ export class PgSupportIntelligenceRepository implements SupportIntelligenceRepos
         [input.tenantId]
       );
       const retentionHours = policyRows[0]?.raw_context_retention_hours ?? 72;
-      const expiresAt = new Date(Date.now() + retentionHours * 3600 * 1000).toISOString();
+      const receivedTimestamp = input.receivedAt ? new Date(input.receivedAt).getTime() : Date.now();
+      const expiresAt = new Date(receivedTimestamp + retentionHours * 3600 * 1000).toISOString();
 
       // 1. Insert into interaction_events with ON CONFLICT DO NOTHING
       const insertRows = await session.query<{ id: string }>(

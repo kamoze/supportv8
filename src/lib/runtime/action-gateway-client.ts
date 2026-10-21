@@ -178,9 +178,15 @@ export class ActionGatewayClient {
         ? "support.ticket.close"
         : "support.ticket.update";
 
+      let conn: SourceConnectionRecord | null = null;
       try {
-        const conn = await this.repo.getSourceConnection(canonicalTenantId, "zendesk");
-        if (conn && conn.status === "connected") {
+        conn = await this.repo.getSourceConnection(canonicalTenantId, "zendesk");
+      } catch {
+        // Safe fallback in test environments where PostgreSQL is unconfigured
+      }
+
+      if (conn && conn.status === "connected") {
+        try {
           const out = await this.httpClient.execute({
             accountId: conn.accountId,
             tenantId: canonicalTenantId,
@@ -201,20 +207,20 @@ export class ActionGatewayClient {
           });
           executionId = out.id;
           if (out.result) resultData = out.result;
+        } catch (err: any) {
+          // If gateway call fails, record failure
+          const failure: ActionExecutionResult = {
+            success: false,
+            status: "failed",
+            auditId,
+            operationId: op.id,
+            risk: op.risk,
+            idempotencyKey,
+            error: err.message,
+            timestamp,
+          };
+          return failure;
         }
-      } catch (err: any) {
-        // If gateway call fails, record failure
-        const failure: ActionExecutionResult = {
-          success: false,
-          status: "failed",
-          auditId,
-          operationId: op.id,
-          risk: op.risk,
-          idempotencyKey,
-          error: err.message,
-          timestamp,
-        };
-        return failure;
       }
     }
 

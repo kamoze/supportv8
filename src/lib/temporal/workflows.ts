@@ -286,3 +286,5 @@ export async function processSupportInteraction(
   return await deriveIssueFromInteractionActivity(eventId, tenantId);
 }
 
+export { runRetentionPurgeWorkflow } from "./retention-workflow";
+

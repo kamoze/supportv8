@@ -192,3 +192,8 @@ export {
   InteractionWorker,
 } from "./interaction-workflow";
 
+export {
+  purgeExpiredRawContextActivity,
+  runRetentionPurgeWorkflow,
+} from "./retention-workflow";
+

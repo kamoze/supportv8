@@ -73,6 +73,12 @@ export async function POST(req: NextRequest) {
     const { action, eventPayload } = body;
 
     if (action === "test_webhook") {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { success: false, error: "Synthetic webhook tests and simulated customer issues are disabled in production" },
+          { status: 403 }
+        );
+      }
       const source = eventPayload?.source || "zendesk";
       const sourceRef = eventPayload?.sourceRef || `ZD-${Date.now().toString().slice(-6)}`;
       const customerRef = eventPayload?.customerRef || "C-9900";

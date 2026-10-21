@@ -61,8 +61,8 @@ async function resolveVerificationKey(
 
   const env = process.env;
 
-  // 1. Static test / public key from environment (PEM or JWK JSON)
-  const envPublicKey = env.SERVICEV8_AUTH_PUBLIC_KEY || env.SUPPORTV8_MANAGED_WORKLOAD_PUBLIC_KEY;
+  // 1. Static test / public key or shared secret from environment (PEM or JWK JSON or secret)
+  const envPublicKey = env.SERVICEV8_AUTH_PUBLIC_KEY || env.SUPPORTV8_MANAGED_WORKLOAD_PUBLIC_KEY || env.SUPPORTV8_INGRESS_PUBLIC_KEY;
   if (envPublicKey) {
     const trimmed = envPublicKey.trim();
     if (trimmed.startsWith("-----BEGIN")) {
@@ -75,6 +75,11 @@ async function resolveVerificationKey(
       // not JSON, fallback to buffer
       return Buffer.from(trimmed);
     }
+  }
+
+  const envSecret = env.SUPPORTV8_INGRESS_SECRET || env.ACTION_GATEWAY_INGEST_SECRET || env.SERVICEV8_AUTH_SECRET;
+  if (envSecret) {
+    return new TextEncoder().encode(envSecret.trim());
   }
 
   // 2. Remote JWKS endpoint
@@ -133,8 +138,8 @@ export async function authenticateInteractionIngress(
     "https://auth.servicev8.com/realms/servicev8";
 
   const audience = options?.audience ?? process.env.SERVICEV8_AUTH_AUDIENCE ?? "supportv8";
-  const allowedClientIds = options?.allowedClientIds ?? ["action-gateway-support"];
-  const algorithms = options?.algorithms ?? ["RS256"];
+  const allowedClientIds = options?.allowedClientIds ?? ["action-gateway-support", "action-gateway"];
+  const algorithms = options?.algorithms ?? ["RS256", "HS256"];
 
   let payload: any;
   try {
@@ -214,9 +219,13 @@ export async function authenticateInteractionIngress(
     };
   }
 
-  // Enforce x-servicev8-* headers equality
-  const headerAccountId = request.headers.get("x-servicev8-account-id");
-  const headerTenantId = request.headers.get("x-servicev8-tenant-id");
+  // Enforce x-servicev8-* headers equality (with fallback to standard x-account-id / x-tenant-id)
+  const headerAccountId =
+    request.headers.get("x-servicev8-account-id") ||
+    request.headers.get("x-account-id");
+  const headerTenantId =
+    request.headers.get("x-servicev8-tenant-id") ||
+    request.headers.get("x-tenant-id");
 
   if (!headerAccountId || !headerTenantId) {
     return {

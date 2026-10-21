@@ -54,13 +54,24 @@ export class PolicyEngine {
 
     return this.client.withTenantSession(tenantId, async (session) => {
       const rows = await session.query<any>(
-        `SELECT tenant_id, raw_context_retention_hours, mode, updated_at
+        `SELECT tenant_id, raw_context_retention_hours, mode, rules, updated_at
          FROM supportv8.tenant_policies
          WHERE tenant_id = $1`,
         [tenantId]
-      );
+      ).catch(async () => {
+        // Fallback for pre-migration-012 environments without rules column
+        return await session.query<any>(
+          `SELECT tenant_id, raw_context_retention_hours, mode, updated_at
+           FROM supportv8.tenant_policies
+           WHERE tenant_id = $1`,
+          [tenantId]
+        );
+      });
 
       const dbRow = rows[0];
+      if (dbRow?.rules && Array.isArray(dbRow.rules) && dbRow.rules.length > 0) {
+        this.tenantRules.set(tenantId, dbRow.rules);
+      }
       const mode: OperatingMode =
         dbRow?.mode === "autonomous"
           ? "autonomous"
@@ -238,7 +249,20 @@ export class PolicyEngine {
     };
     current.unshift(newRule);
     this.tenantRules.set(tenantId, current);
+    this.persistTenantRules(tenantId, current);
     return newRule;
+  }
+
+  private persistTenantRules(tenantId: string, rules: PolicyRule[]): void {
+    if (!PostgresClient.hasActiveClient()) return;
+    this.client.withTenantSession(tenantId, async (session) => {
+      await session.query(
+        `UPDATE supportv8.tenant_policies
+         SET rules = $1::jsonb, updated_at = NOW()
+         WHERE tenant_id = $2`,
+        [JSON.stringify(rules), tenantId]
+      );
+    }).catch(() => {});
   }
 
   public getRules(tenantParam = "tenant_default"): PolicyRule[] {
@@ -256,6 +280,7 @@ export class PolicyEngine {
     const idx = current.findIndex((r) => r.id === id);
     if (idx === -1) throw new Error(`Rule ${id} not found`);
     current[idx] = { ...current[idx], ...updates };
+    this.persistTenantRules(tenantId, current);
     return current[idx];
   }
 
@@ -265,6 +290,7 @@ export class PolicyEngine {
     const before = current.length;
     const filtered = current.filter((r) => r.id !== id);
     this.tenantRules.set(tenantId, filtered);
+    this.persistTenantRules(tenantId, filtered);
     return filtered.length < before;
   }
 

@@ -121,27 +121,36 @@ export async function POST(
       decision: "allow",
     };
   } else if (currentMode === "autonomous") {
-    const isSystemAutonomous = request.headers.get("x-servicev8-autonomous-actor") === "true";
-    if (!isSystemAutonomous) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Autonomous execution cannot be initiated directly by client browser without system workflow actor",
-        },
-        { status: 403 }
-      );
+    // Autonomous execution as ai_employee requires verified workload identity, never client browser headers
+    const isWorkloadAutonomous =
+      (auth as any).isWorkload === true ||
+      auth.roles.includes("support_autonomous_system") ||
+      auth.roles.includes("workload");
+
+    if (isWorkloadAutonomous) {
+      actor = {
+        id: "emp_support_lead",
+        type: "ai_employee",
+        name: "Support Intelligence Lead",
+      };
+      policyDecision = {
+        id: `pol_dec_auto_${Date.now()}`,
+        mode: "autonomous",
+        decision: "allow",
+      };
+    } else {
+      // Authenticated human operator invoking action under autonomous mode operates as human actor
+      actor = {
+        id: auth.userId || "operator_human",
+        type: "human",
+        name: auth.username || auth.displayName || "Operator",
+      };
+      policyDecision = {
+        id: `pol_dec_${Date.now()}`,
+        mode: "autonomous",
+        decision: "allow",
+      };
     }
-    actor = {
-      id: "emp_support_lead",
-      type: "ai_employee",
-      name: "Support Intelligence Lead",
-    };
-    policyDecision = {
-      id: `pol_dec_auto_${Date.now()}`,
-      mode: "autonomous",
-      decision: "allow",
-    };
   } else {
     return NextResponse.json(
       { success: false, error: `Unsupported operating mode: ${currentMode}` },
@@ -261,7 +270,12 @@ export async function POST(
     );
   }
 
-  // 9. On Gateway success: Record receipt and update local Issue state in PostgreSQL
+  // 9. On Gateway response: Record receipt. Only update local Issue state upon verified terminal completion.
+  const isTerminalSuccess =
+    gatewayResult.status === "completed" ||
+    gatewayResult.status === "succeeded" ||
+    gatewayResult.status === "executed";
+
   const receipt = await pgSupportIntelligenceRepository.recordActionReceipt({
     tenantId: auth.tenantId,
     idempotencyKey,
@@ -269,27 +283,29 @@ export async function POST(
     capability,
     issueId: id,
     actionExecutionId: gatewayResult.id,
-    status: gatewayResult.status || "completed",
+    status: gatewayResult.status || (isTerminalSuccess ? "completed" : "pending"),
     actor,
     payload: gatewayPayload,
     result: gatewayResult.result,
   });
 
-  if (action === "close") {
-    await issueService.update(
-      id,
-      {
-        sourceStatus: "solved",
-        status: "resolved",
-      },
-      auth.tenantId
-    );
-  } else if (action === "update") {
-    const updates: any = {};
-    if (body.status) updates.sourceStatus = body.status;
-    if (body.priority) updates.priority = body.priority;
-    if (Object.keys(updates).length > 0) {
-      await issueService.update(id, updates, auth.tenantId);
+  if (isTerminalSuccess) {
+    if (action === "close") {
+      await issueService.update(
+        id,
+        {
+          sourceStatus: "solved",
+          status: "resolved",
+        },
+        auth.tenantId
+      );
+    } else if (action === "update") {
+      const updates: any = {};
+      if (body.status) updates.sourceStatus = body.status;
+      if (body.priority) updates.priority = body.priority;
+      if (Object.keys(updates).length > 0) {
+        await issueService.update(id, updates, auth.tenantId);
+      }
     }
   }
 

@@ -54,6 +54,12 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json({ success: true, message: `Applied preset profile '${preset}'`, data: updatedPolicy });
     } else if (action === "simulate") {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { success: false, error: "Policy simulation is disabled in production" },
+          { status: 403 }
+        );
+      }
       const currentPolicy = await policyEngine.getPolicy(auth.tenantId);
       const simulation = policyEngine.simulate(
         sampleMessage || "I demand an immediate refund for double charge on checkout!",

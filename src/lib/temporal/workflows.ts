@@ -286,5 +286,24 @@ export async function processSupportInteraction(
   return await deriveIssueFromInteractionActivity(eventId, tenantId);
 }
 
+const {
+  drainPendingInteractionsActivity,
+} = proxyActivities<{
+  drainPendingInteractionsActivity: (limit?: number) => Promise<{ claimed: number; processed: number; failed: number }>;
+}>({
+  startToCloseTimeout: "2 minutes",
+  retry: {
+    initialInterval: "5 seconds",
+    maximumInterval: "30 seconds",
+    maximumAttempts: 3,
+  },
+});
+
+export async function drainPendingInteractionsWorkflow(
+  limit = 50
+): Promise<{ claimed: number; processed: number; failed: number }> {
+  return await drainPendingInteractionsActivity(limit);
+}
+
 export { runRetentionPurgeWorkflow } from "./retention-workflow";
 

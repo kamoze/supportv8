@@ -1,4 +1,6 @@
 import type { LlmTraceRecord } from "../types";
+import crypto from "node:crypto";
+import { pgClient, PostgresClient } from "@/lib/db/pg-client";
 
 /**
  * Tenant-partitioned trace buffer (exported to Langfuse / OpenTelemetry in cluster).
@@ -70,6 +72,42 @@ export class ChatbotTelemetry {
     if (tenantTraces.length > MAX_BUFFER_PER_TENANT) {
       tenantTraces.pop();
     }
+
+    // Persist durable trace to PostgreSQL under forced tenant RLS (non-blocking)
+    try {
+      if (PostgresClient.hasActiveClient()) {
+        pgClient.withTenantSession(tenantId, async (session) => {
+          await session.query(
+            `INSERT INTO supportv8.llm_traces (
+               id, tenant_id, trace_id, span_id, session_id, channel, model,
+               prompt_tokens, completion_tokens, total_tokens, cost_usd, latency_ms,
+               guardrail_triggered, tools_invoked, created_at
+             ) VALUES (
+               $1, $2, $3, $4, $5, $6, $7,
+               $8, $9, $10, $11, $12,
+               $13, $14, $15
+             )`,
+            [
+              `tr_${crypto.randomUUID().slice(0, 16)}`,
+              tenantId,
+              sanitizedRecord.traceId,
+              sanitizedRecord.spanId,
+              sanitizedRecord.sessionId || "",
+              sanitizedRecord.channel || "web_chat",
+              sanitizedRecord.model || "unknown",
+              sanitizedRecord.promptTokens || 0,
+              sanitizedRecord.completionTokens || 0,
+              sanitizedRecord.totalTokens || 0,
+              sanitizedRecord.costUsd || 0,
+              sanitizedRecord.latencyMs || 0,
+              sanitizedRecord.guardrailTriggered || false,
+              JSON.stringify(sanitizedRecord.toolsInvoked || []),
+              sanitizedRecord.timestamp || new Date().toISOString(),
+            ]
+          );
+        }).catch(() => {});
+      }
+    } catch {}
   }
 
   /**

@@ -69,6 +69,11 @@ async function connectWithRetry(
   throw new Error(`[supportv8-worker] Could not connect to Temporal cluster after ${maxAttempts} attempts across [${candidateAddresses.join(", ")}]`);
 }
 
+async function drainPendingInteractionsActivity(limit = 50) {
+  const { interactionOutboxRelay } = await import("@/lib/connectors/interaction-outbox-relay");
+  return await interactionOutboxRelay.drainPendingInteractions(limit);
+}
+
 async function main() {
   const address = TEMPORAL_ADDRESS || process.env.TEMPORAL_ADDRESS || "temporal-workload-frontend.default.svc.cluster.local:7233";
 
@@ -100,6 +105,7 @@ async function main() {
       ...activities,
       deriveIssueFromInteractionActivity,
       purgeExpiredRawContextActivity,
+      drainPendingInteractionsActivity,
     },
     maxConcurrentActivityTaskExecutions: 25,
   });

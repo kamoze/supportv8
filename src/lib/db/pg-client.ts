@@ -44,6 +44,10 @@ export class PostgresClient {
     PostgresClient.testClientInstance = client || undefined;
   }
 
+  public static hasActiveClient(): boolean {
+    return Boolean(process.env.DATABASE_URL || PostgresClient.testClientInstance);
+  }
+
   constructor(connectionString = process.env.DATABASE_URL, pool?: DatabasePool) {
     this.connectionString = connectionString;
     this.pool = pool;

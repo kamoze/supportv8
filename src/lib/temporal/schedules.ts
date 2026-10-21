@@ -46,6 +46,14 @@ export const SUPPORT_SCHEDULED_EVENTS: ScheduledEventConfig[] = [
     defaultWorkflowId: "support-retention-purge-run",
     args: [],
   },
+  {
+    scheduleId: "supportv8-outbox-relay",
+    workflowType: "drainPendingInteractionsWorkflow",
+    spec: { intervals: [{ every: "1 minute" }] },
+    description: "Periodic 1-minute sweep draining pending or retryable raw interactions into issues.",
+    defaultWorkflowId: "support-outbox-relay-run",
+    args: [50],
+  },
 ];
 
 export async function ensureTemporalSchedules(

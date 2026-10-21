@@ -1,6 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/auth/keycloak", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/keycloak")>();
+  return {
+    ...actual,
+    verifySupportAccessToken: vi.fn(),
+  };
+});
+
+vi.mock("@/lib/service-app/runtime-session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/service-app/runtime-session")>();
+  return {
+    ...actual,
+    authorizeRuntimeSupportRequest: vi.fn(),
+  };
+});
+
+import { verifySupportAccessToken } from "@/lib/auth/keycloak";
+import { authorizeRuntimeSupportRequest } from "@/lib/service-app/runtime-session";
 import {
   normalizeTenantSlug,
+  resolveRequestTenant,
   tenantIdFromSlug,
   tenantSlugFromHostname,
   tenantSlugFromId,
@@ -213,4 +233,109 @@ it('allows website chat and operator chat mutations to reach tenant storage with
     expect(response.status).not.toBe(403);
   }
 });
+
+describe("resolveRequestTenant enforcement and forgery resistance", () => {
+  it("throws 401 when unauthenticated in production with requireAuthentication", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const req = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+        headers: { host: "acme.support.servicev8.com" },
+      });
+      await expect(
+        resolveRequestTenant(req, { requireAuthentication: true }),
+      ).rejects.toMatchObject({
+        status: 401,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("forged headers and query parameters cannot override an authenticated token", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      vi.mocked(verifySupportAccessToken).mockResolvedValue({
+        sub: "usr_acme",
+        preferred_username: "operator@acme.com",
+        tenant_id: "tenant_acme",
+        azp: "supportv8-acme",
+        realm_access: { roles: ["support_cx_lead", "support_operator"] },
+      });
+
+      const req = new NextRequest(
+        "https://acme.support.servicev8.com/api/problems?tenant=meridian",
+        {
+          headers: {
+            host: "acme.support.servicev8.com",
+            authorization: "Bearer valid-acme-token",
+            "x-tenant-slug": "meridian",
+            "x-tenant-id": "tenant_meridian",
+          },
+        },
+      );
+
+      const context = await resolveRequestTenant(req, { requireAuthentication: true });
+      expect(context.tenantId).toBe("tenant_acme");
+      expect(context.tenantSlug).toBe("acme");
+      expect(context.authenticated).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("forged headers and query parameters cannot override an authenticated runtime session", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      vi.mocked(authorizeRuntimeSupportRequest).mockResolvedValue({
+        session: {
+          version: "servicev8.support-session.v1",
+          aud: "supportv8-runtime-session",
+          tenantDomain: "acme",
+          workspaceId: "tenant_acme",
+          sub: "usr_acme",
+          accountId: "acct_acme",
+          tenantId: "tenant_acme",
+          verticalId: "runtime",
+          installationId: "inst_acme",
+          roleCap: "support:manage",
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        },
+        role: "support:manage",
+        access: {
+          accountId: "acct_acme",
+          tenantId: "tenant_acme",
+          verticalId: "runtime",
+          installationId: "inst_acme",
+          workspaceId: "tenant_acme",
+          subject: "usr_acme",
+          email: "operator@acme.com",
+          domain: "acme",
+          capability: "support:manage",
+          poolAccountId: "acct_acme",
+        },
+      });
+
+      const req = new NextRequest(
+        "https://acme.support.servicev8.com/api/problems?tenant=meridian",
+        {
+          headers: {
+            host: "acme.support.servicev8.com",
+            cookie: "__Host-sv8_runtime_support=runtime-session-token",
+            "x-tenant-slug": "meridian",
+            "x-tenant-id": "tenant_meridian",
+          },
+        },
+      );
+
+      const context = await resolveRequestTenant(req, { requireAuthentication: true });
+      expect(context.tenantId).toBe("tenant_acme");
+      expect(context.tenantSlug).toBe("acme");
+      expect(context.authenticated).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
 

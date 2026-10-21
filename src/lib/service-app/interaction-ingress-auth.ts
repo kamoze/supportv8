@@ -1,0 +1,238 @@
+import { createRemoteJWKSet, importSPKI, importJWK, jwtVerify, type JWTVerifyGetKey } from "jose";
+import { identifier } from "./managed-support-contract";
+
+export interface InteractionIngressActor {
+  clientId: string;
+  accountId: string;
+  tenantId: string;
+  jti: string;
+  sub: string;
+  scope: string;
+  correlationId: string;
+}
+
+export type InteractionIngressAuthResult =
+  | { success: true; actor: InteractionIngressActor }
+  | { success: false; status: 401 | 403; error: string };
+
+export interface InteractionAuthOptions {
+  issuer?: string;
+  audience?: string;
+  allowedClientIds?: readonly string[];
+  key?: JWTVerifyGetKey | CryptoKey | Uint8Array;
+  algorithms?: string[];
+}
+
+let testKeyOverride: JWTVerifyGetKey | CryptoKey | Uint8Array | null = null;
+
+/**
+ * Sets or clears a test key override for verifying workload tokens in test environments.
+ */
+export function setInteractionIngressAuthKeyForTesting(
+  key: JWTVerifyGetKey | CryptoKey | Uint8Array | null
+): void {
+  testKeyOverride = key;
+}
+
+/**
+ * Resolves the verification key or JWKS set based on options, test override, or environment variables.
+ */
+async function resolveVerificationKey(
+  options?: InteractionAuthOptions,
+  issuer?: string
+): Promise<JWTVerifyGetKey | CryptoKey | Uint8Array> {
+  if (options?.key) {
+    return options.key;
+  }
+  if (testKeyOverride) {
+    return testKeyOverride;
+  }
+
+  const env = process.env;
+
+  // 1. Static test / public key from environment (PEM or JWK JSON)
+  const envPublicKey = env.SERVICEV8_AUTH_PUBLIC_KEY || env.SUPPORTV8_MANAGED_WORKLOAD_PUBLIC_KEY;
+  if (envPublicKey) {
+    const trimmed = envPublicKey.trim();
+    if (trimmed.startsWith("-----BEGIN")) {
+      return await importSPKI(trimmed, "RS256");
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      return await importJWK(parsed, "RS256");
+    } catch {
+      // not JSON, fallback to buffer
+      return Buffer.from(trimmed);
+    }
+  }
+
+  // 2. Remote JWKS endpoint
+  const jwksUrl =
+    env.SERVICEV8_AUTH_JWKS_URL ||
+    env.SUPPORTV8_MANAGED_WORKLOAD_JWKS_URL ||
+    (issuer ? `${issuer.replace(/\/$/, "")}/protocol/openid-connect/certs` : undefined);
+
+  if (jwksUrl) {
+    return createRemoteJWKSet(new URL(jwksUrl), { timeoutDuration: 3000 });
+  }
+
+  throw new Error("No JWKS URL, public key, or verification key configured for interaction ingress auth");
+}
+
+/**
+ * Authenticates an inbound interaction event from Action Gateway.
+ * Validates:
+ * - Bearer authorization token present and bounded length
+ * - RS256 algorithm
+ * - Issuer (from SERVICEV8_AUTH_ISSUER or default https://auth.servicev8.com/realms/servicev8)
+ * - Audience 'supportv8'
+ * - Authorized party ('azp') matches 'action-gateway-support'
+ * - Token lifetime at most 120 seconds (p.exp - p.iat <= 120)
+ * - Required jti, sub, exp, iat, account_id, tenant_id claims
+ * - Exactly one required scope: expectedScope (default 'supportv8:interactions:ingest')
+ * - Token account_id and tenant_id match request headers x-servicev8-account-id and x-servicev8-tenant-id
+ */
+export async function authenticateInteractionIngress(
+  request: Request,
+  expectedScope = "supportv8:interactions:ingest",
+  options?: InteractionAuthOptions
+): Promise<InteractionIngressAuthResult> {
+  const authHeader = request.headers.get("authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ") || authHeader.length > 16400) {
+    return {
+      success: false,
+      status: 401,
+      error: "Missing or invalid Authorization header",
+    };
+  }
+
+  const token = authHeader.slice(7).trim();
+  if (!token) {
+    return {
+      success: false,
+      status: 401,
+      error: "Empty bearer token",
+    };
+  }
+
+  const issuer =
+    options?.issuer ??
+    process.env.SERVICEV8_AUTH_ISSUER ??
+    process.env.SUPPORTV8_MANAGED_WORKLOAD_ISSUER ??
+    "https://auth.servicev8.com/realms/servicev8";
+
+  const audience = options?.audience ?? process.env.SERVICEV8_AUTH_AUDIENCE ?? "supportv8";
+  const allowedClientIds = options?.allowedClientIds ?? ["action-gateway-support"];
+  const algorithms = options?.algorithms ?? ["RS256"];
+
+  let payload: any;
+  try {
+    const key = await resolveVerificationKey(options, issuer);
+    const { payload: p } = await jwtVerify(token, key, {
+      issuer,
+      audience,
+      algorithms,
+      requiredClaims: ["sub", "azp", "iat", "exp", "jti"],
+      maxTokenAge: "2m",
+      clockTolerance: 0,
+    });
+    payload = p;
+  } catch (err: any) {
+    return {
+      success: false,
+      status: 401,
+      error: `Token verification failed: ${err?.message || "invalid token"}`,
+    };
+  }
+
+  // Validate identifiers
+  try {
+    identifier(payload.sub);
+    identifier(payload.jti);
+  } catch {
+    return {
+      success: false,
+      status: 401,
+      error: "Invalid sub or jti claim format",
+    };
+  }
+
+  // Token lifetime check: at most 120 seconds
+  if (
+    typeof payload.iat !== "number" ||
+    typeof payload.exp !== "number" ||
+    payload.exp <= payload.iat ||
+    payload.exp - payload.iat > 120
+  ) {
+    return {
+      success: false,
+      status: 401,
+      error: "Token lifetime exceeds maximum allowed duration (120 seconds) or is invalid",
+    };
+  }
+
+  // Validate azp (Authorized Party)
+  if (typeof payload.azp !== "string" || !allowedClientIds.includes(payload.azp)) {
+    return {
+      success: false,
+      status: 403,
+      error: `Forbidden authorized party (azp): expected ${allowedClientIds.join(", ")}, got ${payload.azp}`,
+    };
+  }
+
+  // Validate exact scope
+  if (payload.scope !== expectedScope) {
+    return {
+      success: false,
+      status: 403,
+      error: `Forbidden scope: expected '${expectedScope}', got '${payload.scope}'`,
+    };
+  }
+
+  // Validate account_id and tenant_id claims
+  let accountId: string;
+  let tenantId: string;
+  try {
+    accountId = identifier(payload.account_id);
+    tenantId = identifier(payload.tenant_id);
+  } catch {
+    return {
+      success: false,
+      status: 401,
+      error: "Missing or invalid account_id or tenant_id claims in token",
+    };
+  }
+
+  // Enforce x-servicev8-* headers equality
+  const headerAccountId = request.headers.get("x-servicev8-account-id");
+  const headerTenantId = request.headers.get("x-servicev8-tenant-id");
+
+  if (!headerAccountId || !headerTenantId) {
+    return {
+      success: false,
+      status: 403,
+      error: "Forbidden: missing required x-servicev8-account-id or x-servicev8-tenant-id headers",
+    };
+  }
+
+  if (headerAccountId !== accountId || headerTenantId !== tenantId) {
+    return {
+      success: false,
+      status: 403,
+      error: "Forbidden: tenant or account header mismatch with token claims",
+    };
+  }
+
+  return {
+    success: true,
+    actor: {
+      clientId: payload.azp,
+      accountId,
+      tenantId,
+      jti: payload.jti,
+      sub: payload.sub,
+      scope: payload.scope,
+      correlationId: typeof payload.correlation_id === "string" ? payload.correlation_id : payload.jti,
+    },
+  };
+}

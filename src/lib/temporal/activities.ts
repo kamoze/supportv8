@@ -185,3 +185,10 @@ export async function executeForgeActionActivity(
     timestamp: new Date().toISOString(),
   };
 }
+
+export {
+  deriveIssueFromInteractionActivity,
+  processSupportInteraction,
+  InteractionWorker,
+} from "./interaction-workflow";
+

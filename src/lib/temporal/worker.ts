@@ -2,6 +2,7 @@ import http from "node:http";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
 import * as activities from "./activities";
+import { deriveIssueFromInteractionActivity } from "./interaction-workflow";
 import { TASK_QUEUE, TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE } from "./config";
 import { ensureTemporalSchedules } from "./schedules";
 
@@ -94,7 +95,10 @@ async function main() {
     namespace: TEMPORAL_NAMESPACE,
     taskQueue: TASK_QUEUE,
     workflowsPath: new URL("./workflows.ts", import.meta.url).pathname,
-    activities,
+    activities: {
+      ...activities,
+      deriveIssueFromInteractionActivity,
+    },
     maxConcurrentActivityTaskExecutions: 25,
   });
 

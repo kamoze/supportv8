@@ -11,6 +11,10 @@ export interface DatabaseSession {
   query: <T extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => Promise<T[]>;
 }
 
+export interface SystemDatabaseSession {
+  query: <T extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => Promise<T[]>;
+}
+
 export interface DatabasePool {
   connect(): Promise<Pick<PoolClient, "query" | "release">>;
   end?(): Promise<void>;
@@ -116,6 +120,36 @@ export class PostgresClient {
         tenantId: scope.tenantId,
         query: async <R extends QueryResultRow = QueryResultRow>(sql: string, params: unknown[] = []) =>
           (await client.query<R>(sql, params)).rows,
+      };
+      const result = await callback(session);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Run trusted system or worker operation without tenant context.
+   * Useful for SECURITY DEFINER worker claim routines.
+   */
+  public async withSystemSession<T>(
+    callback: (session: SystemDatabaseSession) => Promise<T>
+  ): Promise<T> {
+    const client = await this.getPool().connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('statement_timeout', $1, true)", [
+        process.env.SUPPORTV8_DB_STATEMENT_TIMEOUT || "15s",
+      ]);
+      const session: SystemDatabaseSession = {
+        query: async <R extends QueryResultRow = QueryResultRow>(sql: string, params: unknown[] = []) => {
+          const result = await client.query<R>(sql, params);
+          return result.rows;
+        },
       };
       const result = await callback(session);
       await client.query("COMMIT");

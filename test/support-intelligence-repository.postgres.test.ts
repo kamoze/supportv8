@@ -58,6 +58,7 @@ describe("SupportIntelligenceRepository genuine PostgreSQL RLS boundary", () => 
       await dbAdminPool.query(
         `GRANT USAGE ON SCHEMA supportv8 TO ${appRole};
          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA supportv8 TO ${appRole};
+         GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA supportv8 TO ${appRole};
          GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA supportv8 TO ${appRole};`
       );
     } finally {
@@ -103,6 +104,75 @@ describe("SupportIntelligenceRepository genuine PostgreSQL RLS boundary", () => 
     });
 
     expect(activeTenant).toBe(tenantAlpha);
+  });
+
+  it("blocked unscoped reads: querying tables without app.current_tenant_id returns zero rows under forced RLS", async () => {
+    // Record an interaction under Tenant Alpha
+    await repository.recordInteraction({
+      eventId: "evt-unscoped-test-1",
+      tenantId: tenantAlpha,
+      accountId: "acct-alpha",
+      connectionId: "conn-1",
+      connectorKey: "zendesk",
+      source: "zendesk",
+      sourceReference: "UNSCOPED-1",
+      customerReference: "CUST-1",
+      sourceUrl: "https://alpha.zendesk.com/tickets/1",
+      text: "Unscoped read test text",
+      sender: "customer",
+      occurredAt: "2026-10-21T12:00:00.000Z",
+      receivedAt: "2026-10-21T12:00:01.000Z",
+      correlationId: "corr-unscoped-1",
+      raw: {},
+    });
+
+    // Directly acquire a connection from appPool without setting app.current_tenant_id
+    const conn = await appPool.connect();
+    try {
+      const events = await conn.query("SELECT * FROM supportv8.interaction_events");
+      expect(events.rows.length).toBe(0);
+
+      const outbox = await conn.query("SELECT * FROM supportv8.interaction_outbox");
+      expect(outbox.rows.length).toBe(0);
+
+      const receipts = await conn.query("SELECT * FROM supportv8.action_receipts");
+      expect(receipts.rows.length).toBe(0);
+
+      const connections = await conn.query("SELECT * FROM supportv8.source_connections");
+      expect(connections.rows.length).toBe(0);
+
+      const policies = await conn.query("SELECT * FROM supportv8.tenant_policies");
+      expect(policies.rows.length).toBe(0);
+
+      const issues = await conn.query("SELECT * FROM supportv8.issues");
+      expect(issues.rows.length).toBe(0);
+
+      const problems = await conn.query("SELECT * FROM supportv8.problems");
+      expect(problems.rows.length).toBe(0);
+    } finally {
+      conn.release();
+    }
+  });
+
+  it("unique constraint: duplicate (tenant_id, source, external_id) on supportv8.issues is rejected", async () => {
+    await client.withTenantSession(tenantAlpha, async (session) => {
+      await session.query(
+        `INSERT INTO supportv8.issues (id, tenant_id, source, external_id, summary)
+         VALUES ('iss_dup_1', $1, 'zendesk', 'ZD-EXT-999', 'First issue')`,
+        [tenantAlpha]
+      );
+    });
+
+    // Inserting a second issue with same (tenant_id, source, external_id) must reject with unique constraint error (23505)
+    await expect(
+      client.withTenantSession(tenantAlpha, async (session) => {
+        await session.query(
+          `INSERT INTO supportv8.issues (id, tenant_id, source, external_id, summary)
+           VALUES ('iss_dup_2', $1, 'zendesk', 'ZD-EXT-999', 'Duplicate issue')`,
+          [tenantAlpha]
+        );
+      })
+    ).rejects.toThrow();
   });
 
   it("idempotent (tenant_id, source, event_id) insertion returns replayed: true with the same interactionId", async () => {
@@ -295,51 +365,74 @@ describe("SupportIntelligenceRepository genuine PostgreSQL RLS boundary", () => 
     expect(retrieved?.sourceReference).toBe("TICKET-RESTART-42");
   });
 
-  it("lifecycle: claims due interactions, completes with issueId, and handles failure retries", async () => {
-    const claimEventId = "evt-zd-claim-test";
-    const input: NormalizedInteractionInput = {
-      eventId: claimEventId,
+  it("lifecycle: claims due interactions across tenants via SECURITY DEFINER function", async () => {
+    const claimAlphaEventId = "evt-zd-claim-alpha";
+    const claimBetaEventId = "evt-zd-claim-beta";
+
+    await repository.recordInteraction({
+      eventId: claimAlphaEventId,
       tenantId: tenantAlpha,
       accountId: "acct-alpha",
       connectionId: "conn-alpha-1",
       connectorKey: "zendesk",
       source: "zendesk",
-      sourceReference: "TICKET-CLAIM-99",
-      customerReference: "CUST-99",
-      sourceUrl: "https://alpha.zendesk.com/tickets/99",
-      text: "Claiming lifecycle test",
+      sourceReference: "TICKET-CLAIM-ALPHA",
+      customerReference: "CUST-A",
+      sourceUrl: "https://alpha.zendesk.com/tickets/1",
+      text: "Claiming Alpha lifecycle test",
       sender: "customer",
       occurredAt: "2026-10-21T12:30:00.000Z",
       receivedAt: "2026-10-21T12:30:01.000Z",
-      correlationId: "corr-claim-99",
+      correlationId: "corr-claim-a",
       raw: {},
-    };
+    });
 
-    await repository.recordInteraction(input);
+    await repository.recordInteraction({
+      eventId: claimBetaEventId,
+      tenantId: tenantBeta,
+      accountId: "acct-beta",
+      connectionId: "conn-beta-1",
+      connectorKey: "zendesk",
+      source: "zendesk",
+      sourceReference: "TICKET-CLAIM-BETA",
+      customerReference: "CUST-B",
+      sourceUrl: "https://beta.zendesk.com/tickets/1",
+      text: "Claiming Beta lifecycle test",
+      sender: "customer",
+      occurredAt: "2026-10-21T12:30:00.000Z",
+      receivedAt: "2026-10-21T12:30:01.000Z",
+      correlationId: "corr-claim-b",
+      raw: {},
+    });
 
-    // 1. Claim interaction for tenant
-    const claimed = await repository.claimInteractions(10, "worker-test-1", tenantAlpha);
-    const ourClaim = claimed.find((c) => c.eventId === claimEventId);
-    expect(ourClaim).toBeDefined();
+    // 1. Cross-tenant worker claim without tenantId argument (using SECURITY DEFINER function)
+    const claimed = await repository.claimInteractions(10, "worker-cross-tenant-1");
+    const claimedAlpha = claimed.find((c) => c.eventId === claimAlphaEventId);
+    const claimedBeta = claimed.find((c) => c.eventId === claimBetaEventId);
+
+    expect(claimedAlpha).toBeDefined();
+    expect(claimedBeta).toBeDefined();
+    expect(claimedAlpha?.tenantId).toBe(tenantAlpha);
+    expect(claimedBeta?.tenantId).toBe(tenantBeta);
 
     // Verify status updated to processing
-    const processingRow = await client.withTenantSession(tenantAlpha, async (session) =>
+    const processingAlpha = await client.withTenantSession(tenantAlpha, async (session) =>
       session.query<{ processing_state: string; locked_by: string }>(
         "SELECT processing_state, locked_by FROM supportv8.interaction_events WHERE tenant_id = $1 AND event_id = $2",
-        [tenantAlpha, claimEventId]
+        [tenantAlpha, claimAlphaEventId]
       )
     );
-    expect(processingRow[0].processing_state).toBe("processing");
-    expect(processingRow[0].locked_by).toBe("worker-test-1");
+    expect(processingAlpha[0].processing_state).toBe("processing");
+    expect(processingAlpha[0].locked_by).toBe("worker-cross-tenant-1");
 
     // 2. Fail interaction with retry
     const retryTime = new Date(Date.now() + 60000).toISOString();
-    await repository.failInteraction(tenantAlpha, claimEventId, "RATE_LIMIT_EXCEEDED", retryTime);
+    await repository.failInteraction(tenantAlpha, claimAlphaEventId, "RATE_LIMIT_EXCEEDED", retryTime);
 
     const failedRow = await client.withTenantSession(tenantAlpha, async (session) =>
       session.query<{ processing_state: string; error_code: string; retry_count: number }>(
         "SELECT processing_state, error_code, retry_count FROM supportv8.interaction_events WHERE tenant_id = $1 AND event_id = $2",
-        [tenantAlpha, claimEventId]
+        [tenantAlpha, claimAlphaEventId]
       )
     );
     expect(failedRow[0].processing_state).toBe("failed");
@@ -347,12 +440,12 @@ describe("SupportIntelligenceRepository genuine PostgreSQL RLS boundary", () => 
     expect(failedRow[0].retry_count).toBe(1);
 
     // 3. Complete interaction with generated issueId
-    await repository.completeInteraction(tenantAlpha, claimEventId, "iss_generated_123");
+    await repository.completeInteraction(tenantAlpha, claimAlphaEventId, "iss_generated_123");
 
     const completedRow = await client.withTenantSession(tenantAlpha, async (session) =>
       session.query<{ processing_state: string; issue_id: string }>(
         "SELECT processing_state, issue_id FROM supportv8.interaction_events WHERE tenant_id = $1 AND event_id = $2",
-        [tenantAlpha, claimEventId]
+        [tenantAlpha, claimAlphaEventId]
       )
     );
     expect(completedRow[0].processing_state).toBe("completed");

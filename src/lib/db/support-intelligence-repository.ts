@@ -183,7 +183,12 @@ export class PgSupportIntelligenceRepository implements SupportIntelligenceRepos
            WHERE tenant_id = $1 AND source = $2 AND event_id = $3`,
           [input.tenantId, input.source, input.eventId]
         );
-        const existingId = existingRows[0]?.id || interactionId;
+        const existingId = existingRows[0]?.id;
+        if (!existingId) {
+          throw new Error(
+            `Unable to resolve existing interaction event for tenant=${input.tenantId} event=${input.eventId}`
+          );
+        }
         return { replayed: true, interactionId: existingId };
       }
 
@@ -216,52 +221,20 @@ export class PgSupportIntelligenceRepository implements SupportIntelligenceRepos
   }
 
   /**
-   * Claims due interactions (pending or failed with retry_at <= NOW()) using FOR UPDATE SKIP LOCKED.
-   * If tenantId is passed, claims within that exact tenant session.
-   * If omitted, performs cross-tenant worker claim query.
+   * Claims due interactions (pending or failed with retry_at <= NOW()) across tenants
+   * using the SECURITY DEFINER supportv8.claim_interaction_events function.
    */
   async claimInteractions(
     limit: number,
-    workerId: string,
-    tenantId?: string
+    workerId: string
   ): Promise<NormalizedInteractionInput[]> {
-    if (tenantId) {
-      return this.claimInteractionsForTenant(tenantId, limit, workerId);
-    }
-
-    const pool = (this.client as any).pool ?? (this.client as any).getPool?.();
-    if (pool) {
-      const conn = await pool.connect();
-      try {
-        await conn.query("BEGIN");
-        const res = await conn.query(
-          `WITH due AS (
-             SELECT id FROM supportv8.interaction_events
-             WHERE (processing_state = 'pending' OR (processing_state = 'failed' AND retry_at <= NOW()))
-             ORDER BY received_at ASC
-             LIMIT $1
-             FOR UPDATE SKIP LOCKED
-           )
-           UPDATE supportv8.interaction_events e
-           SET processing_state = 'processing',
-               locked_by = $2,
-               locked_at = NOW(),
-               updated_at = NOW()
-           FROM due
-           WHERE e.id = due.id
-           RETURNING e.*`,
-          [limit, workerId]
-        );
-        await conn.query("COMMIT");
-        return (res.rows || []).map(mapRowToNormalizedInput);
-      } catch (error) {
-        await conn.query("ROLLBACK").catch(() => undefined);
-        throw error;
-      } finally {
-        conn.release();
-      }
-    }
-    return [];
+    return this.client.withSystemSession(async (session) => {
+      const rows = await session.query<any>(
+        "SELECT * FROM supportv8.claim_interaction_events($1, $2)",
+        [workerId, limit]
+      );
+      return rows.map(mapRowToNormalizedInput);
+    });
   }
 
   /**

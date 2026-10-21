@@ -187,6 +187,22 @@ CREATE INDEX IF NOT EXISTS idx_supportv8_problems_tenant_status
     ON supportv8.problems (tenant_id, status);
 
 -- Enable and FORCE Row-Level Security on all tenant-owned tables
+ALTER TABLE supportv8.issues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE supportv8.issues FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_issues ON supportv8.issues;
+CREATE POLICY tenant_isolation_issues ON supportv8.issues
+    FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant_id', true))
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
+
+ALTER TABLE supportv8.problems ENABLE ROW LEVEL SECURITY;
+ALTER TABLE supportv8.problems FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_problems ON supportv8.problems;
+CREATE POLICY tenant_isolation_problems ON supportv8.problems
+    FOR ALL
+    USING (tenant_id = current_setting('app.current_tenant_id', true))
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
+
 ALTER TABLE supportv8.source_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supportv8.source_connections FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_source_connections ON supportv8.source_connections;
@@ -227,10 +243,45 @@ CREATE POLICY tenant_isolation_action_receipts ON supportv8.action_receipts
     USING (tenant_id = current_setting('app.current_tenant_id', true))
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
 
+-- SECURITY DEFINER worker claim function for cross-tenant interaction processing
+CREATE OR REPLACE FUNCTION supportv8.claim_interaction_events(
+    worker_id VARCHAR,
+    claim_limit INT DEFAULT 10
+)
+RETURNS SETOF supportv8.interaction_events
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path=pg_catalog,supportv8
+AS $$
+    WITH candidates AS (
+        SELECT id
+        FROM supportv8.interaction_events
+        WHERE (processing_state = 'pending' OR (processing_state = 'failed' AND retry_at <= NOW()))
+        ORDER BY received_at ASC
+        LIMIT GREATEST(1, LEAST(claim_limit, 100))
+        FOR UPDATE SKIP LOCKED
+    )
+    UPDATE supportv8.interaction_events e
+    SET processing_state = 'processing',
+        locked_by = worker_id,
+        locked_at = NOW(),
+        updated_at = NOW()
+    FROM candidates
+    WHERE e.id = candidates.id
+    RETURNING e.*;
+$$;
+
+REVOKE ALL ON FUNCTION supportv8.claim_interaction_events(VARCHAR, INT) FROM PUBLIC;
+
+COMMENT ON FUNCTION supportv8.claim_interaction_events(VARCHAR, INT) IS
+    'Worker interaction claim across tenants; SECURITY DEFINER intentionally crosses forced RLS after EXECUTE is revoked from PUBLIC.';
+
 -- Grant least-privilege access to supportv8_app role if it exists (no BYPASSRLS)
 DO $grants$
 BEGIN
   IF to_regrole('supportv8_app') IS NOT NULL THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON supportv8.issues, supportv8.problems TO supportv8_app';
     EXECUTE 'GRANT SELECT, INSERT, UPDATE ON supportv8.source_connections, supportv8.interaction_events, supportv8.interaction_outbox, supportv8.tenant_policies, supportv8.action_receipts TO supportv8_app';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION supportv8.claim_interaction_events(VARCHAR, INT) TO supportv8_app';
   END IF;
 END $grants$;

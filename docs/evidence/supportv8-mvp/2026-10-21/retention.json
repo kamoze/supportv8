@@ -1,6 +1,6 @@
 {
   "acceptanceGate": "RETENTION_POLICY_PURGE_SEPARATION",
-  "verifiedAt": "2026-10-21T20:17:16.692Z",
+  "verifiedAt": "2026-10-21T21:37:58.069Z",
   "purgeReport": {
     "purgedEventsCount": 1,
     "purgedTenants": [
@@ -17,8 +17,8 @@
     "textRedactedSuccessfully": true,
     "rawPayloadRedactedSuccessfully": true,
     "durableIssuePreserved": {
-      "id": "iss_683c1918fb1549f3b243f69a5943da04",
-      "sourceReference": "ZD-88412",
+      "id": "iss_b4141016fc6d4c378a755d26eef46c80",
+      "sourceReference": "88412",
       "summary": "Checkout failure: credit card processing returns ERR_DECLINED during final purchase confirmation step",
       "confidence": 0.85,
       "sentiment": "neutral",

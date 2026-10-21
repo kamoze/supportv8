@@ -1,8 +1,8 @@
 {
   "acceptanceGate": "TWO_TENANT_ISOLATION",
-  "verifiedAt": "2026-10-21T20:17:16.636Z",
+  "verifiedAt": "2026-10-21T21:37:58.045Z",
   "roleSecurity": {
-    "applicationRole": "support_app_ab19a137",
+    "applicationRole": "support_app_d86d2bc8",
     "rolbypassrls": false,
     "forcedRlsActive": true
   },
@@ -11,7 +11,7 @@
     "connectedSourcesCount": 1,
     "sourceId": "src_conn_acme_zd",
     "issuesCount": 1,
-    "issueId": "iss_683c1918fb1549f3b243f69a5943da04"
+    "issueId": "iss_b4141016fc6d4c378a755d26eef46c80"
   },
   "tenantB": {
     "tenantId": "tenant_meridian_prod",

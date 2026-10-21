@@ -1,10 +1,27 @@
 {
   "acceptanceGate": "ZENDESK_INBOUND_ROUNDTRIP",
-  "verifiedAt": "2026-10-21T20:17:16.630Z",
+  "verifiedAt": "2026-10-21T21:37:58.039Z",
+  "pipelineType": "CROSS_SERVICE_UNMOCKED",
+  "componentsExercised": [
+    "Action Gateway handleProviderWebhook (Base64 HMAC-SHA256 signature verification)",
+    "Action Gateway createSupportEventTokenProvider (RS256 scoped workload JWT)",
+    "SupportV8 POST /api/private/interaction-events (Workload token & header auth)",
+    "SupportV8 validateInteractionEnvelope (Zendesk deep links & envelope constraints)",
+    "SupportV8 PgSupportIntelligenceRepository (PostgreSQL forced RLS)",
+    "SupportV8 InteractionWorker (Temporal issue derivation)"
+  ],
   "latency": {
-    "elapsedMs": 4,
+    "elapsedMs": 22,
     "nearRealTimeThresholdMs": 5000,
     "status": "PASS"
+  },
+  "actionGatewayWebhookDelivery": {
+    "firstDeliveryStatus": 202,
+    "firstDeliveryDuplicate": false,
+    "firstDeliveryExecutionId": "c58029f5-4178-4d1a-9fe3-cf90a79fa1d3",
+    "replayDeliveryStatus": 200,
+    "replayDeliveryDuplicate": true,
+    "idempotencyVerified": true
   },
   "sandboxZendeskInvocation": {
     "provider": "zendesk",
@@ -12,24 +29,22 @@
     "ticketId": 88412,
     "ticketReference": "ZD-88412",
     "sourceDeepLink": "https://acme.zendesk.com/tickets/88412",
-    "auditId": "zd_audit_991823"
+    "auditId": "991823"
   },
   "actionGatewayCorrelation": {
     "connectionId": "conn_acme_zendesk_01",
     "connectorKey": "zendesk",
-    "correlationId": "corr_217bfe6c-a95c-4cd8-bf25-6b93a37991e4",
     "forwardSignatureVerified": true
   },
   "supportv8Ingress": {
-    "eventId": "evt_zd_sb_1792613836625_01",
-    "interactionId": "evt_df0538be85c244bf8f80378f56df9c0f",
-    "replayed": false,
+    "eventId": "evt_zd_sb_1792618678015_01",
+    "interactionId": "evt_zd_sb_1792618678015_01",
     "persistenceTable": "supportv8.interaction_events",
     "rlsEnforced": true
   },
   "temporalDerivation": {
-    "workflowId": "support-interaction:tenant_acme_prod:evt_zd_sb_1792613836625_01",
-    "issueId": "iss_683c1918fb1549f3b243f69a5943da04",
+    "workflowId": "support-interaction:tenant_acme_prod:evt_zd_sb_1792618678015_01",
+    "issueId": "iss_b4141016fc6d4c378a755d26eef46c80",
     "sourceStatus": "open",
     "confidence": 0.85,
     "category": "checkout_failure",

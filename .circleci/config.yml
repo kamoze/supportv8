@@ -2,6 +2,7 @@ version: 2.1
 
 jobs:
   build:
+    resource_class: redoosolutions/servicev8
     docker:
       - image: cimg/node:22.13
         environment:
@@ -36,6 +37,7 @@ jobs:
             docker push "$IMAGE:$TAG"
             docker push "$IMAGE:web-latest"
   update-devops:
+    resource_class: redoosolutions/servicev8
     docker:
       - image: cimg/base:stable
     steps:

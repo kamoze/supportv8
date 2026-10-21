@@ -8,14 +8,16 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const auth = await authorizeMvpRead(req);
-    const series = trendAnomalyService.getTrendSeries(auth.tenantSlug);
-    const anomalies = trendAnomalyService.getAnomalies(auth.tenantSlug);
+    const series = await trendAnomalyService.getTrendSeries(auth.tenantId);
+    const anomalies = await trendAnomalyService.getAnomalies(auth.tenantId);
+    const trends = await trendAnomalyService.getTrends(auth.tenantId);
 
     return NextResponse.json({
       success: true,
       data: {
         series,
         anomalies,
+        trends,
       },
     });
   } catch (err: unknown) {

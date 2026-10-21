@@ -1,10 +1,11 @@
 /**
  * supportV8 Business Impact Engine
- * Basis: EP08 (SV8-070 to SV8-074)
  * Calculates multi-dimensional business effect across revenue exposure, enterprise tiers, and SLAs.
  */
 
-import type { BusinessImpactLevel, Issue, Problem } from "../types";
+import { pgClient, PostgresClient } from "../db/pg-client";
+import type { BusinessImpactLevel, Issue } from "../types";
+import { mapRowToIssue } from "./issue-service";
 
 export interface ImpactCalculation {
   impact: BusinessImpactLevel;
@@ -15,6 +16,12 @@ export interface ImpactCalculation {
 }
 
 export class BusinessImpactEngine {
+  private client: PostgresClient;
+
+  constructor(client: PostgresClient = pgClient) {
+    this.client = client;
+  }
+
   public calculate(linkedIssues: Issue[]): ImpactCalculation {
     if (linkedIssues.length === 0) {
       return {
@@ -32,7 +39,10 @@ export class BusinessImpactEngine {
 
     // Estimate Revenue Exposure ($):
     // Enterprise issue avg exposure: $15,000; Pro: $1,500; Standard: $250
-    const estimatedExposure = enterpriseCount * 15000 + proCount * 1500 + (linkedIssues.length - enterpriseCount - proCount) * 250;
+    const estimatedExposure =
+      enterpriseCount * 15000 +
+      proCount * 1500 +
+      (linkedIssues.length - enterpriseCount - proCount) * 250;
 
     let impact: BusinessImpactLevel = "low";
     let score = 0.2;
@@ -58,6 +68,26 @@ export class BusinessImpactEngine {
       affectedEnterpriseCount: enterpriseCount,
       rationale: `${linkedIssues.length} linked issues (${enterpriseCount} enterprise, ${proCount} pro). Estimated financial exposure: $${estimatedExposure.toLocaleString()}. Impact level: ${impact.toUpperCase()}.`,
     };
+  }
+
+  public async computeTenantImpact(
+    tenantId: string
+  ): Promise<ImpactCalculation> {
+    const canonicalTenantId = tenantId.startsWith("tenant_")
+      ? tenantId
+      : `tenant_${tenantId.replace(/[^a-z0-9_]/g, "_")}`;
+
+    return this.client.withTenantSession(canonicalTenantId, async (session) => {
+      const rows = await session.query<any>(
+        `SELECT * FROM supportv8.issues WHERE tenant_id = $1`,
+        [canonicalTenantId]
+      );
+      if (!rows || rows.length === 0) {
+        return this.calculate([]);
+      }
+      const issues = rows.map(mapRowToIssue);
+      return this.calculate(issues);
+    });
   }
 }
 

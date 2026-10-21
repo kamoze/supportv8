@@ -9,7 +9,7 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const auth = await authorizeMvpRead(req);
-    const insights = insightsService.getAll(auth.tenantSlug);
+    const insights = await insightsService.getAll(auth.tenantId);
     return NextResponse.json({
       success: true,
       count: insights.length,
@@ -32,10 +32,14 @@ export async function POST(req: NextRequest) {
     const { action, insightId, status } = body;
 
     if (action === "execute") {
-      const result = await insightsService.executeInsightAction(insightId);
+      const result = await insightsService.executeInsightAction(
+        insightId,
+        auth.tenantId,
+        auth.userId || "operator"
+      );
       return NextResponse.json(result);
     } else if (action === "update_status") {
-      const insight = insightsService.updateStatus(insightId, status);
+      const insight = await insightsService.updateStatus(insightId, status, auth.tenantId);
       return NextResponse.json({ success: true, data: insight });
     }
 

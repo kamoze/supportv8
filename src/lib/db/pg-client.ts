@@ -38,6 +38,11 @@ export class InvalidTenantContextError extends Error {
 export class PostgresClient {
   private pool?: DatabasePool;
   private readonly connectionString?: string;
+  private static testClientInstance?: PostgresClient;
+
+  public static setTestClient(client?: PostgresClient | null): void {
+    PostgresClient.testClientInstance = client || undefined;
+  }
 
   constructor(connectionString = process.env.DATABASE_URL, pool?: DatabasePool) {
     this.connectionString = connectionString;
@@ -70,6 +75,10 @@ export class PostgresClient {
     tenantId: string,
     callback: (session: DatabaseSession) => Promise<T>
   ): Promise<T> {
+    if (PostgresClient.testClientInstance && PostgresClient.testClientInstance !== this) {
+      return PostgresClient.testClientInstance.withTenantSession(tenantId, callback);
+    }
+
     if (!TENANT_ID_PATTERN.test(tenantId)) {
       throw new InvalidTenantContextError();
     }
@@ -139,6 +148,10 @@ export class PostgresClient {
   public async withSystemSession<T>(
     callback: (session: SystemDatabaseSession) => Promise<T>
   ): Promise<T> {
+    if (PostgresClient.testClientInstance && PostgresClient.testClientInstance !== this) {
+      return PostgresClient.testClientInstance.withSystemSession(callback);
+    }
+
     const client = await this.getPool().connect();
     try {
       await client.query("BEGIN");

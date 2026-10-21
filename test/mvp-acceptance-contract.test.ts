@@ -1,9 +1,11 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { issueService } from "@/lib/services/issue-service";
 import { problemService } from "@/lib/services/problem-service";
 import { db } from "@/lib/db/mock-data";
 import { ChatbotTelemetry } from "@/lib/chatbot/observability/telemetry";
 import { globalActionGateway } from "@/lib/runtime/action-gateway-client";
+import { PostgresClient } from "@/lib/db/pg-client";
+import { MockPostgresClient } from "./fixtures/mock-db-client";
 
 export type MvpReceipt = {
   eventId: string;
@@ -65,7 +67,7 @@ export class CurrentSystemMvpDouble implements MvpVerticalSliceContract {
     occurredAt: string;
   }): Promise<MvpReceipt> {
     const tenantSlug = envelope.tenantId.replace(/^tenant_/, "");
-    const issue = issueService.createFromInteraction({
+    const issue = await issueService.createFromInteraction({
       source: envelope.source,
       externalId: envelope.sourceReference,
       customerRef: envelope.customerReference,
@@ -81,23 +83,25 @@ export class CurrentSystemMvpDouble implements MvpVerticalSliceContract {
   }
 
   async correlateIssues(
-    _tenantId: string,
+    tenantId: string,
     issueIds: string[],
     title: string,
     suspectedCause: string,
   ): Promise<{ problemId: string }> {
-    const problem = problemService.correlateIssues(issueIds, title, suspectedCause);
+    const problem = await problemService.correlateIssues(tenantId, issueIds, title, suspectedCause);
     return { problemId: problem.id };
   }
 
   async getIssue(tenantId: string, issueId: string) {
     const tenantSlug = tenantId.replace(/^tenant_/, "");
-    return issueService.getById(issueId, tenantSlug);
+    const issue = await issueService.getById(issueId, tenantSlug);
+    return issue ?? undefined;
   }
 
   async getProblem(tenantId: string, problemId: string) {
     const tenantSlug = tenantId.replace(/^tenant_/, "");
-    return problemService.getById(problemId, tenantSlug);
+    const problem = await problemService.getById(problemId, tenantSlug);
+    return problem ?? undefined;
   }
 
   async getSources(tenantId: string) {
@@ -139,9 +143,16 @@ export class CurrentSystemMvpDouble implements MvpVerticalSliceContract {
 
 describe("MVP vertical slice acceptance contract", () => {
   let mvp: MvpVerticalSliceContract;
+  let mockClient: MockPostgresClient;
 
   beforeEach(() => {
+    mockClient = new MockPostgresClient();
+    PostgresClient.setTestClient(mockClient);
     mvp = new CurrentSystemMvpDouble();
+  });
+
+  afterEach(() => {
+    PostgresClient.setTestClient(null);
   });
 
   describe("Contract 1: Duplicate provider delivery idempotency", () => {

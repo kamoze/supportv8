@@ -9,7 +9,7 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const auth = await authorizeMvpRead(req);
-    const problems = problemService.getAll(auth.tenantSlug);
+    const problems = await problemService.getAll(auth.tenantId);
     return NextResponse.json({
       success: true,
       count: problems.length,
@@ -32,20 +32,42 @@ export async function POST(req: NextRequest) {
     const { action, problemId, issueId, issueIds, title, suspectedCause, status } = body;
 
     if (action === "correlate") {
-      const problem = problemService.correlateIssues(issueIds, title, suspectedCause);
+      if (!Array.isArray(issueIds) || !title) {
+        return NextResponse.json(
+          { success: false, error: "Missing issueIds or title" },
+          { status: 400 }
+        );
+      }
+      const problem = await problemService.correlateIssues(
+        auth.tenantId,
+        issueIds,
+        title,
+        suspectedCause
+      );
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "link") {
-      const problem = problemService.linkIssue(problemId, issueId);
+      if (!problemId || !issueId) {
+        return NextResponse.json(
+          { success: false, error: "Missing problemId or issueId" },
+          { status: 400 }
+        );
+      }
+      const problem = await problemService.linkIssue(auth.tenantId, problemId, issueId);
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "unlink") {
-      const problem = problemService.unlinkIssue(problemId, issueId);
+      if (!problemId || !issueId) {
+        return NextResponse.json(
+          { success: false, error: "Missing problemId or issueId" },
+          { status: 400 }
+        );
+      }
+      const problem = await problemService.unlinkIssue(auth.tenantId, problemId, issueId);
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "update_status" || (problemId && status)) {
-      const problem = problemService.updateStatus(problemId, status);
+      const problem = await problemService.updateStatus(auth.tenantId, problemId, status);
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "simulate" || action === "seed") {
-      const problems = problemService.seedDemoProblems(auth.tenantSlug);
-      return NextResponse.json({ success: true, data: problems });
+      return NextResponse.json({ success: true, data: [] });
     }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });

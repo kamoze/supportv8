@@ -1,0 +1,36 @@
+{
+  "acceptanceGate": "OBSERVABILITY_TENANT_ISOLATION",
+  "verifiedAt": "2026-10-21T19:44:24.786Z",
+  "tenantA": {
+    "tenantId": "tenant_acme_prod",
+    "tracesCount": 1,
+    "traceIds": [
+      "tr_acme_chat_01"
+    ],
+    "metrics": {
+      "totalTraces": 1,
+      "totalTokens": 600,
+      "totalCostUsd": 0.012,
+      "avgLatencyMs": 145,
+      "guardrailTriggerRate": 0
+    },
+    "containsTenantBData": false
+  },
+  "tenantB": {
+    "tenantId": "tenant_meridian_prod",
+    "tracesCount": 1,
+    "traceIds": [
+      "tr_meridian_chat_01"
+    ],
+    "metrics": {
+      "totalTraces": 1,
+      "totalTokens": 330,
+      "totalCostUsd": 0.006,
+      "avgLatencyMs": 110,
+      "guardrailTriggerRate": 0
+    },
+    "containsTenantAData": false
+  },
+  "piiSanitizationVerified": true,
+  "verdict": "PASS_ZERO_TELEMETRY_LEAKAGE"
+}

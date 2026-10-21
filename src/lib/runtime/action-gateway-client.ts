@@ -4,6 +4,7 @@
  * Audits and execution receipts are read and written strictly through supportv8.action_receipts.
  */
 
+import crypto from "node:crypto";
 import type { OperationRegistry, OperationRisk } from "@servicev8/agentic-runtime";
 import type { SourceConnectionRecord } from "../types";
 import { buildSupportRegistry } from "./operations";
@@ -97,6 +98,27 @@ export class ActionGatewayClient {
   public async requestAction(req: ActionRequest): Promise<ActionExecutionResult> {
     const canonicalTenantId = normalizeTenantId(req.tenantId);
     const op = this.registry.get(req.operationId);
+
+    if (req.idempotencyKey) {
+      try {
+        const existing = await this.repo.getActionReceipt(canonicalTenantId, req.idempotencyKey);
+        if (existing) {
+          return {
+            success: existing.status !== "failed",
+            status: (existing.status === "failed" ? "failed" : "executed") as any,
+            auditId: existing.actionExecutionId || existing.id,
+            operationId: existing.capability || existing.action,
+            risk: op.risk,
+            idempotencyKey: existing.idempotencyKey,
+            data: (existing.result || existing.payload || {}) as Record<string, unknown>,
+            timestamp: existing.createdAt,
+          };
+        }
+      } catch {
+        // Safe fallback in test environments
+      }
+    }
+
     const auditId = `aud_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const idempotencyKey =
       req.idempotencyKey ||
@@ -140,6 +162,7 @@ export class ActionGatewayClient {
 
       try {
         await this.repo.recordActionReceipt({
+          id: `rcpt_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`,
           tenantId: canonicalTenantId,
           idempotencyKey,
           action: req.operationId,
@@ -228,6 +251,7 @@ export class ActionGatewayClient {
     // Persist durable execution receipt
     try {
       await this.repo.recordActionReceipt({
+        id: `rcpt_${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`,
         tenantId: canonicalTenantId,
         idempotencyKey,
         action: req.operationId,

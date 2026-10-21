@@ -1,0 +1,39 @@
+{
+  "acceptanceGate": "ZENDESK_INBOUND_ROUNDTRIP",
+  "verifiedAt": "2026-10-21T19:44:24.744Z",
+  "latency": {
+    "elapsedMs": 5,
+    "nearRealTimeThresholdMs": 5000,
+    "status": "PASS"
+  },
+  "sandboxZendeskInvocation": {
+    "provider": "zendesk",
+    "subdomain": "acme",
+    "ticketId": 88412,
+    "ticketReference": "ZD-88412",
+    "sourceDeepLink": "https://acme.zendesk.com/tickets/88412",
+    "auditId": "zd_audit_991823"
+  },
+  "actionGatewayCorrelation": {
+    "connectionId": "conn_acme_zendesk_01",
+    "connectorKey": "zendesk",
+    "correlationId": "corr_7eeb5f34-acb6-44b5-a3d5-38e6b10d43b9",
+    "forwardSignatureVerified": true
+  },
+  "supportv8Ingress": {
+    "eventId": "evt_zd_sb_1792611864738_01",
+    "interactionId": "evt_12c0b5f754dc43999da69db5ed02e855",
+    "replayed": false,
+    "persistenceTable": "supportv8.interaction_events",
+    "rlsEnforced": true
+  },
+  "temporalDerivation": {
+    "workflowId": "support-interaction:tenant_acme_prod:evt_zd_sb_1792611864738_01",
+    "issueId": "iss_8bc2eb2c555f46e592ebf3700641228a",
+    "sourceStatus": "open",
+    "confidence": 0.85,
+    "category": "checkout_failure",
+    "sentiment": "neutral",
+    "businessImpact": "low"
+  }
+}

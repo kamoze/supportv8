@@ -1,0 +1,29 @@
+{
+  "acceptanceGate": "RETENTION_POLICY_PURGE_SEPARATION",
+  "verifiedAt": "2026-10-21T19:44:24.785Z",
+  "purgeReport": {
+    "purgedEventsCount": 1,
+    "purgedTenants": [
+      "tenant_acme_prod"
+    ]
+  },
+  "beforePurge": {
+    "expiredInteractionContainsPii": true,
+    "expiresAt": "in past (< NOW())"
+  },
+  "afterPurge": {
+    "textValue": "[REDACTED_PURGED]",
+    "rawPayloadValue": {},
+    "textRedactedSuccessfully": true,
+    "rawPayloadRedactedSuccessfully": true,
+    "durableIssuePreserved": {
+      "id": "iss_8bc2eb2c555f46e592ebf3700641228a",
+      "sourceReference": "ZD-88412",
+      "summary": "Checkout failure: credit card processing returns ERR_DECLINED during final purchase confirmation step",
+      "confidence": 0.85,
+      "sentiment": "neutral",
+      "stillExists": true
+    }
+  },
+  "verdict": "PASS_ZERO_INTELLIGENCE_LOSS"
+}

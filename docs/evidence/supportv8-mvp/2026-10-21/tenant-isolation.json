@@ -1,0 +1,31 @@
+{
+  "acceptanceGate": "TWO_TENANT_ISOLATION",
+  "verifiedAt": "2026-10-21T19:44:24.751Z",
+  "roleSecurity": {
+    "applicationRole": "support_app_ad3a72a4",
+    "rolbypassrls": false,
+    "forcedRlsActive": true
+  },
+  "tenantA": {
+    "tenantId": "tenant_acme_prod",
+    "connectedSourcesCount": 1,
+    "sourceId": "src_conn_acme_zd",
+    "issuesCount": 1,
+    "issueId": "iss_8bc2eb2c555f46e592ebf3700641228a"
+  },
+  "tenantB": {
+    "tenantId": "tenant_meridian_prod",
+    "sourcesCount": 0,
+    "issuesCount": 0,
+    "problemsCount": 0,
+    "trendsCount": 0,
+    "actionReceiptsCount": 0,
+    "zeroStateTruthful": true
+  },
+  "crossTenantViolationAttacks": {
+    "tenantBReadsTenantAIssue": "BLOCKED_NULL",
+    "tenantBWritesTenantAIssue": "BLOCKED_NOT_FOUND",
+    "directProviderCallAttempted": false
+  },
+  "verdict": "PASS_STRICT_ISOLATION"
+}

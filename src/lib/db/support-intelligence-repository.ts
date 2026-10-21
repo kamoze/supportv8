@@ -489,6 +489,44 @@ export class PgSupportIntelligenceRepository implements SupportIntelligenceRepos
   }
 
   /**
+   * Retrieves an Action Gateway receipt by tenant and execution ID.
+   */
+  async getActionReceiptByExecutionId(
+    tenantId: string,
+    actionExecutionId: string
+  ): Promise<ActionReceiptRecord | null> {
+    return this.client.withTenantSession(tenantId, async (session) => {
+      const rows = await session.query<any>(
+        `SELECT * FROM supportv8.action_receipts
+         WHERE tenant_id = $1 AND action_execution_id = $2`,
+        [tenantId, actionExecutionId]
+      );
+      if (!rows || rows.length === 0) return null;
+      return mapRowToActionReceipt(rows[0]);
+    });
+  }
+
+  /**
+   * Lists action receipts for a tenant, ordered by creation time descending.
+   */
+  async listActionReceipts(
+    tenantId: string,
+    limit = 50
+  ): Promise<ActionReceiptRecord[]> {
+    return this.client.withTenantSession(tenantId, async (session) => {
+      const rows = await session.query<any>(
+        `SELECT * FROM supportv8.action_receipts
+         WHERE tenant_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [tenantId, limit]
+      );
+      if (!rows || rows.length === 0) return [];
+      return rows.map(mapRowToActionReceipt);
+    });
+  }
+
+  /**
    * Retrieves interaction by tenant and eventId.
    */
   async getInteraction(
@@ -508,3 +546,4 @@ export class PgSupportIntelligenceRepository implements SupportIntelligenceRepos
 }
 
 export const supportIntelligenceRepository = new PgSupportIntelligenceRepository();
+export const pgSupportIntelligenceRepository = supportIntelligenceRepository;

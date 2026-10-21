@@ -114,7 +114,7 @@ export class CurrentSystemMvpDouble implements MvpVerticalSliceContract {
   }
 
   async getActionReceipt(tenantId: string, actionExecutionId: string) {
-    const audits = globalActionGateway.getAuditHistory(tenantId);
+    const audits = await globalActionGateway.getAuditHistory(tenantId);
     const match = audits.find((a) => a.auditId === actionExecutionId);
     if (!match) return undefined;
     return {
@@ -132,11 +132,19 @@ export class CurrentSystemMvpDouble implements MvpVerticalSliceContract {
     internalNote?: string;
     resolutionSummary?: string;
   }): Promise<MvpReceipt> {
-    // Current system lacks governed writeback recording to action_receipts
+    const executionId = `ag_exec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const idempotencyKey = `supportv8:${params.tenantId}:${params.issueId}:${params.action}:${Date.now()}`;
+    await globalActionGateway.requestAction({
+      tenantId: params.tenantId,
+      actor: { id: "human_a", type: "human", name: "Operator A" },
+      operationId: params.action === "close" ? "ticket.close" : "ticket.update_priority",
+      idempotencyKey,
+      input: { ticketId: params.issueId, status: params.status },
+    });
     return {
       eventId: "ephemeral",
       issueId: params.issueId,
-      actionExecutionId: undefined,
+      actionExecutionId: executionId,
     };
   }
 }

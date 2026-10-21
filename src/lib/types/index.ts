@@ -625,4 +625,70 @@ export interface CustomerCreateInput {
 
 export type CustomerUpdateInput = Partial<CustomerCreateInput>;
 
+// ---------------------------------------------------------------------------
+// MVP Intelligence & Action Gateway Contracts
+// ---------------------------------------------------------------------------
+
+export interface SourceConnectionRecord {
+  id: string;
+  tenantId: string;
+  accountId: string;
+  provider: "zendesk";
+  connectionId: string;
+  connectorKey: string;
+  externalAccountId: string;
+  baseUrl: string;
+  status: "connected" | "degraded" | "disabled";
+  lastEventAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NormalizedInteractionInput {
+  eventId: string;
+  tenantId: string;
+  accountId: string;
+  connectionId: string;
+  connectorKey: string;
+  source: "zendesk";
+  sourceReference: string;
+  customerReference: string;
+  sourceUrl: string;
+  text: string;
+  sender: "customer" | "agent" | "system";
+  occurredAt: string;
+  receivedAt: string;
+  correlationId: string;
+  raw: Record<string, unknown>;
+}
+
+export interface TenantPolicyRecord {
+  tenantId: string;
+  rawContextRetentionHours: number;
+  mode: "observe" | "copilot" | "autonomous";
+  updatedAt: string;
+}
+
+export interface ActionReceiptRecord {
+  id: string;
+  tenantId: string;
+  idempotencyKey: string;
+  action: string;
+  capability?: string;
+  issueId?: string;
+  actionExecutionId?: string;
+  status: string;
+  actor?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SupportIntelligenceRepository {
+  recordInteraction(input: NormalizedInteractionInput): Promise<{ replayed: boolean; interactionId: string }>;
+  claimInteractions(limit: number, workerId: string): Promise<NormalizedInteractionInput[]>;
+  completeInteraction(tenantId: string, eventId: string, issueId: string): Promise<void>;
+  failInteraction(tenantId: string, eventId: string, errorCode: string, retryAt: string): Promise<void>;
+}
+
 

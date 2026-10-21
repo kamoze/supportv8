@@ -82,6 +82,8 @@ export async function deriveIssueFromInteractionActivity(
        ON CONFLICT (tenant_id, source, external_id) DO UPDATE SET
          source_url = EXCLUDED.source_url,
          summary = CASE WHEN supportv8.issues.summary = '' THEN EXCLUDED.summary ELSE supportv8.issues.summary END,
+         timeline = supportv8.issues.timeline || EXCLUDED.timeline,
+         messages = supportv8.issues.messages || EXCLUDED.messages,
          updated_at = NOW()
        RETURNING id`,
       [

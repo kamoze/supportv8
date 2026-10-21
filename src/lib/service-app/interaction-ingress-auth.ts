@@ -34,6 +34,17 @@ export function setInteractionIngressAuthKeyForTesting(
   testKeyOverride = key;
 }
 
+const jwksCache = new Map<string, JWTVerifyGetKey>();
+
+function getOrCreateRemoteJWKSet(url: string): JWTVerifyGetKey {
+  let jwks = jwksCache.get(url);
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(url), { timeoutDuration: 3000 });
+    jwksCache.set(url, jwks);
+  }
+  return jwks;
+}
+
 /**
  * Resolves the verification key or JWKS set based on options, test override, or environment variables.
  */
@@ -73,7 +84,7 @@ async function resolveVerificationKey(
     (issuer ? `${issuer.replace(/\/$/, "")}/protocol/openid-connect/certs` : undefined);
 
   if (jwksUrl) {
-    return createRemoteJWKSet(new URL(jwksUrl), { timeoutDuration: 3000 });
+    return getOrCreateRemoteJWKSet(jwksUrl);
   }
 
   throw new Error("No JWKS URL, public key, or verification key configured for interaction ingress auth");

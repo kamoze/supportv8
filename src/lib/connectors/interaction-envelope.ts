@@ -184,6 +184,22 @@ export function validateInteractionEnvelope(body: unknown): ValidateInteractionE
     receivedAt = new Date().toISOString();
   }
 
+  if (record.connectorKey !== undefined && typeof record.connectorKey !== "string") {
+    return {
+      valid: false,
+      error: "connectorKey must be a string if supplied",
+      status: 400,
+    };
+  }
+
+  if (record.correlationId !== undefined && typeof record.correlationId !== "string") {
+    return {
+      valid: false,
+      error: "correlationId must be a string if supplied",
+      status: 400,
+    };
+  }
+
   const connectorKey =
     typeof record.connectorKey === "string" && record.connectorKey.trim()
       ? record.connectorKey.trim()

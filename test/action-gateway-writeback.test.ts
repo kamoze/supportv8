@@ -142,6 +142,45 @@ describe("Action Gateway HTTP Client & Governed Write-back", () => {
         })
       ).rejects.toThrow(/tenant mismatch/i);
     });
+
+    it("reads ACTION_GATEWAY_API_TOKEN from environment when token is not passed in constructor options", async () => {
+      vi.stubEnv("ACTION_GATEWAY_API_TOKEN", "api-token-from-gitops");
+      const client = new ActionGatewayHttpClient({
+        baseUrl: "http://gateway.test",
+      });
+
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            id: "exec_123",
+            status: "completed",
+            tenantId: TENANT_ID,
+          }),
+          { status: 200 }
+        )
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      await client.execute({
+        accountId: "acc_1",
+        tenantId: TENANT_ID,
+        capability: "support.ticket.update",
+        connectorKey: "zendesk",
+        idempotencyKey: "idem_token_env",
+        actor: { id: "user_1", type: "human", name: "User" },
+        policyDecision: { id: "pol_1", mode: "copilot", decision: "allow" },
+        payload: { ticketId: "123" },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://gateway.test/v1/actions/execute",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            authorization: "Bearer api-token-from-gitops",
+          }),
+        })
+      );
+    });
   });
 
   describe("POST /api/issues/[id]/source-action Route", () => {

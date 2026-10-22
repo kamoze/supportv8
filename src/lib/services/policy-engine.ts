@@ -41,6 +41,26 @@ export interface PolicySimulationResult {
   explanation: string;
 }
 
+let hasRulesColumnChecked: boolean | null = null;
+
+async function checkRulesColumn(client: PostgresClient): Promise<boolean> {
+  if (hasRulesColumnChecked !== null) return hasRulesColumnChecked;
+  try {
+    const rows = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'supportv8'
+           AND table_name = 'tenant_policies'
+           AND column_name = 'rules'
+       ) as exists`
+    );
+    hasRulesColumnChecked = Boolean(rows[0]?.exists);
+    return hasRulesColumnChecked;
+  } catch {
+    return false;
+  }
+}
+
 export class PolicyEngine {
   private client: PostgresClient;
   private tenantRules: Map<string, PolicyRule[]> = new Map();
@@ -51,22 +71,19 @@ export class PolicyEngine {
 
   public async getPolicy(tenantParam?: string): Promise<SupportPolicy> {
     const tenantId = normalizeTenantId(tenantParam);
+    const hasRules = await checkRulesColumn(this.client);
 
     return this.client.withTenantSession(tenantId, async (session) => {
+      const selectCols = hasRules
+        ? "tenant_id, raw_context_retention_hours, mode, rules, updated_at"
+        : "tenant_id, raw_context_retention_hours, mode, updated_at";
+
       const rows = await session.query<any>(
-        `SELECT tenant_id, raw_context_retention_hours, mode, rules, updated_at
+        `SELECT ${selectCols}
          FROM supportv8.tenant_policies
          WHERE tenant_id = $1`,
         [tenantId]
-      ).catch(async () => {
-        // Fallback for pre-migration-012 environments without rules column
-        return await session.query<any>(
-          `SELECT tenant_id, raw_context_retention_hours, mode, updated_at
-           FROM supportv8.tenant_policies
-           WHERE tenant_id = $1`,
-          [tenantId]
-        );
-      });
+      );
 
       const dbRow = rows[0];
       if (dbRow?.rules && Array.isArray(dbRow.rules) && dbRow.rules.length > 0) {

@@ -46,7 +46,10 @@ export class ActionGatewayHttpClient {
       process.env.ACTION_GATEWAY_URL ||
       "http://localhost:3000"
     ).replace(/\/$/, "");
-    this.token = options?.token || process.env.ACTION_GATEWAY_WORKLOAD_TOKEN;
+    this.token =
+      options?.token ||
+      process.env.ACTION_GATEWAY_API_TOKEN ||
+      process.env.ACTION_GATEWAY_WORKLOAD_TOKEN;
   }
 
   public async execute(

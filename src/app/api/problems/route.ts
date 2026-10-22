@@ -67,6 +67,12 @@ export async function POST(req: NextRequest) {
       const problem = await problemService.updateStatus(auth.tenantId, problemId, status);
       return NextResponse.json({ success: true, data: problem });
     } else if (action === "simulate" || action === "seed") {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { success: false, error: "Simulation and seeding endpoints are disabled in production" },
+          { status: 403 }
+        );
+      }
       const problems = problemService.seedDemoProblems(auth.tenantSlug);
       return NextResponse.json({ success: true, data: problems });
     }

@@ -45,10 +45,14 @@ describe("MVP Intelligence Projections & PostgreSQL RLS Integration", () => {
         `CREATE ROLE ${appRole} WITH LOGIN PASSWORD '${appPassword}' NOSUPERUSER NOBYPASSRLS`
       );
 
-      // Read and execute migration 011_mvp_intelligence.sql
+      // Read and execute migration 011_mvp_intelligence.sql and 012_retention_maintenance.sql
       const migrationPath = resolve(__dirname, "../migrations/011_mvp_intelligence.sql");
       const migrationSql = await readFile(migrationPath, "utf8");
       await dbAdminPool.query(migrationSql);
+
+      const migration12Path = resolve(__dirname, "../migrations/012_retention_maintenance.sql");
+      const migration12Sql = await readFile(migration12Path, "utf8");
+      await dbAdminPool.query(migration12Sql);
 
       // Seed tenants for foreign key references
       await dbAdminPool.query(

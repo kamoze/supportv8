@@ -1,6 +1,6 @@
 {
   "acceptanceGate": "OBSERVABILITY_TENANT_ISOLATION",
-  "verifiedAt": "2026-10-21T21:37:58.070Z",
+  "verifiedAt": "2026-10-22T00:29:35.177Z",
   "tenantA": {
     "tenantId": "tenant_acme_prod",
     "tracesCount": 1,

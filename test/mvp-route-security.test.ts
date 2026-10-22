@@ -215,7 +215,7 @@ describe("MVP route security contracts", () => {
 
     it("executes POST /api/problems strictly in authenticated tenant_acme scope despite forged params", async () => {
       vi.mocked(verifySupportAccessToken).mockResolvedValue(acmeClaims);
-      const seedSpy = vi.spyOn(problemService, "seedDemoProblems");
+      const linkSpy = vi.spyOn(problemService, "linkIssue").mockResolvedValue({} as any);
 
       const req = new NextRequest("https://acme.support.servicev8.com/api/problems?tenant=meridian", {
         method: "POST",
@@ -225,14 +225,32 @@ describe("MVP route security contracts", () => {
           "x-tenant-slug": "meridian",
           "x-tenant-id": "tenant_meridian",
         },
-        body: JSON.stringify({ action: "simulate" }),
+        body: JSON.stringify({ action: "link", problemId: "prb_1", issueId: "iss_1" }),
       });
 
       await postProblems(req);
 
-      expect(seedSpy).toHaveBeenCalledWith(expect.stringMatching(/acme/));
-      expect(seedSpy).not.toHaveBeenCalledWith("meridian");
-      expect(seedSpy).not.toHaveBeenCalledWith("tenant_meridian");
+      expect(linkSpy).toHaveBeenCalledWith("tenant_acme", "prb_1", "iss_1");
+      expect(linkSpy).not.toHaveBeenCalledWith("tenant_meridian", expect.anything(), expect.anything());
+      expect(linkSpy).not.toHaveBeenCalledWith("meridian", expect.anything(), expect.anything());
+    });
+
+    it("rejects simulation and seeding actions with 403 in production", async () => {
+      vi.mocked(verifySupportAccessToken).mockResolvedValue(acmeClaims);
+
+      const req = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+        method: "POST",
+        headers: {
+          host: "acme.support.servicev8.com",
+          authorization: "Bearer valid-acme-token",
+        },
+        body: JSON.stringify({ action: "simulate" }),
+      });
+
+      const res = await postProblems(req);
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toMatch(/disabled in production/i);
     });
 
     it("executes GET /api/trends strictly in authenticated tenant_acme scope despite forged params", async () => {

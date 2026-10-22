@@ -138,7 +138,12 @@ export async function authenticateInteractionIngress(
     "https://auth.servicev8.com/realms/servicev8";
 
   const audience = options?.audience ?? process.env.SERVICEV8_AUTH_AUDIENCE ?? "supportv8";
-  const allowedClientIds = options?.allowedClientIds ?? ["action-gateway-support", "action-gateway"];
+  const envClientIds = process.env.SUPPORTV8_MANAGED_WORKLOAD_CLIENT_IDS
+    ? process.env.SUPPORTV8_MANAGED_WORKLOAD_CLIENT_IDS.split(",").map((s) => s.trim())
+    : [];
+  const allowedClientIds = options?.allowedClientIds ?? [
+    ...new Set(["action-gateway-support", "action-gateway", ...envClientIds]),
+  ];
   const algorithms = options?.algorithms ?? ["RS256", "HS256"];
 
   let payload: any;
@@ -148,7 +153,7 @@ export async function authenticateInteractionIngress(
       issuer,
       audience,
       algorithms,
-      requiredClaims: ["sub", "azp", "iat", "exp", "jti"],
+      requiredClaims: ["sub", "iat", "exp", "jti"],
       maxTokenAge: "2m",
       clockTolerance: 0,
     });
@@ -187,35 +192,28 @@ export async function authenticateInteractionIngress(
     };
   }
 
-  // Validate azp (Authorized Party)
-  if (typeof payload.azp !== "string" || !allowedClientIds.includes(payload.azp)) {
+  // Validate azp or client_id (Authorized Party)
+  const clientIdClaim = payload.azp || payload.client_id;
+  if (typeof clientIdClaim !== "string" || !allowedClientIds.includes(clientIdClaim)) {
     return {
       success: false,
       status: 403,
-      error: `Forbidden authorized party (azp): expected ${allowedClientIds.join(", ")}, got ${payload.azp}`,
+      error: `Forbidden authorized party (azp): expected ${allowedClientIds.join(", ")}, got ${clientIdClaim}`,
     };
   }
 
-  // Validate exact scope
-  if (payload.scope !== expectedScope) {
+  // Validate scope (supports exact match or space-separated list per OAuth2 RFC)
+  const tokenScopes =
+    typeof payload.scope === "string"
+      ? payload.scope.split(/\s+/)
+      : Array.isArray(payload.scope)
+      ? payload.scope
+      : [];
+  if (!tokenScopes.includes(expectedScope) && payload.scope !== expectedScope) {
     return {
       success: false,
       status: 403,
       error: `Forbidden scope: expected '${expectedScope}', got '${payload.scope}'`,
-    };
-  }
-
-  // Validate account_id and tenant_id claims
-  let accountId: string;
-  let tenantId: string;
-  try {
-    accountId = identifier(payload.account_id);
-    tenantId = identifier(payload.tenant_id);
-  } catch {
-    return {
-      success: false,
-      status: 401,
-      error: "Missing or invalid account_id or tenant_id claims in token",
     };
   }
 
@@ -235,23 +233,54 @@ export async function authenticateInteractionIngress(
     };
   }
 
-  if (headerAccountId !== accountId || headerTenantId !== tenantId) {
+  let accountId: string;
+  let tenantId: string;
+  try {
+    accountId = identifier(headerAccountId);
+    tenantId = identifier(headerTenantId);
+  } catch {
     return {
       success: false,
       status: 403,
-      error: "Forbidden: tenant or account header mismatch with token claims",
+      error: "Forbidden: invalid x-servicev8-account-id or x-servicev8-tenant-id header format",
     };
+  }
+
+  // If token explicitly specifies account_id / tenant_id claims, enforce strict match with headers
+  if (payload.account_id !== undefined || payload.tenant_id !== undefined) {
+    let tokenAccountId: string;
+    let tokenTenantId: string;
+    try {
+      tokenAccountId = identifier(payload.account_id);
+      tokenTenantId = identifier(payload.tenant_id);
+    } catch {
+      return {
+        success: false,
+        status: 401,
+        error: "Missing or invalid account_id or tenant_id claims in token",
+      };
+    }
+
+    if (headerAccountId !== tokenAccountId || headerTenantId !== tokenTenantId) {
+      return {
+        success: false,
+        status: 403,
+        error: "Forbidden: tenant or account header mismatch with token claims",
+      };
+    }
+    accountId = tokenAccountId;
+    tenantId = tokenTenantId;
   }
 
   return {
     success: true,
     actor: {
-      clientId: payload.azp,
+      clientId: clientIdClaim,
       accountId,
       tenantId,
       jti: payload.jti,
       sub: payload.sub,
-      scope: payload.scope,
+      scope: typeof payload.scope === "string" ? payload.scope : expectedScope,
       correlationId: typeof payload.correlation_id === "string" ? payload.correlation_id : payload.jti,
     },
   };

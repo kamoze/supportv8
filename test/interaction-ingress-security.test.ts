@@ -102,6 +102,38 @@ describe("Interaction Ingress Security & Envelope Validation", () => {
       }
     });
 
+    it("accepts Keycloak client_credentials token without tenant claims when headers provide valid context", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      const jwt = new SignJWT({
+        sub: "service-account-action-gateway-support",
+        azp: validAzp,
+        scope: "openid supportv8:interactions:ingest email",
+        jti: `jti_${crypto.randomUUID().replace(/-/g, "")}`,
+      })
+        .setProtectedHeader({ alg: "RS256" })
+        .setIssuer(validIssuer)
+        .setAudience(validAudience)
+        .setIssuedAt(now)
+        .setExpirationTime(now + 60);
+
+      const token = await jwt.sign(keyPair.privateKey);
+      const request = new Request("https://supportv8.internal/api/private/interaction-events", {
+        headers: {
+          authorization: `Bearer ${token}`,
+          "x-servicev8-account-id": "acc_keycloak_123",
+          "x-servicev8-tenant-id": "tenant_keycloak_456",
+        },
+      });
+
+      const result = await authenticateInteractionIngress(request);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.actor.clientId).toBe(validAzp);
+        expect(result.actor.accountId).toBe("acc_keycloak_123");
+        expect(result.actor.tenantId).toBe("tenant_keycloak_456");
+      }
+    });
+
     it("rejects request missing Authorization header with 401", async () => {
       const request = new Request("https://supportv8.internal/api/private/interaction-events", {
         headers: {

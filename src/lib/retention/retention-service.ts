@@ -30,18 +30,19 @@ export class RetentionService {
    */
   public async purgeExpiredRawContext(asOf: Date = new Date()): Promise<PurgeResult> {
     const tenants = await this.client.withSystemSession(async (session) => {
-      try {
+      const check = await session.query<{ fn: string | null }>(
+        `SELECT to_regprocedure('supportv8.list_active_tenants()') AS fn`
+      );
+      if (check[0]?.fn) {
         const rows = await session.query<{ id: string }>(
           `SELECT id FROM supportv8.list_active_tenants()`
         );
         return rows.map((r) => r.id);
-      } catch {
-        // Fallback for pre-migration-012 environments
-        const rows = await session.query<{ id: string }>(
-          `SELECT id FROM supportv8.tenants ORDER BY id`
-        );
-        return rows.map((r) => r.id);
       }
+      const rows = await session.query<{ id: string }>(
+        `SELECT id FROM supportv8.tenants ORDER BY id`
+      );
+      return rows.map((r) => r.id);
     });
 
     let totalPurged = 0;

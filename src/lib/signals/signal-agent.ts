@@ -269,6 +269,7 @@ export async function emitSupportTicketCreatedSignal(
   params: {
     tenantId: string;
     accountId?: string;
+    id?: string;
     ticket: {
       id: string;
       ticketRef?: string;
@@ -284,6 +285,7 @@ export async function emitSupportTicketCreatedSignal(
 ): Promise<SignalEmitResult> {
   return safeEmitSignal(
     {
+      id: params.id || `evt_supportv8_ticket_created_${params.ticket.id}`,
       tenantId: params.tenantId,
       accountId: params.accountId,
       eventType: SUPPORT_SIGNAL_TYPES.TICKET_CREATED,
@@ -308,6 +310,7 @@ export async function emitSupportTicketEscalatedSignal(
   params: {
     tenantId: string;
     accountId?: string;
+    id?: string;
     ticketId: string;
     ticketRef?: string;
     customerName?: string;
@@ -318,6 +321,7 @@ export async function emitSupportTicketEscalatedSignal(
 ): Promise<SignalEmitResult> {
   return safeEmitSignal(
     {
+      id: params.id || `evt_supportv8_ticket_escalated_${params.ticketId}`,
       tenantId: params.tenantId,
       accountId: params.accountId,
       eventType: SUPPORT_SIGNAL_TYPES.TICKET_ESCALATED,
@@ -340,6 +344,7 @@ export async function emitSupportTicketResolvedSignal(
   params: {
     tenantId: string;
     accountId?: string;
+    id?: string;
     ticketId: string;
     ticketRef?: string;
     resolutionSummary?: string;
@@ -349,6 +354,7 @@ export async function emitSupportTicketResolvedSignal(
 ): Promise<SignalEmitResult> {
   return safeEmitSignal(
     {
+      id: params.id || `evt_supportv8_ticket_resolved_${params.ticketId}`,
       tenantId: params.tenantId,
       accountId: params.accountId,
       eventType: SUPPORT_SIGNAL_TYPES.TICKET_RESOLVED,

@@ -492,4 +492,63 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
     expect(thirdAttempt.status).toBe(200);
     expect(signalAttempts).toBe(2);
   });
+
+  it("executes support.ticket.escalate for Collections escalation payloads and records operation_id", async () => {
+    const { client, issues, audits } = createFakeClient();
+    const token = mintTestDelegatedToken({
+      secret: SECRET,
+      targetApp: "supportv8",
+      capability: "support.ticket.escalate",
+      accountId: ACCOUNT_ID,
+      tenantId: TENANT_ID,
+      idempotencyKey: "esc_case_201",
+      actorId: "servicev8-collections",
+    });
+
+    const resp = await executeSupportDomainAction(
+      new Request("http://supportv8:3005/v1/domain-actions/execute", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-servicev8-delegated-token": token,
+          "x-source-app": "collectionsv8",
+          "x-idempotency-key": "esc_case_201",
+          "x-tenant-id": TENANT_ID,
+        },
+        body: JSON.stringify({
+          capability: "support.ticket.escalate",
+          idempotencyKey: "esc_case_201",
+          payload: {
+            caseId: "case_201",
+            disputeId: "disp_201",
+            escalationId: "esc_case_201",
+            reason: "Customer disputed invoice balance",
+            details: "Credit memo CM-402 was not applied",
+            severity: "urgent",
+            installationId: INSTALLATION_ID,
+          },
+        }),
+      }),
+      {
+        client,
+        env: { SERVICEV8_TOKEN_SECRET: SECRET },
+        emitSignal: async () => ({ ok: true, receiptId: "rcpt_esc_1" }),
+      },
+    );
+
+    expect(resp.status).toBe(200);
+    const body = (await resp.json()) as Record<string, unknown>;
+    expect(body.ok).toBe(true);
+    expect(String(body.id)).toMatch(/^iss_cmd_[a-f0-9]{24}$/);
+    expect(String(body.ticketRef)).toMatch(/^SV8-TKT-[A-F0-9]{12}$/);
+    expect(body.customerName).toBe("Case case_201");
+    expect(body.summary).toBe(
+      "Collections escalation (Customer disputed invoice balance) for case case_201",
+    );
+    expect(body.priority).toBe("urgent");
+    expect(body.openedAt).toBe(body.createdAt);
+    expect(issues.size).toBe(1);
+    expect(audits.length).toBe(1);
+    expect((audits[0]?.params as unknown[])?.[3]).toBe("support.ticket.escalate");
+  });
 });

@@ -7,7 +7,7 @@
  * and resolution outcomes to the tenant's Operational Learning Graph (OLG).
  */
 
-import { getAgenticRuntimeBaseUrl, getAgenticRuntimeToken } from "@/lib/chat/agenticos-chat-client";
+import { getAgenticRuntimeBaseUrl, getAgenticRuntimeToken } from "../chat/agenticos-chat-client";
 
 export const SUPPORT_SIGNAL_TYPES = {
   TICKET_CREATED: "com.servicev8.business.support.ticket-created.v1",

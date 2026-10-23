@@ -21,10 +21,11 @@ export interface ActionGatewayExecuteInput {
     type: "human" | "ai_employee";
     name: string;
   };
-  policyDecision: {
+  policyDecision?: {
     id: string;
-    mode: "observe" | "copilot" | "autonomous";
-    decision: "allow";
+    mode: "observe" | "copilot" | "autonomous" | "advisory" | "strict";
+    decision: "allow" | "deny" | "approval_required";
+    evaluatedAt?: string;
   };
   payload: Record<string, unknown>;
 }
@@ -164,6 +165,24 @@ export class ActionGatewayHttpClient {
       headers["authorization"] = `Bearer ${token}`;
     }
 
+    const gatewayMode =
+      input.policyDecision?.mode === "copilot" || input.policyDecision?.mode === "observe"
+        ? "advisory"
+        : input.policyDecision?.mode === "autonomous"
+        ? "strict"
+        : input.policyDecision?.mode || "advisory";
+
+    const normalizedPolicyDecision = input.policyDecision
+      ? {
+          id: input.policyDecision.id,
+          mode: gatewayMode,
+          decision: input.policyDecision.decision || "allow",
+          evaluatedAt:
+            input.policyDecision.evaluatedAt ||
+            new Date().toISOString(),
+        }
+      : undefined;
+
     const requestBody = {
       accountId: input.accountId,
       tenantId: input.tenantId,
@@ -172,7 +191,7 @@ export class ActionGatewayHttpClient {
       connectorKey: input.connectorKey || "zendesk",
       idempotencyKey: input.idempotencyKey,
       actor: input.actor,
-      policyDecision: input.policyDecision,
+      policyDecision: normalizedPolicyDecision,
       payload: input.payload,
     };
 

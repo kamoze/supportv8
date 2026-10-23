@@ -346,7 +346,23 @@ describe("Tenant Subdomain Routing & Workspace Discovery Standard (TR01-TR08)", 
     // 2. Host validation rules
     expect(isTrustedServiceV8Hostname("support.servicev8.com")).toBe(true);
     expect(isTrustedServiceV8Hostname("acme-corp.support.servicev8.com")).toBe(true);
+    expect(isTrustedServiceV8Hostname("supportv8.default.svc.cluster.local")).toBe(true);
+    expect(isTrustedServiceV8Hostname("supportv8.default.svc.cluster.local:3005")).toBe(true);
+    expect(isTrustedServiceV8Hostname("supportv8")).toBe(true);
     expect(isTrustedServiceV8Hostname("evil.com")).toBe(false);
     expect(isTrustedServiceV8Hostname("care.servicev8.com")).toBe(false);
+
+    // 3. Cluster internal private route bypasses browser tenant checks
+    const reqPrivate = new NextRequest("http://supportv8.default.svc.cluster.local:3005/api/private/interaction-events", {
+      method: "POST",
+      headers: {
+        host: "supportv8.default.svc.cluster.local:3005",
+        "x-tenant-id": "tenant_alpha",
+        "x-account-id": "acct_alpha",
+      },
+    });
+    const resPrivate = middleware(reqPrivate);
+    expect(resPrivate.status).toBe(200);
+    expect(resPrivate.headers.get("x-middleware-rewrite")).toBeNull();
   });
 });

@@ -192,8 +192,24 @@ export {
   InteractionWorker,
 } from "./interaction-workflow";
 
+import { retentionService, type PurgeResult } from "../retention/retention-service";
+
+export interface RetentionPurgeWorkflowResult extends PurgeResult {
+  timestamp: string;
+}
+
+export async function purgeExpiredRawContextActivity(
+  asOfIso?: string
+): Promise<RetentionPurgeWorkflowResult> {
+  const asOf = asOfIso ? new Date(asOfIso) : new Date();
+  const result = await retentionService.purgeExpiredRawContext(asOf);
+  return {
+    ...result,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 export {
-  purgeExpiredRawContextActivity,
   runRetentionPurgeWorkflow,
 } from "./retention-workflow";
 

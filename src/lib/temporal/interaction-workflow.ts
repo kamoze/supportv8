@@ -67,21 +67,28 @@ export async function deriveIssueFromInteractionActivity(
     (interaction.raw?.requesterName as string) ||
     interaction.customerReference;
 
+  const category = (interaction.raw?.category as string) || "support";
+  const product = (interaction.raw?.product as string) || "SupportV8";
+  const version = (interaction.raw?.version as string) || "1.0";
+
   // 3. Upsert durable issue under forced tenant RLS session
   const derivedIssueId = await client.withTenantSession(tenantId, async (session) => {
     const rows = await session.query<{ id: string }>(
       `INSERT INTO supportv8.issues (
          id, tenant_id, source, external_id, source_url, customer_ref,
-         customer_name, summary, source_status, timeline, messages,
+         customer_name, summary, category, product, version,
+         source_status, timeline, messages,
          created_at, updated_at
        ) VALUES (
          $1, $2, $3, $4, $5, $6,
-         $7, $8, 'open', $9, $10,
+         $7, $8, $9, $10, $11,
+         'open', $12, $13,
          NOW(), NOW()
        )
        ON CONFLICT (tenant_id, source, external_id) DO UPDATE SET
          source_url = EXCLUDED.source_url,
          summary = CASE WHEN supportv8.issues.summary = '' THEN EXCLUDED.summary ELSE supportv8.issues.summary END,
+         category = CASE WHEN EXCLUDED.category <> '' THEN EXCLUDED.category ELSE supportv8.issues.category END,
          timeline = supportv8.issues.timeline || EXCLUDED.timeline,
          messages = supportv8.issues.messages || EXCLUDED.messages,
          updated_at = NOW()
@@ -95,6 +102,9 @@ export async function deriveIssueFromInteractionActivity(
         interaction.customerReference,
         customerName,
         summary,
+        category,
+        product,
+        version,
         JSON.stringify([
           {
             type: "interaction_received",

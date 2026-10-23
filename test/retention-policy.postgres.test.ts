@@ -8,8 +8,12 @@ import { RetentionService } from "../src/lib/retention/retention-service";
 import { contextEngine } from "../src/lib/services/context-engine";
 import { problemService } from "../src/lib/services/problem-service";
 
-describe("Enforceable Context Retention & Separation PostgreSQL Integration", () => {
+const enabled = process.env.SUPPORTV8_REAL_POSTGRES === "1";
+
+describe.skipIf(!enabled)("Enforceable Context Retention & Separation PostgreSQL Integration", () => {
   const adminBaseUrl =
+    process.env.SUPPORTV8_TEST_DATABASE_URL ||
+    process.env.SUPPORTV8_WORKSPACE_TEST_DATABASE_URL ||
     process.env.DATABASE_URL ||
     `postgresql://${process.env.USER || "postgres"}@127.0.0.1:5432/postgres`;
 

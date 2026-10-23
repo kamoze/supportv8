@@ -12,12 +12,12 @@ export async function GET(request: Request) {
     const sessionId = searchParams.get("sessionId") || undefined;
     const correlationId = searchParams.get("correlationId") || undefined;
 
-    const traces = ChatbotTelemetry.getTraces({
+    const traces = await ChatbotTelemetry.getTracesAsync({
       tenantId: auth.tenantId,
       sessionId,
       correlationId,
     });
-    const metrics = ChatbotTelemetry.getMetricsSummary(auth.tenantId);
+    const metrics = await ChatbotTelemetry.getMetricsSummaryAsync(auth.tenantId);
 
     // Sanitize output traces to ensure zero raw interaction or credential leakage
     const safeTraces = traces.slice(0, 50).map((t) => ({

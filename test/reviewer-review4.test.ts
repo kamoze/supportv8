@@ -21,6 +21,7 @@ afterEach(()=>{vi.restoreAllMocks();delete process.env.DATABASE_URL;delete proce
 
 import {randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
+import {resolve} from 'node:path';
 it('SP01 ordinary opaque acquisition key cannot manufacture ownerless installation',()=>{
  const r=handleAppAcquisition({tenantSlug:'tenant-a',accountId:'acct-a'} as any,{offerId:'servicev8.service-app.supportv8',clientAcquisitionId:randomUUID()});console.log('SP01',r);expect(r.success).toBe(false);
 });
@@ -37,5 +38,5 @@ it('SP05 concurrent duplicate sends execute the model once',async()=>{
  const spy=vi.spyOn(ragIngestion,'queryRag').mockImplementation(async()=>{await new Promise(r=>setTimeout(r,25));return {answer:'synthetic owner response',citations:[]} as any});const body={query:'Synthetic question',employeeId:'emp_rag_intelligence',clientTurnId:randomUUID(),threadId:randomUUID(),isPrivate:true};const rs=await Promise.all([chat(req('/api/chat',body)),chat(req('/api/chat',body))]);console.log('SP05',{statuses:rs.map(x=>x.status),modelCalls:spy.mock.calls.length});expect(spy).toHaveBeenCalledTimes(1);
 });
 it('SP06 completed turn survives a fresh process',async()=>{
- vi.spyOn(ragIngestion,'queryRag').mockResolvedValue({answer:'synthetic durable result',citations:[]} as any);const threadId=randomUUID();const r=await chat(req('/api/chat',{query:'Synthetic question',employeeId:'emp_rag_intelligence',clientTurnId:randomUUID(),threadId,isPrivate:true}));expect(r.status).toBe(200);const child=spawnSync('/Users/inigodwin/.bun/bin/bun',['--no-env-file','-e',`import {getThreadTurnHistory} from './src/lib/platform/conversation.ts';console.log(JSON.stringify({pid:process.pid,result:getThreadTurnHistory({tenantSlug:'tenant-a',callerSubject:'review-owner-a',threadId:${JSON.stringify(threadId)}})}));`],{cwd:process.cwd(),env:{PATH:process.env.PATH!,NODE_ENV:'test'},encoding:'utf8'});console.log('SP06',child.status,child.stdout,child.stderr);expect(child.status).toBe(0);expect(JSON.parse(child.stdout).result.allowed).toBe(true);
+ vi.spyOn(ragIngestion,'queryRag').mockResolvedValue({answer:'synthetic durable result',citations:[]} as any);const threadId=randomUUID();const r=await chat(req('/api/chat',{query:'Synthetic question',employeeId:'emp_rag_intelligence',clientTurnId:randomUUID(),threadId,isPrivate:true}));expect(r.status).toBe(200);const tsxCli=resolve(process.cwd(),'node_modules/tsx/dist/cli.mjs');const child=spawnSync(process.execPath,[tsxCli,'-e',`import {getThreadTurnHistory} from './src/lib/platform/conversation.ts';console.log(JSON.stringify({pid:process.pid,result:getThreadTurnHistory({tenantSlug:'tenant-a',callerSubject:'review-owner-a',threadId:${JSON.stringify(threadId)}})}));`],{cwd:process.cwd(),env:{PATH:process.env.PATH!,NODE_ENV:'test'},encoding:'utf8'});console.log('SP06',child.status,child.stdout,child.stderr);expect(child.status).toBe(0);expect(JSON.parse(child.stdout).result.allowed).toBe(true);
 });

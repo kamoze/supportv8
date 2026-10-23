@@ -38,14 +38,14 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json({ success: true, message: "Policy settings updated", data: updated });
     } else if (action === "add_rule") {
-      const newRule = policyEngine.addRule(auth.tenantId, rule);
+      const newRule = await policyEngine.addRule(auth.tenantId, rule);
       return NextResponse.json({ success: true, message: `Rule '${newRule.name}' created`, data: newRule });
     } else if (action === "update_rule") {
-      const updatedRule = policyEngine.updateRule(auth.tenantId, ruleId, ruleUpdates);
+      const updatedRule = await policyEngine.updateRule(auth.tenantId, ruleId, ruleUpdates);
       return NextResponse.json({ success: true, message: `Rule '${updatedRule.name}' updated`, data: updatedRule });
     } else if (action === "delete_rule") {
-      const deleted = policyEngine.deleteRule(auth.tenantId, ruleId);
-      return NextResponse.json({ success: true, message: "Rule deleted", data: { deleted } });
+      const deleted = await policyEngine.deleteRule(auth.tenantId, ruleId);
+      return NextResponse.json({ success: true, message: "Rule deleted", data: { deleted: Boolean(deleted) } });
     } else if (action === "apply_preset") {
       const updatedPolicy = await policyEngine.applyPresetProfile(
         auth.tenantId,

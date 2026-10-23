@@ -46,16 +46,18 @@ let hasRulesColumnChecked: boolean | null = null;
 async function checkRulesColumn(client: PostgresClient): Promise<boolean> {
   if (hasRulesColumnChecked !== null) return hasRulesColumnChecked;
   try {
-    const rows = await client.query<{ exists: boolean }>(
-      `SELECT EXISTS (
-         SELECT 1 FROM information_schema.columns
-         WHERE table_schema = 'supportv8'
-           AND table_name = 'tenant_policies'
-           AND column_name = 'rules'
-       ) as exists`
-    );
-    hasRulesColumnChecked = Boolean(rows[0]?.exists);
-    return hasRulesColumnChecked;
+    return await client.withSystemSession(async (session) => {
+      const rows = await session.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema = 'supportv8'
+             AND table_name = 'tenant_policies'
+             AND column_name = 'rules'
+         ) as exists`
+      );
+      hasRulesColumnChecked = Boolean(rows[0]?.exists);
+      return hasRulesColumnChecked;
+    });
   } catch {
     return false;
   }
@@ -254,7 +256,7 @@ export class PolicyEngine {
   public addRule(
     tenantOrRule: string | Omit<PolicyRule, "id" | "matchCount">,
     maybeRule?: Omit<PolicyRule, "id" | "matchCount">
-  ): PolicyRule {
+  ): PolicyRule & PromiseLike<PolicyRule> {
     const tenantId = typeof tenantOrRule === "string" ? normalizeTenantId(tenantOrRule) : "tenant_default";
     const rule = typeof tenantOrRule === "string" ? maybeRule! : tenantOrRule;
     const current = this.tenantRules.get(tenantId) || [];
@@ -266,20 +268,29 @@ export class PolicyEngine {
     };
     current.unshift(newRule);
     this.tenantRules.set(tenantId, current);
-    this.persistTenantRules(tenantId, current);
-    return newRule;
+    const promise = (async () => {
+      try {
+        await this.persistTenantRules(tenantId, current);
+      } catch (err) {
+        current.shift();
+        this.tenantRules.set(tenantId, current);
+        throw err;
+      }
+      return newRule;
+    })();
+    return Object.assign(promise, newRule);
   }
 
-  private persistTenantRules(tenantId: string, rules: PolicyRule[]): void {
+  private async persistTenantRules(tenantId: string, rules: PolicyRule[]): Promise<void> {
     if (!PostgresClient.hasActiveClient()) return;
-    this.client.withTenantSession(tenantId, async (session) => {
+    await this.client.withTenantSession(tenantId, async (session) => {
       await session.query(
         `UPDATE supportv8.tenant_policies
          SET rules = $1::jsonb, updated_at = NOW()
          WHERE tenant_id = $2`,
         [JSON.stringify(rules), tenantId]
       );
-    }).catch(() => {});
+    });
   }
 
   public getRules(tenantParam = "tenant_default"): PolicyRule[] {
@@ -291,23 +302,37 @@ export class PolicyEngine {
     tenantParam: string,
     id: string,
     updates: Partial<PolicyRule>
-  ): PolicyRule {
+  ): PolicyRule & PromiseLike<PolicyRule> {
     const tenantId = normalizeTenantId(tenantParam);
     const current = this.tenantRules.get(tenantId) || [];
     const idx = current.findIndex((r) => r.id === id);
     if (idx === -1) throw new Error(`Rule ${id} not found`);
+    const original = { ...current[idx] };
     current[idx] = { ...current[idx], ...updates };
-    this.persistTenantRules(tenantId, current);
-    return current[idx];
+    const promise = (async () => {
+      try {
+        await this.persistTenantRules(tenantId, current);
+      } catch (err) {
+        current[idx] = original;
+        throw err;
+      }
+      return current[idx];
+    })();
+    return Object.assign(promise, current[idx]);
   }
 
-  public deleteRule(tenantParam: string, id: string): boolean {
+  public async deleteRule(tenantParam: string, id: string): Promise<boolean> {
     const tenantId = normalizeTenantId(tenantParam);
     const current = this.tenantRules.get(tenantId) || [];
     const before = current.length;
     const filtered = current.filter((r) => r.id !== id);
     this.tenantRules.set(tenantId, filtered);
-    this.persistTenantRules(tenantId, filtered);
+    try {
+      await this.persistTenantRules(tenantId, filtered);
+    } catch (err) {
+      this.tenantRules.set(tenantId, current);
+      throw err;
+    }
     return filtered.length < before;
   }
 

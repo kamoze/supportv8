@@ -12,8 +12,12 @@ import { GET as getOverview } from "@/app/api/overview/route";
 import { GET as getIssues } from "@/app/api/issues/route";
 import { GET as getProblems } from "@/app/api/problems/route";
 
-describe("MVP Intelligence Projections & PostgreSQL RLS Integration", () => {
+const enabled = process.env.SUPPORTV8_REAL_POSTGRES === "1";
+
+describe.skipIf(!enabled)("MVP Intelligence Projections & PostgreSQL RLS Integration", () => {
   const adminBaseUrl =
+    process.env.SUPPORTV8_TEST_DATABASE_URL ||
+    process.env.SUPPORTV8_WORKSPACE_TEST_DATABASE_URL ||
     process.env.DATABASE_URL ||
     `postgresql://${process.env.USER || "postgres"}@127.0.0.1:5432/postgres`;
 

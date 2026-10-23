@@ -1,9 +1,13 @@
 # SupportV8 MVP Acceptance Gate Report (2026-10-21)
 
-**Integration Readiness:** `CODE_AND_PIPELINE_COMPLETE`
+**Integration Readiness:** `INTEGRATION_VERIFIED_PENDING_DEPLOYMENT_AND_LIVE_UAT`
 **Production Deployment Status:** `PENDING_CLUSTER_ROLLOUT`
+**UAT Execution Status:** `INTERNAL_PIPELINE_VERIFIED__LIVE_PROVIDER_UAT_REQUIRED`
 **Execution Timestamp:** 2026-10-22T00:29:35.177Z
 **PostgreSQL Disposable Target:** `support_mvp_acceptance_766463e3` (Role: `support_app_766463e3`, `rolbypassrls = false`)
+
+> [!NOTE]
+> This acceptance report validates the cross-service handler pipeline, cryptographic contracts, and RLS data plane in-process against real PostgreSQL. Live SaaS UAT sign-off additionally requires cluster rollout, Keycloak bootstrap, and two-tenant end-to-end webhook round-trips against a live Zendesk sandbox.
 
 ---
 

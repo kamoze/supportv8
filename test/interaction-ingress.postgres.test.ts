@@ -10,8 +10,12 @@ import { setInteractionRepositoryForTesting } from "@/lib/connectors/interaction
 import { setInteractionIngressAuthKeyForTesting } from "@/lib/service-app/interaction-ingress-auth";
 import { InteractionWorker } from "@/lib/temporal/interaction-workflow";
 
-describe("POST /api/private/interaction-events PostgreSQL RLS & Lifecycle Integration", () => {
+const enabled = process.env.SUPPORTV8_REAL_POSTGRES === "1";
+
+describe.skipIf(!enabled)("POST /api/private/interaction-events PostgreSQL RLS & Lifecycle Integration", () => {
   const adminBaseUrl =
+    process.env.SUPPORTV8_TEST_DATABASE_URL ||
+    process.env.SUPPORTV8_WORKSPACE_TEST_DATABASE_URL ||
     process.env.DATABASE_URL ||
     `postgresql://${process.env.USER || "postgres"}@127.0.0.1:5432/postgres`;
 

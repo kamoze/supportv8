@@ -4,6 +4,10 @@ const TRUSTED_ROOT_HOSTS = new Set([
   "support.servicev8.internal",
   "localhost",
   "127.0.0.1",
+  "supportv8",
+  "supportv8.default",
+  "supportv8.default.svc",
+  "supportv8.default.svc.cluster.local",
 ]);
 export const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 export const RESERVED_SLUGS = new Set([

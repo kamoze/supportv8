@@ -82,6 +82,13 @@ function tokenHasDemoOperatorRole(token: string | undefined): boolean {
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
+
+  // Machine-to-machine private API endpoints and health checks bypass browser tenant middleware.
+  // Private endpoints enforce their own workload JWT auth, tenant matching, and RLS.
+  if (url.pathname === "/api/health" || url.pathname.startsWith("/api/private/")) {
+    return NextResponse.next();
+  }
+
   const rawHostHeader = request.headers.get("host") || "";
   const rawForwardedHost = request.headers.get("x-forwarded-host");
   const hostWithoutPort = rawHostHeader.trim().toLowerCase().replace(/:\d+$/, "");

@@ -1,3 +1,8 @@
+/**
+ * @deprecated Deprecated for UAT. Use real service persistence and UAT CLI scripts
+ * (scripts/uat/seed-tasksv8-link.ts and scripts/uat/query-tasksv8-receipt.ts)
+ * instead of mock sink processes.
+ */
 import http from 'node:http';
 import { POST } from '../src/app/api/internal/tasksv8/outcomes/route.js';
 import { getTasksv8Store } from '../src/lib/tasksv8/store.js';

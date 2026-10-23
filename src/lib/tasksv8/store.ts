@@ -759,11 +759,19 @@ let activeStore: Tasksv8Store | undefined;
 
 export function getTasksv8Store(): Tasksv8Store {
   if (!activeStore) {
-    activeStore = new MemoryTasksv8Store();
+    if (process.env.DATABASE_URL || process.env.SUPPORTV8_DATABASE_URL) {
+      activeStore = new PostgresTasksv8Store();
+    } else {
+      activeStore = new MemoryTasksv8Store();
+    }
   }
   return activeStore;
 }
 
 export function setTasksv8Store(store: Tasksv8Store): void {
   activeStore = store;
+}
+
+export function resetTasksv8Store(): void {
+  activeStore = undefined;
 }

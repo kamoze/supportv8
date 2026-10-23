@@ -33,22 +33,87 @@ export interface ScenarioRun {
   configId: string;
   pinnedRevision: number;
   pinnedParticipants: ScenarioParticipant[];
-  status: "running" | "completed" | "failed" | "stopped";
+  status: "running" | "completed" | "failed" | "stopped" | "unavailable";
   idempotencyKey?: string;
   startedAt: string;
   completedAt?: string;
   failureReason?: string;
+  dispatcherId?: string;
+  assignedConnectors?: string[];
+}
+
+export interface AcquiredScenarioRecord {
+  scenarioId: string;
+  tenantSlug: string;
+  status: "active" | "suspended" | "revoked";
+  acquiredAt: string;
+  dispatcherId?: string;
+  assignedConnectors?: string[];
 }
 
 // Durable in-memory store simulating owner persistence
 const scenarioConfigs = new Map<string, ScenarioConfig>();
 const scenarioRuns = new Map<string, ScenarioRun>();
 const runsByIdempotencyKey = new Map<string, ScenarioRun>();
+const acquiredScenariosByTenant = new Map<string, Map<string, AcquiredScenarioRecord>>();
+
+export function getAcquiredScenarioForTenant(
+  tenantSlug: string,
+  scenarioId: string
+): AcquiredScenarioRecord | undefined {
+  const cleanTenant = tenantSlug.toLowerCase();
+  const tenantMap = acquiredScenariosByTenant.get(cleanTenant);
+  return tenantMap?.get(scenarioId);
+}
+
+export function getScenarioRunByIdempotencyKey(
+  tenantSlug: string,
+  idempotencyKey: string
+): ScenarioRun | undefined {
+  const scopedKey = `${tenantSlug.toLowerCase()}:${idempotencyKey}`;
+  const run = runsByIdempotencyKey.get(scopedKey);
+  return run ? JSON.parse(JSON.stringify(run)) : undefined;
+}
+
+export function isScenarioAcquiredForTenant(tenantSlug: string, scenarioId: string): boolean {
+  const cleanTenant = tenantSlug.toLowerCase();
+  const tenantMap = acquiredScenariosByTenant.get(cleanTenant);
+  if (!tenantMap) return false;
+  const record = tenantMap.get(scenarioId);
+  if (!record) return false;
+  if (record.status !== "active") return false;
+  if (!record.dispatcherId || record.dispatcherId.trim() === "") return false;
+  if (!Array.isArray(record.assignedConnectors) || record.assignedConnectors.length === 0) return false;
+  return true;
+}
+
+export function acquireScenarioForTenant(
+  tenantSlug: string,
+  scenarioId: string,
+  details?: Partial<AcquiredScenarioRecord>
+): AcquiredScenarioRecord {
+  const cleanTenant = tenantSlug.toLowerCase();
+  if (!acquiredScenariosByTenant.has(cleanTenant)) {
+    acquiredScenariosByTenant.set(cleanTenant, new Map());
+  }
+  const record: AcquiredScenarioRecord = {
+    scenarioId,
+    tenantSlug: cleanTenant,
+    status: "active",
+    acquiredAt: new Date().toISOString(),
+    dispatcherId: details?.dispatcherId || `wf_disp_${Date.now()}`,
+    assignedConnectors: details?.assignedConnectors || ["conn_default"],
+    ...details,
+  };
+  acquiredScenariosByTenant.get(cleanTenant)!.set(scenarioId, record);
+  return record;
+}
 
 export function clearScenarioStoreForTesting(): void {
   scenarioConfigs.clear();
   scenarioRuns.clear();
   runsByIdempotencyKey.clear();
+  acquiredScenariosByTenant.clear();
 }
 
 export function saveScenarioConfig(input: {
@@ -136,24 +201,40 @@ export function listScenarioConfigs(
   return results;
 }
 
+export const CANONICAL_WORKFORCE_AGENT_IDS = new Set([
+  "emp_support_lead",
+  "emp_incident_analyst",
+  "emp_kb_refresh",
+  "emp_compliance_officer",
+  "emp_voice_coordinator",
+  "emp_rag_intelligence",
+  "emp_intern_triage",
+  "emp_tier2_finance",
+  "emp_voice_specialist",
+  "emp_1",
+  "emp_2",
+  "emp_3",
+]);
+
+// Canonical acquired scenarios for SupportV8
+export const CANONICAL_ACQUIRED_SCENARIO_IDS = new Set([
+  "sc_support_triage",
+  "sc_support_escalation",
+  "sc_support_sweep",
+  "support-triage",
+  "stale-sweep",
+]);
+
 export function startScenarioRun(options: {
   tenantSlug: string;
   configId: string;
   activeHires: string[];
   idempotencyKey?: string;
+  requireAcquisition?: boolean;
+  executionStatus?: "running" | "unavailable" | "failed";
+  failureReason?: string;
 }): { success: boolean; status: number; run?: ScenarioRun; error?: string } {
-  const { tenantSlug, configId, activeHires, idempotencyKey } = options;
-
-  // Idempotency check scoped to tenant
-  const scopedKey = idempotencyKey ? `${tenantSlug}:${idempotencyKey}` : null;
-  if (scopedKey && runsByIdempotencyKey.has(scopedKey)) {
-    const existing = runsByIdempotencyKey.get(scopedKey)!;
-    return {
-      success: true,
-      status: 200,
-      run: JSON.parse(JSON.stringify(existing)),
-    };
-  }
+  const { tenantSlug, configId, activeHires, idempotencyKey, requireAcquisition, executionStatus, failureReason } = options;
 
   // Config ownership check
   const config = getScenarioConfig(tenantSlug, configId);
@@ -162,6 +243,44 @@ export function startScenarioRun(options: {
       success: false,
       status: 403,
       error: "Access denied to requested scenario config.",
+    };
+  }
+
+  // Participants check: scenario must have at least one participant
+  if (!config.participants || config.participants.length === 0) {
+    return {
+      success: false,
+      status: 403,
+      error: "Scenario must have at least one participant.",
+    };
+  }
+
+  // Acquired scenario check: unacquired or synthetic scenarios cannot run without owner workflow dispatch
+  if (requireAcquisition) {
+    if (!isScenarioAcquiredForTenant(tenantSlug, config.scenarioId)) {
+      return {
+        success: false,
+        status: 403,
+        error: "Scenario is not acquired for tenant or lacks workflow dispatch authority.",
+      };
+    }
+  } else if (!CANONICAL_ACQUIRED_SCENARIO_IDS.has(config.scenarioId) && !isScenarioAcquiredForTenant(tenantSlug, config.scenarioId)) {
+    return {
+      success: false,
+      status: 403,
+      error: "Unacquired scenario cannot run without owner workflow dispatch.",
+    };
+  }
+
+  // Authorized exact workforce resource check
+  const unauthorizedParticipants = config.participants.filter(
+    (p) => !CANONICAL_WORKFORCE_AGENT_IDS.has(p.employeeId)
+  );
+  if (unauthorizedParticipants.length > 0) {
+    return {
+      success: false,
+      status: 403,
+      error: `Participants not verified or authorized workforce agents for scenario: ${unauthorizedParticipants.map((m) => m.employeeId).join(", ")}`,
     };
   }
 
@@ -177,6 +296,26 @@ export function startScenarioRun(options: {
     };
   }
 
+  // Idempotency check scoped to tenant with conflict validation
+  const scopedKey = idempotencyKey ? `${tenantSlug.toLowerCase()}:${idempotencyKey}` : null;
+  if (scopedKey && runsByIdempotencyKey.has(scopedKey)) {
+    const existing = runsByIdempotencyKey.get(scopedKey)!;
+    if (existing.configId !== configId) {
+      return {
+        success: false,
+        status: 409,
+        error: "Conflicting configId for idempotency key replay.",
+      };
+    }
+    return {
+      success: true,
+      status: 200,
+      run: JSON.parse(JSON.stringify(existing)),
+    };
+  }
+
+  const acquiredRecord = getAcquiredScenarioForTenant(tenantSlug, config.scenarioId);
+
   // Create immutable run with pinned revision and pinned participants
   const run: ScenarioRun = {
     runId: `run_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -185,9 +324,12 @@ export function startScenarioRun(options: {
     configId,
     pinnedRevision: config.revision,
     pinnedParticipants: JSON.parse(JSON.stringify(config.participants)),
-    status: "running",
+    status: executionStatus || "running",
+    failureReason: failureReason || undefined,
     idempotencyKey,
     startedAt: new Date().toISOString(),
+    dispatcherId: acquiredRecord?.dispatcherId,
+    assignedConnectors: acquiredRecord?.assignedConnectors ? [...acquiredRecord.assignedConnectors] : undefined,
   };
 
   scenarioRuns.set(run.runId, run);

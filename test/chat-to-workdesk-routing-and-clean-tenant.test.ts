@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { db } from "../src/lib/db/mock-data";
 import { ChatWorkflowService } from "../src/lib/services/chat-workflow-service";
 import { issueService } from "../src/lib/services/issue-service";
@@ -12,16 +12,26 @@ import { trendAnomalyService } from "../src/lib/services/trend-anomaly-service";
 import { assignmentForTenant } from "../src/lib/db/chat-repository";
 import { voiceService } from "../src/lib/voice/voice-service";
 import { policyEngine } from "../src/lib/services/policy-engine";
+import { PostgresClient } from "../src/lib/db/pg-client";
+import { MockPostgresClient } from "./fixtures/mock-db-client";
 
 describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () => {
   const testTenant = "qa-lexi-planthouse";
+  let mockClient: MockPostgresClient;
 
   beforeEach(() => {
+    mockClient = new MockPostgresClient();
+    PostgresClient.setTestClient(mockClient);
+
     db.setTenant(testTenant, {
       name: "Lexi's Planthouse",
       adminName: "Alexis Akpabio",
       mode: "copilot",
     });
+  });
+
+  afterEach(() => {
+    PostgresClient.setTestClient(null);
   });
 
   it("1. should strictly return a clean workspace (0 demo tickets) for new tenant", () => {
@@ -43,7 +53,7 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(overview.aiWorkforce).toEqual([]);
   });
 
-  it("2. should return clean zero-state metrics across CX and monitoring services for new tenant", () => {
+  it("2. should return clean zero-state metrics across CX and monitoring services for new tenant", async () => {
     const queue = queueLoadBalancer.getQueueMetrics(testTenant);
     expect(queue.totalActiveConversations).toBe(0);
     expect(queue.overallCapacityPercentage).toBe(0);
@@ -95,15 +105,15 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     const stale = staleWorkSweeper.getCandidates(testTenant);
     expect(stale.length).toBe(0);
 
-    const trends = trendAnomalyService.getTrendSeries(testTenant);
+    const trends = await trendAnomalyService.getTrendSeries(testTenant);
     expect(trends.length).toBe(0);
 
     expect(voiceService.getPhoneConfigs(`tenant_${testTenant}`)).toEqual([]);
     expect(voiceService.getSessions(`tenant_${testTenant}`)).toEqual([]);
-    expect(policyEngine.getPolicy(testTenant).rules).toEqual([]);
+    expect((await policyEngine.getPolicy(testTenant)).rules).toEqual([]);
   });
 
-  it("3. should route inbound chat intake directly to the Work Desk issue queue in real-time", () => {
+  it("3. should route inbound chat intake directly to the Work Desk issue queue in real-time", async () => {
     // Customer submits chat intake on Lexi's Planthouse
     const session = ChatWorkflowService.startSession({
       tenantDomain: testTenant,
@@ -125,7 +135,7 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(session.messages.length).toBeGreaterThanOrEqual(2);
 
     // Verify issue now exists in the tenant's Work Desk issues list
-    const tenantIssues = issueService.getAll({ tenant: testTenant });
+    const tenantIssues = await issueService.getAll({ tenant: testTenant });
     expect(tenantIssues.length).toBe(1);
 
     const createdIssue = tenantIssues[0];
@@ -136,14 +146,14 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(createdIssue.externalId).toMatch(/^SV8-CHAT-\d+/);
   });
 
-  it("4. treats the unresolved default workspace as empty and routes chat to an online operator", () => {
+  it("4. treats the unresolved default workspace as empty and routes chat to an online operator", async () => {
     const defaultTenant = db.getTenantData("default");
     expect(defaultTenant.isClean).toBe(true);
     expect(defaultTenant.issues).toEqual([]);
     expect(defaultTenant.problems).toEqual([]);
     expect(defaultTenant.sources).toEqual([]);
     expect(db.getOverviewMetrics("default").recentActivity).toEqual([]);
-    expect(policyEngine.getPolicy("default").rules).toEqual([]);
+    expect((await policyEngine.getPolicy("default")).rules).toEqual([]);
 
     const assignment = assignmentForTenant("default", "customers");
     expect(assignment.type).toBe("human");
@@ -151,7 +161,7 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(assignment.name).toBe("Available online operator");
   });
 
-  it("5. should dynamically transfer chat ticket to workspace supervisor when human is requested", () => {
+  it("5. should dynamically transfer chat ticket to workspace supervisor when human is requested", async () => {
     const session = ChatWorkflowService.startSession({
       tenantDomain: testTenant,
       stream: "customers",
@@ -177,7 +187,7 @@ describe("SupportV8 Clean Tenant Isolation & Live Chat-to-Workdesk Routing", () 
     expect(sendResult.session.assignedName).toContain("Alexis Akpabio");
 
     // Verify issue in Work Desk is updated to urgent with supervisor assignment
-    const tenantIssues = issueService.getAll({ tenant: testTenant });
+    const tenantIssues = await issueService.getAll({ tenant: testTenant });
     const escalatedIssue = tenantIssues.find((i) => i.customerName === "George Miller");
     expect(escalatedIssue).toBeDefined();
     expect(escalatedIssue?.priority).toBe("urgent");

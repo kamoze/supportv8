@@ -1,0 +1,54 @@
+{
+  "acceptanceGate": "ZENDESK_INBOUND_ROUNDTRIP",
+  "verifiedAt": "2026-10-22T00:29:35.145Z",
+  "pipelineType": "CROSS_SERVICE_UNMOCKED",
+  "componentsExercised": [
+    "Action Gateway handleProviderWebhook (Base64 HMAC-SHA256 signature verification)",
+    "Action Gateway createSupportEventTokenProvider (RS256 scoped workload JWT)",
+    "SupportV8 POST /api/private/interaction-events (Workload token & header auth)",
+    "SupportV8 validateInteractionEnvelope (Zendesk deep links & envelope constraints)",
+    "SupportV8 PgSupportIntelligenceRepository (PostgreSQL forced RLS)",
+    "SupportV8 InteractionWorker (Temporal issue derivation)"
+  ],
+  "latency": {
+    "elapsedMs": 19,
+    "nearRealTimeThresholdMs": 5000,
+    "status": "PASS"
+  },
+  "actionGatewayWebhookDelivery": {
+    "firstDeliveryStatus": 202,
+    "firstDeliveryDuplicate": false,
+    "firstDeliveryExecutionId": "ed34f00a-4ed6-48cb-a76e-e04ac59e10e3",
+    "replayDeliveryStatus": 200,
+    "replayDeliveryDuplicate": true,
+    "idempotencyVerified": true
+  },
+  "sandboxZendeskInvocation": {
+    "provider": "zendesk",
+    "subdomain": "acme",
+    "ticketId": 88412,
+    "ticketReference": "ZD-88412",
+    "sourceDeepLink": "https://acme.zendesk.com/tickets/88412",
+    "auditId": "991823"
+  },
+  "actionGatewayCorrelation": {
+    "connectionId": "conn_acme_zendesk_01",
+    "connectorKey": "zendesk",
+    "forwardSignatureVerified": true
+  },
+  "supportv8Ingress": {
+    "eventId": "evt_zd_sb_1792628975124_01",
+    "interactionId": "evt_zd_sb_1792628975124_01",
+    "persistenceTable": "supportv8.interaction_events",
+    "rlsEnforced": true
+  },
+  "temporalDerivation": {
+    "workflowId": "support-interaction:tenant_acme_prod:evt_zd_sb_1792628975124_01",
+    "issueId": "iss_c2476eb4e6474db68da8fa90a1939b32",
+    "sourceStatus": "open",
+    "confidence": 0.85,
+    "category": "checkout_failure",
+    "sentiment": "neutral",
+    "businessImpact": "low"
+  }
+}

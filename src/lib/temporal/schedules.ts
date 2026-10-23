@@ -38,6 +38,22 @@ export const SUPPORT_SCHEDULED_EVENTS: ScheduledEventConfig[] = [
     defaultWorkflowId: "support-daily-rag-sync-run",
     args: [{ tenantId: "tenant_default", stream: "customers" }],
   },
+  {
+    scheduleId: "supportv8-retention-purge",
+    workflowType: "runRetentionPurgeWorkflow",
+    spec: { intervals: [{ every: "1 hour" }] },
+    description: "Periodic hourly purge of expired raw interaction context across tenant policies.",
+    defaultWorkflowId: "support-retention-purge-run",
+    args: [],
+  },
+  {
+    scheduleId: "supportv8-outbox-relay",
+    workflowType: "drainPendingInteractionsWorkflow",
+    spec: { intervals: [{ every: "1 minute" }] },
+    description: "Periodic 1-minute sweep draining pending or retryable raw interactions into issues.",
+    defaultWorkflowId: "support-outbox-relay-run",
+    args: [50],
+  },
 ];
 
 export async function ensureTemporalSchedules(

@@ -49,6 +49,41 @@ export function GlobalLandingView({
   onOpenSignup,
 }: GlobalLandingViewProps) {
 
+  const [workspaceSlug, setWorkspaceSlug] = React.useState("");
+  const [isLookingUp, setIsLookingUp] = React.useState(false);
+  const [lookupError, setLookupError] = React.useState("");
+
+  const handleWorkspaceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = workspaceSlug.trim().toLowerCase();
+    if (!clean) return;
+    setIsLookingUp(true);
+    setLookupError("");
+    try {
+      const res = await fetch("/api/workspace/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace: clean }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
+      if (res.status === 404) {
+        setLookupError("Workspace not found");
+      } else if (res.status === 503) {
+        setLookupError("Temporarily unavailable");
+      } else {
+        setLookupError(data.message || data.error || "Invalid workspace address.");
+      }
+    } catch {
+      setLookupError("Temporarily unavailable");
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
   const handleLaunchDemo = (slug: string) => {
     if (onOpenDemoGate) {
       onOpenDemoGate(slug);
@@ -84,6 +119,35 @@ export function GlobalLandingView({
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Workspace Discovery Form */}
+          <form onSubmit={handleWorkspaceSubmit} className="flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)]">
+            <label htmlFor="panel-login-workspace" className="text-xs font-mono text-[#8E9AA8] px-1.5">
+              Workspace
+            </label>
+            <input
+              id="panel-login-workspace"
+              name="workspace"
+              type="text"
+              autoComplete="organization"
+              value={workspaceSlug}
+              onChange={(e) => setWorkspaceSlug(e.target.value)}
+              placeholder="e.g. acme"
+              className="bg-[#18222E] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[#EAF1F8] font-mono outline-none focus:border-[#2ED8B6] w-24 sm:w-28"
+            />
+            <button
+              type="submit"
+              disabled={isLookingUp || !workspaceSlug.trim()}
+              className="px-2 py-1 rounded-lg text-xs font-mono font-medium text-[#2ED8B6] hover:bg-[#18222E] cursor-pointer disabled:opacity-50"
+            >
+              {isLookingUp ? "..." : "Go to workspace"}
+            </button>
+            {lookupError && (
+              <span role="alert" className="text-xs text-rose-400 font-mono px-1.5">
+                {lookupError}
+              </span>
+            )}
+          </form>
+
           {/* Demo Sandbox Quick Jump */}
           <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
             <button
@@ -122,6 +186,12 @@ export function GlobalLandingView({
           </button>
         </div>
       </header>
+
+      {lookupError && (
+        <div role="alert" className="bg-[#FF9A9E]/10 border-b border-[#FF9A9E]/30 text-[#FF9A9E] px-6 py-2 text-center text-xs font-mono">
+          {lookupError}
+        </div>
+      )}
 
       <section id="support-main" className="family-hero">
         <div className="family-hero-copy">

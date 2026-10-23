@@ -11,6 +11,10 @@ export interface DatabaseSession {
   query: <T extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => Promise<T[]>;
 }
 
+export interface SystemDatabaseSession {
+  query: <T extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => Promise<T[]>;
+}
+
 export interface DatabasePool {
   connect(): Promise<Pick<PoolClient, "query" | "release">>;
   end?(): Promise<void>;
@@ -34,6 +38,15 @@ export class InvalidTenantContextError extends Error {
 export class PostgresClient {
   private pool?: DatabasePool;
   private readonly connectionString?: string;
+  private static testClientInstance?: PostgresClient;
+
+  public static setTestClient(client?: PostgresClient | null): void {
+    PostgresClient.testClientInstance = client || undefined;
+  }
+
+  public static hasActiveClient(): boolean {
+    return Boolean(process.env.DATABASE_URL || PostgresClient.testClientInstance);
+  }
 
   constructor(connectionString = process.env.DATABASE_URL, pool?: DatabasePool) {
     this.connectionString = connectionString;
@@ -66,6 +79,10 @@ export class PostgresClient {
     tenantId: string,
     callback: (session: DatabaseSession) => Promise<T>
   ): Promise<T> {
+    if (PostgresClient.testClientInstance && PostgresClient.testClientInstance !== this) {
+      return PostgresClient.testClientInstance.withTenantSession(tenantId, callback);
+    }
+
     if (!TENANT_ID_PATTERN.test(tenantId)) {
       throw new InvalidTenantContextError();
     }
@@ -116,6 +133,40 @@ export class PostgresClient {
         tenantId: scope.tenantId,
         query: async <R extends QueryResultRow = QueryResultRow>(sql: string, params: unknown[] = []) =>
           (await client.query<R>(sql, params)).rows,
+      };
+      const result = await callback(session);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Run trusted system or worker operation without tenant context.
+   * Useful for SECURITY DEFINER worker claim routines.
+   */
+  public async withSystemSession<T>(
+    callback: (session: SystemDatabaseSession) => Promise<T>
+  ): Promise<T> {
+    if (PostgresClient.testClientInstance && PostgresClient.testClientInstance !== this) {
+      return PostgresClient.testClientInstance.withSystemSession(callback);
+    }
+
+    const client = await this.getPool().connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('statement_timeout', $1, true)", [
+        process.env.SUPPORTV8_DB_STATEMENT_TIMEOUT || "15s",
+      ]);
+      const session: SystemDatabaseSession = {
+        query: async <R extends QueryResultRow = QueryResultRow>(sql: string, params: unknown[] = []) => {
+          const result = await client.query<R>(sql, params);
+          return result.rows;
+        },
       };
       const result = await callback(session);
       await client.query("COMMIT");

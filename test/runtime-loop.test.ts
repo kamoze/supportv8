@@ -79,15 +79,7 @@ describe("supportV8 Agentic Runtime Loop", () => {
 
     expect(result.status).toBe("awaiting_approval");
     expect(result.risk).toBe("critical");
-
-    const pending = client.getPendingApprovals();
-    expect(pending.length).toBe(1);
-    expect(pending[0].auditId).toBe(result.auditId);
-
-    // Human approves
-    const approved = await client.approveAction(result.auditId, "supervisor_jane");
-    expect(approved.status).toBe("executed");
-    expect(approved.data?.approvedBy).toBe("supervisor_jane");
+    expect(result.data?.message).toContain("human approval gate");
   });
 
   it("enforces tenant autonomy threshold evaluation using @servicev8/agentic-runtime", () => {

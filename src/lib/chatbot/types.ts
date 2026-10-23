@@ -124,4 +124,9 @@ export interface LlmTraceRecord {
   toolsInvoked: string[];
   temporalWorkflowId?: string;
   timestamp: string;
+  correlationId?: string;
+  operation?: string;
+  durationMs?: number;
+  outcome?: "success" | "error" | "rate_limited";
+  errorCode?: string;
 }

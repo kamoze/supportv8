@@ -36,20 +36,117 @@ export interface ActionGatewayExecuteOutput {
   error?: string;
 }
 
+export interface ActionGatewayHttpClientOptions {
+  baseUrl?: string;
+  token?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  audience?: string;
+  scope?: string;
+  fetcher?: typeof fetch;
+}
+
+export function validateTokenUrl(raw: string): URL {
+  const url = new URL(raw);
+  const isLocal = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  const isCluster = url.hostname.endsWith(".svc.cluster.local");
+  if (
+    (url.protocol !== "https:" && !(url.protocol === "http:" && (isLocal || isCluster))) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("unsafe token URL");
+  }
+  return url;
+}
+
 export class ActionGatewayHttpClient {
   private baseUrl: string;
-  private token?: string;
+  private staticToken?: string;
+  private tokenUrl?: string;
+  private clientId: string;
+  private clientSecret?: string;
+  private audience: string;
+  private scope: string;
+  private fetcher: typeof fetch;
+  private cachedToken?: { token: string; refreshAt: number };
 
-  constructor(options?: { baseUrl?: string; token?: string }) {
+  constructor(options?: ActionGatewayHttpClientOptions) {
     this.baseUrl = (
       options?.baseUrl ||
       process.env.ACTION_GATEWAY_URL ||
       "http://localhost:3000"
     ).replace(/\/$/, "");
-    this.token =
+    this.staticToken =
       options?.token ||
       process.env.ACTION_GATEWAY_API_TOKEN ||
       process.env.ACTION_GATEWAY_WORKLOAD_TOKEN;
+    this.tokenUrl =
+      options?.tokenUrl ||
+      process.env.ACTION_GATEWAY_TOKEN_URL;
+    this.clientId =
+      options?.clientId ||
+      process.env.SUPPORTV8_EXECUTION_CLIENT_ID ||
+      "supportv8-execution";
+    this.clientSecret =
+      options?.clientSecret ||
+      process.env.SUPPORTV8_EXECUTION_CLIENT_SECRET;
+    this.audience =
+      options?.audience ||
+      process.env.ACTION_GATEWAY_AUDIENCE ||
+      "servicev8-action-gateway";
+    this.scope =
+      options?.scope ||
+      process.env.ACTION_GATEWAY_EXECUTION_SCOPE ||
+      "action:execute";
+    this.fetcher = options?.fetcher || fetch;
+  }
+
+  public async getAuthToken(): Promise<string | undefined> {
+    if (this.tokenUrl && this.clientSecret) {
+      if (this.cachedToken && this.cachedToken.refreshAt > Date.now()) {
+        return this.cachedToken.token;
+      }
+      const endpoint = validateTokenUrl(this.tokenUrl);
+      const res = await this.fetcher(endpoint.toString(), {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          audience: this.audience,
+          scope: this.scope,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!res.ok) {
+        throw new Error(
+          `failed to acquire Action Gateway execution token: HTTP ${res.status}`
+        );
+      }
+
+      const data = (await res.json()) as { access_token?: string; expires_in?: number };
+      if (!data.access_token) {
+        throw new Error("Action Gateway token response missing access_token");
+      }
+
+      const expiresIn = typeof data.expires_in === "number" ? data.expires_in : 60;
+      this.cachedToken = {
+        token: data.access_token,
+        refreshAt: Date.now() + Math.max(1, expiresIn - 15) * 1000,
+      };
+      return this.cachedToken.token;
+    }
+
+    return this.staticToken;
   }
 
   public async execute(
@@ -62,8 +159,9 @@ export class ActionGatewayHttpClient {
       "x-servicev8-account-id": input.accountId,
     };
 
-    if (this.token) {
-      headers["authorization"] = `Bearer ${this.token}`;
+    const token = await this.getAuthToken();
+    if (token) {
+      headers["authorization"] = `Bearer ${token}`;
     }
 
     const requestBody = {

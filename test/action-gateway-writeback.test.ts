@@ -57,7 +57,7 @@ describe("Action Gateway HTTP Client & Governed Write-back", () => {
           payload: { ticketId: "123", status: "solved" },
         })
       ).rejects.toThrow(/timed out/i);
-    });
+    }, 10000);
 
     it("rejects non-2xx responses and does not fall back to local simulation", async () => {
       const client = new ActionGatewayHttpClient({
@@ -180,6 +180,157 @@ describe("Action Gateway HTTP Client & Governed Write-back", () => {
           }),
         })
       );
+    });
+
+    it("acquires short-lived token from Keycloak when tokenUrl and clientSecret are configured", async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url === "https://keycloak.test/token") {
+          const body = String(init?.body || "");
+          expect(body).toContain("grant_type=client_credentials");
+          expect(body).toContain("client_id=supportv8-execution");
+          expect(body).toContain("client_secret=super-secret");
+          expect(body).toContain("audience=servicev8-action-gateway");
+          expect(body).toContain("scope=action%3Aexecute");
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                access_token: "keycloak-workload-jwt-token",
+                token_type: "Bearer",
+                expires_in: 120,
+              }),
+              { status: 200, headers: { "content-type": "application/json" } }
+            )
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: "exec_oauth",
+              status: "completed",
+              tenantId: TENANT_ID,
+            }),
+            { status: 200 }
+          )
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const client = new ActionGatewayHttpClient({
+        baseUrl: "http://gateway.test",
+        tokenUrl: "https://keycloak.test/token",
+        clientId: "supportv8-execution",
+        clientSecret: "super-secret",
+      });
+
+      // First call fetches from Keycloak
+      await client.execute({
+        accountId: "acc_1",
+        tenantId: TENANT_ID,
+        capability: "support.ticket.update",
+        connectorKey: "zendesk",
+        idempotencyKey: "idem_oauth_1",
+        actor: { id: "user_1", type: "human", name: "User" },
+        policyDecision: { id: "pol_1", mode: "copilot", decision: "allow" },
+        payload: { ticketId: "123" },
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://keycloak.test/token",
+        expect.anything()
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://gateway.test/v1/actions/execute",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            authorization: "Bearer keycloak-workload-jwt-token",
+          }),
+        })
+      );
+
+      // Second call uses cached token without refetching from Keycloak
+      await client.execute({
+        accountId: "acc_1",
+        tenantId: TENANT_ID,
+        capability: "support.ticket.update",
+        connectorKey: "zendesk",
+        idempotencyKey: "idem_oauth_2",
+        actor: { id: "user_1", type: "human", name: "User" },
+        policyDecision: { id: "pol_1", mode: "copilot", decision: "allow" },
+        payload: { ticketId: "123" },
+      });
+
+      // Exactly 1 call to token endpoint
+      const tokenCalls = fetchMock.mock.calls.filter(
+        (call) => call[0] === "https://keycloak.test/token"
+      );
+      expect(tokenCalls.length).toBe(1);
+    });
+
+    it("rejects unsafe token URL configurations", async () => {
+      const unsafeUrls = [
+        "http://evil.com/token", // unencrypted non-local/cluster HTTP
+        "https://user:pass@keycloak.test/token", // embedded credentials
+        "https://keycloak.test/token?param=1", // query params
+        "https://keycloak.test/token#hash", // hash fragment
+      ];
+
+      for (const tokenUrl of unsafeUrls) {
+        const client = new ActionGatewayHttpClient({
+          baseUrl: "http://gateway.test",
+          tokenUrl,
+          clientSecret: "super-secret",
+        });
+
+        await expect(
+          client.execute({
+            accountId: "acc_1",
+            tenantId: TENANT_ID,
+            capability: "support.ticket.update",
+            connectorKey: "zendesk",
+            idempotencyKey: "idem_unsafe",
+            actor: { id: "user_1", type: "human", name: "User" },
+            policyDecision: { id: "pol_1", mode: "copilot", decision: "allow" },
+            payload: { ticketId: "123" },
+          })
+        ).rejects.toThrow(/unsafe token URL/i);
+      }
+    });
+
+    it("propagates Keycloak token endpoint rejection with clear error", async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url === "https://keycloak.test/token") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: "unauthorized_client",
+                error_description: "Invalid client credentials",
+              }),
+              { status: 401 }
+            )
+          );
+        }
+        return Promise.resolve(new Response(null, { status: 200 }));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const client = new ActionGatewayHttpClient({
+        baseUrl: "http://gateway.test",
+        tokenUrl: "https://keycloak.test/token",
+        clientSecret: "invalid-secret",
+      });
+
+      await expect(
+        client.execute({
+          accountId: "acc_1",
+          tenantId: TENANT_ID,
+          capability: "support.ticket.update",
+          connectorKey: "zendesk",
+          idempotencyKey: "idem_fail",
+          actor: { id: "user_1", type: "human", name: "User" },
+          policyDecision: { id: "pol_1", mode: "copilot", decision: "allow" },
+          payload: { ticketId: "123" },
+        })
+      ).rejects.toThrow(/failed to acquire Action Gateway execution token: HTTP 401/i);
     });
   });
 

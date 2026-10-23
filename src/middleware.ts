@@ -103,17 +103,20 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  const hostCheck = validateIngressHost(
-    request.headers.get("host"),
-    request.headers.get("x-forwarded-host")
-  );
-  if (!hostCheck.valid) {
-    return NextResponse.json(
-      { error: hostCheck.error },
-      { status: hostCheck.status || 400 }
+  let trustedHostname = effectiveHostname;
+  if (!url.pathname.startsWith("/runtime") && !url.pathname.startsWith("/auth/runtime/")) {
+    const hostCheck = validateIngressHost(
+      request.headers.get("host"),
+      request.headers.get("x-forwarded-host")
     );
+    if (!hostCheck.valid) {
+      return NextResponse.json(
+        { error: hostCheck.error },
+        { status: hostCheck.status || 400 }
+      );
+    }
+    trustedHostname = hostCheck.hostname || effectiveHostname;
   }
-  const trustedHostname = hostCheck.hostname || effectiveHostname;
 
   const authorization = request.headers.get("authorization");
   const bearer = authorization?.startsWith("Bearer ")

@@ -104,7 +104,11 @@ export function middleware(request: NextRequest) {
   }
 
   let trustedHostname = effectiveHostname;
-  if (!url.pathname.startsWith("/runtime") && !url.pathname.startsWith("/auth/runtime/")) {
+  if (
+    !url.pathname.startsWith("/runtime") &&
+    !url.pathname.startsWith("/auth/runtime/") &&
+    url.pathname !== "/api/health"
+  ) {
     const hostCheck = validateIngressHost(
       request.headers.get("host"),
       request.headers.get("x-forwarded-host")

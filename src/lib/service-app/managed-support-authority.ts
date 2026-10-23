@@ -323,17 +323,18 @@ export class ManagedSupportTicketReader {
   async lookup(target: SupportTarget, reference: string) {
     return this.client.withTenantSession(target.workspaceId, async (db) => {
       const rows = await db.query<{
+        id: string;
         external_id: string;
         source_status: string;
         priority: string;
       }>(
-        `SELECT external_id,source_status,priority FROM supportv8.issues WHERE tenant_id=$1 AND external_id=$2 LIMIT 2`,
+        `SELECT id,external_id,source_status,priority FROM supportv8.issues WHERE tenant_id=$1 AND (id=$2 OR external_id=$2) LIMIT 2`,
         [target.workspaceId, reference],
       );
       // Native sources can reuse external references. Never choose an ambiguous ticket.
       return rows.length === 1
         ? {
-            ticketRef: rows[0]!.external_id,
+            ticketRef: reference,
             status: rows[0]!.source_status,
             priority: rows[0]!.priority,
           }

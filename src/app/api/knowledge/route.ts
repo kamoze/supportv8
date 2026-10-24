@@ -1,49 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { knowledgeService } from "@/lib/services/knowledge-service";
 import { ragIngestion } from "@/lib/services/rag-ingestion-service";
-import { db } from "@/lib/db/mock-data";
-import { resolveRequestTenant, tenantIdFromSlug } from "@/lib/auth/request-tenant";
-import type { KnowledgeDocument } from "@/lib/types";
+import { authorizeMvpRead, authorizeMvpManage, requestAuthResponse } from "@/lib/auth/route-authorization";
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
-    const { searchParams } = new URL(req.url);
-    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
-    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
-    const tenantData = db.getTenantData(tenantSlug);
+    const { tenantId } = await authorizeMvpRead(req);
 
     const [durableDocs, durableArticles] = await Promise.all([
       ragIngestion.getDurableDocuments(tenantId),
       ragIngestion.getDurableArticles(tenantId),
     ]);
 
-    let articles: any[] = durableArticles;
-    let documents: KnowledgeDocument[] = durableDocs;
-    let gaps: any[] = [];
-    let proposals: any[] = [];
-    let webSources: any[] = [];
-
-    const hasDb = Boolean(process.env.DATABASE_URL);
-    if (!hasDb && !tenantData.isClean && !tenantCtx?.runtimeLinked) {
-      if (articles.length === 0) articles = knowledgeService.getArticles();
-      gaps = knowledgeService.getGaps();
-      proposals = knowledgeService.getProposals();
-      if (documents.length === 0) documents = tenantData.documents || [];
-      webSources = tenantData.webSources || [];
-    }
-
     return NextResponse.json({
       success: true,
       data: {
-        articles,
-        gaps,
-        proposals,
-        documents,
-        webSources,
+        articles: durableArticles,
+        gaps: [],
+        proposals: [],
+        documents: durableDocs,
+        webSources: [],
       },
     });
   } catch (err: unknown) {
+    const denied = requestAuthResponse(err);
+    if (denied) return denied;
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Failed to load knowledge data" },
       { status: 500 }
@@ -53,16 +33,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const { tenantId } = await authorizeMvpManage(req);
     const body = await req.json();
-    const { action, proposalId, ticket } = body;
-    const tenantCtx = await resolveRequestTenant(req).catch(() => null);
-    const { searchParams } = new URL(req.url);
-    const tenantSlug = tenantCtx?.tenantSlug || searchParams.get("tenant") || req.headers.get("x-tenant-slug") || "acme";
-    const tenantId = tenantCtx?.tenantId || tenantIdFromSlug(tenantSlug);
+    const { action, ticket } = body;
 
     if (action === "publish") {
-      const result = await knowledgeService.publishProposal(proposalId);
-      return NextResponse.json(result);
+      // Legacy proposals have no tenant ownership or scoped publication grant.
+      // An authenticated manager cannot supply that missing owner authority.
+      return NextResponse.json({ success: false, error: "knowledge_publication_unavailable" }, { status: 503 });
     }
 
     if (action === "ingest_ticket") {
@@ -82,6 +60,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: unknown) {
+    const denied = requestAuthResponse(err);
+    if (denied) return denied;
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : "Knowledge action failed" },
       { status: 400 }

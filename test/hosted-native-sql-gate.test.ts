@@ -13,7 +13,8 @@ it('keeps all PR validation in CircleCI and deployment limited to main/master',(
   expect(existsSync('.github/workflows/ci.yml')).toBe(false);
   const workflow=readFileSync('.circleci/config.yml','utf8');
   const jobs=workflow.slice(workflow.indexOf('workflows:'));
-  expect(jobs.slice(jobs.indexOf('      - build:'),jobs.indexOf('      - push-image:'))).not.toContain('filters:');
+  const validation=jobs.slice(jobs.indexOf('      - build:'),jobs.indexOf('      - push-image:'));
+  expect(validation).not.toContain('filters:');expect(validation).not.toContain('context:');
   for(const name of ['push-image','update-devops']) expect(jobs.split('      - '+name+':')[1].split('\n      - ')[0]).toContain('only:\n                - main\n                - master');
   for(const name of ['action-gateway-writeback','interaction-ingress','mvp-intelligence-projections','retention-policy','support-intelligence-repository']) expect(workflow).toContain('test/'+name+'.postgres.test.ts');
 });

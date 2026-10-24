@@ -112,9 +112,7 @@ workflows:
   version: 2
   supportv8:
     jobs:
-      - build:
-          context:
-            - servicev8-prod
+      - build: {}
       - push-image:
           context:
             - servicev8-prod

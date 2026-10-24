@@ -63,3 +63,11 @@ it('mounts the current full native cockpit with the scoped workdesk and keeps na
  expect(workdesk!.querySelector('a')?.getAttribute('href')).toMatch(/^\/\?view=cockpit&tab=workspace&ticket=/);
  expect(workdesk!.textContent).toContain('Next page');expect(workdesk!.textContent).not.toContain('Deducted');
 });
+
+it('never replaces an explicitly empty ticket link with a prior native selection',async()=>{
+ window.history.replaceState({},'','/?view=cockpit&tab=workspace&ticket=');
+ const request=vi.fn();vi.stubGlobal('fetch',request);
+ const container=document.createElement('div');document.body.append(container);const root=createRoot(container);roots.push(root);
+ await act(async()=>root.render(<RuntimeNativeWorkdesk canManage initialTicketId="prior"/>));
+ expect(container.querySelector('[role=alert]')).not.toBeNull();expect(request).not.toHaveBeenCalled();
+});

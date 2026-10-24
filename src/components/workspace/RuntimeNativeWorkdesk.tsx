@@ -13,7 +13,7 @@ function locationQuery(): NativeRuntimeQuery {
 export function RuntimeNativeWorkdesk({ canManage, initialTicketId }: { canManage: boolean; initialTicketId?: string }) {
   const [query,setQuery] = useState<NativeRuntimeQuery>(() => {
     const query = locationQuery();
-    return query.ticket || !initialTicketId ? query : {...query,ticket:initialTicketId};
+    return query.ticket !== undefined || initialTicketId === undefined ? query : {...query,ticket:initialTicketId};
   });
   const [loaded,setLoaded] = useState<Loaded|null>(null);
   const [error,setError] = useState('');

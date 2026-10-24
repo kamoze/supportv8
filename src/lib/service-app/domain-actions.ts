@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { pgClient, type PostgresClient } from "@/lib/db/pg-client";
+import { pgClient, type PostgresClient } from "../db/pg-client";
 import {
   managedSupportAuthenticatorFromEnv,
   type ManagedSupportAuthenticator,
@@ -7,7 +7,7 @@ import {
 import {
   emitSupportTicketCreatedSignal,
   type SignalEmitResult,
-} from "@/lib/signals/signal-agent";
+} from "../signals/signal-agent";
 
 export type DelegatedCommandClaims = {
   iss: string;
@@ -228,7 +228,7 @@ export async function executeSupportDomainAction(
   }
 
   const capability = typeof body.capability === "string" ? body.capability.trim() : "";
-  if (capability !== "support.ticket.create") {
+  if (capability !== "support.ticket.create" && capability !== "support.ticket.escalate") {
     return jsonResponse({ error: "unsupported_capability" }, 400);
   }
 
@@ -280,12 +280,37 @@ export async function executeSupportDomainAction(
     return jsonResponse({ error: "delegated_scope_mismatch" }, 403);
   }
 
+  const rawInstallationTarget =
+    rawPayload.installationTarget &&
+    typeof rawPayload.installationTarget === "object" &&
+    !Array.isArray(rawPayload.installationTarget)
+      ? (rawPayload.installationTarget as Record<string, unknown>)
+      : rawTarget.installationTarget &&
+          typeof rawTarget.installationTarget === "object" &&
+          !Array.isArray(rawTarget.installationTarget)
+        ? (rawTarget.installationTarget as Record<string, unknown>)
+        : undefined;
+  const derivedInstallationTargetId =
+    rawInstallationTarget && typeof rawInstallationTarget.productId === "string"
+      ? rawInstallationTarget.kind === "vertical" &&
+        typeof rawInstallationTarget.verticalId === "string" &&
+        rawInstallationTarget.verticalId.trim()
+        ? `${rawInstallationTarget.productId.trim()}:${rawInstallationTarget.verticalId.trim()}`
+        : rawInstallationTarget.productId.trim()
+      : undefined;
+
   const installationId =
     typeof rawTarget.installationId === "string" && ID_PATTERN.test(rawTarget.installationId)
       ? rawTarget.installationId
       : typeof rawPayload.installationId === "string" && ID_PATTERN.test(rawPayload.installationId)
         ? rawPayload.installationId
-        : undefined;
+        : derivedInstallationTargetId && ID_PATTERN.test(derivedInstallationTargetId)
+          ? derivedInstallationTargetId
+          : capability === "support.ticket.escalate" &&
+              typeof claims.origin_app === "string" &&
+              ID_PATTERN.test(claims.origin_app)
+            ? claims.origin_app
+            : undefined;
 
   let workspaceId =
     typeof rawTarget.workspaceId === "string" && WORKSPACE_PATTERN.test(rawTarget.workspaceId)
@@ -308,24 +333,39 @@ export async function executeSupportDomainAction(
     return jsonResponse({ error: "support_workspace_not_active" }, 403);
   }
 
+  const caseIdFallback =
+    typeof rawPayload.caseId === "string" && rawPayload.caseId.trim()
+      ? rawPayload.caseId.trim()
+      : "";
+  const reasonFallback =
+    typeof rawPayload.reason === "string" && rawPayload.reason.trim()
+      ? rawPayload.reason.trim()
+      : "";
   const customerName = String(
     rawPayload.customerName ??
       rawPayload.customer_name ??
       rawPayload.requesterName ??
       rawPayload.customerEmail ??
-      "",
+      (caseIdFallback ? `Case ${caseIdFallback}` : ""),
   ).trim();
   const customerEmail =
     typeof rawPayload.customerEmail === "string" && rawPayload.customerEmail.trim()
       ? rawPayload.customerEmail.trim()
       : undefined;
   const summary = String(
-    rawPayload.summary ?? rawPayload.subject ?? rawPayload.title ?? "",
+    rawPayload.summary ??
+      rawPayload.subject ??
+      rawPayload.title ??
+      (reasonFallback
+        ? caseIdFallback
+          ? `Collections escalation (${reasonFallback}) for case ${caseIdFallback}`
+          : reasonFallback
+        : ""),
   ).trim();
   const description = String(
-    rawPayload.description ?? rawPayload.body ?? rawPayload.details ?? "",
+    rawPayload.description ?? rawPayload.body ?? rawPayload.details ?? reasonFallback ?? "",
   ).trim();
-  const priority = normalizePriority(rawPayload.priority);
+  const priority = normalizePriority(rawPayload.priority ?? rawPayload.severity);
 
   if (
     !customerName ||
@@ -448,12 +488,13 @@ export async function executeSupportDomainAction(
           .query(
             `INSERT INTO supportv8.action_audit_records
               (id,tenant_id,actor_id,actor_type,operation_id,risk,status,idempotency_key,input,output,reasoning,confidence)
-             VALUES ($1,$2,$3,'ai_employee','support.ticket.create','medium','executed',$4,$5::jsonb,$6::jsonb,'Governed action approved and executed via Action Gateway',1.0)
+             VALUES ($1,$2,$3,'ai_employee',$4,'medium','executed',$5,$6::jsonb,$7::jsonb,'Governed action approved and executed via Action Gateway',1.0)
              ON CONFLICT (id) DO NOTHING`,
             [
               `aud_${keyHash.slice(0, 24)}`,
               workspaceId,
               actorId,
+              capability,
               idempotencyKey,
               JSON.stringify({ customerName, customerEmail, summary, description, priority }),
               JSON.stringify({ ticketId: inserted.id, ticketRef: inserted.external_id }),
@@ -544,6 +585,7 @@ export async function executeSupportDomainAction(
         ? { signalReceiptId: signalReceipt.receiptId }
         : {}),
       replayed: outcome.replayed,
+      openedAt: outcome.row.created_at,
       createdAt: outcome.row.created_at,
       updatedAt: outcome.row.updated_at,
     });

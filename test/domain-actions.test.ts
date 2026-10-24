@@ -551,4 +551,29 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
     expect(audits.length).toBe(1);
     expect((audits[0]?.params as unknown[])?.[3]).toBe("support.ticket.escalate");
   });
+  it.each([
+    { name: "foreign account", target: { accountId: "account-other", workspaceId: WORKSPACE_ID } },
+    { name: "foreign registry tenant", target: { tenantId: "tenant_other", workspaceId: WORKSPACE_ID } },
+    { name: "foreign workspace", target: { workspaceId: "tenant_foreign" } },
+    { name: "unprovisioned signed origin fallback", target: {} },
+    { name: "unprovisioned product fallback", target: { installationTarget: { kind: "product", productId: "foreign-product" } } },
+  ])("denies escalation $name before ticket, audit or signal effects", async ({ target }) => {
+    const { client, issues, audits } = createFakeClient();
+    const emitSignal = vi.fn(async () => ({ ok: true as const, receiptId: "unused" }));
+    const raw = mintTestDelegatedToken({ secret: SECRET, targetApp: "supportv8", capability: "support.ticket.escalate", accountId: ACCOUNT_ID, tenantId: TENANT_ID, idempotencyKey: "escalation-negative" });
+    const [header, encoded] = raw.split(".");
+    const claims = JSON.parse(Buffer.from(encoded!, "base64url").toString());
+    claims.origin_app = "collections";
+    const body = Buffer.from(JSON.stringify(claims)).toString("base64url");
+    const signature = createHmac("sha256", SECRET).update(`${header}.${body}`).digest("base64url");
+    const response = await executeSupportDomainAction(new Request("https://support.test/v1/domain-actions/execute", {
+      method: "POST", headers: { authorization: `Bearer ${header}.${body}.${signature}`, "content-type": "application/json", "x-source-app": INSTALLATION_ID },
+      body: JSON.stringify({ capability: "support.ticket.escalate", target, payload: { caseId: "case-negative", reason: "dispute" } }),
+    }), { client, env: { SERVICEV8_TOKEN_SECRET: SECRET }, emitSignal });
+    expect(response.status).toBe(403);
+    expect(issues.size).toBe(0);
+    expect(audits).toHaveLength(0);
+    expect(emitSignal).not.toHaveBeenCalled();
+  });
+
 });

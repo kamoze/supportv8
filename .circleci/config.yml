@@ -54,6 +54,12 @@ jobs:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
+          name: Verify SupportV8 MVP Intelligence and RLS Suites
+          command: node scripts/test-local-only.mjs test/action-gateway-writeback.postgres.test.ts test/interaction-ingress.postgres.test.ts test/mvp-intelligence-projections.postgres.test.ts test/retention-policy.postgres.test.ts test/support-intelligence-repository.postgres.test.ts
+          environment:
+            SUPPORTV8_REAL_POSTGRES: "1"
+            SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+      - run:
           name: Build Next.js Application
           command: npm run build
       - run:
@@ -109,17 +115,6 @@ workflows:
       - build:
           context:
             - servicev8-prod
-          filters:
-            branches:
-              only:
-                - main
-                - master
-                - codex/family-refresh-20260910
-                - codex/support-runtime-provisioning-20260915
-                - codex/support-growth-provision-20260915
-                - codex/support-runtime-rbac-20260916
-                - fix/runtime-native-support-workspace
-                - fix/native-workspace-session-20260916
       - push-image:
           context:
             - servicev8-prod

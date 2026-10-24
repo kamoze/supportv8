@@ -190,6 +190,8 @@ type RuntimeFocusedWorkspaceProps = {
     selectionRequested?: boolean;
     cursor?: string;
     situations?: OlgSituation[];
+    ticketHref?: (id: string) => string;
+    onSelectTicket?: (id: string) => void;
     canManage: boolean;
     onCreate: (input: {
       customerName: string;
@@ -209,6 +211,8 @@ function RuntimeFocusedWorkspace({
     selectionRequested,
     cursor,
     situations = [],
+    ticketHref,
+    onSelectTicket,
     canManage,
     onCreate,
     onUpdate,
@@ -336,7 +340,8 @@ function RuntimeFocusedWorkspace({
               return (
                 <li key={ticket.id}>
                   <a
-                    href={`/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
+                    href={ticketHref?.(ticket.id) ?? `/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
+                    onClick={onSelectTicket ? event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onSelectTicket(ticket.id); } } : undefined}
                     aria-current={active?.id === ticket.id ? "page" : undefined}
                   >
                     <TicketSummary

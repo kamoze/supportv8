@@ -150,6 +150,7 @@ import { SignupModal } from "@/components/SignupModal";
 import { SignInModal } from "@/components/SignInModal";
 import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
+import { RuntimeNativeWorkdesk } from "@/components/workspace/RuntimeNativeWorkdesk";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 import {
   browserTenantSlugFromHostname,
@@ -535,7 +536,7 @@ export default function SupportV8Dashboard() {
   const [isSubmittingEscalation, setIsSubmittingEscalation] = useState<boolean>(false);
 
   // Workspace States
-  const [workspaceSelectedIssueId, setWorkspaceSelectedIssueId] = useState<string>("ISS-1001");
+  const [workspaceSelectedIssueId, setWorkspaceSelectedIssueId] = useState<string>("");
   const [workspaceReplyText, setWorkspaceReplyText] = useState<string>("Hello, I have reviewed your request. Our autonomous resolution engine has approved the mitigation.");
   const [workspaceRefundAmount, setWorkspaceRefundAmount] = useState<string>("49.00");
   const [workspaceTriageFilter, setWorkspaceTriageFilter] = useState<"all" | "enterprise" | "p1_p2" | "at_risk">("all");
@@ -963,7 +964,7 @@ export default function SupportV8Dashboard() {
         setIsSignInModalOpen(true);
       }
 
-      const tabParam = params.get("tab");
+      const tabParam = params.get("tab") || (params.has("ticket") ? "workspace" : null);
       if (tabParam) {
         setActiveTab(tabParam);
       }
@@ -7482,7 +7483,9 @@ export default function SupportV8Dashboard() {
         {/* TAB: FOCUSED USER WORKSPACE (AGENTIC RESOLUTION WORK DESK) */}
         {/* ========================================================================= */}
         {activeTab === "workspace" && (
-          <FocusedWorkspaceView
+          operatorSession?.token.startsWith("workspace:")
+          ? <RuntimeNativeWorkdesk key={`${operatorSession.tenantSlug}:${workspaceSelectedIssueId}`} initialTicketId={workspaceSelectedIssueId || undefined} canManage={operatorSession.role === "cx_lead"} />
+          : <FocusedWorkspaceView
             issues={issues}
             initialSelectedIssueId={workspaceSelectedIssueId}
             problems={problems}

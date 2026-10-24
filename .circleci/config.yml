@@ -19,7 +19,7 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          command: npm ci || npm install
+          command: npm ci
       - run:
           name: Run Unit and Conformance Tests
           command: node scripts/test-local-only.mjs

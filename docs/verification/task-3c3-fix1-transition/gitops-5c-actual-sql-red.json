@@ -1,0 +1,41 @@
+{
+  "summary": {
+    "phase": "qualification_summary",
+    "sourceRevision": "5c802ef3fd3f46162891702ba6ffc8d523f1ff00",
+    "bundleSha256": "f04ba0ae9f82135dcb8c444255eff6e976825d969980dce3d69cdace94ca107e",
+    "dependencyImage": "redoosolutions/supportv8@sha256:42bc64c53030db9fd31537a989a0979f778c32f91778b188b02641f65522ec09",
+    "testExitCode": 1,
+    "exitCode": 1,
+    "classification": "assertion_failures_require_controller_review",
+    "actualPostgresVersion": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "total": 23,
+    "passed": 20,
+    "failed": 3,
+    "skipped": 0,
+    "infrastructureErrorCount": 0
+  },
+  "failed": [
+    {
+      "name": "Support native transactional operational outbox retries unknown receipt outcomes with immutable identity and only valid complete ACKs deliver",
+      "failureMessages": [
+        "AssertionError: expected [ { \u2026(17) }, { \u2026(17) }, { \u2026(17) } ] to have a length of +0 but got 3\n    at Proxy.<anonymous> (file:///app/node_modules/@vitest/expect/dist/index.js:1339:22)\n    at Proxy.<anonymous> (file:///app/node_modules/@vitest/expect/dist/index.js:972:17)\n    at Proxy.methodWrapper (file:///app/node_modules/chai/index.js:1686:25)\n    at /work/test/operational-outbox.postgres.test.ts:111:124\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox concurrent bounded claims are disjoint and both canonical tenants progress",
+      "failureMessages": [
+        "Error: operational_sql_pool_busy\n    at acquire (/work/src/lib/db/operational-sql-budget.ts:63:11)\n    at Module.withOperationalSql (/work/src/lib/db/operational-sql-budget.ts:92:24)\n    at OperationalOutboxStore.claim (/work/src/lib/signals/operational-outbox.ts:29:124)\n    at /work/test/operational-outbox.postgres.test.ts:117:379\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)"
+      ]
+    },
+    {
+      "name": "Support native transactional operational outbox fresh owner denial never sends, including a new tenant and revoked source",
+      "failureMessages": [
+        "AssertionError: expected { \u2026(17) } to match object { state: 'pending', \u2026(4) }\n(32 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///app/node_modules/@vitest/expect/dist/index.js:1134:13)\n    at Proxy.<anonymous> (file:///app/node_modules/@vitest/expect/dist/index.js:972:17)\n    at Proxy.methodWrapper (file:///app/node_modules/chai/index.js:1686:25)\n    at /work/test/operational-outbox.postgres.test.ts:139:57\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///app/node_modules/@vitest/runner/dist/index.js:533:5\n    at runTest (file:///app/node_modules/@vitest/runner/dist/index.js:1056:11)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runSuite (file:///app/node_modules/@vitest/runner/dist/index.js:1205:15)\n    at runFiles (file:///app/node_modules/@vitest/runner/dist/index.js:1262:5)"
+      ]
+    }
+  ],
+  "jobUid": "cb2c3e93-1294-4306-966f-cb786d645f19",
+  "podName": "support-outbox-5c802ef-qualified-v1-rzlzw",
+  "podUid": "265620a4-6516-470c-90f2-5ab9f5d2f91f",
+  "node": "sv8-h9"
+}

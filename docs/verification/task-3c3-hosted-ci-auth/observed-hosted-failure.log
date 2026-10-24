@@ -1,0 +1,4 @@
+test-and-build	Require native operational outbox, voice transactions and crash recovery	2026-10-19T12:31:16.0386376Z ^[[31m     → password authentication failed for user "supportv8_app"^[[39m
+test-and-build	Require native operational outbox, voice transactions and crash recovery	2026-10-19T12:31:16.0544052Z ^[[31m^[[1mError^[[22m: Hook timed out in 10000ms.
+test-and-build	Require native operational outbox, voice transactions and crash recovery	2026-10-19T12:31:16.1083494Z ^[[2m Test Files ^[[22m ^[[1m^[[31m1 failed^[[39m^[[22m^[[90m (1)^[[39m
+test-and-build	Require native operational outbox, voice transactions and crash recovery	2026-10-19T12:31:16.0549286Z ^[[31m⎯⎯⎯⎯⎯⎯^[[1m^[[7m Failed Tests 22 ^[[27m^[[22m⎯⎯⎯⎯⎯⎯⎯^[[39m

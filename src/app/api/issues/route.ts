@@ -7,10 +7,7 @@ import {
   requireChatOperatorRole,
   requirePersistentMutationRole,
 } from "@/lib/chatbot/security/ingress-security";
-import {
-  emitSupportTicketEscalatedSignal,
-  emitSupportTicketResolvedSignal,
-} from "@/lib/signals/signal-agent";
+
 import type { Issue, SentimentClass, SourceType } from "@/lib/types";
 import { requireSameOrigin } from "@/lib/auth/account-error";
 
@@ -58,40 +55,6 @@ async function updateIssue(
         ? await chatRepository.updateChatIssue(tenant.tenantId, targetId, updates, true)
         : null) ||
       (await issueService.update(targetId, updates, tenant.tenantId));
-  }
-
-  if (updated) {
-    const isResolved =
-      updates.status === "resolved" ||
-      updates.status === "closed" ||
-      updated.status === "resolved" ||
-      updated.status === "closed";
-    const isEscalated =
-      updates.status === "escalated" ||
-      updates.priority === "urgent" ||
-      updated.priority === "urgent";
-
-    const emitTenantId =
-      tenant.tenantId.startsWith("tenant_") ? tenant.tenantId : (tenant.tenantSlug || tenant.tenantId);
-
-    if (isResolved) {
-      void emitSupportTicketResolvedSignal({
-        tenantId: emitTenantId,
-        accountId: tenant.accountId,
-        ticketId: updated.id,
-        ticketRef: updated.externalId,
-        resolutionSummary: updated.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Ticket resolved signal error:", err));
-    } else if (isEscalated) {
-      void emitSupportTicketEscalatedSignal({
-        tenantId: emitTenantId,
-        accountId: tenant.accountId,
-        ticketId: updated.id,
-        ticketRef: updated.externalId,
-        customerName: updated.customerName,
-        reason: updated.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Ticket escalation signal error:", err));
-    }
   }
 
   return updated;

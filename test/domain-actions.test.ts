@@ -198,9 +198,10 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
     expect(String(firstBody.ticketRef)).toMatch(/^SV8-TKT-[A-F0-9]{12}$/);
     expect(firstBody.ticketNumber).toBe(firstBody.ticketRef);
     expect(firstBody.ticketUrl).toBe(firstBody.sourceUrl);
-    expect(firstBody.signalId).toBe(`evt_supportv8_ticket_created_${firstBody.id}`);
+    expect(firstBody).not.toHaveProperty("signalId");
+    expect(firstBody).not.toHaveProperty("signalReceiptId");
     expect(issues.size).toBe(1);
-    expect(emittedSignals.length).toBe(1);
+    expect(emittedSignals.length).toBe(0);
 
     // Replay with identical payload -> returns same ticket, does not re-insert or re-emit
     const second = await executeSupportDomainAction(makeRequest(), {
@@ -217,7 +218,7 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
     expect(secondBody.ticketRef).toBe(firstBody.ticketRef);
     expect(secondBody.replayed).toBe(true);
     expect(issues.size).toBe(1);
-    expect(emittedSignals.length).toBe(1);
+    expect(emittedSignals.length).toBe(0);
 
     // Mutated payload with same idempotencyKey -> 409 conflict
     const conflict = await executeSupportDomainAction(
@@ -327,7 +328,7 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
     expect(issues.size).toBe(0);
   });
 
-  it("uses deterministic CloudEvent IDs in emitSupportTicketCreatedSignal", async () => {
+  it("rejects legacy direct emission even with an injected transport", async () => {
     const sentBodies: Array<Record<string, unknown>> = [];
     const res = await emitSupportTicketCreatedSignal(
       {
@@ -355,12 +356,11 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
         }) as typeof fetch,
       },
     );
-    expect(res.ok).toBe(true);
-    expect(sentBodies.length).toBe(1);
-    expect(sentBodies[0]?.id).toBe("evt_supportv8_ticket_created_iss_cmd_abc123");
+    expect(res.ok).toBe(false);
+    expect(sentBodies).toEqual([]);
   });
 
-  it("retries OLG signal emission on replay if initial signal delivery failed, and rejects forged HMAC even with valid workload token", async () => {
+  it("keeps ticket retries independent of retired OLG transport and rejects forged HMAC", async () => {
     const { client, issues } = createFakeClient();
     const token = mintTestDelegatedToken({
       secret: SECRET,
@@ -449,7 +449,7 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
         }),
       });
 
-    // First call: signal emission fails -> 502 signal_emission_failed
+    // Native transaction succeeds independently of legacy transport availability.
     let signalAttempts = 0;
     const firstAttempt = await executeSupportDomainAction(makeValidReq(), {
       client,
@@ -459,11 +459,11 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
         return { ok: false, error: "olg_ingest_timeout" };
       },
     });
-    expect(firstAttempt.status).toBe(502);
-    expect(signalAttempts).toBe(1);
+    expect(firstAttempt.status).toBe(200);
+    expect(signalAttempts).toBe(0);
     expect(issues.size).toBe(1);
 
-    // Second call (replay): retries signal emission, succeeds, marks signal_emitted
+    // Retry returns the durable ticket without a synchronous delivery claim.
     const secondAttempt = await executeSupportDomainAction(makeValidReq(), {
       client,
       env: { SERVICEV8_TOKEN_SECRET: SECRET },
@@ -477,10 +477,10 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
     expect(secondBody.ok).toBe(true);
     expect(secondBody.replayed).toBe(true);
     expect(secondBody.priority).toBe("medium");
-    expect(secondBody.signalReceiptId).toBe("rcpt_recovered_1");
-    expect(signalAttempts).toBe(2);
+    expect(secondBody).not.toHaveProperty("signalReceiptId");
+    expect(signalAttempts).toBe(0);
 
-    // Third call (replay after signal_emitted): does not re-emit
+    // Further retries cannot call the retired emitter.
     const thirdAttempt = await executeSupportDomainAction(makeValidReq(), {
       client,
       env: { SERVICEV8_TOKEN_SECRET: SECRET },
@@ -490,7 +490,7 @@ describe("SupportV8 governed domain actions (support.ticket.create)", () => {
       },
     });
     expect(thirdAttempt.status).toBe(200);
-    expect(signalAttempts).toBe(2);
+    expect(signalAttempts).toBe(0);
   });
 
   it("executes support.ticket.escalate for Collections escalation payloads and records operation_id", async () => {

@@ -1,3 +1,8 @@
+import {Context} from '@temporalio/activity';
+import {qualifySupportSource} from '@/lib/signals/operational-source';
+import {verifyOutboxSource} from '@/lib/signals/operational-source';
+import {OperationalOutboxStore,drainOperationalOutbox} from '@/lib/signals/operational-outbox';
+import {sendOperationalFact} from '@/lib/signals/operational-transport';
 import type { ChatStreamType, PriorityLevel } from "@/lib/types";
 import { ManagedSupportRegistrationStore } from "@/lib/service-app/managed-support-registration-store";
 import { reconcileManagedSupportRegistration, type ManagedSupportRegistrationJob } from "@/lib/service-app/managed-support-registration";
@@ -58,7 +63,7 @@ export interface ExecuteForgeActionOutput {
 let registrationStoreSingleton:ManagedSupportRegistrationStore|undefined;
 function registrationStore(){return registrationStoreSingleton??=new ManagedSupportRegistrationStore();}
 export async function claimManagedSupportRegistrationJobsActivity(input:{claimOwner:string;limit:number}){return registrationStore().claim(input.claimOwner,input.limit);}
-export async function reconcileManagedSupportRegistrationActivity(input:{workerId:string;job:ManagedSupportRegistrationJob}){const store=registrationStore();try{const observed=await store.observe(input.workerId,input.job.installationId);await reconcileManagedSupportRegistration(observed,{call:(kind,_target,id,generation)=>callManagedSupportGateway(kind,observed,id,generation),update:value=>store.finish(input.workerId,input.job.installationId,{state:value.state??input.job.state,connectionId:value.connectionId,lastErrorCode:value.lastErrorCode,nextAttemptAt:value.nextAttemptAt})});}catch{await store.finish(input.workerId,input.job.installationId,{state:input.job.state,connectionId:input.job.connectionId,lastErrorCode:"registration_unavailable",nextAttemptAt:new Date(Date.now()+30000).toISOString()});}}
+export async function reconcileManagedSupportRegistrationActivity(input:{workerId:string;job:ManagedSupportRegistrationJob}){const store=registrationStore();try{const observed=await store.observe(input.workerId,input.job.installationId);await qualifySupportSource(observed,input.workerId,{signal:Context.current().cancellationSignal});await reconcileManagedSupportRegistration(observed,{call:(kind,_target,id,generation)=>callManagedSupportGateway(kind,observed,id,generation),update:value=>store.finish(input.workerId,input.job.installationId,{state:value.state??input.job.state,connectionId:value.connectionId,lastErrorCode:value.lastErrorCode,nextAttemptAt:value.nextAttemptAt})});}catch{await store.finish(input.workerId,input.job.installationId,{state:input.job.state,connectionId:input.job.connectionId,lastErrorCode:"registration_unavailable",nextAttemptAt:new Date(Date.now()+30000).toISOString()});}}
 
 // =============================================================================
 // Activity Implementations
@@ -186,6 +191,12 @@ export async function executeForgeActionActivity(
   };
 }
 
+let operationalStore:OperationalOutboxStore|undefined;
+export async function drainOperationalSupportFactsActivity(input:{owner:string}){
+ if(process.env.SUPPORT_OPERATIONAL_PUBLISHER_ENABLED!=='true')return {claimed:0,delivered:0,retried:0};
+ operationalStore??=new OperationalOutboxStore();
+ return drainOperationalOutbox({store:operationalStore,enabled:true,owner:input.owner,limit:8,signal:Context.current().cancellationSignal,verify:verifyOutboxSource,send:sendOperationalFact});
+}
 export {
   deriveIssueFromInteractionActivity,
   processSupportInteraction,

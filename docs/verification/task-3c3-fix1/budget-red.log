@@ -1,0 +1,51 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ❯ test/operational-sql-budget.test.ts (3 tests | 3 failed) 333ms
+   × settles an actual awaited claim by deadline and destroys its blocked client 168ms
+     → expected 'still_pending' to be 'rejected' // Object.is equality
+   × aborts the optional local-source SQL branch without altering native transaction defaults 163ms
+     → expected 'still_pending' to be 'rejected' // Object.is equality
+   × rejects saturated or already pending pools before another acquisition is queued 2ms
+     → expected [Function] to throw error including 'operational_sql_pool_busy' but got 'old direct query'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/operational-sql-budget.test.ts > settles an actual awaited claim by deadline and destroys its blocked client
+AssertionError: expected 'still_pending' to be 'rejected' // Object.is equality
+
+Expected: "rejected"
+Received: "still_pending"
+
+ ❯ test/operational-sql-budget.test.ts:9:434
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/operational-sql-budget.test.ts > aborts the optional local-source SQL branch without altering native transaction defaults
+AssertionError: expected 'still_pending' to be 'rejected' // Object.is equality
+
+Expected: "rejected"
+Received: "still_pending"
+
+ ❯ test/operational-sql-budget.test.ts:10:468
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/operational-sql-budget.test.ts > rejects saturated or already pending pools before another acquisition is queued
+AssertionError: expected [Function] to throw error including 'operational_sql_pool_busy' but got 'old direct query'
+
+Expected: "operational_sql_pool_busy"
+Received: "old direct query"
+
+ ❯ test/operational-sql-budget.test.ts:11:440
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  00:08:39
+   Duration  646ms (transform 42ms, setup 6ms, collect 73ms, tests 333ms, environment 0ms, prepare 39ms)
+

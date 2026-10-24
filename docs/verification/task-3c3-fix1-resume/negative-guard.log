@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/local-only-network-guard.test.ts (4 tests | 1 skipped) 88ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 1 skipped (4)
+   Start at  03:08:17
+   Duration  474ms (transform 23ms, setup 7ms, collect 11ms, tests 88ms, environment 0ms, prepare 43ms)
+

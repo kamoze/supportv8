@@ -1,0 +1,15 @@
+{
+  "phase": "qualification_summary",
+  "sourceRevision": "9d4d1a10f7a984115ef50de5d4c8f684b9cf2df2",
+  "bundleSha256": "0007251e15e22821fecc59620e6993dd869d365feb192b33f251f1ba0a3cfc0f",
+  "dependencyImage": "redoosolutions/supportv8@sha256:42bc64c53030db9fd31537a989a0979f778c32f91778b188b02641f65522ec09",
+  "testExitCode": 0,
+  "exitCode": 0,
+  "classification": "all_selected_tests_passed",
+  "actualPostgresVersion": "17.11 (Debian 17.11-1.pgdg12+2)",
+  "total": 23,
+  "passed": 23,
+  "failed": 0,
+  "skipped": 0,
+  "infrastructureErrorCount": 0
+}

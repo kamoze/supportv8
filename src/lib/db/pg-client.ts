@@ -4,6 +4,7 @@
  * PgBouncer runs in transaction-pooling mode, so tenant context must be set
  * with SET LOCAL (via set_config) inside the same transaction as every query.
  */
+import {OperationalPgClient,withOperationalSql,type OperationalSqlBudget} from "./operational-sql-budget";
 import { Pool, type PoolClient, type PoolConfig, type QueryResultRow } from "pg";
 
 export interface DatabaseSession {
@@ -66,6 +67,7 @@ export class PostgresClient {
       connectionTimeoutMillis: 5_000,
       allowExitOnIdle: process.env.NODE_ENV === "test",
       application_name: "supportv8",
+      Client: OperationalPgClient,
     };
     this.pool = new Pool(config);
     return this.pool;
@@ -117,11 +119,16 @@ export class PostgresClient {
   /** Trusted provisioning-core transaction with exact, transaction-local RLS scope. */
   public async withWorkspaceProvisioningSession<T>(
     scope: WorkspaceProvisioningScope,
-    callback: (session: DatabaseSession) => Promise<T>
+    callback: (session: DatabaseSession) => Promise<T>,
+    budget?: OperationalSqlBudget
   ): Promise<T> {
     if (!TENANT_ID_PATTERN.test(scope.tenantId) || !scope.accountId || !scope.registryTenantId) {
       throw new InvalidTenantContextError();
     }
+    if (budget) return withOperationalSql(this.getPool(), budget, async query => {
+      await query("SELECT set_config('app.current_tenant_id',$1,true),set_config('app.current_account_id',$2,true),set_config('app.current_registry_tenant_id',$3,true)", [scope.tenantId,scope.accountId,scope.registryTenantId]);
+      return callback({tenantId:scope.tenantId,query});
+    });
     const client = await this.getPool().connect();
     try {
       await client.query("BEGIN");

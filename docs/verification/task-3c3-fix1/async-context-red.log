@@ -1,0 +1,28 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ❯ test/operational-sql-budget.test.ts (9 tests | 1 failed) 273ms
+   × does not retain operational connection budgets in later unrelated async work 78ms
+     → expected Error: operational_sql_deadline to be undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/operational-sql-budget.test.ts > does not retain operational connection budgets in later unrelated async work
+AssertionError: expected Error: operational_sql_deadline to be undefined
+
+- Expected: 
+undefined
+
++ Received: 
+[Error: operational_sql_deadline]
+
+ ❯ test/operational-sql-budget.test.ts:35:555
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  00:14:49
+   Duration  673ms (transform 51ms, setup 6ms, collect 83ms, tests 273ms, environment 0ms, prepare 36ms)
+

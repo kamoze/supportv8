@@ -12,11 +12,6 @@ import type {
   NormalizedInteractionInput,
 } from "../types";
 import { triageEngine } from "./triage-engine";
-import {
-  emitSupportTicketCreatedSignal,
-  emitSupportTicketEscalatedSignal,
-  emitSupportTicketResolvedSignal,
-} from "@/lib/signals/signal-agent";
 
 function normalizeTenantId(tenant?: string): string {
   if (!tenant) return "tenant_default";
@@ -291,31 +286,7 @@ export class IssueService {
 
     const newIssue = mapRowToIssue(savedRow);
 
-    // Emit OLG Domain Signals
-    void emitSupportTicketCreatedSignal({
-      tenantId: newIssue.tenantId,
-      ticket: {
-        id: newIssue.id,
-        ticketRef: newIssue.externalId,
-        customerName: newIssue.customerName,
-        customerRef: newIssue.customerRef,
-        summary: newIssue.summary,
-        priority: newIssue.priority,
-        category: newIssue.category,
-        status: newIssue.sourceStatus,
-      },
-    }).catch((err) => console.warn("[Signal Outbox] Issue created signal warning:", err));
-
-    if (newIssue.priority === "urgent" || newIssue.sentiment === "frustrated") {
-      void emitSupportTicketEscalatedSignal({
-        tenantId: newIssue.tenantId,
-        ticketId: newIssue.id,
-        ticketRef: newIssue.externalId,
-        customerName: newIssue.customerName,
-        reason: newIssue.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Issue escalation signal warning:", err));
-    }
-
+    // Migration 011 captures operational facts in this same native SQL transaction.
     return newIssue;
   }
 
@@ -476,30 +447,7 @@ export class IssueService {
     if (!updatedRow) return null;
     const updated = mapRowToIssue(updatedRow);
 
-    if (
-      updates.sourceStatus === "solved" ||
-      updates.sourceStatus === "closed" ||
-      updates.status === "resolved" ||
-      updates.status === "closed"
-    ) {
-      void emitSupportTicketResolvedSignal({
-        tenantId: updated.tenantId,
-        ticketId: updated.id,
-        ticketRef: updated.externalId,
-        resolutionSummary: updated.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Issue resolved signal warning:", err));
-    }
-
-    if (updates.priority === "urgent" || updates.status === "escalated") {
-      void emitSupportTicketEscalatedSignal({
-        tenantId: updated.tenantId,
-        ticketId: updated.id,
-        ticketRef: updated.externalId,
-        customerName: updated.customerName,
-        reason: updated.summary,
-      }).catch((err) => console.warn("[Signal Outbox] Issue escalated signal warning:", err));
-    }
-
+    // Native SQL trigger owns transition capture; no post-commit legacy sender.
     return updated;
   }
 

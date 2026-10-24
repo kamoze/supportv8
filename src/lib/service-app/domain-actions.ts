@@ -6,7 +6,6 @@ import {
 } from "./managed-support-auth";
 import {
   emitSupportTicketCreatedSignal,
-  type SignalEmitResult,
 } from "../signals/signal-agent";
 
 export type DelegatedCommandClaims = {
@@ -34,6 +33,7 @@ export type SupportDomainActionDependencies = {
   client?: PostgresClient;
   env?: Readonly<Record<string, string | undefined>>;
   authenticateWorkload?: ManagedSupportAuthenticator;
+  /** Compatibility-only injection; native SQL capture never invokes legacy senders. */
   emitSignal?: typeof emitSupportTicketCreatedSignal;
 };
 
@@ -177,7 +177,6 @@ export async function executeSupportDomainAction(
   }
   const env = deps.env ?? process.env;
   const client = deps.client ?? pgClient;
-  const emitSignal = deps.emitSignal ?? emitSupportTicketCreatedSignal;
 
   const authHeader = request.headers.get("authorization") ?? "";
   const delegatedHeader = request.headers.get("x-servicev8-delegated-token") ?? "";
@@ -510,60 +509,8 @@ export async function executeSupportDomainAction(
       },
     );
 
-    const signalId = `evt_supportv8_ticket_created_${outcome.row.id}`;
-    const currentTags = Array.isArray(outcome.row.tags) ? outcome.row.tags : [];
-    const alreadyEmitted = currentTags.includes("signal_emitted");
-    let signalReceipt: SignalEmitResult | undefined;
-    if (!alreadyEmitted) {
-      signalReceipt = await emitSignal({
-        id: signalId,
-        tenantId: registryTenantId,
-        accountId,
-        ticket: {
-          id: outcome.row.id,
-          ticketRef: outcome.row.external_id,
-          customerName: outcome.row.customer_name,
-          customerRef: outcome.row.customer_ref,
-          summary: outcome.row.summary,
-          priority: outcome.row.priority,
-          category: "governed_support",
-          status: outcome.row.source_status,
-        },
-      }).catch((err: unknown) => ({
-        ok: false as const,
-        error: err instanceof Error ? err.message : "signal_emit_failed",
-      }));
-
-      if (!signalReceipt.ok) {
-        return jsonResponse(
-          {
-            error: "signal_emission_failed",
-            message: signalReceipt.error ?? "Failed to emit support ticket created signal",
-          },
-          502,
-        );
-      }
-
-      await client.withWorkspaceProvisioningSession(
-        {
-          tenantId: workspaceId,
-          accountId,
-          registryTenantId,
-        },
-        async (db) => {
-          await db.query(
-            `UPDATE supportv8.issues
-                SET tags = CASE
-                  WHEN 'signal_emitted' = ANY(tags) THEN tags
-                  ELSE array_append(tags, 'signal_emitted')
-                END
-              WHERE tenant_id = $1 AND id = $2`,
-            [workspaceId, outcome.row.id],
-          );
-        },
-      );
-    }
-
+    // Migration 011 captures the issue fact atomically. The shared outbox worker
+    // owns asynchronous delivery; a committed ticket is not a Runtime receipt.
     return jsonResponse({
       ok: true,
       id: outcome.row.id,
@@ -580,10 +527,6 @@ export async function executeSupportDomainAction(
       sourceUrl: outcome.row.source_url,
       ticketUrl: outcome.row.source_url,
       workspaceId,
-      signalId,
-      ...(signalReceipt?.ok && signalReceipt.receiptId
-        ? { signalReceiptId: signalReceipt.receiptId }
-        : {}),
       replayed: outcome.replayed,
       openedAt: outcome.row.created_at,
       createdAt: outcome.row.created_at,

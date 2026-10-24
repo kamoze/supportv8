@@ -1,0 +1,8 @@
+ ✓ test/ticket-source-formatting.test.tsx (15 tests) 51ms
+ ✓ test/ticket-customer-combobox.test.tsx (3 tests) 218ms
+ ✓ test/runtime-support-ui.interactive.test.tsx (6 tests) 171ms
+
+ Test Files  159 passed | 14 skipped (173)
+      Tests  1026 passed | 59 skipped (1085)
+   Start at  08:13:02
+   Duration  6.14s (transform 4.60s, setup 2.35s, collect 19.60s, tests 9.16s, environment 7.18s, prepare 7.48s)

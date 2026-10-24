@@ -11,8 +11,10 @@ jobs:
       - image: redis:7.4-alpine
         command: ["redis-server", "--requirepass", "ci-supportv8-auth"]
       - image: postgres:17-alpine
+        # Disposable shared-loopback fixture; restricted roles have no passwords.
         environment:
           POSTGRES_PASSWORD: support-workspace-test
+          POSTGRES_HOST_AUTH_METHOD: trust
     steps:
       - checkout
       - run:
@@ -20,28 +22,34 @@ jobs:
           command: npm ci || npm install
       - run:
           name: Run Unit and Conformance Tests
-          command: npx vitest run
+          command: node scripts/test-local-only.mjs
+      - run:
+          name: Require native operational outbox, voice transactions and crash recovery
+          no_output_timeout: 3m
+          command: node scripts/test-operational-sql-ci.mjs
+          environment:
+            SUPPORT_OPERATIONAL_TEST_ADMIN_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Rehearse Runtime Support workspace migration and RLS
-          command: npx vitest run test/runtime-support-workspace.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-workspace.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Verify Runtime Support access and ticket RLS
-          command: npx vitest run test/runtime-support-access.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-access.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Verify Runtime Support handoff replay and RLS
-          command: npx vitest run test/runtime-support-handoff.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-handoff.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
           name: Verify Runtime Support durable ticket writes and RLS
-          command: npx vitest run test/runtime-ticket-write.postgres.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-ticket-write.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
@@ -50,7 +58,7 @@ jobs:
           command: npm run build
       - run:
           name: Verify standalone Runtime Support host and logout boundary
-          command: npx vitest run test/runtime-support-next-standalone.test.ts
+          command: node scripts/test-local-only.mjs test/runtime-support-next-standalone.test.ts
           environment:
             SUPPORTV8_NEXT_STANDALONE_PROOF: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres

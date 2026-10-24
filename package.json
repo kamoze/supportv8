@@ -9,7 +9,7 @@
     "start": "next start --port 3005",
     "worker": "tsx src/lib/temporal/worker.ts",
     "chat-relay": "tsx src/lib/chat/relay-worker.ts",
-    "test": "vitest run",
+    "test": "node scripts/test-local-only.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

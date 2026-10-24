@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/inigodwin/Developer/GitCode/.worktrees/support-operational-outbox-20261018
+
+ ✓ test/managed-support.postgres.test.ts (1 test) 148ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  23:45:55
+   Duration  551ms (transform 49ms, setup 4ms, collect 54ms, tests 148ms, environment 0ms, prepare 55ms)
+

@@ -8,7 +8,7 @@
  */
 
 import { getAgenticRuntimeBaseUrl, getAgenticRuntimeToken } from "@/lib/chat/agenticos-chat-client";
-import { getSignalsSecret } from "./signal-agent";
+
 
 export type OlgSituation = {
   id: string;
@@ -47,7 +47,8 @@ export async function fetchOlgContextForTenant(
   const env = options.env ?? process.env;
   const fetchFn = options.fetchImpl ?? fetch;
   const baseUrl = getAgenticRuntimeBaseUrl(env);
-  const secret = getSignalsSecret(env);
+  // Preserve the existing queried-read contract independently of publisher retirement.
+  const secret = env.RUNTIME_SIGNALS_SECRET || env.RUNTIME_WEBHOOK_SECRET || getAgenticRuntimeToken(env) || "";
   const limit = options.limit ?? 100;
   const timeoutMs = options.timeoutMs ?? 4000;
   const startTime = Date.now();

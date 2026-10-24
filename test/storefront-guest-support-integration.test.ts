@@ -1,17 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("pg", () => ({
-  Pool: class {
+vi.mock("pg", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("pg")>();
+  class MockPool {
     query = vi.fn();
     connect = vi.fn();
-  },
-  default: {
-    Pool: class {
-      query = vi.fn();
-      connect = vi.fn();
-    },
-  },
-}));
+  }
+  return { ...actual, Pool: MockPool, default: { ...actual, Pool: MockPool } };
+});
 
 import { ChatWorkflowService, isAsunPalaceTenant } from "../src/lib/services/chat-workflow-service";
 import { ToolPlanner } from "../src/lib/chatbot/agent-runtime/tool-planner";

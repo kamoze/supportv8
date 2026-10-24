@@ -273,6 +273,12 @@ export async function interServiceDispatchWorkflow(
   };
 }
 
+/** Existing shared worker, one bounded global loop, SQL is durable truth. */
+export async function operationalSupportOutboxWorkflow():Promise<never>{
+ const owner=`${workflowInfo().workflowId}:${workflowInfo().runId}`;
+ for(let i=0;i<500;i++){await registrationActivities.drainOperationalSupportFactsActivity({owner:`${owner}:${i}`}).catch(()=>undefined);await sleep("5 seconds");}
+ return continueAsNew<typeof operationalSupportOutboxWorkflow>();
+}
 /**
  * processSupportInteraction
  * Processes a normalized support interaction event asynchronously.

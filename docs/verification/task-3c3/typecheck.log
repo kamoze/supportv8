@@ -1,0 +1,4 @@
+
+> @servicev8/supportv8@0.3.0 typecheck
+> tsc --noEmit
+

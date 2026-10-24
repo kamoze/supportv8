@@ -2,11 +2,19 @@
  * supportV8 Real-Time Context Engine
  * Basis: EP04 (SV8-030 to SV8-037)
  * Assembles ephemeral support context for active customer interactions with TTL purge and budget limits.
+ * Derives TTL from tenant policy or explicit retention configuration. Zero mock-data imports.
  */
 
-import { db } from "../db/mock-data";
-import type { EphemeralSupportContext, SupportCustomerContext, SentimentClass } from "../types";
+import type { EphemeralSupportContext, SupportCustomerContext, SentimentClass, BusinessImpactLevel } from "../types";
 import { triageEngine } from "./triage-engine";
+
+export interface AssembleContextOptions {
+  tenantId?: string;
+  retentionHours?: number;
+  openIssuesCount?: number;
+  activeProblems?: Array<{ id: string; title: string; impact: BusinessImpactLevel; confidence: number }>;
+  knowledgeSnippets?: Array<{ id: string; title: string; snippet: string; sourceUrl: string }>;
+}
 
 export class ContextEngine {
   private ephemeralStore: Map<string, { data: EphemeralSupportContext; expiresAt: number }> = new Map();
@@ -14,8 +22,12 @@ export class ContextEngine {
   public assembleContext(
     interactionId: string,
     customerInput: { id: string; name?: string; tier?: "standard" | "pro" | "enterprise"; email?: string },
-    messageText: string
+    messageText: string,
+    options?: AssembleContextOptions
   ): EphemeralSupportContext {
+    const retentionHours = options?.retentionHours ?? 72;
+    const ttlSeconds = retentionHours * 3600;
+
     // 1. Resolve Customer Profile
     const customer: SupportCustomerContext = {
       id: customerInput.id,
@@ -24,33 +36,18 @@ export class ContextEngine {
       account: `ACC-${customerInput.id.toUpperCase()}`,
       tier: customerInput.tier || "standard",
       arr: customerInput.tier === "enterprise" ? 120000 : customerInput.tier === "pro" ? 14400 : 1200,
-      openIssuesCount: db.issues.filter((i) => i.customerRef === customerInput.id && i.sourceStatus === "open").length,
-      sentimentHistory: ["neutral", "neutral", "frustrated"] as SentimentClass[],
+      openIssuesCount: options?.openIssuesCount ?? 0,
+      sentimentHistory: ["neutral", "neutral", "neutral"] as SentimentClass[],
     };
 
     // 2. Classify Message
     const triage = triageEngine.classify(messageText, customer.tier);
 
     // 3. Find Active Problems
-    const activeProblems = db.problems
-      .filter((p) => p.status !== "resolved")
-      .map((p) => ({
-        id: p.id,
-        title: p.title,
-        impact: p.impact,
-        confidence: p.confidence,
-      }));
+    const activeProblems = options?.activeProblems ?? [];
 
     // 4. Retrieve Relevant Knowledge Snippets
-    const knowledgeSnippets = db.articles
-      .filter((a) => a.status === "active")
-      .slice(0, 2)
-      .map((a) => ({
-        id: a.id,
-        title: a.title,
-        snippet: a.summary,
-        sourceUrl: a.url,
-      }));
+    const knowledgeSnippets = options?.knowledgeSnippets ?? [];
 
     // 5. Available Action Gateway actions
     const availableActions = [
@@ -86,14 +83,14 @@ export class ContextEngine {
       activeProblems,
       knowledgeSnippets,
       availableActions,
-      ttlSeconds: db.policy.retentionRawContextHours * 3600,
+      ttlSeconds,
       createdAt: new Date().toISOString(),
     };
 
-    // Save in ephemeral map with TTL
+    // Save in ephemeral map with TTL derived from policy
     this.ephemeralStore.set(interactionId, {
       data: context,
-      expiresAt: Date.now() + 3600 * 1000,
+      expiresAt: Date.now() + ttlSeconds * 1000,
     });
 
     return context;
@@ -109,6 +106,17 @@ export class ContextEngine {
     return entry.data;
   }
 
+  public getRemainingTtl(interactionId: string): number {
+    const entry = this.ephemeralStore.get(interactionId);
+    if (!entry) return 0;
+    const remainingSeconds = Math.floor((entry.expiresAt - Date.now()) / 1000);
+    if (remainingSeconds <= 0) {
+      this.ephemeralStore.delete(interactionId);
+      return 0;
+    }
+    return remainingSeconds;
+  }
+
   public purgeExpired(): number {
     const now = Date.now();
     let purged = 0;
@@ -119,6 +127,10 @@ export class ContextEngine {
       }
     }
     return purged;
+  }
+
+  public clear(): void {
+    this.ephemeralStore.clear();
   }
 }
 

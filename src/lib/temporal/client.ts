@@ -220,3 +220,37 @@ export async function enqueueInterServiceDispatch(
     results,
   };
 }
+
+/**
+ * Enqueue support interaction workflow for asynchronous Issue derivation.
+ * Deterministic workflow ID: support-interaction:${tenantId}:${eventId}
+ */
+export async function enqueueSupportInteraction(
+  eventId: string,
+  tenantId: string
+): Promise<{ workflowId: string }> {
+  const workflowId = `support-interaction:${tenantId}:${eventId}`;
+
+  if (isTemporalEnabled()) {
+    try {
+      const client = await getTemporalClient();
+      if (client) {
+        const handle = await client.workflow.start("processSupportInteraction", {
+          taskQueue: TASK_QUEUE,
+          workflowId,
+          workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
+          args: [eventId, tenantId],
+        });
+        return { workflowId: handle.workflowId };
+      }
+    } catch (err: any) {
+      // Don't warn on expected duplicate start
+      if (err?.name !== "WorkflowExecutionAlreadyStartedError") {
+        console.warn("[supportV8] Temporal interaction workflow dispatch failed:", err);
+      }
+    }
+  }
+
+  return { workflowId };
+}
+

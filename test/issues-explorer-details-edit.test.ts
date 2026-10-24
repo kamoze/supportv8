@@ -1,25 +1,42 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { issueService } from "../src/lib/services/issue-service";
 import { GET as getIssues, POST as postIssues, PATCH as patchIssues } from "../src/app/api/issues/route";
 import { NextRequest } from "next/server";
+import { PostgresClient } from "@/lib/db/pg-client";
+import { MockPostgresClient } from "./fixtures/mock-db-client";
 
 describe("Issues Explorer - Ticket Details, Status Lifecycle & Edit Suite", () => {
+  let mockClient: MockPostgresClient;
+
   beforeEach(() => {
-    // Reset or ensure test issue is available
-    const issue = issueService.getById("ISS-1001");
-    if (issue) {
-      issueService.updateIssue("ISS-1001", {
-        status: "open",
-        priority: "urgent",
-        summary: "Checkout page throws 500 on final payment submit",
-        category: "Billing",
-        assignedTo: "Sophia (AI)",
-      });
-    }
+    mockClient = new MockPostgresClient();
+    PostgresClient.setTestClient(mockClient);
+
+    mockClient.issues.push({
+      id: "ISS-1001",
+      tenant_id: "tenant_acme",
+      source: "zendesk",
+      external_id: "ZD-884233",
+      customer_ref: "C-1001",
+      customer_name: "Sarah Jenkins",
+      customer_tier: "enterprise",
+      summary: "Checkout page throws 500 on final payment submit",
+      category: "Billing",
+      status: "open",
+      source_status: "open",
+      priority: "urgent",
+      assigned_to: "Sophia (AI)",
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
   });
 
-  it("1. Should return full ticket details for an issue", () => {
-    const issue = issueService.getById("ISS-1001");
+  afterEach(() => {
+    PostgresClient.setTestClient(null);
+  });
+
+  it("1. Should return full ticket details for an issue", async () => {
+    const issue = await issueService.getById("ISS-1001");
     expect(issue).toBeDefined();
     expect(issue?.externalId).toBe("ZD-884233");
     expect(issue?.summary).toBe("Checkout page throws 500 on final payment submit");
@@ -83,7 +100,7 @@ describe("Issues Explorer - Ticket Details, Status Lifecycle & Edit Suite", () =
     expect(patchJson.data.recommendedAction).toBe("Restart worker pods and replay failed webhook payload.");
   });
 
-  it("4. Should record timeline audit events and internal notes when updating ticket", () => {
+  it("4. Should record timeline audit events and internal notes when updating ticket", async () => {
     const timelineEvent = {
       id: "tl_test_1",
       timestamp: "10:30 AM",
@@ -93,7 +110,7 @@ describe("Issues Explorer - Ticket Details, Status Lifecycle & Edit Suite", () =
       details: "Investigation initiated.",
     };
 
-    const updated = issueService.updateIssue("ISS-1001", {
+    const updated = await issueService.updateIssue("ISS-1001", {
       status: "in_progress",
       timeline: [timelineEvent],
     });

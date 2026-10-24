@@ -8,7 +8,7 @@ manifest, acquisition or flag is activated by this change.
 ## Native capture and immutable evidence
 
 Migration `011_operational_outbox.sql` installs an AFTER INSERT/UPDATE trigger on
-`supportv8.issues`. Native issue mutation, voice tool effect, chat/session writes
+`supportv8.issues`. Native issue mutation, governed ticket creation/escalation, voice tool effect, chat/session writes
 and operational evidence share the caller's existing transaction. Rollback rolls
 all of them back. Capture never calls Registry, Runtime, OAuth or another API.
 
@@ -251,3 +251,15 @@ capacity: retry completion cannot persist for some rows, concurrent claim is
 refused, and verified denied B stays pending/noACK but last_error_code is null.
 The subsequent candidate adds only the bounded recheck above; denial assertions
 and migration011 remain unchanged. Actual SQL GREEN remains required.
+
+## Current-main integration review — 2026-10-24
+
+The integrated candidate preserves main's durable IssueService and interaction/
+retention workflows. Governed ticket creation returns the committed business
+result independently of Runtime availability. It no longer waits for the retired
+legacy emitter, writes a `signal_emitted` tag, or fabricates a `signalId` or
+`signalReceiptId` in the command result. The native trigger captures evidence in
+the original transaction; only the asynchronous worker's validated receipt proves
+delivery. Exact command replay still returns the same ticket without a new write.
+Both operational flags remain disabled by default. Migration/rollout gates above
+remain required; passing source tests does not qualify the owner migration Job.

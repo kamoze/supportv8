@@ -148,6 +148,16 @@ export const OP_DEF_ZD_UPDATE_PRIORITY: OperationDefinition = Object.freeze({
   auditEvent: "zendesk.ticket.priority_updated",
 });
 
+export const OP_DEF_TICKET_UPDATE_PRIORITY: OperationDefinition = Object.freeze({
+  id: "ticket.update_priority",
+  summary: "Update priority of a support ticket",
+  vertical: VERTICAL,
+  risk: "low",
+  requiredScope: "ticket:write",
+  validate: validateZendeskPriority,
+  auditEvent: "ticket.priority_updated",
+});
+
 export const OP_DEF_ZD_ADD_NOTE: OperationDefinition = Object.freeze({
   id: OP_ZD_ADD_NOTE,
   summary: "Add an internal note to a Zendesk ticket",
@@ -241,6 +251,7 @@ export const OP_DEF_KNOWLEDGE_PUBLISH: OperationDefinition = Object.freeze({
 export const ALL_SUPPORT_OPERATIONS: readonly OperationDefinition[] = [
   OP_DEF_ZD_ADD_TAG,
   OP_DEF_ZD_UPDATE_PRIORITY,
+  OP_DEF_TICKET_UPDATE_PRIORITY,
   OP_DEF_ZD_ADD_NOTE,
   OP_DEF_ZD_CLOSE,
   OP_DEF_TICKET_CREATE,

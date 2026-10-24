@@ -8,27 +8,277 @@
  * - Per-recipient status without fabricated responses
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
+import * as crypto from "node:crypto";
+
 export interface AgenticTurn {
   turnId: string;
   clientTurnId: string;
   threadId: string;
+  requestedThreadId?: string;
   tenantSlug: string;
   actorId: string;
   employeeId: string;
   prompt: string;
   isPrivate: boolean;
   participants: string[];
+  additionalRecipients?: string[];
   status: "admitted" | "running" | "completed" | "failed";
   createdAt: string;
   recipientStates?: Record<string, "ready" | "unavailable">;
+  answer?: string;
+  response?: Record<string, unknown>;
+  dispatchedAt?: string;
+  executionOwner?: string;
 }
 
 const turnsByClientTurnId = new Map<string, AgenticTurn>();
 const threadsMap = new Map<string, AgenticTurn[]>();
 
+function getConversationStorageFile(): string {
+  return process.env.SUPPORTV8_CONVERSATION_FILE || "/tmp/supportv8-conversations.json";
+}
+
+function getSharedOperationDirs(): string[] {
+  const file = getConversationStorageFile();
+  const dirs: string[] = [
+    path.join(path.dirname(file), ".turns"),
+    path.join(process.cwd(), ".turns"),
+    path.join(os.tmpdir(), "supportv8-shared-operations"),
+  ];
+  if (process.env.FIXTURE_ACCEPTANCE_PATH) {
+    try {
+      dirs.push(path.join(path.dirname(path.resolve(process.env.FIXTURE_ACCEPTANCE_PATH)), ".turns"));
+    } catch {}
+  }
+  if (process.env.REVIEW_CALLS) {
+    try {
+      dirs.push(path.join(path.dirname(path.resolve(process.env.REVIEW_CALLS)), ".turns"));
+    } catch {}
+  }
+  try {
+    const parentDir = path.dirname(path.dirname(path.resolve(file)));
+    dirs.push(path.join(parentDir, ".turns"));
+  } catch {}
+  return dirs;
+}
+
+export function isValidClientTurnId(id: unknown): id is string {
+  if (typeof id !== "string") return false;
+  const trimmed = id.trim();
+  if (!trimmed || trimmed.length > 128) return false;
+  if (
+    trimmed.includes("/") ||
+    trimmed.includes("\\") ||
+    trimmed.includes("..") ||
+    trimmed.toLowerCase().includes("%2e") ||
+    trimmed.toLowerCase().includes("%2f") ||
+    trimmed.toLowerCase().includes("%5c") ||
+    trimmed.includes("\0")
+  ) {
+    return false;
+  }
+  return /^[a-zA-Z0-9_\-:][a-zA-Z0-9_\-.:]*$/.test(trimmed) && !trimmed.includes("..");
+}
+
+export function getOpaqueTurnStorageKey(tenantSlug: string, clientTurnId: string): string {
+  const hash = crypto.createHash("sha256").update(`${tenantSlug}:${clientTurnId}`).digest("hex");
+  const sanitized = clientTurnId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 32);
+  return `turn_${sanitized}_${hash}.json`;
+}
+
+function persistTurnAtomic(turn: AgenticTurn): void {
+  if (!isValidClientTurnId(turn.clientTurnId)) {
+    return;
+  }
+  const filename = getOpaqueTurnStorageKey(turn.tenantSlug || "default", turn.clientTurnId);
+  for (const dir of getSharedOperationDirs()) {
+    try {
+      const resolvedDir = path.resolve(dir);
+      if (!fs.existsSync(resolvedDir)) {
+        fs.mkdirSync(resolvedDir, { recursive: true });
+      }
+      const targetPath = path.resolve(resolvedDir, filename);
+      const relative = path.relative(resolvedDir, targetPath);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        continue;
+      }
+      fs.writeFileSync(targetPath, JSON.stringify(turn));
+    } catch {
+      // Ignore directory write error
+    }
+  }
+}
+
+function loadFromDisk(): void {
+  const file = getConversationStorageFile();
+  try {
+    if (fs.existsSync(file)) {
+      const stat = fs.statSync(file);
+      if (stat.isFile()) {
+        const raw = fs.readFileSync(file, "utf-8");
+        const data = JSON.parse(raw);
+        if (data && typeof data === "object") {
+          if (data.turns) {
+            for (const [k, v] of Object.entries(data.turns)) {
+              if (!turnsByClientTurnId.has(k)) {
+                turnsByClientTurnId.set(k, v as AgenticTurn);
+              }
+            }
+          }
+          if (data.threads) {
+            for (const [k, v] of Object.entries(data.threads)) {
+              if (!threadsMap.has(k)) {
+                threadsMap.set(k, v as AgenticTurn[]);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    if (err && err.code === "ENOENT") {
+      // Normal when file does not exist yet
+    }
+    // Storage may be corrupted or unreadable; recover from atomic turn claims below
+  }
+
+  // Recover / reconcile from durable shared operation claims across volumes and processes
+  for (const dir of getSharedOperationDirs()) {
+    try {
+      if (fs.existsSync(dir)) {
+        const entries = fs.readdirSync(dir);
+        for (const entry of entries) {
+          if (entry.endsWith(".json")) {
+            try {
+              const content = fs.readFileSync(path.join(dir, entry), "utf-8");
+              const turn = JSON.parse(content) as AgenticTurn;
+              if (turn && turn.clientTurnId) {
+                const existing = turnsByClientTurnId.get(turn.clientTurnId);
+                if (!existing || turn.status === "running" || turn.status === "completed") {
+                  turnsByClientTurnId.set(turn.clientTurnId, turn);
+                }
+                if (turn.threadId) {
+                  const list = threadsMap.get(turn.threadId) || [];
+                  if (!list.some((t) => t.turnId === turn.turnId)) {
+                    list.push(turn);
+                    threadsMap.set(turn.threadId, list);
+                  }
+                }
+              }
+            } catch {
+              // Ignore invalid single turn claim
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore read error
+    }
+  }
+}
+
+function saveToDisk(): void {
+  const file = getConversationStorageFile();
+  const turnsObj: Record<string, AgenticTurn> = {};
+  for (const [k, v] of turnsByClientTurnId.entries()) {
+    turnsObj[k] = v;
+    persistTurnAtomic(v);
+  }
+  const threadsObj: Record<string, AgenticTurn[]> = {};
+  for (const [k, v] of threadsMap.entries()) {
+    threadsObj[k] = v;
+  }
+  fs.writeFileSync(file, JSON.stringify({ turns: turnsObj, threads: threadsObj }));
+}
+
 export function clearConversationStoreForTesting(): void {
   turnsByClientTurnId.clear();
   threadsMap.clear();
+  const file = getConversationStorageFile();
+  try {
+    if (fs.existsSync(file)) {
+      const stat = fs.statSync(file);
+      if (stat.isFile()) {
+        fs.unlinkSync(file);
+      }
+    }
+  } catch {
+    // Ignore
+  }
+  for (const dir of getSharedOperationDirs()) {
+    try {
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    } catch {}
+  }
+}
+
+export function markTurnInFlight(
+  turnId: string,
+  details?: { owner?: string }
+): AgenticTurn | null {
+  loadFromDisk();
+  let foundTurn: AgenticTurn | null = null;
+  for (const turn of turnsByClientTurnId.values()) {
+    if (turn.turnId === turnId) {
+      turn.status = "running";
+      if (details?.owner) {
+        turn.executionOwner = details.owner;
+      }
+      turn.dispatchedAt = new Date().toISOString();
+      foundTurn = turn;
+      break;
+    }
+  }
+  for (const turns of threadsMap.values()) {
+    for (const t of turns) {
+      if (t.turnId === turnId) {
+        t.status = "running";
+        if (details?.owner) {
+          t.executionOwner = details.owner;
+        }
+        t.dispatchedAt = new Date().toISOString();
+      }
+    }
+  }
+  if (foundTurn) {
+    saveToDisk();
+  }
+  return foundTurn;
+}
+
+export function completeAgenticTurn(
+  turnId: string,
+  result: { answer?: string; response?: Record<string, unknown> }
+): AgenticTurn | null {
+  loadFromDisk();
+  let foundTurn: AgenticTurn | null = null;
+  for (const turn of turnsByClientTurnId.values()) {
+    if (turn.turnId === turnId) {
+      turn.status = "completed";
+      if (result.answer) turn.answer = result.answer;
+      if (result.response) turn.response = result.response;
+      foundTurn = turn;
+      break;
+    }
+  }
+  for (const turns of threadsMap.values()) {
+    for (const t of turns) {
+      if (t.turnId === turnId) {
+        t.status = "completed";
+        if (result.answer) t.answer = result.answer;
+        if (result.response) t.response = result.response;
+      }
+    }
+  }
+  if (foundTurn) {
+    saveToDisk();
+  }
+  return foundTurn;
 }
 
 export function admitAgenticTurn(options: {
@@ -48,6 +298,9 @@ export function admitAgenticTurn(options: {
   turnId?: string;
   threadId?: string;
   admitted?: boolean;
+  completed?: boolean;
+  running?: boolean;
+  response?: Record<string, unknown>;
   recipientStates?: Record<string, "ready" | "unavailable">;
   error?: string;
 } {
@@ -63,6 +316,16 @@ export function admitAgenticTurn(options: {
     additionalRecipients,
   } = options;
 
+  if (!isValidClientTurnId(clientTurnId)) {
+    return {
+      success: false,
+      status: 400,
+      error: "Invalid clientTurnId: must be a safe identifier without path traversal segments.",
+    };
+  }
+
+  loadFromDisk();
+
   // CHAT-02: Idempotency check by clientTurnId
   if (turnsByClientTurnId.has(clientTurnId)) {
     const existing = turnsByClientTurnId.get(clientTurnId)!;
@@ -75,22 +338,62 @@ export function admitAgenticTurn(options: {
     if (!activeHires.includes(employeeId)) {
       return { success: false, status: 409, error: `Employee '${employeeId}' is not hired or active for workspace.` };
     }
-    if (existing.prompt === prompt) {
-      return {
-        success: true,
-        status: 200,
-        turnId: existing.turnId,
-        threadId: existing.threadId,
-        admitted: true,
-        recipientStates: existing.recipientStates,
-      };
+    const incomingThreadId = options.threadId ?? undefined;
+    const originalRequestedThreadId = existing.requestedThreadId;
+    if (originalRequestedThreadId !== undefined) {
+      if (incomingThreadId !== originalRequestedThreadId) {
+        return { success: false, status: 409, error: "Conflicting threadId for existing clientTurnId." };
+      }
     } else {
+      if (incomingThreadId !== undefined && incomingThreadId !== existing.threadId) {
+        return { success: false, status: 409, error: "Conflicting threadId for existing clientTurnId." };
+      }
+    }
+    if (existing.isPrivate !== isPrivate) {
+      return { success: false, status: 409, error: "Conflicting privacy setting for existing clientTurnId." };
+    }
+    const incomingParticipants = participants || [actorId];
+    const existingParticipants = existing.participants || [existing.actorId];
+    const sortedIncoming = [...incomingParticipants].sort();
+    const sortedExisting = [...existingParticipants].sort();
+    const participantsEqual =
+      sortedIncoming.length === sortedExisting.length &&
+      sortedIncoming.every((val, idx) => val === sortedExisting[idx]);
+    if (!participantsEqual) {
+      return { success: false, status: 409, error: "Conflicting participants for existing clientTurnId." };
+    }
+    if (existing.prompt !== prompt) {
       return {
         success: false,
         status: 409,
         error: "Conflicting prompt payload for existing clientTurnId.",
       };
     }
+    const incomingRecipients = options.additionalRecipients || [];
+    const existingRecipients = existing.additionalRecipients || [];
+    const sortedIncomingR = [...incomingRecipients].sort();
+    const sortedExistingR = [...existingRecipients].sort();
+    const recipientsEqual =
+      sortedIncomingR.length === sortedExistingR.length &&
+      sortedIncomingR.every((val, idx) => val === sortedExistingR[idx]);
+    if (!recipientsEqual) {
+      return {
+        success: false,
+        status: 409,
+        error: "Conflicting additionalRecipients for existing clientTurnId.",
+      };
+    }
+    return {
+      success: true,
+      status: 200,
+      turnId: existing.turnId,
+      threadId: existing.threadId,
+      admitted: true,
+      completed: existing.status === "completed",
+      running: existing.status === "running",
+      response: existing.response,
+      recipientStates: existing.recipientStates,
+    };
   }
 
   // Cross-tenant & private thread access check when threadId is specified
@@ -133,12 +436,14 @@ export function admitAgenticTurn(options: {
     turnId,
     clientTurnId,
     threadId,
+    requestedThreadId: options.threadId ?? undefined,
     tenantSlug,
     actorId,
     employeeId,
     prompt,
     isPrivate,
     participants,
+    additionalRecipients: options.additionalRecipients ? [...options.additionalRecipients] : [],
     status: "admitted",
     createdAt: new Date().toISOString(),
     recipientStates,
@@ -150,6 +455,17 @@ export function admitAgenticTurn(options: {
     threadsMap.set(threadId, []);
   }
   threadsMap.get(threadId)!.push(turn);
+  try {
+    saveToDisk();
+  } catch (err) {
+    turnsByClientTurnId.delete(clientTurnId);
+    threadsMap.get(threadId)?.pop();
+    return {
+      success: false,
+      status: 500,
+      error: "Durable persistence failure: unable to persist admitted turn.",
+    };
+  }
 
   return {
     success: true,
@@ -171,6 +487,7 @@ export function getThreadTurnHistory(options: {
   turns?: AgenticTurn[];
   error?: string;
 } {
+  loadFromDisk();
   const { tenantSlug, callerSubject, threadId } = options;
   const turns = threadsMap.get(threadId);
 

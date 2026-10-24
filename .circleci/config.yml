@@ -78,6 +78,7 @@ jobs:
             docker push "$IMAGE:$TAG"
             docker push "$IMAGE:web-latest"
   update-devops:
+    resource_class: redoosolutions/servicev8
     docker:
       - image: cimg/base:stable
     steps:

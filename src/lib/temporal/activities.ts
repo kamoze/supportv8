@@ -197,3 +197,30 @@ export async function drainOperationalSupportFactsActivity(input:{owner:string})
  operationalStore??=new OperationalOutboxStore();
  return drainOperationalOutbox({store:operationalStore,enabled:true,owner:input.owner,limit:8,signal:Context.current().cancellationSignal,verify:verifyOutboxSource,send:sendOperationalFact});
 }
+export {
+  deriveIssueFromInteractionActivity,
+  processSupportInteraction,
+  InteractionWorker,
+} from "./interaction-workflow";
+
+import { retentionService, type PurgeResult } from "../retention/retention-service";
+
+export interface RetentionPurgeWorkflowResult extends PurgeResult {
+  timestamp: string;
+}
+
+export async function purgeExpiredRawContextActivity(
+  asOfIso?: string
+): Promise<RetentionPurgeWorkflowResult> {
+  const asOf = asOfIso ? new Date(asOfIso) : new Date();
+  const result = await retentionService.purgeExpiredRawContext(asOf);
+  return {
+    ...result,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export {
+  runRetentionPurgeWorkflow,
+} from "./retention-workflow";
+

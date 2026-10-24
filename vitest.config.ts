@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./test/local-only-network-guard.mjs"],
+    fileParallelism: false,
   },
   resolve: {
     alias: {

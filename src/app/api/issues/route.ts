@@ -54,7 +54,7 @@ async function updateIssue(
       (hasDurableDatabase()
         ? await chatRepository.updateChatIssue(tenant.tenantId, targetId, updates, true)
         : null) ||
-      issueService.updateIssue(targetId, updates, tenant.tenantSlug);
+      (await issueService.update(targetId, updates, tenant.tenantId));
   }
 
   return updated;
@@ -72,25 +72,46 @@ export async function GET(req: NextRequest) {
     requireChatOperatorRole(tenant);
 
     let issues: Issue[];
-    if (hasDurableDatabase()) {
-      const durableChatIssues = tenant.runtimeLinked
+    if (tenant.runtimeLinked) {
+      issues = hasDurableDatabase()
         ? await chatRepository.listWorkspaceIssues(tenant.tenantId)
-        : await chatRepository.listChatIssues(tenant.tenantId, undefined, true);
-      issues = durableChatIssues.filter((issue) => {
-        if (source && issue.source !== source) return false;
-        if (sentiment && issue.sentiment !== sentiment) return false;
-        if (category && issue.category !== category) return false;
-        if (problemId && issue.problemId !== problemId) return false;
-        if (search) {
-          const haystack = `${issue.externalId} ${issue.customerName} ${issue.summary}`.toLowerCase();
-          if (!haystack.includes(search.toLowerCase())) return false;
-        }
-        return true;
+        : [];
+    } else if (hasDurableDatabase()) {
+      issues = await issueService.getAll({
+        sentiment,
+        category,
+        source,
+        problemId,
+        search,
+        tenantId: tenant.tenantId,
       });
-    } else if (tenant.runtimeLinked) {
-      issues = [];
+
+      // Merge with chat issues if any
+      try {
+        const chatIssues = await chatRepository.listChatIssues(tenant.tenantId, undefined, true);
+        for (const ci of chatIssues) {
+          if (!issues.some((i) => i.id === ci.id || i.externalId === ci.externalId)) {
+            if (source && ci.source !== source) continue;
+            if (sentiment && ci.sentiment !== sentiment) continue;
+            if (category && ci.category !== category) continue;
+            if (problemId && ci.problemId !== problemId) continue;
+            if (search) {
+              const haystack = `${ci.externalId} ${ci.customerName} ${ci.summary}`.toLowerCase();
+              if (!haystack.includes(search.toLowerCase())) continue;
+            }
+            issues.push(ci);
+          }
+        }
+      } catch {}
     } else {
-      issues = issueService.getAll({ sentiment, category, source, problemId, search, tenant: tenant.tenantSlug });
+      issues = await issueService.getAll({
+        sentiment,
+        category,
+        source,
+        problemId,
+        search,
+        tenantId: tenant.tenantId,
+      }).catch(() => []);
     }
 
     return NextResponse.json({
@@ -187,7 +208,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, data: issue }, { status: 201 });
     }
     if (tenant.runtimeLinked) return NextResponse.json({success:false,error:"Use create_manual to save a workspace ticket."},{status:400});
-    const issue = issueService.createFromInteraction({ ...body, tenant: tenant.tenantSlug });
+    const issue = await issueService.createFromInteraction(tenant.tenantId, body);
     return NextResponse.json({
       success: true,
       data: issue,

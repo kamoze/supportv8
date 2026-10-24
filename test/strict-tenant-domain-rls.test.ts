@@ -1,11 +1,77 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { credentialStore, INITIAL_USER_CREDENTIALS } from "@/lib/auth/credential-store";
 import { issueService } from "@/lib/services/issue-service";
 import { problemService } from "@/lib/services/problem-service";
 import { insightsService } from "@/lib/services/insights-service";
 import { db } from "@/lib/db/mock-data";
+import { PostgresClient } from "@/lib/db/pg-client";
+import { MockPostgresClient } from "./fixtures/mock-db-client";
 
 describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
+  let mockClient: MockPostgresClient;
+
+  beforeEach(() => {
+    mockClient = new MockPostgresClient();
+    PostgresClient.setTestClient(mockClient);
+
+    // Seed acme issues
+    mockClient.issues.push(
+      {
+        id: "ISS-ACME-001",
+        tenant_id: "tenant_acme",
+        source: "zendesk",
+        external_id: "ZD-1",
+        category: "Billing",
+        summary: "Billing issue",
+        tags: ["billing"],
+        created_at: new Date(),
+      },
+      {
+        id: "ISS-ACME-002",
+        tenant_id: "tenant_acme",
+        source: "zendesk",
+        external_id: "ZD-2",
+        category: "Auth",
+        summary: "Auth issue",
+        tags: ["auth"],
+        created_at: new Date(),
+      }
+    );
+
+    // Seed meridian contractor issues
+    mockClient.issues.push(
+      {
+        id: "ISS-MERIDIAN-001",
+        tenant_id: "tenant_meridian",
+        source: "zendesk",
+        external_id: "ZD-M1",
+        category: "contractor dispatch",
+        summary: "Contractor lockbox issue",
+        tags: ["contractor"],
+        created_at: new Date(),
+      }
+    );
+
+    // Seed acme problems
+    mockClient.problems.push({
+      id: "PRB-ACME-001",
+      tenant_id: "tenant_acme",
+      title: "SSO Outage",
+      summary: "Auth failing",
+      status: "active",
+      confidence: 0.9,
+      impact: "high",
+      affected_customer_count: 5,
+      affected_enterprise_count: 1,
+      estimated_revenue_exposure: 15000,
+      linked_issue_ids: ["ISS-ACME-002"],
+      created_at: new Date(),
+    });
+  });
+
+  afterEach(() => {
+    PostgresClient.setTestClient(null);
+  });
   describe("1. Strict Tenant Authentication & Cross-Domain Boundary Checks", () => {
     it("should REJECT cross-tenant login attempts (acme-movers account logging into acme domain)", async () => {
       // Register a customer tenant account
@@ -69,10 +135,10 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
   });
 
   describe("2. Row-Level Security (RLS) on Tenant Data Services", () => {
-    it("should isolate issues between tenants (acme vs acme-movers vs meridian)", () => {
-      const acmeIssues = issueService.getAll({ tenant: "acme" });
-      const meridianIssues = issueService.getAll({ tenant: "meridian" });
-      const acmeMoversIssues = issueService.getAll({ tenant: "acme-movers" });
+    it("should isolate issues between tenants (acme vs acme-movers vs meridian)", async () => {
+      const acmeIssues = await issueService.getAll({ tenant: "acme" });
+      const meridianIssues = await issueService.getAll({ tenant: "meridian" });
+      const acmeMoversIssues = await issueService.getAll({ tenant: "acme-movers" });
 
       // Acme issues should be present and contain non-contractor issues
       expect(acmeIssues.length).toBeGreaterThan(0);
@@ -89,43 +155,44 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
       expect(acmeMoversIssues.length).toBe(0);
     });
 
-    it("should isolate problems between tenants", () => {
-      const acmeProblems = problemService.getAll("acme");
-      const acmeMoversProblems = problemService.getAll("acme-movers");
+    it("should isolate problems between tenants", async () => {
+      const acmeProblems = await problemService.getAll("acme");
+      const acmeMoversProblems = await problemService.getAll("acme-movers");
 
       expect(acmeProblems.length).toBeGreaterThan(0);
       expect(acmeMoversProblems.length).toBe(0);
     });
 
-    it("should isolate actionable insights between tenants", () => {
-      const acmeInsights = insightsService.getAll("acme");
-      const acmeMoversInsights = insightsService.getAll("acme-movers");
+    it("should isolate actionable insights between tenants", async () => {
+      const acmeInsights = await insightsService.getAll("acme");
+      const acmeMoversInsights = await insightsService.getAll("acme-movers");
 
       expect(acmeInsights.length).toBeGreaterThan(0);
       expect(acmeMoversInsights.length).toBe(0);
     });
 
-    it("should dynamically isolate newly added issues to their specific tenant", () => {
+    it("should dynamically isolate newly added issues to their specific tenant", async () => {
       const newMoversIssue: any = {
         id: "ISS-MOVERS-001",
-        tenantId: "tenant_acme-movers",
+        tenant_id: "tenant_acme_movers",
         source: "zendesk",
-        externalId: "MOV-9001",
-        customerRef: "CUST-9001",
-        customerName: "Moving Customer",
-        customerTier: "pro",
+        external_id: "MOV-9001",
+        customer_ref: "CUST-9001",
+        customer_name: "Moving Customer",
+        customer_tier: "pro",
         summary: "Truck dispatch delayed by 2 hours",
         sentiment: "neutral",
         status: "open",
         priority: "medium",
         tags: ["moving", "dispatch"],
-        createdAt: new Date().toISOString(),
+        created_at: new Date(),
       };
 
+      mockClient.issues.push(newMoversIssue);
       db.addIssue(newMoversIssue, "acme-movers");
 
-      const acmeMoversData = issueService.getAll({ tenant: "acme-movers" });
-      const acmeData = issueService.getAll({ tenant: "acme" });
+      const acmeMoversData = await issueService.getAll({ tenant: "acme-movers" });
+      const acmeData = await issueService.getAll({ tenant: "acme" });
 
       expect(acmeMoversData.map((i) => i.id)).toContain("ISS-MOVERS-001");
       expect(acmeData.map((i) => i.id)).not.toContain("ISS-MOVERS-001");
@@ -166,22 +233,22 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
       expect(meridianData.sources.length).toBe(0);
     });
 
-    it("should enforce tenant scoping on issueService getById and updateIssue", () => {
-      const acmeIssues = issueService.getAll({ tenant: "acme" });
+    it("should enforce tenant scoping on issueService getById and updateIssue", async () => {
+      const acmeIssues = await issueService.getAll({ tenant: "acme" });
       const targetAcmeIssue = acmeIssues[0];
 
       // Lookup within acme succeeds
-      const foundInAcme = issueService.getById(targetAcmeIssue.id, "acme");
+      const foundInAcme = await issueService.getById(targetAcmeIssue.id, "acme");
       expect(foundInAcme).toBeDefined();
       expect(foundInAcme?.id).toBe(targetAcmeIssue.id);
 
-      // Cross-tenant lookup for acme issue in acme-movers returns undefined
-      const crossTenantLookup = issueService.getById(targetAcmeIssue.id, "acme-movers");
-      expect(crossTenantLookup).toBeUndefined();
+      // Cross-tenant lookup for acme issue in acme-movers returns undefined/null
+      const crossTenantLookup = await issueService.getById(targetAcmeIssue.id, "acme-movers");
+      expect(crossTenantLookup).toBeFalsy();
 
       // Cross-tenant update for acme issue in acme-movers fails
-      const crossTenantUpdate = issueService.updateIssue(targetAcmeIssue.id, { status: "closed" }, "acme-movers");
-      expect(crossTenantUpdate).toBeUndefined();
+      const crossTenantUpdate = await issueService.updateIssue(targetAcmeIssue.id, { status: "closed" }, "acme-movers");
+      expect(crossTenantUpdate).toBeFalsy();
     });
   });
 });

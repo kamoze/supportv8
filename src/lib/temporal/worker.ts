@@ -2,6 +2,8 @@ import http from "node:http";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { Client, Connection } from "@temporalio/client";
 import * as activities from "./activities";
+import { deriveIssueFromInteractionActivity } from "./interaction-workflow";
+import { purgeExpiredRawContextActivity } from "./activities";
 import { TASK_QUEUE, TEMPORAL_ADDRESS, TEMPORAL_NAMESPACE } from "./config";
 import { ensureTemporalSchedules } from "./schedules";
 
@@ -67,6 +69,11 @@ async function connectWithRetry(
   throw new Error(`[supportv8-worker] Could not connect to Temporal cluster after ${maxAttempts} attempts across [${candidateAddresses.join(", ")}]`);
 }
 
+async function drainPendingInteractionsActivity(limit = 50) {
+  const { interactionOutboxRelay } = await import("@/lib/connectors/interaction-outbox-relay");
+  return await interactionOutboxRelay.drainPendingInteractions(limit);
+}
+
 async function main() {
   const address = TEMPORAL_ADDRESS || process.env.TEMPORAL_ADDRESS || "temporal-workload-frontend.default.svc.cluster.local:7233";
 
@@ -94,7 +101,12 @@ async function main() {
     namespace: TEMPORAL_NAMESPACE,
     taskQueue: TASK_QUEUE,
     workflowsPath: new URL("./workflows.ts", import.meta.url).pathname,
-    activities,
+    activities: {
+      ...activities,
+      deriveIssueFromInteractionActivity,
+      purgeExpiredRawContextActivity,
+      drainPendingInteractionsActivity,
+    },
     maxConcurrentActivityTaskExecutions: 25,
   });
 

@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { Pool } from "pg";
 import { INITIAL_ISSUES } from "@/lib/db/mock-data";
 
 export type RuntimeEmployeeId = "Arthur" | "Vivian" | "Sophia";
@@ -91,6 +92,7 @@ export interface RuntimeRecordAuditEntry {
 // In-memory test state
 const actorGrants = new Map<string, "active" | "revoked">();
 const tenantEntitlements = new Map<string, "active" | "revoked">();
+const tenantTicketsStore = new Map<string, Array<Record<string, unknown>>>();
 let outageMode = false;
 const auditLogs: RuntimeRecordAuditEntry[] = [];
 
@@ -100,6 +102,10 @@ export function setRuntimeActorGrant(actorId: string, status: "active" | "revoke
 
 export function setTenantEntitlementFact(tenantDomain: string, status: "active" | "revoked"): void {
   tenantEntitlements.set(tenantDomain, status);
+}
+
+export function setTenantTicketsForTesting(tenantDomain: string, tickets: Array<Record<string, unknown>>): void {
+  tenantTicketsStore.set(tenantDomain.replace(/^tenant_/, "").toLowerCase(), tickets);
 }
 
 export function setRuntimeRecordOutage(outage: boolean): void {
@@ -121,8 +127,29 @@ export function clearRuntimeRecordAuditLogsForTesting(): void {
 export function clearRuntimeRecordsStateForTesting(): void {
   actorGrants.clear();
   tenantEntitlements.clear();
+  tenantTicketsStore.clear();
   outageMode = false;
   auditLogs.length = 0;
+
+  // Initialize known test tenants with isolated domain records
+  const seedTenants = ["tenant-a", "tenant-b"];
+  for (const t of seedTenants) {
+    tenantTicketsStore.set(
+      t,
+      INITIAL_ISSUES.map((issue) => ({
+        id: `${t}-${issue.id}`,
+        ticketRef: `SV8-${t}-${issue.id}`,
+        customerRef: `${t}-${issue.customerRef}`,
+        customerName: issue.customerName,
+        status: issue.sourceStatus,
+        priority: issue.priority,
+        summary: issue.summary,
+        source: issue.source,
+        createdAt: issue.createdAt,
+        updatedAt: issue.updatedAt,
+      }))
+    );
+  }
 }
 
 export function logRuntimeRecordAccess(entry: Omit<RuntimeRecordAuditEntry, "id" | "timestamp">): void {
@@ -245,13 +272,22 @@ export function verifyRuntimeEmployeeToken(
 
   const now = options.now ?? Math.floor(Date.now() / 1000);
 
-  // Expiration check
-  if (typeof payload.exp !== "number" || payload.exp <= now) {
-    return { valid: false, status: 401, error: "Token expired" };
+  // Issued-at validation
+  if (typeof payload.iat !== "number" || !Number.isFinite(payload.iat)) {
+    return { valid: false, status: 401, error: "Missing or invalid iat claim" };
+  }
+  if (payload.iat > now + 60) {
+    return { valid: false, status: 401, error: "Token issued in future" };
   }
 
-  // TTL limit check: max 300s
-  if (typeof payload.iat === "number" && (payload.exp - payload.iat > 300 || payload.exp - payload.iat <= 0)) {
+  // Expiration check
+  if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp) || payload.exp <= now) {
+    return { valid: false, status: 401, error: "Token expired or missing exp claim" };
+  }
+
+  // TTL limit check: max 300s, must be positive
+  const lifetime = payload.exp - payload.iat;
+  if (lifetime > 300 || lifetime <= 0) {
     return { valid: false, status: 401, error: "Token lifetime exceeds maximum allowed TTL (300s)" };
   }
 
@@ -384,6 +420,99 @@ export function getTenantMockTickets(tenantDomain: string): Array<Record<string,
   }));
 }
 
+async function checkDatabaseAvailable(): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return true;
+  try {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: 300,
+    });
+    const client = await pool.connect();
+    try {
+      await client.query("SELECT 1");
+      return true;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  } catch {
+    return false;
+  }
+}
+
+async function fetchTenantRawTickets(cleanTenant: string): Promise<Array<Record<string, unknown>>> {
+  if (process.env.DATABASE_URL) {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: false,
+      connectionTimeoutMillis: 2000,
+    });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [cleanTenant]);
+      const colCheck = await client.query(
+        "SELECT column_name FROM information_schema.columns WHERE table_schema = 'supportv8' AND table_name = 'issues'"
+      );
+      const cols = new Set(colCheck.rows.map((r: any) => r.column_name.toLowerCase()));
+      const hasCategory = cols.has("category");
+      const hasCustomerRef = cols.has("customer_ref");
+      const hasCustomerName = cols.has("customer_name");
+      const hasCustomerEmail = cols.has("customer_email");
+      const hasExternalId = cols.has("external_id");
+      const hasSource = cols.has("source");
+      const hasSourceStatus = cols.has("source_status");
+      const hasPriority = cols.has("priority");
+      const hasSummary = cols.has("summary");
+      const hasCreatedAt = cols.has("created_at");
+      const hasUpdatedAt = cols.has("updated_at");
+
+      const selectCols = [
+        "id",
+        hasExternalId ? "external_id" : "id AS external_id",
+        hasCustomerRef ? "customer_ref" : "'cust_unknown' AS customer_ref",
+        hasCustomerName ? "customer_name" : "'Customer' AS customer_name",
+        hasCustomerEmail ? "customer_email" : "NULL::text AS customer_email",
+        hasSourceStatus ? "source_status" : "'open' AS source_status",
+        hasPriority ? "priority" : "'normal' AS priority",
+        hasSummary ? "summary" : "'' AS summary",
+        hasSource ? "source" : "'portal' AS source",
+        hasCategory ? "category" : "'general' AS category",
+        hasCreatedAt ? "created_at::text AS created_at" : "now()::text AS created_at",
+        hasUpdatedAt ? "updated_at::text AS updated_at" : "now()::text AS updated_at",
+      ].join(", ");
+
+      const res = await client.query(
+        `SELECT ${selectCols} FROM supportv8.issues WHERE tenant_id = $1 ORDER BY ${hasUpdatedAt ? "updated_at DESC, " : ""}id DESC`,
+        [cleanTenant]
+      );
+      await client.query("COMMIT");
+      return res.rows.map((row: any) => ({
+        id: row.id,
+        ticketRef: row.external_id || `SV8-${cleanTenant}-${row.id}`,
+        customerRef: row.customer_ref,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email || undefined,
+        status: row.source_status,
+        priority: row.priority,
+        category: row.category,
+        summary: row.summary,
+        description: row.summary,
+        source: row.source,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  }
+  return tenantTicketsStore.get(cleanTenant) || [];
+}
+
 export async function handleRuntimeEmployeeRecordRead(request: Request): Promise<Response> {
   if (request.method !== "GET") {
     return Response.json(
@@ -447,7 +576,42 @@ export async function handleRuntimeEmployeeRecordRead(request: Request): Promise
     correlationId: payload.correlation_id,
   });
 
-  const rawTickets = getTenantMockTickets(payload.tenant_id);
+  const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
+
+  // If domain persistence is unavailable or unreachable:
+  const dbOk = await checkDatabaseAvailable();
+  if (!dbOk || (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL)) {
+    logRuntimeRecordAccess({
+      tenantId: payload.tenant_id,
+      actorId: payload.sub,
+      operation: "read_tickets",
+      decision: "deny",
+      reason: "domain persistence and grants unavailable",
+      correlationId: payload.correlation_id,
+    });
+    return Response.json(
+      { success: false, error: "domain persistence and grants unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  let rawTickets: Array<Record<string, unknown>>;
+  try {
+    rawTickets = await fetchTenantRawTickets(cleanTenant);
+  } catch (err) {
+    logRuntimeRecordAccess({
+      tenantId: payload.tenant_id,
+      actorId: payload.sub,
+      operation: "read_tickets",
+      decision: "deny",
+      reason: "ticket repository schema or database unavailable",
+      correlationId: payload.correlation_id,
+    });
+    return Response.json(
+      { success: false, error: "ticket repository schema or database unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
   const projectedTickets = rawTickets.map((t) => projectTicketForActor(t, actorName));
 
   return Response.json(
@@ -507,7 +671,25 @@ export async function handleRuntimeEmployeeRecordDetail(
   }
 
   const payload = verification.payload;
-  const rawTickets = getTenantMockTickets(payload.tenant_id);
+  const cleanTenant = payload.tenant_id.replace(/^tenant_/, "").toLowerCase();
+
+  const dbOk = await checkDatabaseAvailable();
+  if (!dbOk || (!tenantTicketsStore.has(cleanTenant) && !process.env.DATABASE_URL)) {
+    return Response.json(
+      { success: false, error: "domain persistence and grants unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  let rawTickets: Array<Record<string, unknown>>;
+  try {
+    rawTickets = await fetchTenantRawTickets(cleanTenant);
+  } catch (err) {
+    return Response.json(
+      { success: false, error: "ticket repository schema or database unavailable" },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
   const found = rawTickets.find((t) => t.id === id || t.ticketRef === id);
 
   if (!found) {

@@ -69,6 +69,12 @@ jobs:
         SUPPORTV8_REAL_POSTGRES: 1
         SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
 
+    - name: Verify SupportV8 MVP Intelligence and RLS Suites
+      run: node scripts/test-local-only.mjs test/action-gateway-writeback.postgres.test.ts test/interaction-ingress.postgres.test.ts test/mvp-intelligence-projections.postgres.test.ts test/retention-policy.postgres.test.ts test/support-intelligence-repository.postgres.test.ts
+      env:
+        SUPPORTV8_REAL_POSTGRES: 1
+        SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+
     - name: Next.js Production Build
       run: npm run build
       env:

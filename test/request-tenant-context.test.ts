@@ -1,10 +1,36 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/auth/keycloak", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/keycloak")>();
+  return {
+    ...actual,
+    verifySupportAccessToken: vi.fn(),
+  };
+});
+
+vi.mock("@/lib/service-app/runtime-session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/service-app/runtime-session")>();
+  return {
+    ...actual,
+    authorizeRuntimeSupportRequest: vi.fn(),
+  };
+});
+
+import { verifySupportAccessToken } from "@/lib/auth/keycloak";
+import { authorizeRuntimeSupportRequest } from "@/lib/service-app/runtime-session";
 import {
+  RequestAuthError,
   normalizeTenantSlug,
+  resolveRequestTenant,
   tenantIdFromSlug,
   tenantSlugFromHostname,
   tenantSlugFromId,
 } from "@/lib/auth/request-tenant";
+import {
+  authorizeMvpRead,
+  authorizeMvpManage,
+  requestAuthResponse,
+} from "@/lib/auth/route-authorization";
 import {
   browserTenantSlugFromHostname,
   resolveBrowserWorkspace,
@@ -213,4 +239,229 @@ it('allows website chat and operator chat mutations to reach tenant storage with
     expect(response.status).not.toBe(403);
   }
 });
+
+describe("resolveRequestTenant enforcement and forgery resistance", () => {
+  it("throws 401 when unauthenticated in production with requireAuthentication", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const req = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+        headers: { host: "acme.support.servicev8.com" },
+      });
+      await expect(
+        resolveRequestTenant(req, { requireAuthentication: true }),
+      ).rejects.toMatchObject({
+        status: 401,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("forged headers and query parameters cannot override an authenticated token", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      vi.mocked(verifySupportAccessToken).mockResolvedValue({
+        sub: "usr_acme",
+        preferred_username: "operator@acme.com",
+        tenant_id: "tenant_acme",
+        azp: "supportv8-acme",
+        realm_access: { roles: ["support_cx_lead", "support_operator"] },
+      });
+
+      const req = new NextRequest(
+        "https://acme.support.servicev8.com/api/problems?tenant=meridian",
+        {
+          headers: {
+            host: "acme.support.servicev8.com",
+            authorization: "Bearer valid-acme-token",
+            "x-tenant-slug": "meridian",
+            "x-tenant-id": "tenant_meridian",
+          },
+        },
+      );
+
+      const context = await resolveRequestTenant(req, { requireAuthentication: true });
+      expect(context.tenantId).toBe("tenant_acme");
+      expect(context.tenantSlug).toBe("acme");
+      expect(context.authenticated).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("forged headers and query parameters cannot override an authenticated runtime session", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      vi.mocked(authorizeRuntimeSupportRequest).mockResolvedValue({
+        session: {
+          version: "servicev8.support-session.v1",
+          aud: "supportv8-runtime-session",
+          tenantDomain: "acme",
+          workspaceId: "tenant_acme",
+          sub: "usr_acme",
+          accountId: "acct_acme",
+          tenantId: "tenant_acme",
+          verticalId: "runtime",
+          installationId: "inst_acme",
+          roleCap: "support:manage",
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        },
+        role: "support:manage",
+        access: {
+          accountId: "acct_acme",
+          tenantId: "tenant_acme",
+          verticalId: "runtime",
+          installationId: "inst_acme",
+          workspaceId: "tenant_acme",
+          subject: "usr_acme",
+          email: "operator@acme.com",
+          domain: "acme",
+          capability: "support:manage",
+          poolAccountId: "acct_acme",
+        },
+      });
+
+      const req = new NextRequest(
+        "https://acme.support.servicev8.com/api/problems?tenant=meridian",
+        {
+          headers: {
+            host: "acme.support.servicev8.com",
+            cookie: "__Host-sv8_runtime_support=runtime-session-token",
+            "x-tenant-slug": "meridian",
+            "x-tenant-id": "tenant_meridian",
+          },
+        },
+      );
+
+      const context = await resolveRequestTenant(req, { requireAuthentication: true });
+      expect(context.tenantId).toBe("tenant_acme");
+      expect(context.tenantSlug).toBe("acme");
+      expect(context.authenticated).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe("MVP route authorization roles and responses", () => {
+  it("authorizeMvpRead permits support_observer, support_operator, and support_cx_lead", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      for (const role of ["support_observer", "support_operator", "support_cx_lead"]) {
+        vi.mocked(verifySupportAccessToken).mockResolvedValue({
+          sub: "usr_test",
+          preferred_username: "user@acme.com",
+          tenant_id: "tenant_acme",
+          azp: "supportv8-acme",
+          realm_access: { roles: [role] },
+        });
+
+        const req = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+          headers: {
+            host: "acme.support.servicev8.com",
+            authorization: "Bearer valid-token",
+          },
+        });
+
+        const ctx = await authorizeMvpRead(req);
+        expect(ctx.tenantId).toBe("tenant_acme");
+        expect(ctx.authenticated).toBe(true);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("authorizeMvpRead rejects authenticated identity with no permitted role with 403", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      vi.mocked(verifySupportAccessToken).mockResolvedValue({
+        sub: "usr_test",
+        preferred_username: "user@acme.com",
+        tenant_id: "tenant_acme",
+        azp: "supportv8-acme",
+        realm_access: { roles: ["support_contractor"] },
+      });
+
+      const req = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+        headers: {
+          host: "acme.support.servicev8.com",
+          authorization: "Bearer valid-token",
+        },
+      });
+
+      await expect(authorizeMvpRead(req)).rejects.toMatchObject({
+        status: 403,
+        message: "Forbidden",
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("authorizeMvpManage permits support_operator and support_cx_lead, but rejects support_observer with 403", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      for (const role of ["support_operator", "support_cx_lead"]) {
+        vi.mocked(verifySupportAccessToken).mockResolvedValue({
+          sub: "usr_test",
+          preferred_username: "user@acme.com",
+          tenant_id: "tenant_acme",
+          azp: "supportv8-acme",
+          realm_access: { roles: [role] },
+        });
+
+        const req = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+          headers: {
+            host: "acme.support.servicev8.com",
+            authorization: "Bearer valid-token",
+          },
+        });
+
+        const ctx = await authorizeMvpManage(req);
+        expect(ctx.tenantId).toBe("tenant_acme");
+      }
+
+      vi.mocked(verifySupportAccessToken).mockResolvedValue({
+        sub: "usr_test",
+        preferred_username: "user@acme.com",
+        tenant_id: "tenant_acme",
+        azp: "supportv8-acme",
+        realm_access: { roles: ["support_observer"] },
+      });
+
+      const reqObserver = new NextRequest("https://acme.support.servicev8.com/api/problems", {
+        headers: {
+          host: "acme.support.servicev8.com",
+          authorization: "Bearer valid-token",
+        },
+      });
+
+      await expect(authorizeMvpManage(reqObserver)).rejects.toMatchObject({
+        status: 403,
+        message: "Forbidden",
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("requestAuthResponse generates correct JSON response for RequestAuthError and ignores generic errors", async () => {
+    const err401 = new RequestAuthError("Unauthorized", 401);
+    const res401 = requestAuthResponse(err401);
+    expect(res401?.status).toBe(401);
+    const body401 = await res401?.json();
+    expect(body401).toEqual({ success: false, error: "Unauthorized" });
+
+    const err403 = new RequestAuthError("Forbidden", 403);
+    const res403 = requestAuthResponse(err403);
+    expect(res403?.status).toBe(403);
+    const body403 = await res403?.json();
+    expect(body403).toEqual({ success: false, error: "Forbidden" });
+
+    expect(requestAuthResponse(new Error("generic error"))).toBeUndefined();
+  });
+});
+
 

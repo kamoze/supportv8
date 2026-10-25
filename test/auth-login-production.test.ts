@@ -34,7 +34,7 @@ function loginRequest() {
 describe("production login identity boundaries", () => {
   beforeEach(() => { vi.mocked(authBotChallenge.consume).mockResolvedValue({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha", status: "active", url: "https://alpha.support.servicev8.com/" }); vi.spyOn(nativeLoginAuthority, "current").mockImplementation(createNativeLoginAuthority({ canonicalIssuer: () => "https://identity.example.test/realms/servicev8",
     workspace: async () => ({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha", status: "active", url: "https://alpha.support.servicev8.com/" }),
-    membership: async (workspace, subject) => ({ accountId: workspace.accountId, tenantId: workspace.id, identitySubject: subject, status: "active", role: "member" }), native: async () => true,
+    membership: async (workspace, subject) => ({ accountId: workspace.accountId, tenantId: workspace.id, identitySubject: subject, status: "active", role: "member" }), native: async () => "tenant_alpha",
   })); });
   afterEach(() => {
     vi.unstubAllEnvs(); vi.restoreAllMocks();

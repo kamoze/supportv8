@@ -76,6 +76,12 @@ jobs:
           environment:
             SUPPORTV8_NEXT_STANDALONE_PROOF: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+      - run:
+          name: Require canonical native workspace mapping and discovery RLS regression
+          command: node scripts/test-local-only.mjs test/native-workspace-binding.postgres.test.ts
+          environment:
+            SUPPORTV8_REAL_POSTGRES: "1"
+            SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
   push-image:
     docker:
       - image: cimg/base:stable

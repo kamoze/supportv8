@@ -72,7 +72,7 @@ describe("mounted browser challenge through both credential POST paths", () => {
     vi.spyOn(authBotChallenge, "consume").mockImplementation(service.consume.bind(service));
     vi.spyOn(nativeLoginAuthority, "current").mockImplementation(createNativeLoginAuthority({ canonicalIssuer: () => "https://identity.example.test/realms/servicev8",
       workspace: async () => ({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha Inc", status: "active", url: "https://alpha.support.servicev8.com/" }),
-      membership: async (workspace, subject) => ({ accountId: workspace.accountId, tenantId: workspace.id, identitySubject: subject, status: membershipActive ? "active" : "revoked", role: "member" }), native: async () => true,
+      membership: async (workspace, subject) => ({ accountId: workspace.accountId, tenantId: workspace.id, identitySubject: subject, status: membershipActive ? "active" : "revoked", role: "member" }), native: async () => "tenant_alpha",
     }));
     effects.credential.mockResolvedValue({ ok: true, accessToken: "synthetic-access", refreshToken: "synthetic-refresh", expiresIn: 120, refreshExpiresIn: 3600, decodedClaims: { iss: "https://identity.example.test/realms/servicev8", sub: "native-user", tenant_id: "tenant_alpha", account_id: "account-alpha", realm_access: { roles: ["support_operator"] }, exp: Math.floor(Date.now()/1000)+120 } });
     effects.issue.mockResolvedValue("123456"); effects.email.mockResolvedValue({ success: true }); effects.rate.mockResolvedValue(undefined);

@@ -1,3 +1,4 @@
+import { authorizeCanonicalRequestWorkspace } from "./canonical-request-workspace";
 import { authorizeRuntimeSupportRequest } from "../service-app/runtime-session";
 import type { NextRequest } from "next/server";
 import {
@@ -222,8 +223,15 @@ export async function resolveRequestTenant(
       throw new RequestAuthError("Invalid or expired SupportV8 access token");
     }
 
-    const tenantId = tenantFromClaims(claims);
-    const tenantSlug = tenantSlugFromId(tenantId);
+    let tenantId: string, tenantSlug: string, accountId: string | undefined;
+    if (process.env.NODE_ENV === "production") {
+      try {
+        const workspace = await authorizeCanonicalRequestWorkspace(claims, request);
+        tenantId = workspace.nativeTenantId; tenantSlug = workspace.slug; accountId = workspace.accountId;
+      } catch { throw new RequestAuthError("Workspace access is unavailable or revoked", 403); }
+    } else {
+      tenantId = tenantFromClaims(claims); tenantSlug = tenantSlugFromId(tenantId);
+    }
     if (normalizedHostTenant && normalizedHostTenant !== "default" && normalizedHostTenant !== tenantSlug) {
       throw new RequestAuthError("Authenticated tenant does not match the hosted workspace", 403);
     }
@@ -233,6 +241,7 @@ export async function resolveRequestTenant(
     return {
       tenantId,
       tenantSlug,
+      accountId,
       authenticated: true,
       userId: typeof claims.sub === "string" ? claims.sub : undefined,
       username: typeof claims.preferred_username === "string" ? claims.preferred_username : undefined,

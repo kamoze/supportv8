@@ -154,3 +154,35 @@ owner outage and registered positive cases. A real local-browser check with the
 reported Host header and unavailable owner showed no credential inputs. This is
 local source evidence, not deployment of the public fix; the release prerequisites
 above still apply. The earlier b47aed3 Circle result does not qualify this follow-up.
+
+## Existing-workspace recovery (2026-10-25)
+
+The live native resolver returns404 for existing workspaces because its unscoped
+`supportv8.tenants` query runs under forced RLS. A read-only comparison showed
+zero Acme rows without context and one with the exact persisted `tenant_acme`
+context. The public route must use canonical Registry discovery, never expose
+an unscoped app database directory or disable RLS.
+
+Migration014 introduces a migration-owned, immutable canonical/native crosswalk.
+Its runtime role has only exact canonical/account-scoped SELECT, no assignment
+or write authority. The resolver also verifies the current native ID/domain/
+account tuple under native RLS. Canonical tenant/account/subject checks and fresh
+Registry membership precede that read. Distinct IDs remain distinct; login,
+refresh and production protected requests use the native ID only for native data.
+Revocation removes future access; neither reassignment nor reactivation by replay
+is permitted. Migration/import must precede this image release.
+
+The database confirms existing Acme and Runtime acceptance tuples, with the
+latter already persisted in `runtime_support_workspaces`. DevOps PR620 contains
+held registration/import/consumer patch inputs for coordinated review. Legacy
+rows lacking canonical accounts remain intact. Full-hostname domain records are
+reported, not rewritten into guessed ownership. Existing Keycloak users in the
+legacy Support realm still require original-identity migration/owner verification
+into the shared issuer; equal email or subject strings do not establish that link.
+
+The new mandatory CircleCI lane runs actual migration014 and forced-RLS lookup,
+foreign account/host, forbidden runtime writes, uniqueness/FK integrity,
+immutable identity and irreversible revocation checks on disposable PostgreSQL.
+Local shared-memory exhaustion prevented a new local PostgreSQL cluster; this is
+not a local SQL pass. Existing known user identities/provider pairing and actual
+end-to-end signin remain live release prerequisites.

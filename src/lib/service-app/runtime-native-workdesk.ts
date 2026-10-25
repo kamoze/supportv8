@@ -1,3 +1,4 @@
+import type { Issue } from '@/lib/types';
 import type { SupportTicketPage, SupportTicketSummary } from './runtime-ticket-reader';
 
 export type NativeRuntimeQuery = { ticket?: string; cursor?: string };
@@ -37,4 +38,23 @@ export async function loadNativeRuntimeTickets(query: NativeRuntimeQuery, reques
     }
   }
   return { page, selected, selectionRequested: query.ticket !== undefined };
+}
+
+/** Hydrate only the owner-selected page/selection; never use the native 500-row list as a fallback. */
+export async function loadNativeRuntimeWorkdesk(query: NativeRuntimeQuery, request: typeof fetch = fetch, signal?: AbortSignal) {
+  const loaded = await loadNativeRuntimeTickets(query, request, signal);
+  const ids = [...new Set([...loaded.page.tickets.map(row => row.id), ...(loaded.selected ? [loaded.selected.id] : [])])];
+  if (!ids.length) return { ...loaded, issues: [] as Issue[] };
+  const params = new URLSearchParams(ids.map(id => ['workspaceIssueId', id]));
+  const response = await request(`/api/issues?${params}`, { credentials: 'same-origin', redirect: 'error', cache: 'no-store', signal });
+  if (!response.ok) throw Error('Workspace access is unavailable.');
+  const result = await response.json();
+  if (!result.success || !Array.isArray(result.data) || result.data.length > ids.length) throw Error('Invalid native ticket response.');
+  const seen = new Set<string>();
+  for (const issue of result.data) {
+    if (!issue || !ids.includes(issue.id) || seen.has(issue.id) || ['externalId','customerName','summary','status','priority','source'].some(key => typeof issue[key] !== 'string')) throw Error('Invalid native ticket response.');
+    seen.add(issue.id);
+  }
+  // Concurrent deletion remains an exact missing selection, never a replacement ticket.
+  return { ...loaded, selected: loaded.selected && seen.has(loaded.selected.id) ? loaded.selected : null, issues: result.data as Issue[] };
 }

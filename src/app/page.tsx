@@ -150,6 +150,7 @@ import { SignupModal } from "@/components/SignupModal";
 import { SignInModal } from "@/components/SignInModal";
 import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
+import { runtimeTicketHref } from "@/lib/service-app/runtime-native-workdesk";
 import { RuntimeNativeWorkdesk } from "@/components/workspace/RuntimeNativeWorkdesk";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
 import {
@@ -537,6 +538,15 @@ export default function SupportV8Dashboard() {
 
   // Workspace States
   const [workspaceSelectedIssueId, setWorkspaceSelectedIssueId] = useState<string>("");
+  const WorkspaceView = operatorSession?.token.startsWith("workspace:") ? RuntimeNativeWorkdesk : FocusedWorkspaceView;
+  const openWorkspaceTicket = (id: string) => {
+    if (operatorSession?.token.startsWith("workspace:")) {
+      window.history.pushState({}, "", runtimeTicketHref(id));
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+    setWorkspaceSelectedIssueId(id);
+    setActiveTab("workspace");
+  };
   const [workspaceReplyText, setWorkspaceReplyText] = useState<string>("Hello, I have reviewed your request. Our autonomous resolution engine has approved the mitigation.");
   const [workspaceRefundAmount, setWorkspaceRefundAmount] = useState<string>("49.00");
   const [workspaceTriageFilter, setWorkspaceTriageFilter] = useState<"all" | "enterprise" | "p1_p2" | "at_risk">("all");
@@ -1719,6 +1729,7 @@ export default function SupportV8Dashboard() {
   };
 
   const handleUpdateIssue = async (updated: Issue): Promise<Issue> => {
+    const fetchGeneration = tenantFetchGenerationRef.current;
     pendingIssueUpdatesRef.current.add(updated.id);
     try {
       const response = await AuthService.authenticatedFetch("/api/issues", {
@@ -1727,12 +1738,14 @@ export default function SupportV8Dashboard() {
         body: JSON.stringify({ action: "update", issueId: updated.id, updates: updated }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.success || !result.data) {
+      if (!response.ok || !result.success || result.data?.id !== updated.id) {
         throw new Error(result.error || "Ticket update failed");
       }
       const saved = { ...updated, ...result.data } as Issue;
-      setIssues((prev) => prev.map((issue) => (issue.id === saved.id ? saved : issue)));
-      setSelectedIssue((current) => current?.id === saved.id ? saved : current);
+      if (fetchGeneration === tenantFetchGenerationRef.current) {
+        setIssues((prev) => prev.map((issue) => (issue.id === saved.id ? saved : issue)));
+        setSelectedIssue((current) => current?.id === saved.id ? saved : current);
+      }
       return saved;
     } finally {
       pendingIssueUpdatesRef.current.delete(updated.id);
@@ -4244,7 +4257,7 @@ export default function SupportV8Dashboard() {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          setWorkspaceSelectedIssueId(issue.id);
+                                          openWorkspaceTicket(issue.id);
                                           setActiveTab("workspace");
                                           notify(`Opened ticket ${issue.externalId} in Workspace`, "info");
                                         }}
@@ -5663,7 +5676,7 @@ export default function SupportV8Dashboard() {
                     <button
                       type="button"
                       onClick={() => {
-                        setWorkspaceSelectedIssueId(selectedIssue.id);
+                        openWorkspaceTicket(selectedIssue.id);
                         setSelectedIssue(null);
                         setActiveTab("workspace");
                         notify(`Opened ${selectedIssue.externalId} in Focused Work Desk`, "info");
@@ -6962,7 +6975,7 @@ export default function SupportV8Dashboard() {
                           type="button"
                           onClick={() => {
                             const linked = issues.find((i) => i.problemId === prob.id);
-                            if (linked) setWorkspaceSelectedIssueId(linked.id);
+                            if (linked) openWorkspaceTicket(linked.id);
                             setActiveTab("workspace");
                             notify(`Inspecting cases linked to ${prob.id} in Work Desk`, "info");
                           }}
@@ -7483,9 +7496,7 @@ export default function SupportV8Dashboard() {
         {/* TAB: FOCUSED USER WORKSPACE (AGENTIC RESOLUTION WORK DESK) */}
         {/* ========================================================================= */}
         {activeTab === "workspace" && (
-          operatorSession?.token.startsWith("workspace:")
-          ? <RuntimeNativeWorkdesk key={`${operatorSession.tenantSlug}:${workspaceSelectedIssueId}`} initialTicketId={workspaceSelectedIssueId || undefined} canManage={operatorSession.role === "cx_lead"} />
-          : <FocusedWorkspaceView
+          <WorkspaceView key={operatorSession?.tenantSlug}
             issues={issues}
             initialSelectedIssueId={workspaceSelectedIssueId}
             problems={problems}

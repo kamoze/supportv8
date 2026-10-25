@@ -149,7 +149,12 @@ const STATUS_OPTIONS: Array<{
   { id: "closed", label: "Closed", color: "text-[#6B7C8D] border-[var(--line)] bg-[#18222E]" },
 ];
 
-interface FocusedWorkspaceViewProps {
+export interface FocusedWorkspaceViewProps {
+  nativeRuntime?: {
+    selectionRequested: boolean;
+    canManage: boolean;
+    onSelectTicket: (id: string) => void;
+  };
   issues: Issue[];
   initialSelectedIssueId?: string;
   problems?: any[];
@@ -190,8 +195,6 @@ type RuntimeFocusedWorkspaceProps = {
     selectionRequested?: boolean;
     cursor?: string;
     situations?: OlgSituation[];
-    ticketHref?: (id: string) => string;
-    onSelectTicket?: (id: string) => void;
     canManage: boolean;
     onCreate: (input: {
       customerName: string;
@@ -211,8 +214,6 @@ function RuntimeFocusedWorkspace({
     selectionRequested,
     cursor,
     situations = [],
-    ticketHref,
-    onSelectTicket,
     canManage,
     onCreate,
     onUpdate,
@@ -340,8 +341,7 @@ function RuntimeFocusedWorkspace({
               return (
                 <li key={ticket.id}>
                   <a
-                    href={ticketHref?.(ticket.id) ?? `/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
-                    onClick={onSelectTicket ? event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onSelectTicket(ticket.id); } } : undefined}
+                    href={`/runtime?ticket=${encodeURIComponent(ticket.id)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`}
                     aria-current={active?.id === ticket.id ? "page" : undefined}
                   >
                     <TicketSummary
@@ -522,6 +522,7 @@ export function formatRuntimeLocalTime(value:string,locales?:Intl.LocalesArgumen
 function LocalTime({value}:{value:string}) { const [label,setLabel]=useState(""); useEffect(()=>setLabel(formatRuntimeLocalTime(value)),[value]); return <time dateTime={value}>{label||"Local time loading…"}</time>; }
 
 function LegacyFocusedWorkspaceView({
+  nativeRuntime,
   issues,
   initialSelectedIssueId,
   problems = [],
@@ -543,14 +544,17 @@ function LegacyFocusedWorkspaceView({
   initialCustomerForTicket,
   onClearInitialCustomer,
 }: FocusedWorkspaceViewProps) {
+  const canMutate = !nativeRuntime || nativeRuntime.canManage;
   const isContractorUser = userRole === "contractor" || userRole === "technician" || userRole === "contractor_lead";
-  const [selectedIssueId, setSelectedIssueId] = useState<string>(() => {
+  const [localSelectedIssueId, setLocalSelectedIssueId] = useState<string>(() => {
     if (initialSelectedIssueId) {
       const match = issues.find((i) => i.id === initialSelectedIssueId || i.externalId === initialSelectedIssueId);
       if (match) return match.id;
     }
     return issues[0]?.id || "";
   });
+  const selectedIssueId = nativeRuntime ? (initialSelectedIssueId ?? "") : localSelectedIssueId;
+  const selectIssue = (id: string) => nativeRuntime ? nativeRuntime.onSelectTicket(id) : setLocalSelectedIssueId(id);
   const [queueStatusFilter, setQueueStatusFilter] = useState<"active" | "all" | "resolved">(() => {
     if (initialSelectedIssueId) {
       const match = issues.find((i) => i.id === initialSelectedIssueId || i.externalId === initialSelectedIssueId);
@@ -569,10 +573,10 @@ function LegacyFocusedWorkspaceView({
 
   // Sync initialSelectedIssueId when navigating from external views (e.g. Issues Explorer)
   useEffect(() => {
-    if (initialSelectedIssueId) {
+    if (!nativeRuntime && initialSelectedIssueId) {
       const match = issues.find((i) => i.id === initialSelectedIssueId || i.externalId === initialSelectedIssueId);
       if (match) {
-        setSelectedIssueId(match.id);
+        selectIssue(match.id);
         const isClosedOrResolved = match.status === "resolved" || match.status === "closed";
         if (isClosedOrResolved) {
           setQueueStatusFilter("resolved");
@@ -612,7 +616,7 @@ function LegacyFocusedWorkspaceView({
         return prev.filter((id) => id !== issueId);
       } else {
         onNotify(`Ticket ${extId} moved to FRONT OF LINE triage queue`, "success");
-        setSelectedIssueId(issueId);
+        selectIssue(issueId);
         return [issueId, ...prev.filter((id) => id !== issueId)];
       }
     });
@@ -620,7 +624,7 @@ function LegacyFocusedWorkspaceView({
 
   // Communication & AI Mode State
   const [commChannel, setCommChannel] = useState<CommunicationChannel>("chat");
-  const [workWithAi, setWorkWithAi] = useState<boolean>(true);
+  const [workWithAi, setWorkWithAi] = useState<boolean>(!nativeRuntime);
   const [aiTone, setAiTone] = useState<"empathetic" | "technical" | "concise" | "executive" | "sow_instructions" | "safety_protocol" | "urgent_expedite">("empathetic");
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
   const [replyText, setReplyText] = useState<string>("");
@@ -694,6 +698,7 @@ function LegacyFocusedWorkspaceView({
   // Live Chat Operator Takeover State
   const [operatorReplyText, setOperatorReplyText] = useState("");
   const [isSendingOperatorReply, setIsSendingOperatorReply] = useState(false);
+  const replyInFlightRef = useRef(false);
   const [liveDraftSource, setLiveDraftSource] = useState<"llm" | "fallback" | null>(null);
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
   const [forceStandardComposer, setForceStandardComposer] = useState(false);
@@ -723,11 +728,11 @@ function LegacyFocusedWorkspaceView({
   const [isSavingRag, setIsSavingRag] = useState(false);
   const [selectedAttachmentPreview, setSelectedAttachmentPreview] = useState<TicketAttachment | null>(null);
 
-  const selectedIssue = issues.find((i) => i.id === selectedIssueId) || issues[0];
+  const selectedIssue = issues.find((i) => i.id === selectedIssueId) || (nativeRuntime ? undefined : issues[0]);
   const isContractor = selectedIssue?.entityType === "contractor" || selectedIssue?.category?.includes("contractor") || Boolean(selectedIssue?.contractor);
 
   // Guaranteed contractor resolution for any field ops/contractor ticket
-  const contractorDetails = selectedIssue?.contractor || (isContractor ? {
+  const contractorDetails = selectedIssue?.contractor || (!nativeRuntime && isContractor ? {
     company: (selectedIssue?.customerName && selectedIssue.customerName !== "Customer" ? selectedIssue.customerName : "Apex Field Solutions"),
     contactName: selectedIssue?.assignedTo || selectedIssue?.customerName || "David O'Connor",
     phone: "+1 (555) 234-8901",
@@ -786,6 +791,7 @@ function LegacyFocusedWorkspaceView({
       return;
     }
 
+    setMatchingChatSession(null);
     AuthService.authenticatedFetch(`/api/chat/session?sessionId=${encodeURIComponent(chatSessionId)}`, {
       credentials: "same-origin",
       cache: "no-store",
@@ -796,7 +802,7 @@ function LegacyFocusedWorkspaceView({
         return result.session as CustomerChatSession;
       })
       .then((session) => {
-        if (!cancelled) setMatchingChatSession((current) => mergeChatSession(current, session));
+        if (!cancelled && session?.id === chatSessionId) setMatchingChatSession((current) => mergeChatSession(current, session));
       })
       .catch(() => {
         if (!cancelled) setMatchingChatSession(null);
@@ -808,8 +814,7 @@ function LegacyFocusedWorkspaceView({
   }, [chatSessionId, liveChatSessionKey]);
 
   const sendDurableOperatorReply = async (content: string): Promise<boolean> => {
-    if (!matchingChatSession || !content.trim()) return false;
-    setIsSendingOperatorReply(true);
+    if (!canMutate || !matchingChatSession || matchingChatSession.id !== chatSessionId || !content.trim()) return false;
     const clientMessageId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
     const optimisticMessage = createOptimisticChatMessage({
       id: clientMessageId,
@@ -835,7 +840,7 @@ function LegacyFocusedWorkspaceView({
         }),
       });
       const result = await response.json();
-      if (!response.ok || !result?.session) {
+      if (!response.ok || result?.session?.id !== chatSessionId) {
         throw new Error(result?.error || "Unable to save operator reply");
       }
       setMatchingChatSession((current) => mergeChatSession(current, result.session));
@@ -849,13 +854,11 @@ function LegacyFocusedWorkspaceView({
       );
       onNotify(error instanceof Error ? error.message : "Unable to save operator reply", "error");
       return false;
-    } finally {
-      setIsSendingOperatorReply(false);
     }
   };
 
   const handleGenerateLiveChatDraft = async () => {
-    if (!matchingChatSession || isGeneratingAi) return;
+    if (!canMutate || !matchingChatSession || matchingChatSession.id !== chatSessionId || isGeneratingAi) return;
     setIsGeneratingAi(true);
     setLiveDraftSource(null);
     try {
@@ -1005,13 +1008,13 @@ function LegacyFocusedWorkspaceView({
 
   // Update default channel and reply when selected issue changes
   useEffect(() => {
-    if (selectedIssue) {
+    if (!nativeRuntime && selectedIssue) {
       const isCtr = selectedIssue.entityType === "contractor" || selectedIssue.category?.includes("contractor") || Boolean(selectedIssue.contractor);
       const defaultChannel = isCtr ? "contractor_sms" : "chat";
       const defaultTone = isCtr ? "sow_instructions" : "empathetic";
       setCommChannel(defaultChannel);
       setAiTone(defaultTone as any);
-      if (workWithAi) {
+      if (!nativeRuntime && workWithAi) {
         setReplyText(generateContextualReply(selectedIssue, defaultTone, defaultChannel));
       }
     }
@@ -1019,12 +1022,13 @@ function LegacyFocusedWorkspaceView({
 
   // Update reply text on channel or tone change
   useEffect(() => {
-    if (selectedIssue && workWithAi) {
+    if (!nativeRuntime && selectedIssue && workWithAi) {
       setReplyText(generateContextualReply(selectedIssue, aiTone, commChannel));
     }
   }, [commChannel, aiTone, workWithAi]);
 
   const handleTriggerGenerateAi = () => {
+    if (nativeRuntime) return;
     if (!selectedIssue) return;
     setIsGeneratingAi(true);
     setTimeout(() => {
@@ -1042,6 +1046,7 @@ function LegacyFocusedWorkspaceView({
 
   // Action: Status Change
   const handleStatusChange = async (newStatus: string) => {
+    if (!canMutate) return;
     if (!selectedIssue) return;
     const now = new Date().toLocaleTimeString();
     const event: TicketTimelineEvent = {
@@ -1065,13 +1070,13 @@ function LegacyFocusedWorkspaceView({
       await onUpdateIssue(updated);
       setEditStatus(newStatus as Issue["status"]);
 
-      if (newStatus === "resolved" || newStatus === "closed") {
+      if (!nativeRuntime && (newStatus === "resolved" || newStatus === "closed")) {
         onNotify(`Ticket ${selectedIssue.externalId} marked ${newStatus.toUpperCase()} & left active queue`, "success");
         const remainingActive = issues.filter(
           (issue) => issue.id !== selectedIssue.id && issue.status !== "resolved" && issue.status !== "closed"
         );
         if (remainingActive.length > 0) {
-          setTimeout(() => setSelectedIssueId(remainingActive[0].id), 300);
+          setTimeout(() => selectIssue(remainingActive[0].id), 300);
         }
       } else {
         onNotify(`Ticket ${selectedIssue.externalId} status changed to ${newStatus.toUpperCase()}`, "success");
@@ -1086,7 +1091,8 @@ function LegacyFocusedWorkspaceView({
   };
 
   // Action: Re-Assign Operator
-  const handleReassign = (assigneeName: string) => {
+  const handleReassign = async (assigneeName: string) => {
+    if (!canMutate) return;
     if (!selectedIssue) return;
     const now = new Date().toLocaleTimeString();
     const event: TicketTimelineEvent = {
@@ -1103,19 +1109,19 @@ function LegacyFocusedWorkspaceView({
       assignedAgent: assigneeName,
       timeline: [event, ...currentTimeline],
     };
-    if (onUpdateIssue) {
-      onUpdateIssue(updated);
-    }
-    setEditAssignee(assigneeName);
-    setIsReassignDropdownOpen(false);
-    onNotify(`Reassigned ticket ${selectedIssue.externalId} to ${assigneeName}`, "success");
-    if (onTriggerTemporalActivity) {
-      onTriggerTemporalActivity(selectedIssue.id, "ticket_reassign", { assignee: assigneeName });
-    }
+    try {
+      if (!onUpdateIssue) throw Error("Ticket updates are unavailable");
+      await onUpdateIssue(updated);
+      setEditAssignee(assigneeName);
+      setIsReassignDropdownOpen(false);
+      onNotify(`Reassigned ticket ${selectedIssue.externalId} to ${assigneeName}`, "success");
+      onTriggerTemporalActivity?.(selectedIssue.id, "ticket_reassign", { assignee: assigneeName });
+    } catch (error) { onNotify(error instanceof Error ? error.message : "Unable to reassign ticket", "error"); }
   };
 
   // Action: Save Resolution to RAG Knowledge Base
   const handleSaveToRAG = async () => {
+    if (nativeRuntime) return;
     if (!selectedIssue) return;
     setIsSavingRag(true);
     try {
@@ -1162,6 +1168,7 @@ function LegacyFocusedWorkspaceView({
   // Action: Attach Context Snippet
   const handleSaveSnippet = (e: React.FormEvent) => {
     e.preventDefault();
+    if (nativeRuntime) return;
     if (!selectedIssue || !newSnippetContent.trim()) return;
     const now = new Date().toLocaleTimeString();
     const newAtt: TicketAttachment = {
@@ -1197,6 +1204,7 @@ function LegacyFocusedWorkspaceView({
 
   // Action: File Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (nativeRuntime) return;
     const file = e.target.files?.[0];
     if (!file || !selectedIssue) return;
     const now = new Date().toLocaleTimeString();
@@ -1276,6 +1284,7 @@ function LegacyFocusedWorkspaceView({
   });
 
   const handleExecuteAutonomousResolution = async () => {
+    if (nativeRuntime) return;
     if (!selectedIssue) return;
     setIsProcessing(true);
     try {
@@ -1313,7 +1322,7 @@ function LegacyFocusedWorkspaceView({
       );
       if (remainingActive.length > 0) {
         setTimeout(() => {
-          setSelectedIssueId(remainingActive[0].id);
+          selectIssue(remainingActive[0].id);
         }, 300);
       }
     } catch (error) {
@@ -1324,7 +1333,12 @@ function LegacyFocusedWorkspaceView({
   };
 
   const recordReplyForSelectedChannel = async (content: string): Promise<boolean> => {
-    if (!selectedIssue || !content.trim()) return false;
+    if (!canMutate || !selectedIssue || !content.trim()) return false;
+    if (nativeRuntime && !(matchingChatSession && commChannel === "chat") && commChannel !== "internal_note") return false;
+    if (replyInFlightRef.current) return false;
+    replyInFlightRef.current = true;
+    setIsSendingOperatorReply(true);
+    try {
     if (matchingChatSession && commChannel === "chat") {
       const sent = await sendDurableOperatorReply(content);
       if (!sent) return false;
@@ -1362,7 +1376,7 @@ function LegacyFocusedWorkspaceView({
       timestamp: now,
       actor: operatorName,
       actorType: "human_operator",
-      action: `Dispatched reply via ${commChannel.toUpperCase()}`,
+      action: nativeRuntime ? "Added internal note" : `Dispatched reply via ${commChannel.toUpperCase()}`,
       details: content.slice(0, 80) + (content.length > 80 ? "..." : ""),
     };
     const updated: Issue = {
@@ -1383,6 +1397,7 @@ function LegacyFocusedWorkspaceView({
     if (onTriggerTemporalActivity) {
       onTriggerTemporalActivity(selectedIssue.id, "ticket_reply_dispatched", { channel: commChannel });
     }
+    if (nativeRuntime) { onNotify("Internal note saved", "success"); return true; }
     onNotify(
       `Dispatched reply via ${commChannel.toUpperCase()} to ${
         isContractor && contractorDetails ? contractorDetails.contactName : selectedIssue.customerName
@@ -1390,6 +1405,10 @@ function LegacyFocusedWorkspaceView({
       "success"
     );
     return true;
+    } finally {
+      replyInFlightRef.current = false;
+      setIsSendingOperatorReply(false);
+    }
   };
 
   const handleSendReply = async (): Promise<boolean> => {
@@ -1400,7 +1419,8 @@ function LegacyFocusedWorkspaceView({
   };
 
   const handleSendSitePass = () => {
-    if (!contractorDetails) return;
+    if (nativeRuntime) return;
+    if (!contractorDetails || !selectedIssue) return;
     const now = new Date().toLocaleTimeString();
     const event: TicketTimelineEvent = {
       id: "tl_" + Date.now(),
@@ -1423,19 +1443,22 @@ function LegacyFocusedWorkspaceView({
   };
 
   // Live Update Sentiment
-  const handleUpdateSentiment = (sentiment: SentimentClass) => {
+  const handleUpdateSentiment = async (sentiment: SentimentClass) => {
+    if (!canMutate) return;
     if (!selectedIssue) return;
     const updated = { ...selectedIssue, sentiment };
-    if (onUpdateIssue) {
-      onUpdateIssue(updated);
-    }
-    setEditSentiment(sentiment);
-    onNotify(`Updated sentiment for ${selectedIssue.externalId} to ${sentiment.toUpperCase()}`, "info");
+    try {
+      if (!onUpdateIssue) throw Error("Ticket updates are unavailable");
+      await onUpdateIssue(updated);
+      setEditSentiment(sentiment);
+      onNotify(`Updated sentiment for ${selectedIssue.externalId} to ${sentiment.toUpperCase()}`, "info");
+    } catch (error) { onNotify(error instanceof Error ? error.message : "Unable to update sentiment", "error"); }
   };
 
   // Save Edit Ticket Modal
   const handleSaveEditTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canMutate) return;
     if (!selectedIssue) return;
 
     const event: TicketTimelineEvent = {
@@ -1475,6 +1498,7 @@ function LegacyFocusedWorkspaceView({
   // Inline Add Customer from Ticket Creation Combobox
   const handleInlineSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canMutate) return;
     e.stopPropagation();
     if (!inlineName.trim() || !inlineEmail.trim()) {
       setInlineError("Customer name and a valid email are required.");
@@ -1517,6 +1541,7 @@ function LegacyFocusedWorkspaceView({
   // Create Manual Ticket
   const handleCreateManualTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canMutate) return;
     if (creatingTicket) return;
     if (!newCustName.trim() || !newSummary.trim()) {
       onNotify("Please provide both customer name and summary", "error");
@@ -1543,9 +1568,9 @@ function LegacyFocusedWorkspaceView({
         }),
       });
       const payload = await response.json();
-      if (!response.ok || !payload.success || !payload.data) throw new Error(payload.error || "Ticket could not be saved. Please try again.");
+      if (!response.ok || !payload.success || typeof payload.data?.id !== "string" || !/^[A-Za-z0-9_:@.-]{1,192}$/.test(payload.data.id)) throw new Error(payload.error || "Ticket could not be saved. Please try again.");
       onCreateIssue?.(payload.data);
-      setSelectedIssueId(payload.data.id);
+      selectIssue(payload.data.id);
       setIsNewTicketModalOpen(false);
       setNewCustName("");
       setNewCustomerEmail("");
@@ -1568,6 +1593,7 @@ function LegacyFocusedWorkspaceView({
   };
 
   const handleProcessCsvImport = () => {
+    if (nativeRuntime) return;
     const lines = csvText.trim().split("\n").filter((l) => l.trim().length > 0);
     if (lines.length < 2) {
       onNotify("CSV must have a header row and at least one data row", "error");
@@ -1638,7 +1664,8 @@ function LegacyFocusedWorkspaceView({
           {/* Create Ticket Button */}
           <button
             type="button"
-            onClick={() => setIsNewTicketModalOpen(true)}
+            disabled={!canMutate}
+            onClick={() => canMutate && setIsNewTicketModalOpen(true)}
             className="btn btn-primary px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#2ED8B6]/20"
           >
             <Plus className="w-4 h-4" />
@@ -1648,7 +1675,8 @@ function LegacyFocusedWorkspaceView({
           {/* CSV Import Button */}
           <button
             type="button"
-            onClick={() => setIsCsvImportModalOpen(true)}
+            disabled={Boolean(nativeRuntime)}
+            onClick={() => !nativeRuntime && setIsCsvImportModalOpen(true)}
             className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3 py-2 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5 text-[#4D9FFF]" />
@@ -1658,7 +1686,8 @@ function LegacyFocusedWorkspaceView({
           {/* Action Insights Trigger */}
           <button
             type="button"
-            onClick={() => setShowInsightsDrawer(!showInsightsDrawer)}
+            disabled={Boolean(nativeRuntime)}
+            onClick={() => !nativeRuntime && setShowInsightsDrawer(!showInsightsDrawer)}
             className={`px-3 py-2 rounded-xl text-xs font-mono border flex items-center gap-1.5 transition-all cursor-pointer ${
               showInsightsDrawer
                 ? "bg-[#F5A623] text-[#04201C] font-bold border-[#F5A623]"
@@ -1679,7 +1708,7 @@ function LegacyFocusedWorkspaceView({
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md text-center space-y-3 rounded-2xl border border-[var(--line)] bg-[#121A24] p-8">
             <MessageSquare className="w-8 h-8 text-[#2ED8B6] mx-auto" />
-            <h3 className="text-base font-bold">No active conversations yet</h3>
+            <h3 className="text-base font-bold">{nativeRuntime?.selectionRequested ? "Ticket not found in this workspace." : "No active conversations yet"}</h3>
             <p className="text-xs leading-relaxed text-[#8E9AA8]">
               New customer and contractor requests will appear here as soon as they reach this tenant.
             </p>
@@ -1812,7 +1841,7 @@ function LegacyFocusedWorkspaceView({
                       return true;
                     });
                     if (matching.length > 0 && !matching.some(i => i.id === selectedIssueId)) {
-                      setSelectedIssueId(matching[0].id);
+                      selectIssue(matching[0].id);
                     }
                   }}
                   className={`py-1 rounded-lg text-center transition-all cursor-pointer ${
@@ -1874,7 +1903,7 @@ function LegacyFocusedWorkspaceView({
                   <div
                     key={issue.id}
                     onClick={() => {
-                      setSelectedIssueId(issue.id);
+                      selectIssue(issue.id);
                       setMobileActivePane("details");
                     }}
                     className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-2 relative overflow-hidden group ${
@@ -1976,6 +2005,7 @@ function LegacyFocusedWorkspaceView({
         {/* PANE 2: Ticket Details & Context (Width: 4 cols on desktop, full on mobile) */}
         {/* ========================================================================= */}
         <div
+          aria-label="Selected ticket details" data-ticket-id={selectedIssue?.id}
           className={`family-details col-span-12 lg:col-span-4 bg-[#0B1017] border-r border-[var(--line)] flex flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4 ${
             mobileActivePane === "details" ? "flex" : "hidden lg:flex"
           }`}
@@ -2043,7 +2073,8 @@ function LegacyFocusedWorkspaceView({
 
                     <button
                       type="button"
-                      onClick={() => setIsEditModalOpen(true)}
+                      disabled={!canMutate}
+                      onClick={() => canMutate && setIsEditModalOpen(true)}
                       className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer border border-[var(--line-2)]"
                       title="Edit Ticket Details"
                     >
@@ -2106,7 +2137,7 @@ function LegacyFocusedWorkspaceView({
                           key={st.id}
                           type="button"
                           onClick={() => handleStatusChange(st.id)}
-                          disabled={isProcessing || isActive}
+                          disabled={!canMutate || isProcessing || isActive}
                           className={`py-1.5 px-1 rounded-xl text-[10px] font-mono font-bold text-center border transition-all cursor-pointer ${
                             isActive
                               ? `${st.color} shadow-sm ring-1 ring-white/20`
@@ -2137,7 +2168,8 @@ function LegacyFocusedWorkspaceView({
                   <div className="relative">
                     <button
                       type="button"
-                      onClick={() => setIsReassignDropdownOpen(!isReassignDropdownOpen)}
+                      disabled={!canMutate}
+                      onClick={() => canMutate && setIsReassignDropdownOpen(!isReassignDropdownOpen)}
                       className="w-full p-2 rounded-xl bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-xs font-mono text-[#EAF1F8] flex items-center justify-between transition-all cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
@@ -2191,7 +2223,7 @@ function LegacyFocusedWorkspaceView({
                     <button
                       type="button"
                       onClick={handleSaveToRAG}
-                      disabled={isSavingRag}
+                      disabled={Boolean(nativeRuntime) || isSavingRag}
                       className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#2ED8B6]/20 via-[#4D9FFF]/15 to-[#2ED8B6]/20 hover:from-[#2ED8B6]/30 hover:to-[#4D9FFF]/30 border border-[#2ED8B6]/40 text-xs font-mono font-bold text-[#EAF1F8] flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all active:scale-[0.98]"
                     >
                       <Sparkles className={`w-4 h-4 text-[#2ED8B6] ${isSavingRag ? "animate-spin" : ""}`} />
@@ -2207,6 +2239,7 @@ function LegacyFocusedWorkspaceView({
                     <div className="flex items-center gap-1.5">
                       <select
                         value={selectedIssue.sentiment || "neutral"}
+                        disabled={!canMutate}
                         onChange={(e) => handleUpdateSentiment(e.target.value as SentimentClass)}
                         className="bg-[#18222E] text-xs text-[#EAF1F8] rounded-lg px-2 py-1 border border-[var(--line-2)] focus:outline-none cursor-pointer w-full"
                       >
@@ -2387,13 +2420,14 @@ function LegacyFocusedWorkspaceView({
                     <label className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#2ED8B6] flex items-center gap-1 cursor-pointer border border-[var(--line-2)] transition-colors">
                       <Upload className="w-3.5 h-3.5" />
                       <span>Upload</span>
-                      <input type="file" onChange={handleFileUpload} className="hidden" accept="image/*,.pdf,.doc,.docx,.txt,.json,.log" />
+                      <input type="file" disabled={Boolean(nativeRuntime)} onChange={handleFileUpload} className="hidden" accept="image/*,.pdf,.doc,.docx,.txt,.json,.log" />
                     </label>
 
                     {/* Add Snippet Button */}
                     <button
                       type="button"
-                      onClick={() => setIsSnippetModalOpen(true)}
+                      disabled={Boolean(nativeRuntime)}
+                      onClick={() => !nativeRuntime && setIsSnippetModalOpen(true)}
                       className="p-1.5 rounded-lg bg-[#18222E] hover:bg-[#1E2B3A] text-xs font-mono text-[#4D9FFF] flex items-center gap-1 cursor-pointer border border-[var(--line-2)] transition-colors"
                     >
                       <Code className="w-3.5 h-3.5" />
@@ -2675,7 +2709,7 @@ function LegacyFocusedWorkspaceView({
                   <button
                     type="button"
                     onClick={handleGenerateLiveChatDraft}
-                    disabled={isGeneratingAi}
+                    disabled={!canMutate || isGeneratingAi}
                     className="text-[10.5px] font-mono text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer disabled:cursor-wait disabled:opacity-60"
                   >
                     {isGeneratingAi ? (
@@ -2731,10 +2765,10 @@ function LegacyFocusedWorkspaceView({
                     const sent = await recordReplyForSelectedChannel(operatorReplyText);
                     if (sent) {
                       setOperatorReplyText("");
-                      onNotify(`Reply dispatched via ${commChannel.replace(/_/g, " ")}.`, "success");
+                      onNotify(commChannel === "internal_note" ? "Internal note saved." : `Reply dispatched via ${commChannel.replace(/_/g, " ")}.`, "success");
                     }
                   }}
-                  disabled={!operatorReplyText.trim() || isSendingOperatorReply}
+                  disabled={!canMutate || (Boolean(nativeRuntime) && commChannel !== "chat" && commChannel !== "internal_note") || !operatorReplyText.trim() || isSendingOperatorReply}
                   className="btn btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
@@ -2744,13 +2778,15 @@ function LegacyFocusedWorkspaceView({
                 <button
                   type="button"
                   onClick={async () => {
+                    if (replyInFlightRef.current) return;
                     if (operatorReplyText.trim()) {
                       const sent = await recordReplyForSelectedChannel(operatorReplyText);
                       if (!sent) return;
                     }
-                    await handleExecuteAutonomousResolution();
+                    if (nativeRuntime) await handleStatusChange("resolved");
+                    else await handleExecuteAutonomousResolution();
                   }}
-                  disabled={isProcessing}
+                  disabled={!canMutate || isProcessing || isSendingOperatorReply}
                   className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#2ED8B6] py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -2807,7 +2843,7 @@ function LegacyFocusedWorkspaceView({
                   <button
                     type="button"
                     onClick={handleTriggerGenerateAi}
-                    disabled={isGeneratingAi}
+                    disabled={Boolean(nativeRuntime) || isGeneratingAi}
                     className="text-[10.5px] text-[#2ED8B6] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 font-mono"
                   >
                     <RefreshCw className={`w-3 h-3 ${isGeneratingAi ? "animate-spin" : ""}`} />
@@ -2855,7 +2891,7 @@ function LegacyFocusedWorkspaceView({
                   <button
                     type="button"
                     onClick={handleSendReply}
-                    disabled={!replyText.trim()}
+                    disabled={!canMutate || (Boolean(nativeRuntime) && commChannel !== "internal_note" && !(matchingChatSession && commChannel === "chat")) || isSendingOperatorReply || !replyText.trim()}
                     className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] py-3 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <Send className="w-4 h-4 text-[#2ED8B6]" />
@@ -2869,7 +2905,7 @@ function LegacyFocusedWorkspaceView({
                       if (!sent) return;
                       await handleExecuteAutonomousResolution();
                     }}
-                    disabled={isProcessing || !replyText.trim()}
+                    disabled={Boolean(nativeRuntime) || isProcessing || isSendingOperatorReply || !replyText.trim()}
                     className="btn btn-primary py-3 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
                   >
                     <Zap className="w-4 h-4" />
@@ -2879,7 +2915,8 @@ function LegacyFocusedWorkspaceView({
 
                 <button
                   type="button"
-                  onClick={() => onEscalate && selectedIssue && onEscalate(selectedIssue)}
+                  disabled={!canMutate}
+                  onClick={() => nativeRuntime ? void handleStatusChange("escalated") : onEscalate && selectedIssue && onEscalate(selectedIssue)}
                   className="btn btn-secondary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 text-[#8E9CAE] hover:text-[#EAF1F8] cursor-pointer"
                 >
                   <Flame className="w-3.5 h-3.5 text-[#F5A623]" />
@@ -2962,8 +2999,9 @@ function LegacyFocusedWorkspaceView({
 
                     <button
                       type="button"
-                      disabled={executingInsightId === ins.id}
+                      disabled={Boolean(nativeRuntime) || executingInsightId === ins.id}
                       onClick={async () => {
+                        if (nativeRuntime) return;
                         setExecutingInsightId(ins.id);
                         try {
                           if (onExecuteInsight) {
@@ -3086,6 +3124,7 @@ function LegacyFocusedWorkspaceView({
                 <label className="text-[#B4C2D0] block">Tags (comma-separated)</label>
                 <input
                   type="text"
+                  disabled={Boolean(nativeRuntime)}
                   value={editTags}
                   onChange={(e) => setEditTags(e.target.value)}
                   placeholder="checkout, billing, vip"

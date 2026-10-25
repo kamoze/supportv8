@@ -71,6 +71,17 @@ export async function GET(req: NextRequest) {
     const tenant = await resolveRequestTenant(req, { requireAuthentication: true });
     requireChatOperatorRole(tenant);
 
+    const exactIds = searchParams.getAll("workspaceIssueId");
+    if (exactIds.length) {
+      if (!tenant.runtimeLinked) throw new RequestAuthError("Workspace session required", 403);
+      if (exactIds.length > 31 || new Set(exactIds).size !== exactIds.length || exactIds.some(id => !/^[A-Za-z0-9_:@.-]{1,192}$/.test(id))) {
+        return NextResponse.json({ success: false, error: "Invalid workspace issue projection" }, { status: 400 });
+      }
+      if (!hasDurableDatabase()) throw new ChatIngressError("Ticket storage is unavailable", 503);
+      const data = await chatRepository.listWorkspaceIssuesByIds(tenant.tenantId, exactIds);
+      return NextResponse.json({ success: true, count: data.length, data }, { headers: { "Cache-Control": "no-store" } });
+    }
+
     let issues: Issue[];
     if (tenant.runtimeLinked) {
       issues = hasDurableDatabase()

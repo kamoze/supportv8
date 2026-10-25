@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { loadNativeRuntimeTickets, runtimeTicketHref } from '@/lib/service-app/runtime-native-workdesk';
+import { loadNativeRuntimeTickets, loadNativeRuntimeWorkdesk, runtimeTicketHref } from '@/lib/service-app/runtime-native-workdesk';
 const ticket=(id:string)=>({id,ticketRef:id,customerRef:'customer',customerName:'Customer',summary:'Current request',status:'open',priority:'normal',source:'runtime_manual',createdAt:'2026-10-24T10:00:00Z',updatedAt:'2026-10-24T10:00:00Z'});
 it('loads a precise ticket outside the current page without substituting the first ticket',async()=>{
  const request=vi.fn(async(input:RequestInfo|URL)=>Response.json(String(input).includes('/wanted')?ticket('wanted'):{tickets:[ticket('first')],nextCursor:'next'}));
@@ -52,4 +52,20 @@ it('composes with actual scoped list/detail handlers and never reads storage aft
  authorize.mockResolvedValue(null);list.mockClear();get.mockClear();
  await expect(loadNativeRuntimeTickets({ticket:'own'},request as typeof fetch)).rejects.toThrow();
  expect(list).not.toHaveBeenCalled();expect(get).not.toHaveBeenCalled();
+});
+
+it('hydrates only the exact scoped IDs and rejects extra, duplicate or mismatched owner rows',async()=>{
+ const native=(id:string)=>({...ticket(id),externalId:id,sourceUrl:'/chat/session-'+id});
+ let data=[native('first'),native('wanted')];
+ const request=vi.fn(async(input:RequestInfo|URL)=>{
+  const path=String(input);
+  if(path.startsWith('/api/issues?')) {expect(new URL(path,'https://fixture.test').searchParams.getAll('workspaceIssueId')).toEqual(['first','wanted']);return Response.json({success:true,data});}
+  return Response.json(path.endsWith('/wanted')?ticket('wanted'):{tickets:[ticket('first')]});
+ });
+ const result=await loadNativeRuntimeWorkdesk({ticket:'wanted'},request as typeof fetch);
+ expect(result.issues[1].sourceUrl).toBe('/chat/session-wanted');
+ for(const invalid of [[native('foreign')],[native('first'),native('first')]]) {
+  data=invalid;await expect(loadNativeRuntimeWorkdesk({ticket:'wanted'},request as typeof fetch)).rejects.toThrow('Invalid native ticket response');
+ }
+ data=[native('first')];expect((await loadNativeRuntimeWorkdesk({ticket:'wanted'},request as typeof fetch)).selected).toBeNull();
 });

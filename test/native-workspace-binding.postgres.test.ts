@@ -23,6 +23,7 @@ describe.skipIf(!enabled)('genuine PostgreSQL canonical/native binding and RLS',
   await admin.query(await readFile(new URL('../migrations/014_workspace_identity_bindings.sql',import.meta.url),'utf8'));
   await admin.query("INSERT INTO supportv8.tenants VALUES('tenant_existing','existing','canonical-account'),('tenant_foreign','foreign','foreign-account')");
   await admin.query("INSERT INTO supportv8.workspace_identity_bindings(registry_tenant_id,account_id,native_tenant_id,slug,origin,state,provenance) VALUES('opaque-canonical-id','canonical-account','tenant_existing','existing','https://existing.support.servicev8.com','active','synthetic fixture')");
+  await admin.query("INSERT INTO supportv8.tenants VALUES('tenant_acme','acme','account-acme'),('tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559','runtime-acceptance','acct_5c88ae327c3a')");
   const parsed=new URL(url);parsed.username='supportv8_app';parsed.password='binding-fixture-only';app=new Pool({connectionString:parsed.toString()});PostgresClient.setTestClient(new PostgresClient('',app));
  });
  afterAll(async()=>{PostgresClient.setTestClient(null);await app?.end();if(schema)await admin.query('DROP SCHEMA supportv8 CASCADE');if(role)await admin.query('DROP ROLE supportv8_app');await admin?.end()});
@@ -37,6 +38,12 @@ describe.skipIf(!enabled)('genuine PostgreSQL canonical/native binding and RLS',
  it('refuses a canonical tenant split across accounts or a mismatched native tuple',async()=>{
   await expect(admin.query("INSERT INTO supportv8.workspace_identity_bindings(registry_tenant_id,account_id,native_tenant_id,slug,origin,state,provenance) VALUES('opaque-canonical-id','foreign-account','tenant_foreign','foreign','https://foreign.support.servicev8.com','active','synthetic fixture')")).rejects.toMatchObject({code:'23505'});
   await expect(admin.query("INSERT INTO supportv8.workspace_identity_bindings(registry_tenant_id,account_id,native_tenant_id,slug,origin,state,provenance) VALUES('foreign-canonical','wrong-account','tenant_foreign','foreign','https://foreign.support.servicev8.com','active','synthetic fixture')")).rejects.toMatchObject({code:'23503'});
+ });
+ it('imports only the two exact existing identities idempotently, preserving native IDs',async()=>{
+  const sql=await readFile(new URL('../ops/workspace-recovery/existing-bindings-20261025.sql',import.meta.url),'utf8');
+  await admin.query(sql);await admin.query(sql);
+  expect((await admin.query("SELECT native_tenant_id FROM supportv8.workspace_identity_bindings WHERE registry_tenant_id IN ('tenant-acme','tenant_5c88ae327c3a') ORDER BY registry_tenant_id")).rows).toEqual([{native_tenant_id:'tenant_acme'},{native_tenant_id:'tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559'}]);
+  expect((await admin.query('SELECT count(*)::int n FROM supportv8.tenants')).rows[0].n).toBe(4);
  });
  it('runtime cannot insert, reassign or delete mappings',async()=>{
   for(const sql of ["UPDATE supportv8.workspace_identity_bindings SET account_id='foreign'","DELETE FROM supportv8.workspace_identity_bindings","INSERT INTO supportv8.workspace_identity_bindings DEFAULT VALUES"])await expect(app.query(sql)).rejects.toMatchObject({code:'42501'});

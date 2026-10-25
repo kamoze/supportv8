@@ -279,6 +279,14 @@ export async function operationalSupportOutboxWorkflow():Promise<never>{
  for(let i=0;i<500;i++){await registrationActivities.drainOperationalSupportFactsActivity({owner:`${owner}:${i}`}).catch(()=>undefined);await sleep("5 seconds");}
  return continueAsNew<typeof operationalSupportOutboxWorkflow>();
 }
+
+const taskWorkActivities=proxyActivities<{drainSupportTaskWorkActivity:(input:{owner:string})=>Promise<{claimed:number;delivered:number;failed:number}>}>({startToCloseTimeout:'6 minutes',retry:{initialInterval:'5 seconds',maximumInterval:'1 minute'}});
+/** Durable native facts remain in SQL; failed delivery stays pending for retry. */
+export async function supportTaskWorkOutboxWorkflow():Promise<never>{
+ const owner=`${workflowInfo().workflowId}:${workflowInfo().runId}`;
+ for(let i=0;i<500;i++){await taskWorkActivities.drainSupportTaskWorkActivity({owner:`${owner}:${i}`});await sleep('5 seconds');}
+ return continueAsNew<typeof supportTaskWorkOutboxWorkflow>();
+}
 /**
  * processSupportInteraction
  * Processes a normalized support interaction event asynchronously.

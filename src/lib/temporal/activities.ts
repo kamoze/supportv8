@@ -224,3 +224,5 @@ export {
   runRetentionPurgeWorkflow,
 } from "./retention-workflow";
 
+export { drainSupportTaskWorkActivity } from '../tasksv8/runtime';
+

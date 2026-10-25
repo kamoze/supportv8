@@ -63,6 +63,11 @@ jobs:
           name: Build Next.js Application
           command: npm run build
       - run:
+          name: Require native Tasks lifecycle transaction, RLS, receipt and lease evidence
+          command: node scripts/test-task-work-sql-ci.mjs
+          environment:
+            SUPPORT_TASK_WORK_TEST_ADMIN_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
+      - run:
           name: Verify standalone Runtime Support host and logout boundary
           command: node scripts/test-local-only.mjs test/runtime-support-next-standalone.test.ts
           environment:

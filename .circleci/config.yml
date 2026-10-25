@@ -24,6 +24,9 @@ jobs:
           name: Run Unit and Conformance Tests
           command: node scripts/test-local-only.mjs
       - run:
+          name: Require cross-instance Redis bot proof replay fencing
+          command: node scripts/test-local-only.mjs test/bot-redis-integration.test.ts
+      - run:
           name: Require native operational outbox, voice transactions and crash recovery
           no_output_timeout: 3m
           command: node scripts/test-operational-sql-ci.mjs

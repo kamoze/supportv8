@@ -1,10 +1,12 @@
+import { workspaceDiscoveryLimiter } from "@/lib/auth/workspace-discovery-limit";
+import { discoverWorkspace } from "@/lib/auth/workspace-discovery";
+import { authJson } from "@/lib/auth/bot-challenge";
 import { NextRequest, NextResponse } from "next/server";
 import {
   validateIngressHost,
   isTrustedServiceV8Hostname,
 } from "@/lib/tenant-host";
 import {
-  resolveTenantBySlug,
   WorkspaceLookupError,
 } from "@/lib/tenant-resolver";
 
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const rawSlug = url.searchParams.get("workspace") || url.searchParams.get("slug");
-  if (!rawSlug) {
+  if (!rawSlug || rawSlug.length > 63 || url.searchParams.size !== 1 || !["workspace", "slug"].includes([...url.searchParams.keys()][0])) {
     return NextResponse.json({ error: "missing_workspace_slug" }, { status: 400 });
   }
 
@@ -29,7 +31,8 @@ export async function GET(req: NextRequest) {
   const wantsHtml = acceptHeader.includes("text/html");
 
   try {
-    const tenant = await resolveTenantBySlug(rawSlug);
+    await workspaceDiscoveryLimiter.enforce(rawSlug);
+    const tenant = await discoverWorkspace(rawSlug);
     if (!tenant) {
       if (wantsHtml) {
         return new NextResponse(
@@ -53,6 +56,7 @@ export async function GET(req: NextRequest) {
       {
         success: true,
         slug: tenant.slug,
+        name: tenant.name,
         redirectUrl: tenant.url,
       },
       { headers: { "Cache-Control": "no-store" } }
@@ -108,18 +112,19 @@ export async function POST(req: NextRequest) {
 
   let body: any;
   try {
-    body = await req.json();
+    body = await authJson(req);
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
   const rawSlug = body.workspace || body.slug;
-  if (!rawSlug || typeof rawSlug !== "string") {
+  if (!rawSlug || typeof rawSlug !== "string" || rawSlug.length > 63 || Object.keys(body).length !== 1 || !["workspace", "slug"].includes(Object.keys(body)[0])) {
     return NextResponse.json({ error: "missing_workspace_slug" }, { status: 400 });
   }
 
   try {
-    const tenant = await resolveTenantBySlug(rawSlug);
+    await workspaceDiscoveryLimiter.enforce(rawSlug);
+    const tenant = await discoverWorkspace(rawSlug);
     if (!tenant) {
       return NextResponse.json(
         { success: false, error: "workspace_not_found", message: `Workspace '${rawSlug}' not found.` },
@@ -131,6 +136,7 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         slug: tenant.slug,
+        name: tenant.name,
         redirectUrl: tenant.url,
       },
       { headers: { "Cache-Control": "no-store" } }

@@ -238,15 +238,7 @@ export async function verifyKeycloakPassword(
 
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      let decodedClaims: Record<string, any> | undefined;
-      if (data.access_token) {
-        try {
-          const parts = data.access_token.split(".");
-          if (parts.length === 3) {
-            decodedClaims = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
-          }
-        } catch (_) {}
-      }
+      const decodedClaims = typeof data.access_token === "string" ? await verifySupportAccessToken(data.access_token) : undefined;
       return {
         ok: true,
         accessToken: data.access_token,

@@ -1,4 +1,5 @@
 "use client";
+import { AuthBotCheck, type AuthBotProof } from "./AuthBotCheck";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -77,27 +78,15 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
   const [provisionLogs, setProvisionLogs] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Simple Interactive Security Captcha
-  const [captchaNum1, setCaptchaNum1] = useState(5);
-  const [captchaNum2, setCaptchaNum2] = useState(6);
-  const [captchaAnswer, setCaptchaAnswer] = useState("");
-  const [captchaError, setCaptchaError] = useState(false);
-
-  const refreshCaptcha = () => {
-    const n1 = Math.floor(Math.random() * 8) + 2;
-    const n2 = Math.floor(Math.random() * 8) + 2;
-    setCaptchaNum1(n1);
-    setCaptchaNum2(n2);
-    setCaptchaAnswer("");
-    setCaptchaError(false);
-  };
+  const [botProof, setBotProof] = useState<AuthBotProof | null>(null);
+  const [botReset, setBotReset] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
       const hostedSlug = tenantSlugFromHostname(window.location.hostname);
       setLockedDomainSlug(hostedSlug);
-      if (hostedSlug) setSlug(hostedSlug);
-      refreshCaptcha();
+      if (hostedSlug) { window.location.assign("https://support.servicev8.com/signup"); return; }
+      setBotProof(null); setBotReset(value => value + 1);
       setErrorMsg("");
       setOtpError("");
       setVerificationReceipt("");
@@ -174,13 +163,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
       return;
     }
 
-    // Verify Captcha
-    if (parseInt(captchaAnswer.trim(), 10) !== captchaNum1 + captchaNum2) {
-      setCaptchaError(true);
-      setErrorMsg("Security check answer is incorrect. Please try again.");
-      refreshCaptcha();
-      return;
-    }
+    if (!botProof) { setErrorMsg("Complete the security check before sending a code."); return; }
 
     setIsSendingOtp(true);
 
@@ -192,6 +175,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
           email: adminEmail.trim(),
           companyName: companyName.trim(),
           tenantSlug: slug.trim(),
+          ...botProof,
         }),
       });
 
@@ -213,11 +197,12 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
     } catch (_) {
       setIsSendingOtp(false);
       setErrorMsg("Verification service is unavailable. Please try again.");
-    }
+    } finally { setBotProof(null); setBotReset(value => value + 1); }
   };
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0) return;
+    if (!botProof) { setOtpError("Complete a new security check before resending."); return; }
     setIsSendingOtp(true);
     setOtpError("");
 
@@ -229,6 +214,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
           email: adminEmail.trim(),
           companyName: companyName.trim(),
           tenantSlug: slug.trim(),
+          ...botProof,
         }),
       });
 
@@ -248,7 +234,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
     } catch (_) {
       setIsSendingOtp(false);
       setOtpError("Verification service is unavailable. Please try again.");
-    }
+    } finally { setBotProof(null); setBotReset(value => value + 1); }
   };
 
   const handleStep3VerifyOtp = async (e: React.FormEvent) => {
@@ -557,7 +543,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 <div className="space-y-1.5">
                   <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
                     <Lock className="w-4 h-4 text-[#F5A623]" />
-                    <span>Master Password</span>
+                    <span>Password</span>
                   </label>
                   <div className="relative">
                     <input aria-label="Password"
@@ -609,42 +595,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 </div>
               </div>
 
-              {/* Interactive Captcha Challenge */}
-              <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-mono text-[#B4C2D0]">
-                  <span className="flex items-center gap-1.5 text-[#2ED8B6]">
-                    <Shield className="w-4 h-4" />
-                    <span>Security Verification</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={refreshCaptcha}
-                    className="text-xs text-[#6B7C8D] hover:text-[#EAF1F8] flex items-center gap-1 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Refresh</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="px-4 py-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] text-sm font-mono font-bold text-[#EAF1F8] select-none tracking-widest">
-                    {captchaNum1} + {captchaNum2} = ?
-                  </div>
-                  <input aria-label="Security verification answer"
-                    type="number"
-                    value={captchaAnswer}
-                    onChange={(e) => {
-                      setCaptchaAnswer(e.target.value);
-                      setCaptchaError(false);
-                    }}
-                    placeholder="Enter sum"
-                    required
-                    className={`flex-1 bg-[#141C26] border rounded-2xl px-4 py-2.5 text-sm font-mono text-[#EAF1F8] focus:outline-none ${
-                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#2ED8B6]"
-                    }`}
-                  />
-                </div>
-              </div>
+              <AuthBotCheck action="signup" email={adminEmail} tenantSlug={slug} reset={botReset} onProof={setBotProof} />
             </form>
           )}
 
@@ -690,6 +641,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 />
               </div>
 
+              <AuthBotCheck action="signup" email={adminEmail} tenantSlug={slug} reset={botReset} onProof={setBotProof} />
               <div className="text-xs font-mono text-[#6B7C8D]">
                 Didn't receive code?{" "}
                 <button

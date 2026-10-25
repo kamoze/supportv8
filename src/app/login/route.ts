@@ -1,265 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
-import { credentialStore } from "@/lib/auth/credential-store";
-import { AuthService } from "@/lib/auth-service";
-import {
-  mapRealmRolesToSupportRole,
-  supportOperatorDisplayName,
-  supportRolesFromClaims,
-  verifyKeycloakPassword,
-} from "@/lib/auth/keycloak";
-import { tenantIdFromSlug, tenantSlugFromId } from "@/lib/auth/request-tenant";
-import {
-  validateIngressHost,
-  browserTenantSlugFromHostname,
-  safeNextPath,
-  isTrustedServiceV8Hostname,
-} from "@/lib/tenant-host";
+import { POST as authenticate } from "@/app/api/auth/login/route";
+import { validateIngressHost, safeNextPath } from "@/lib/tenant-host";
+import { botProofFailure } from "@/lib/auth/bot-challenge";
+import { BotProofError } from "@/lib/auth/bot-transaction";
+import { withinBotDeadline } from "@/lib/auth/bot-gateway";
 
 export const dynamic = "force-dynamic";
 
-function displayName(slug: string): string {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((w) => `${w[0]?.toUpperCase() || ""}${w.slice(1)}`)
-    .join(" ") || "Your organization";
+/** One native browser form and one credential implementation. */
+export async function GET(req: NextRequest) {
+  const checked = validateIngressHost(req.headers.get("host"), req.headers.get("x-forwarded-host"));
+  if (!checked.valid) return NextResponse.json({ error: checked.error }, { status: checked.status || 400 });
+  const target = new URL("/", req.url); target.searchParams.set("signin", "1");
+  const next = safeNextPath(req.nextUrl.searchParams.get("next"));
+  if (next !== "/") target.searchParams.set("next", next);
+  return NextResponse.redirect(target, { status: 302, headers: { "cache-control": "no-store", "referrer-policy": "no-referrer" } });
 }
 
-export async function GET(req: NextRequest) {
-  const hostCheck = validateIngressHost(
-    req.headers.get("host"),
-    req.headers.get("x-forwarded-host")
-  );
-  if (!hostCheck.valid) {
-    return NextResponse.json({ error: hostCheck.error }, { status: hostCheck.status || 400 });
+async function formBody(req: NextRequest): Promise<Record<string, string>> {
+  const signal = AbortSignal.any([req.signal, AbortSignal.timeout(5000)]), reader = req.body?.getReader();
+  if (!reader) throw new BotProofError();
+  const chunks: Uint8Array[] = []; let size = 0;
+  try {
+    for (;;) {
+      const next = await withinBotDeadline(reader.read(), signal); if (next.done) break;
+      size += next.value.byteLength; if (size > 16_384) throw new BotProofError(); chunks.push(next.value);
+    }
+  } finally { void reader.cancel().catch(() => {}); reader.releaseLock(); }
+  const params = new URLSearchParams(Buffer.concat(chunks, size).toString("utf8"));
+  const body: Record<string, string> = {};
+  for (const [key, value] of params) {
+    if (Object.hasOwn(body, key) || !["email", "password", "workspace", "tenantSlug", "challengeId", "botToken"].includes(key)) throw new BotProofError();
+    body[key] = value;
   }
-
-  const hostname = hostCheck.hostname || req.headers.get("host") || "";
-  const tenantSlug =
-    req.headers.get("x-servicev8-tenant-slug") ||
-    browserTenantSlugFromHostname(hostname);
-  const nextPath = safeNextPath(req.nextUrl.searchParams.get("next"));
-
-  const tenantHeader = tenantSlug
-    ? `<h1>Welcome to ${displayName(tenantSlug)}</h1><p class="tenant-host">${tenantSlug}.support.servicev8.com</p>`
-    : `<h1>Sign In to SupportV8</h1>`;
-
-  const workspaceInput = tenantSlug
-    ? `<input type="hidden" name="workspace" value="${tenantSlug}" />`
-    : `<div class="form-group">
-        <label for="panel-login-workspace">Workspace</label>
-        <input id="panel-login-workspace" name="workspace" type="text" autocomplete="organization" placeholder="e.g. acme" required />
-       </div>`;
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Sign In - SupportV8</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-</head>
-<body>
-  <div class="login-card">
-    ${tenantHeader}
-    <form method="POST" action="/login?next=${encodeURIComponent(nextPath)}" class="support-form">
-      ${workspaceInput}
-      <div class="form-group">
-        <label for="tenant-login-email">Email</label>
-        <input id="tenant-login-email" name="email" type="email" autocomplete="email" placeholder="name@company.com" required />
-      </div>
-      <div class="form-group">
-        <label for="tenant-login-password">Password</label>
-        <input id="tenant-login-password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
-      </div>
-      <button type="submit">Sign in</button>
-    </form>
-  </div>
-</body>
-</html>`;
-
-  return new NextResponse(html, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
-  });
+  if (body.workspace && body.tenantSlug && body.workspace !== body.tenantSlug) throw new BotProofError();
+  return { ...body, tenantSlug: body.tenantSlug || body.workspace || "" };
 }
 
 export async function POST(req: NextRequest) {
-  const hostCheck = validateIngressHost(
-    req.headers.get("host"),
-    req.headers.get("x-forwarded-host")
-  );
-  if (!hostCheck.valid) {
-    return NextResponse.json({ error: hostCheck.error }, { status: hostCheck.status || 400 });
-  }
-
-  // Validate Origin if present
-  const origin = req.headers.get("origin");
-  if (origin) {
-    try {
-      const originHost = new URL(origin).hostname;
-      if (!isTrustedServiceV8Hostname(originHost)) {
-        return NextResponse.json({ error: "forbidden_origin" }, { status: 403 });
-      }
-    } catch {
-      return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
+  try {
+    const isForm = req.headers.get("content-type")?.split(";", 1)[0].trim() === "application/x-www-form-urlencoded";
+    let credentialRequest = req;
+    if (isForm) {
+      const body = await formBody(req), headers = new Headers(req.headers);
+      headers.set("content-type", "application/json"); headers.delete("content-length");
+      credentialRequest = new NextRequest(req.url, { method: "POST", headers, body: JSON.stringify(body), signal: req.signal });
     }
-  }
-
-  const contentType = req.headers.get("content-type") || "";
-  const nextParam = safeNextPath(req.nextUrl.searchParams.get("next"));
-
-  let email = "";
-  let password = "";
-  const hostname = hostCheck.hostname || req.headers.get("host") || "";
-  let tenantSlug =
-    req.headers.get("x-servicev8-tenant-slug") ||
-    browserTenantSlugFromHostname(hostname) ||
-    "";
-
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const text = await req.text();
-    const params = new URLSearchParams(text);
-    email = params.get("email") || "";
-    password = params.get("password") || "";
-    if (!tenantSlug) tenantSlug = params.get("workspace") || params.get("tenantSlug") || "";
-  } else {
-    try {
-      const body = await req.json();
-      email = body.email || "";
-      password = body.password || "";
-      if (!tenantSlug) tenantSlug = body.workspace || body.tenantSlug || "";
-    } catch {
-      return NextResponse.json({ error: "invalid_json" }, { status: 400 });
-    }
-  }
-
-  if (!email || !password) {
-    return NextResponse.json({ success: false, error: "Missing email or password" }, { status: 400 });
-  }
-
-  const cleanEmail = email.trim().toLowerCase();
-  let user: any;
-  let keycloakAccessToken: string | undefined;
-  let keycloakRefreshToken: string | undefined;
-  let refreshExpiresIn: number | undefined;
-  let tokenExpiresAt: number | undefined;
-
-  if (process.env.NODE_ENV === "production") {
-    const keycloak = await verifyKeycloakPassword(cleanEmail, password);
-    if (!keycloak.ok || !keycloak.accessToken) {
-      return NextResponse.json(
-        { success: false, error: "Identity provider authentication failed." },
-        { status: 401 }
-      );
-    }
-    const claimTenant =
-      keycloak.decodedClaims?.tenant_id ||
-      keycloak.decodedClaims?.attributes?.tenant_id?.[0];
-    if (typeof claimTenant !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Identity provider tenant claim is missing or invalid." },
-        { status: 403 }
-      );
-    }
-    let resolvedTenantSlug: string;
-    try {
-      resolvedTenantSlug = tenantSlugFromId(claimTenant);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Identity provider tenant claim is missing or invalid." },
-        { status: 403 }
-      );
-    }
-    if (
-      tenantSlug &&
-      tenantSlug.trim().toLowerCase() !== "global" &&
-      claimTenant !== tenantIdFromSlug(tenantSlug)
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Authenticated tenant claim does not match this workspace." },
-        { status: 403 }
-      );
-    }
-    const role = mapRealmRolesToSupportRole(supportRolesFromClaims(keycloak.decodedClaims || {}));
-    if (!role) {
-      return NextResponse.json(
-        { success: false, error: "A SupportV8 role is required for this workspace." },
-        { status: 403 }
-      );
-    }
-    const operatorDisplayName = supportOperatorDisplayName(keycloak.decodedClaims || {}, resolvedTenantSlug);
-    user = {
-      id: String(keycloak.decodedClaims?.sub || cleanEmail),
-      email: cleanEmail,
-      name: operatorDisplayName,
-      tenantSlug: resolvedTenantSlug,
-      role,
-    };
-    keycloakAccessToken = keycloak.accessToken;
-    keycloakRefreshToken = keycloak.refreshToken;
-    refreshExpiresIn = keycloak.refreshExpiresIn;
-    tokenExpiresAt = Number(keycloak.decodedClaims?.exp || 0) * 1000 || undefined;
-  } else {
-    const authResult = await credentialStore.authenticate(cleanEmail, password, tenantSlug);
-    if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { success: false, error: authResult.error || "Invalid credentials." },
-        { status: 401 }
-      );
-    }
-    user = authResult.user;
-  }
-
-  const session = AuthService.createSession(
-    user.tenantSlug,
-    user.email,
-    user.role,
-    user.name
-  );
-  if (refreshExpiresIn) {
-    session.expiresAt = Date.now() + Math.min(refreshExpiresIn, 8 * 60 * 60) * 1000;
-  }
-
-  const redirectDest = safeNextPath(nextParam);
-  const isFormPost = contentType.includes("application/x-www-form-urlencoded");
-
-  const response = isFormPost
-    ? NextResponse.redirect(new URL(redirectDest, req.url), 302)
-    : NextResponse.json({
-        success: true,
-        message: `Successfully authenticated as ${user.name}`,
-        session,
-        redirectUrl: redirectDest,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          tenantSlug: user.tenantSlug,
-          role: user.role,
-        },
-      });
-
-  const cookieToken = keycloakAccessToken || session.token;
-  response.cookies.set("sv8_access_token", cookieToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: Math.max(60, Math.floor(((tokenExpiresAt || Date.now() + 8 * 60 * 60 * 1000) - Date.now()) / 1000)),
-  });
-
-  if (keycloakRefreshToken) {
-    response.cookies.set("sv8_refresh_token", keycloakRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/api/auth",
-      maxAge: Math.max(60, Math.min(refreshExpiresIn || 8 * 60 * 60, 8 * 60 * 60)),
-    });
-  }
-
-  return response;
+    const response = await authenticate(credentialRequest);
+    if (!response.ok) return response;
+    const next = safeNextPath(req.nextUrl.searchParams.get("next"));
+    if (!isForm) return NextResponse.json({ ...await response.json(), redirectUrl: next }, { headers: response.headers });
+    const redirect = NextResponse.redirect(new URL(next, req.url), 302);
+    for (const cookie of response.headers.getSetCookie()) redirect.headers.append("set-cookie", cookie);
+    redirect.headers.set("cache-control", "no-store"); return redirect;
+  } catch (error) { return botProofFailure(error); }
 }

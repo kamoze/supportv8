@@ -1,4 +1,6 @@
 "use client";
+import { AuthBotCheck, type AuthBotProof } from "./AuthBotCheck";
+import { browserTenantSlugFromHostname, safeNextPath } from "@/lib/tenant-host";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -43,7 +45,7 @@ export function SignInModal({
   onOpenSignup,
 }: SignInModalProps) {
   const [modalView, setModalView] = useState<ModalView>("signin");
-  const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || initialTenantSlug || "acme");
+  const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || initialTenantSlug || "");
   const [email, setEmail] = useState(initialEmail || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -59,20 +61,19 @@ export function SignInModal({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [debugOtpCode, setDebugOtpCode] = useState("");
 
-  // Interactive Security Captcha
-  const [captchaNum1, setCaptchaNum1] = useState(4);
-  const [captchaNum2, setCaptchaNum2] = useState(7);
-  const [captchaAnswer, setCaptchaAnswer] = useState("");
-  const [captchaError, setCaptchaError] = useState(false);
-
-  const refreshCaptcha = () => {
-    const n1 = Math.floor(Math.random() * 8) + 2;
-    const n2 = Math.floor(Math.random() * 8) + 2;
-    setCaptchaNum1(n1);
-    setCaptchaNum2(n2);
-    setCaptchaAnswer("");
-    setCaptchaError(false);
-  };
+  const [botProof, setBotProof] = useState<AuthBotProof | null>(null);
+  const [botReset, setBotReset] = useState(0);
+  const hostedTenantSlug = typeof window === "undefined" ? null : browserTenantSlugFromHostname(window.location.hostname);
+  const [companyName, setCompanyName] = useState("");
+  useEffect(() => {
+    if (!isOpen || !hostedTenantSlug) return;
+    const controller = new AbortController();
+    fetch(`/api/workspace/lookup?workspace=${encodeURIComponent(hostedTenantSlug)}`, { credentials: "same-origin", cache: "no-store", redirect: "error", signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(value => { if (value?.success && value.slug === hostedTenantSlug && typeof value.name === "string") setCompanyName(value.name); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [isOpen, hostedTenantSlug]);
 
   useEffect(() => {
     if (isOpen) {
@@ -85,7 +86,7 @@ export function SignInModal({
         setEmail(initialEmail);
       }
       setModalView("signin");
-      refreshCaptcha();
+      setBotProof(null); setBotReset(value => value + 1);
       setErrorMsg("");
       setSuccessMsg("");
       setPassword("");
@@ -102,39 +103,45 @@ export function SignInModal({
   if (!isOpen) return null;
 
   // Handler: Normal Sign In
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
-    const targetSlug = (lockedTenantSlug || tenantSlug).trim().toLowerCase();
+    const targetSlug = (hostedTenantSlug || tenantSlug).trim().toLowerCase();
 
     if (!targetSlug) {
       setErrorMsg("Please specify your workspace domain.");
       return;
     }
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg("Please enter your email and password.");
+    if (!hostedTenantSlug) {
+      setIsLoading(true);
+      try {
+        const response = await fetch("/api/auth/lookup-workspace", { method: "POST", credentials: "same-origin", redirect: "error", headers: { "content-type": "application/json" }, body: JSON.stringify({ workspace: targetSlug }) });
+        const value = await response.json();
+        if (!response.ok || value.success !== true || value.slug !== targetSlug) throw new Error(value.message || "Workspace is unavailable.");
+        const destination = new URL(value.redirectUrl);
+        if (destination.protocol !== "https:" || destination.port || destination.username || destination.password || destination.pathname !== "/" || destination.search || destination.hash || browserTenantSlugFromHostname(destination.hostname) !== targetSlug) throw new Error("Workspace is unavailable.");
+        destination.searchParams.set("signin", "1");
+        window.location.assign(destination.toString());
+      } catch (error) { setErrorMsg(error instanceof Error ? error.message : "Workspace lookup is unavailable."); }
+      finally { setIsLoading(false); }
       return;
     }
-
-    // Verify Captcha
-    if (parseInt(captchaAnswer.trim(), 10) !== captchaNum1 + captchaNum2) {
-      setCaptchaError(true);
-      setErrorMsg("Security check answer is incorrect. Please try again.");
-      refreshCaptcha();
-      return;
-    }
+    if (!email.trim() || !password) { setErrorMsg("Please enter your email and password."); return; }
+    if (!botProof) { setErrorMsg("Complete the security check before signing in."); return; }
 
     setIsLoading(true);
 
-    AuthService.loginWithPassword(email.trim(), password.trim(), targetSlug)
+    AuthService.loginWithPassword(email.trim(), password, targetSlug, botProof)
       .then((loginRes) => {
         setIsLoading(false);
         if (loginRes.success && loginRes.session) {
           onSuccess(loginRes.session);
           onClose();
+          const next = safeNextPath(new URL(window.location.href).searchParams.get("next"));
+          if (next !== "/") window.location.assign(next);
         } else {
           setErrorMsg(loginRes.error || "Incorrect email or password. Please try again.");
         }
@@ -142,7 +149,7 @@ export function SignInModal({
       .catch(() => {
         setIsLoading(false);
         setErrorMsg("Authentication service unavailable.");
-      });
+      }).finally(() => { setBotProof(null); setBotReset(value => value + 1); });
   };
 
   // Handler: Password Recovery - Step 1 (Send OTP)
@@ -157,6 +164,8 @@ export function SignInModal({
       return;
     }
 
+    if (!botProof || !hostedTenantSlug) { setErrorMsg("Complete a new security check before recovery."); return; }
+
     setIsLoading(true);
 
     try {
@@ -165,13 +174,14 @@ export function SignInModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "send_otp",
+          ...botProof,
           email: cleanEmail,
-          tenantSlug: lockedTenantSlug || tenantSlug || undefined,
+          tenantSlug: hostedTenantSlug || undefined,
         }),
       });
 
       const data = await res.json();
-      setIsLoading(false);
+      setIsLoading(false); setBotProof(null); setBotReset(value => value + 1);
 
       if (!res.ok || !data.success) {
         setErrorMsg(data?.error || "Failed to dispatch recovery code. Please check your email.");
@@ -185,7 +195,7 @@ export function SignInModal({
       setSuccessMsg(`Recovery code dispatched to ${cleanEmail}. Please enter the 6-digit code below.`);
       setModalView("forgot_otp");
     } catch (_) {
-      setIsLoading(false);
+      setIsLoading(false); setBotProof(null); setBotReset(value => value + 1);
       setErrorMsg("Password recovery service is unavailable. Please try again.");
     }
   };
@@ -225,7 +235,7 @@ export function SignInModal({
           email: cleanEmail,
           code: cleanCode,
           newPassword: forgotNewPassword,
-          tenantSlug: lockedTenantSlug || tenantSlug || undefined,
+          tenantSlug: hostedTenantSlug || undefined,
         }),
       });
 
@@ -242,17 +252,14 @@ export function SignInModal({
       setPassword(forgotNewPassword);
       setSuccessMsg("Password successfully reset! You may now sign in with your new password.");
       setModalView("signin");
-      refreshCaptcha();
+      setBotProof(null); setBotReset(value => value + 1);
     } catch (_) {
       setIsLoading(false);
       setErrorMsg("Service temporarily unavailable. Please try again.");
     }
   };
 
-  const formattedTenantName = (lockedTenantSlug || tenantSlug)
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+
 
   return (
     <div className="family-auth fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
@@ -264,16 +271,16 @@ export function SignInModal({
             <div>
               <h3 className="text-base font-bold text-[#EAF1F8]">
                 {modalView === "signin"
-                  ? lockedTenantSlug
-                    ? `${formattedTenantName} Sign In`
+                  ? hostedTenantSlug
+                    ? "Workspace sign in"
                     : "Sign In"
                   : "Password Recovery"}
               </h3>
               <p className="text-xs font-mono text-[#6B7C8D]">
                 {modalView === "signin"
-                  ? lockedTenantSlug
-                    ? `${lockedTenantSlug}.support.servicev8.com`
-                    : "Enter your workspace credentials to continue"
+                  ? hostedTenantSlug
+                    ? window.location.hostname
+                    : "Find your company workspace to sign in"
                   : "Recover your SupportV8 workspace credentials"}
               </p>
             </div>
@@ -319,13 +326,13 @@ export function SignInModal({
           {modalView === "signin" && (
             <form id="signin-form" onSubmit={handleSignIn} className="space-y-4">
               {/* If on a specific subdomain, show locked badge; otherwise show domain input */}
-              {lockedTenantSlug ? (
+              {hostedTenantSlug ? (
                 <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Building2 className="w-5 h-5 text-[#2ED8B6]" />
                     <div>
-                      <div className="text-sm font-bold text-[#EAF1F8]">{formattedTenantName} Workspace</div>
-                      <div className="text-xs font-mono text-[#6B7C8D]">{lockedTenantSlug}.support.servicev8.com</div>
+                      <div className="text-sm font-bold text-[#EAF1F8]">Welcome to {companyName || "your workspace"}</div>
+                      <div className="text-xs font-mono text-[#6B7C8D]">{hostedTenantSlug}.support.servicev8.com</div>
                     </div>
                   </div>
                   <span className="pill ok text-xs font-mono">SCOPED</span>
@@ -354,6 +361,7 @@ export function SignInModal({
                 </div>
               )}
 
+              {hostedTenantSlug && <>
               {/* Email Address */}
               <div className="space-y-1.5">
                 <label htmlFor="tenant-login-email" className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
@@ -417,42 +425,8 @@ export function SignInModal({
                 </div>
               </div>
 
-              {/* Security Captcha */}
-              <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-mono text-[#B4C2D0]">
-                  <span className="flex items-center gap-1.5 text-[#2ED8B6]">
-                    <Shield className="w-4 h-4" />
-                    <span>Security Verification</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={refreshCaptcha}
-                    className="text-xs text-[#6B7C8D] hover:text-[#EAF1F8] flex items-center gap-1 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Refresh</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="px-4 py-2.5 rounded-xl bg-[#18222E] border border-[var(--line-2)] text-sm font-mono font-bold text-[#EAF1F8] select-none tracking-widest">
-                    {captchaNum1} + {captchaNum2} = ?
-                  </div>
-                  <input aria-label="Security verification answer"
-                    type="number"
-                    value={captchaAnswer}
-                    onChange={(e) => {
-                      setCaptchaAnswer(e.target.value);
-                      setCaptchaError(false);
-                    }}
-                    placeholder="Enter sum"
-                    required
-                    className={`flex-1 bg-[#141C26] border rounded-2xl px-4 py-2.5 text-sm font-mono text-[#EAF1F8] focus:outline-none ${
-                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#2ED8B6]"
-                    }`}
-                  />
-                </div>
-              </div>
+              <AuthBotCheck action="signin" email={email} tenantSlug={hostedTenantSlug} reset={botReset} onProof={setBotProof} />
+              </>}
             </form>
           )}
 
@@ -486,6 +460,7 @@ export function SignInModal({
                   className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
+              <AuthBotCheck action="forgot_password" email={forgotEmail} tenantSlug={hostedTenantSlug || ""} reset={botReset} onProof={setBotProof} />
             </form>
           )}
 
@@ -605,7 +580,7 @@ export function SignInModal({
                   </>
                 ) : (
                   <>
-                    <span>Sign In</span>
+                    <span>{hostedTenantSlug ? "Sign In" : "Go to workspace"}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

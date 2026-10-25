@@ -9,6 +9,8 @@ import { ResendService } from "@/lib/services/resend-service";
 import { findKeycloakUserByEmail, resetKeycloakPassword } from "@/lib/auth/keycloak";
 import { tenantSlugFromId } from "@/lib/auth/request-tenant";
 import { passwordPolicyError } from "@/lib/auth/password-policy";
+import { authBotChallenge, authJson, botProofFailure } from "@/lib/auth/bot-challenge";
+import { BotProofError } from "@/lib/auth/bot-transaction";
 
 function clientIp(req: NextRequest): string | undefined {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -18,12 +20,12 @@ function clientIp(req: NextRequest): string | undefined {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await authJson(req);
     const { action, email, code, newPassword, tenantSlug } = body;
 
-    const cleanEmail = (email || "").toLowerCase().trim();
+    const cleanEmail = typeof email === "string" ? email.toLowerCase().trim() : "";
 
-    if (!cleanEmail || !cleanEmail.includes("@")) {
+    if (!cleanEmail || !cleanEmail.includes("@") || (tenantSlug !== undefined && typeof tenantSlug !== "string")) {
       return NextResponse.json(
         { success: false, error: "A valid registered email address is required." },
         { status: 400 }
@@ -32,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     // ACTION 1: Send Password Reset Verification Code (OTP)
     if (action === "send_otp") {
+      await authBotChallenge.consume(req, "forgot_password", body);
       const requestedTenant = String(tenantSlug || "").trim().toLowerCase();
       await otpStore.enforceIssueRateLimit(
         "password-recovery",
@@ -111,7 +114,7 @@ export async function POST(req: NextRequest) {
       }
 
       const passwordError = passwordPolicyError(newPassword);
-      if (passwordError) {
+      if (passwordError || typeof newPassword !== "string") {
         return NextResponse.json(
           { success: false, error: passwordError },
           { status: 400 }
@@ -181,6 +184,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   } catch (err: unknown) {
+    if (err instanceof BotProofError) return botProofFailure(err);
     const status =
       err instanceof OtpStoreUnavailableError || err instanceof OtpRateLimitError
         ? err.status

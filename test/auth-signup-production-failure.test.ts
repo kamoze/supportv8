@@ -28,7 +28,7 @@ vi.mock("@/lib/auth/keycloak", async (importOriginal) => {
 
 import { POST } from "../src/app/api/tenant/signup/route";
 
-function request() {
+function request(overrides: Record<string, unknown> = {}) {
   return new NextRequest("https://support.servicev8.com/api/tenant/signup", {
     method: "POST",
     body: JSON.stringify({
@@ -38,6 +38,8 @@ function request() {
       adminEmail: `failure-${Date.now()}@example.com`,
       verificationReceipt: "receipt",
       password: "StrongPassword#2026",
+      passwordConfirmation: "StrongPassword#2026",
+      ...overrides,
     }),
   });
 }
@@ -56,6 +58,27 @@ describe("production signup failure reconciliation", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     Object.values(mocks).forEach((mock) => mock.mockReset());
+  });
+
+  it.each([
+    { passwordConfirmation: undefined }, { passwordConfirmation: "different" },
+    { passwordConfirmation: " StrongPassword#2026" }, { adminName: "" },
+    { adminName: { name: "not text" } }, { name: "" },
+    { name: "x".repeat(121) }, { adminEmail: "invalid" },
+  ])("rejects invalid server-side signup fields before proof or provisioning: %j", async (fields) => {
+    const response = await POST(request(fields));
+    expect(response.status).toBe(400);
+    expect(mocks.consumeSignupReceipt).not.toHaveBeenCalled();
+    expect(mocks.reserve).not.toHaveBeenCalled();
+    expect(mocks.createKeycloakUser).not.toHaveBeenCalled();
+  });
+
+  it("preserves exact confirmed password bytes for the identity owner", async () => {
+    mocks.createKeycloakUser.mockResolvedValue(undefined);
+    const password = " StrongPassword#2026 ";
+    const response = await POST(request({ password, passwordConfirmation: password }));
+    expect(response.status).toBe(200);
+    expect(mocks.createKeycloakUser).toHaveBeenCalledWith(expect.any(String), password, expect.objectContaining({ firstName: "Failure" }));
   });
 
   it("retains the tenant reservation when the identity may exist", async () => {

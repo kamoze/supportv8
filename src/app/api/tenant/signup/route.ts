@@ -25,11 +25,23 @@ export async function POST(req: NextRequest) {
       adminEmail,
       verificationReceipt,
       password,
+      passwordConfirmation,
     } = body;
 
-    if (!name || !domain || !adminEmail || !password) {
+    if (typeof name !== "string" || name.trim().length < 2 || name.trim().length > 120
+      || typeof domain !== "string" || domain.length > 63
+      || typeof adminName !== "string" || adminName.trim().length < 2 || adminName.trim().length > 80
+      || /[@\x00-\x1f\x7f]/.test(adminName)
+      || typeof adminEmail !== "string" || adminEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail.trim())
+      || typeof password !== "string" || password.length > 256) {
       return NextResponse.json(
-        { success: false, error: "Name, domain, administrator email, and password are required" },
+        { success: false, error: "Enter a valid company name, workspace, full name, email, and password." },
+        { status: 400 }
+      );
+    }
+    if (typeof passwordConfirmation !== "string" || password !== passwordConfirmation) {
+      return NextResponse.json(
+        { success: false, error: "Passwords do not match. Please confirm your password." },
         { status: 400 }
       );
     }
@@ -92,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = `tenant_${cleanDomain.replace(/[^a-z0-9]/g, "_")}`;
-    const resolvedAdminName = adminName?.trim() || `${name} Administrator`;
+    const resolvedAdminName = adminName.trim();
     const operatingMode = "copilot";
 
     if (

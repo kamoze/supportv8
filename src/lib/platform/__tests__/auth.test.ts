@@ -47,7 +47,9 @@ describe("AUTH-01 to AUTH-06: Standalone & Runtime Entry Qualification", () => {
         name: "Pending Corp",
         domain: tenantSlug,
         adminEmail: email,
+        adminName: "Signup Owner",
         password: "ValidPassword123!",
+        passwordConfirmation: "ValidPassword123!",
       }),
     });
     const unverifiedRes = await postSignup(unverifiedSignupReq);
@@ -104,7 +106,9 @@ describe("AUTH-01 to AUTH-06: Standalone & Runtime Entry Qualification", () => {
         name: "Atomic Corp",
         domain: tenantSlug,
         adminEmail: email,
+        adminName: "Signup Owner",
         password: "ValidPassword123!",
+        passwordConfirmation: "ValidPassword123!",
         verificationReceipt: verifyData.verificationReceipt,
       }),
     });
@@ -119,7 +123,9 @@ describe("AUTH-01 to AUTH-06: Standalone & Runtime Entry Qualification", () => {
         name: "Atomic Corp Replay",
         domain: tenantSlug,
         adminEmail: email,
+        adminName: "Signup Owner",
         password: "ValidPassword123!",
+        passwordConfirmation: "ValidPassword123!",
         verificationReceipt: verifyData.verificationReceipt,
       }),
     });
@@ -142,7 +148,9 @@ describe("AUTH-01 to AUTH-06: Standalone & Runtime Entry Qualification", () => {
         name: "Retry Corp",
         domain: tenantSlug,
         adminEmail: email,
+        adminName: "Signup Owner",
         password: "ValidPassword123!",
+        passwordConfirmation: "ValidPassword123!",
         verificationReceipt: receipt,
       }),
     });
@@ -162,7 +170,9 @@ describe("AUTH-01 to AUTH-06: Standalone & Runtime Entry Qualification", () => {
         name: "Retry Corp Duplicate",
         domain: tenantSlug,
         adminEmail: anotherEmail,
+        adminName: "Signup Owner",
         password: "ValidPassword123!",
+        passwordConfirmation: "ValidPassword123!",
         verificationReceipt: newReceipt,
       }),
     });

@@ -1,6 +1,6 @@
 /** Constant error document: never echoes an unverified hostname or company. */
-export function workspacePageFailure(status: 404 | 503): Response {
- const title = status === 404 ? "Workspace not found" : "Workspace verification unavailable";
- const detail = status === 404 ? "This address is not registered to an active Support workspace." : "We could not verify this workspace. Please try again later.";
+export function workspacePageFailure(status: 404 | 409 | 503): Response {
+ const title = status === 409 ? "Workspace owner verification required" : status === 404 ? "Workspace not found" : "Workspace verification unavailable";
+ const detail = status === 409 ? "Owner verification is required before this legacy workspace can be linked. Contact your workspace administrator or Support. Your existing workspace data is preserved." : status === 404 ? "This address is not registered to an active Support workspace." : "We could not verify this workspace. Please try again later.";
  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body style="margin:0;background:#0B1017;color:#EAF1F8;font-family:system-ui,sans-serif"><main style="max-width:32rem;margin:10vh auto;padding:2rem"><h1>${title}</h1><p>${detail}</p><a style="display:inline-block;padding:1rem 0;color:#2ED8B6" href="https://support.servicev8.com/?signin=1">Choose another workspace</a></main></body></html>`,{status,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"}});
 }

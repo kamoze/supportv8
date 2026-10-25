@@ -186,3 +186,19 @@ immutable identity and irreversible revocation checks on disposable PostgreSQL.
 Local shared-memory exhaustion prevented a new local PostgreSQL cluster; this is
 not a local SQL pass. Existing known user identities/provider pairing and actual
 end-to-end signin remain live release prerequisites.
+
+## Required owner-verification holds
+
+The user selected verification before linking for `lexiflowers`, `bookdemo`,
+`booksdemo` and `asun-palace-store`. The versioned denial policy in
+`ops/workspace-recovery/owner-verification-required.json` blocks both their known
+slugs and immutable native IDs until a reviewed policy release after the actual
+case process in `ops/workspace-recovery/OWNER-VERIFICATION.md`.
+
+Public discovery reports409 `workspace_owner_verification_required`; server pages
+and login show a credential-free verification notice. Current authority and native
+crosswalk reads also deny holds, including a renamed native ID with an arbitrary
+mapping. This is not a completed ownership verification or a new identity link.
+The local browser verifies the notice; actual legacy owner proof and shared-issuer
+linking remain outstanding. The prepared import still contains only two confirmed
+workspace tuples and leaves the four held workspaces and all other legacy data intact.

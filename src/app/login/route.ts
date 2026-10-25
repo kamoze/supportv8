@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   const checked = validateIngressHost(req.headers.get("host"), req.headers.get("x-forwarded-host"));
   if (!checked.valid) return NextResponse.json({ error: checked.error }, { status: checked.status || 400 });
   const workspace = await resolvePageWorkspace(req.headers);
+  if (workspace === "verification_required") return workspacePageFailure(409);
   if (workspace === "missing" || workspace === "unavailable") {
     return workspacePageFailure(workspace === "missing" ? 404 : 503);
   }

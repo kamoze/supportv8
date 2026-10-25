@@ -1,3 +1,4 @@
+import { requireVerifiedWorkspaceOwner } from "./workspace-owner-verification";
 import { boundedJson } from "../tasksv8/http";
 import { withinBotDeadline } from "./bot-gateway";
 import { WorkspaceLookupError, type TenantWorkspaceRecord } from "../tenant-resolver";
@@ -31,6 +32,7 @@ export function createWorkspaceDiscovery(env: Environment = process.env, request
   return async (slug: string): Promise<TenantWorkspaceRecord | null> => {
     const clean = typeof slug === "string" ? slug.trim().toLowerCase() : "";
     if (!TENANT_SLUG_PATTERN.test(clean) || RESERVED_SLUGS.has(clean)) throw new WorkspaceLookupError("Invalid workspace address.", "invalid_workspace_slug", 400);
+    requireVerifiedWorkspaceOwner({slug:clean});
     const signal = AbortSignal.timeout(8_000);
     try {
       const response = await createRegistryReader(env, request)("/v1/workspace-hosts/resolve", { productAppKey: "support", slug: clean }, signal);

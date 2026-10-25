@@ -24,6 +24,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const workspace = await resolvePageWorkspace(await headers());
+  if (workspace === "verification_required") redirect("/workspace-verification-required");
   if (workspace === "missing") redirect("/workspace-not-found");
   if (workspace === "unavailable") redirect("/workspace-unavailable");
   return (

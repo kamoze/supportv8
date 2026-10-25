@@ -54,4 +54,10 @@ describe.skipIf(!enabled)('genuine PostgreSQL canonical/native binding and RLS',
   await admin.query("UPDATE supportv8.workspace_identity_bindings SET state='revoked'");expect(await resolveNativeWorkspaceBinding(workspace)).toBeNull();
   await expect(admin.query("UPDATE supportv8.workspace_identity_bindings SET state='active'")).rejects.toMatchObject({code:'23514'});
  });
+ it('cannot unlock a held legacy native identity by renaming and adding a canonical mapping',async()=>{
+  await admin.query("INSERT INTO supportv8.tenants VALUES('tenant_booksdemo','renamed-legacy','claimed-account')");
+  await admin.query("INSERT INTO supportv8.workspace_identity_bindings(registry_tenant_id,account_id,native_tenant_id,slug,origin,state,provenance) VALUES('claimed-canonical','claimed-account','tenant_booksdemo','renamed-legacy','https://renamed-legacy.support.servicev8.com','active','synthetic attempted unverified link')");
+  expect(await resolveNativeWorkspaceBinding({...workspace,id:'claimed-canonical',accountId:'claimed-account',slug:'renamed-legacy',url:'https://renamed-legacy.support.servicev8.com/'})).toBeNull();
+ });
+
 });

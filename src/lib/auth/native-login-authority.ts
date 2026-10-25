@@ -1,3 +1,4 @@
+import { requireVerifiedWorkspaceOwner } from "./workspace-owner-verification";
 import type { TenantWorkspaceRecord } from "../tenant-resolver";
 import { boundedJson } from "../tasksv8/http";
 import { createRegistryReader, discoverWorkspace } from "./workspace-discovery";
@@ -17,6 +18,7 @@ const unmapped = () => new BotProofError(503, "This workspace identity mapping i
 /** Read-only compatibility boundary. Never derive canonical authority from a slug. */
 export function createNativeLoginAuthority(deps: Dependencies) {
   return async (registered: TenantWorkspaceRecord | null | undefined, claims: Claims | undefined, request: Request): Promise<TenantWorkspaceRecord & { nativeTenantId: string }> => {
+    if (registered) requireVerifiedWorkspaceOwner({slug:registered.slug,nativeTenantId:registered.id});
     // Registry membership keys contain a subject, not an issuer+subject tuple.
     // Only the explicitly configured shared human issuer can supply that subject.
     const canonicalIssuer = deps.canonicalIssuer();

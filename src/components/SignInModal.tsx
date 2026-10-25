@@ -71,7 +71,7 @@ export function SignInModal({
     setCompanyName(""); setVerifiedHost(null); setWorkspaceFailure("");
     const controller = new AbortController();
     fetch(`/api/workspace/lookup?workspace=${encodeURIComponent(hostedTenantSlug)}`, { credentials: "same-origin", cache: "no-store", redirect: "error", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) })
-      .then(async response => { if (!response.ok) throw new Error(response.status === 404 ? "Workspace not found." : "Workspace verification unavailable. Please try again later."); return response.json(); })
+      .then(async response => { if (!response.ok) throw new Error(response.status === 409 ? "Workspace owner verification required. Contact your workspace administrator or Support." : response.status === 404 ? "Workspace not found." : "Workspace verification unavailable. Please try again later."); return response.json(); })
       .then(value => {
         if (controller.signal.aborted) return;
         if (value?.success !== true || value.slug !== hostedTenantSlug || typeof value.name !== "string" || !value.name.trim() || value.redirectUrl !== `${window.location.origin}/`) throw new Error("Workspace verification unavailable.");

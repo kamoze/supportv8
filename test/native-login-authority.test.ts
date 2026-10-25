@@ -51,3 +51,10 @@ it("uses an explicit native ID for a distinct canonical ID without rewriting cla
  expect(await f.current(canonical,verified,request)).toEqual({...canonical,nativeTenantId:registration.id});
  expect(verified.tenant_id).toBe("canonical-opaque-tenant");expect(f.native).toHaveBeenCalledWith(canonical);
 });
+
+
+it("does not link a held legacy workspace even when a caller supplies matching current claims and membership",async()=>{
+ const f=fixture(),held={...registration,id:'canonical-legacy',slug:'lexiflowers',url:'https://lexiflowers.support.servicev8.com/'};
+ await expect(f.current(held,{...claims,tenant_id:held.id},request)).rejects.toMatchObject({status:409,code:'workspace_owner_verification_required'});
+ expect(f.workspace).not.toHaveBeenCalled();expect(f.membership).not.toHaveBeenCalled();expect(f.native).not.toHaveBeenCalled();
+});

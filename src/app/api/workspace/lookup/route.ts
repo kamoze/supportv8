@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
   } catch (err: any) {
     if (err instanceof WorkspaceLookupError) {
       if (wantsHtml) {
-        const heading = err.status === 503 ? "Temporarily unavailable" : "Error";
+        const heading = err.code === "workspace_owner_verification_required" ? "Workspace owner verification required" : err.status === 503 ? "Temporarily unavailable" : "Error";
         return new NextResponse(
           `<!DOCTYPE html><html><head><title>${heading}</title></head><body><h1>${heading}</h1><p>${err.message}</p></body></html>`,
           { status: err.status, headers: { "Content-Type": "text/html", "Cache-Control": "no-store" } }

@@ -310,7 +310,7 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
       appDatabase.username = runtimeRole;
       appDatabase.password = "synthetic-only";
       appPort = await freePort();
-      application = spawn(process.execPath, [".next/standalone/server.js"], {
+      application = spawn(process.execPath, [fileURLToPath(new URL("./standalone-registry-launcher.cjs", import.meta.url))], {
         cwd: process.cwd(),
         env: {
           ...process.env,
@@ -319,7 +319,6 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
           DATABASE_URL: appDatabase.toString(),
           REGISTRY_URL: "https://registry.example.test/",
           SUPPORT_STANDALONE_REGISTRY_FIXTURE: `http://127.0.0.1:${registryPort}/`,
-          NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require=${fileURLToPath(new URL("./standalone-registry-transport.cjs", import.meta.url))}`,
           SERVICEV8_OIDC_ISSUER: "https://identity.example.test/realms/test",
           SUPPORTV8_RUNTIME_REGISTRY_CLIENT_ID: "synthetic-client",
           SUPPORTV8_RUNTIME_REGISTRY_CLIENT_SECRET: "synthetic-client-secret",
@@ -446,7 +445,7 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
       const response = await standaloneRequest(appPort, "/runtime", {
         headers,
       });
-      if (headers.host === "support.servicev8.com") {
+      if (!headers.host || headers.host === "support.servicev8.com") {
         expect(response.status).toBe(200);
         expect(response.body).toContain("Access denied");
       } else {
@@ -457,10 +456,10 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
   });
 
   it("rejects an unregistered tenant before rendering credentials", async () => {
-    for (const path of ["/", "/login"]) {
+    for (const path of ["/", "/login", "/?signin=1"]) {
       const response = await standaloneRequest(appPort, path, {headers: {host: "unknown.support.servicev8.com"}});
-      expect(response.status).toBe(path === "/" ? 307 : 404);
-      if (path === "/") expect(response.headers.location).toBe("/workspace-not-found");
+      expect(response.status).toBe(path === "/?signin=1" ? 307 : 404);
+      if (path === "/?signin=1") expect(response.headers.location).toBe("/workspace-not-found");
       expect(response.body).not.toContain('type="password"');
     }
     const missing = await standaloneRequest(appPort, "/workspace-not-found", {headers: {host: "unknown.support.servicev8.com"}});

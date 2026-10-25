@@ -6,6 +6,7 @@ import {
   resolveOperationalSupportAccess,
   type SupportRuntimeScope,
 } from "@/lib/service-app/runtime-access";
+import { ChatRepository } from "@/lib/db/chat-repository";
 import { RuntimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
 
 const enabled = process.env.SUPPORTV8_REAL_POSTGRES === "1";
@@ -166,6 +167,18 @@ describe.skipIf(!enabled)(
       await admin.query(
         "CREATE TABLE supportv8.tenants(id varchar(64) PRIMARY KEY,domain varchar(128) UNIQUE NOT NULL,name varchar(255) NOT NULL,operating_mode varchar(32) NOT NULL DEFAULT 'autonomous',servicev8_account_id varchar(128),created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now()); CREATE TABLE supportv8.issues(id varchar(64) PRIMARY KEY,tenant_id varchar(64) NOT NULL REFERENCES supportv8.tenants(id),source varchar(32) NOT NULL,external_id varchar(128) NOT NULL,customer_ref varchar(128) NOT NULL,customer_name varchar(255) NOT NULL,summary text NOT NULL,priority varchar(32) NOT NULL,source_status varchar(32) NOT NULL,created_at timestamptz NOT NULL,updated_at timestamptz NOT NULL); ALTER TABLE supportv8.issues ENABLE ROW LEVEL SECURITY; ALTER TABLE supportv8.issues FORCE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation_issues ON supportv8.issues USING(tenant_id=current_setting('app.current_tenant_id',true)) WITH CHECK(tenant_id=current_setting('app.current_tenant_id',true));",
       );
+      // Full native projection columns, under the same forced tenant RLS used by production.
+      await admin.query(`ALTER TABLE supportv8.issues
+        ADD COLUMN source_url text, ADD COLUMN customer_tier text, ADD COLUMN category text,
+        ADD COLUMN product text, ADD COLUMN version text, ADD COLUMN sentiment text,
+        ADD COLUMN sentiment_score numeric, ADD COLUMN sentiment_trajectory text,
+        ADD COLUMN confidence numeric, ADD COLUMN business_impact text, ADD COLUMN resolution_risk_score numeric,
+        ADD COLUMN tags text[], ADD COLUMN recommended_action text, ADD COLUMN timeline jsonb,
+        ADD COLUMN messages jsonb, ADD COLUMN assigned_to text, ADD COLUMN assigned_agent text;
+        CREATE TABLE supportv8.chat_sessions(id text PRIMARY KEY,tenant_id text NOT NULL,issue_id text UNIQUE,intake_data jsonb);
+        ALTER TABLE supportv8.chat_sessions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE supportv8.chat_sessions FORCE ROW LEVEL SECURITY;
+        CREATE POLICY tenant_isolation_chat_sessions ON supportv8.chat_sessions USING(tenant_id=current_setting('app.current_tenant_id',true));`);
       await admin.query(
         await readFile(
           new URL(
@@ -201,7 +214,7 @@ describe.skipIf(!enabled)(
         [workspaceId, otherWorkspaceId],
       );
       await admin.query(
-        `GRANT USAGE ON SCHEMA supportv8 TO ${readerRole}; GRANT SELECT ON supportv8.tenants,supportv8.runtime_support_workspaces,supportv8.issues TO ${readerRole}`,
+        `GRANT USAGE ON SCHEMA supportv8 TO ${readerRole}; GRANT SELECT ON supportv8.tenants,supportv8.runtime_support_workspaces,supportv8.issues,supportv8.chat_sessions TO ${readerRole}`,
       );
       parsed.username = readerRole;
       parsed.password = "synthetic-only";
@@ -215,6 +228,20 @@ describe.skipIf(!enabled)(
         if (readerCreated) await admin.query(`DROP ROLE ${readerRole}`);
         await admin.end();
       }
+    });
+    it("hydrates exact native IDs across sources beyond the first500 while RLS excludes foreign rows", async () => {
+      await admin.query(`INSERT INTO supportv8.issues(id,tenant_id,source,external_id,customer_ref,customer_name,summary,priority,source_status,created_at,updated_at)
+        SELECT 'paging-'||n,$1,'chat','PAGE-'||n,'customer','Customer','Paged request','normal','open','2026-09-16T10:00:00Z','2026-09-17T10:00:00Z'
+        FROM generate_series(1,501) n`,[workspaceId]);
+      try {
+        const repository = new ChatRepository(client);
+        expect((await repository.listWorkspaceIssues(workspaceId)).some(row=>row.id==='voice-1')).toBe(false);
+        const rows = await repository.listWorkspaceIssuesByIds(workspaceId,['voice-1','email-1','other-1']);
+        expect(rows.map(row=>row.id).sort()).toEqual(['email-1','voice-1']);
+        expect(rows.every(row=>row.tenantId===workspaceId)).toBe(true);
+        const foreign = await repository.listWorkspaceIssuesByIds(otherWorkspaceId,['voice-1','other-1']);
+        expect(foreign.map(row=>row.id)).toEqual(['other-1']);
+      } finally { await admin.query("DELETE FROM supportv8.issues WHERE id LIKE 'paging-%'"); }
     });
     it("joins the exact immutable native mapping while allowing another current admin", async () => {
       const access = await resolveOperationalSupportAccess(scope, {

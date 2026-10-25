@@ -998,7 +998,13 @@ export class ChatRepository {
   async listWorkspaceIssues(tenantId: string): Promise<Issue[]> {
     return this.listChatIssues(tenantId, undefined, true);
   }
-  async listChatIssues(tenantId: string, sessionId?: string, includeOtherSources = false): Promise<Issue[]> {
+  async listWorkspaceIssuesByIds(tenantId: string, ids: string[]): Promise<Issue[]> {
+    if (!ids.length || ids.length > 31 || new Set(ids).size !== ids.length || ids.some(id => !/^[A-Za-z0-9_:@.-]{1,192}$/.test(id))) {
+      throw new Error("Invalid workspace issue projection");
+    }
+    return this.listChatIssues(tenantId, undefined, true, ids);
+  }
+  async listChatIssues(tenantId: string, sessionId?: string, includeOtherSources = false, exactIds?: string[]): Promise<Issue[]> {
     return this.client.withTenantSession(tenantId, async (db) => {
       const rows = await db.query<IssueRow>(
         `SELECT i.id, i.tenant_id, i.source, i.external_id, i.source_url, i.customer_ref,
@@ -1012,8 +1018,9 @@ export class ChatRepository {
            LEFT JOIN supportv8.chat_sessions s ON s.issue_id = i.id AND s.tenant_id = i.tenant_id
           WHERE (($1::text IS NOT NULL AND (s.id = $1::text OR i.id = $1::text))
              OR ($1::text IS NULL AND ($2::boolean OR (i.source = 'chat' AND s.id IS NOT NULL))))
+            AND ($3::text[] IS NULL OR i.id = ANY($3::text[]))
           ORDER BY i.updated_at DESC
-          LIMIT 500`, [sessionId || null, includeOtherSources]
+          LIMIT 500`, [sessionId || null, includeOtherSources, exactIds ?? null]
       );
       return rows.map((row) => {
         const metadata = ((row.intake_data || {}).__supportv8 || {}) as Partial<SessionMetadata>;
@@ -1026,7 +1033,7 @@ export class ChatRepository {
           customerRef: row.customer_ref,
           customerName: row.customer_name,
           entityType: row.category === "contractor_dispatch" ? "contractor" : "customer",
-          contractor: row.category === "contractor_dispatch" ? {
+          contractor: !exactIds && row.category === "contractor_dispatch" ? {
             company: row.customer_name || "Apex Field Solutions",
             contactName: row.customer_name || "David O'Connor",
             phone: "+1 (555) 234-8901",

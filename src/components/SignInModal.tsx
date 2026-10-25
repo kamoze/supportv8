@@ -9,7 +9,6 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  X,
   Loader2,
   AlertCircle,
   Eye,
@@ -45,7 +44,7 @@ export function SignInModal({
   onOpenSignup,
 }: SignInModalProps) {
   const [modalView, setModalView] = useState<ModalView>("signin");
-  const [tenantSlug, setTenantSlug] = useState(lockedTenantSlug || initialTenantSlug || "");
+  const [tenantSlug, setTenantSlug] = useState(() => typeof window === "undefined" ? "" : browserTenantSlugFromHostname(window.location.hostname) || "");
   const [email, setEmail] = useState(initialEmail || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -77,11 +76,9 @@ export function SignInModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (lockedTenantSlug) {
-        setTenantSlug(lockedTenantSlug);
-      } else if (initialTenantSlug) {
-        setTenantSlug(initialTenantSlug);
-      }
+      // A global entry never inherits the cockpit's demo/default workspace.
+      // Tenant context comes only from the actual browser hostname.
+      setTenantSlug(hostedTenantSlug || "");
       if (initialEmail) {
         setEmail(initialEmail);
       }
@@ -96,7 +93,7 @@ export function SignInModal({
       setForgotConfirmPassword("");
       setDebugOtpCode("");
     }
-  }, [isOpen, lockedTenantSlug, initialTenantSlug, initialEmail]);
+  }, [isOpen, hostedTenantSlug, initialEmail]);
 
   const dialogRef = useFamilyDialog(isOpen, onClose);
 
@@ -289,9 +286,9 @@ export function SignInModal({
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="p-1.5 rounded-xl text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] cursor-pointer"
+            className="min-h-11 min-w-11 shrink-0 px-2 rounded-xl text-xs text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#18222E] cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            Close
           </button>
         </div>
 

@@ -70,11 +70,11 @@ describe("mounted browser challenge through both credential POST paths", () => {
     });
     vi.spyOn(authBotChallenge, "start").mockImplementation(service.start.bind(service));
     vi.spyOn(authBotChallenge, "consume").mockImplementation(service.consume.bind(service));
-    vi.spyOn(nativeLoginAuthority, "current").mockImplementation(createNativeLoginAuthority({
+    vi.spyOn(nativeLoginAuthority, "current").mockImplementation(createNativeLoginAuthority({ canonicalIssuer: () => "https://identity.example.test/realms/servicev8",
       workspace: async () => ({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha Inc", status: "active", url: "https://alpha.support.servicev8.com/" }),
       membership: async (workspace, subject) => ({ accountId: workspace.accountId, tenantId: workspace.id, identitySubject: subject, status: membershipActive ? "active" : "revoked", role: "member" }), native: async () => true,
     }));
-    effects.credential.mockResolvedValue({ ok: true, accessToken: "synthetic-access", refreshToken: "synthetic-refresh", expiresIn: 120, refreshExpiresIn: 3600, decodedClaims: { sub: "native-user", tenant_id: "tenant_alpha", account_id: "account-alpha", realm_access: { roles: ["support_operator"] }, exp: Math.floor(Date.now()/1000)+120 } });
+    effects.credential.mockResolvedValue({ ok: true, accessToken: "synthetic-access", refreshToken: "synthetic-refresh", expiresIn: 120, refreshExpiresIn: 3600, decodedClaims: { iss: "https://identity.example.test/realms/servicev8", sub: "native-user", tenant_id: "tenant_alpha", account_id: "account-alpha", realm_access: { roles: ["support_operator"] }, exp: Math.floor(Date.now()/1000)+120 } });
     effects.issue.mockResolvedValue("123456"); effects.email.mockResolvedValue({ success: true }); effects.rate.mockResolvedValue(undefined);
   });
   afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllEnvs(); });
@@ -98,7 +98,7 @@ describe("mounted browser challenge through both credential POST paths", () => {
   });
   it("rechecks current membership after credential verification and issues no session after revocation", async () => {
     const issued = await proof();
-    effects.credential.mockImplementationOnce(async () => { membershipActive = false; return { ok: true, accessToken: "synthetic-access", decodedClaims: { sub: "native-user", tenant_id: "tenant_alpha", account_id: "account-alpha", realm_access: { roles: ["support_operator"] } } }; });
+    effects.credential.mockImplementationOnce(async () => { membershipActive = false; return { ok: true, accessToken: "synthetic-access", decodedClaims: { iss: "https://identity.example.test/realms/servicev8", sub: "native-user", tenant_id: "tenant_alpha", account_id: "account-alpha", realm_access: { roles: ["support_operator"] } } }; });
     const req = request("/api/auth/login", issued.body); req.headers.set("cookie", issued.cookie);
     const denied = await login(req); expect(denied.status).toBe(403); expect(denied.headers.get("set-cookie")).toBeNull();
     expect(effects.credential).toHaveBeenCalledTimes(1);

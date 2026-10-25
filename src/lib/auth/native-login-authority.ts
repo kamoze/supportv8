@@ -8,6 +8,7 @@ import { tenantSlugFromId } from "./request-tenant";
 
 type Claims = Record<string, unknown>;
 type Dependencies = {
+  canonicalIssuer: () => string | undefined;
   workspace: (slug: string) => Promise<TenantWorkspaceRecord | null>;
   membership: (workspace: TenantWorkspaceRecord, subject: string, signal: AbortSignal) => Promise<unknown>;
   native: (workspace: TenantWorkspaceRecord) => Promise<boolean>;
@@ -17,6 +18,14 @@ const unmapped = () => new BotProofError(503, "This workspace identity mapping i
 /** Read-only compatibility boundary. Never derive canonical authority from a slug. */
 export function createNativeLoginAuthority(deps: Dependencies) {
   return async (registered: TenantWorkspaceRecord | null | undefined, claims: Claims | undefined, request: Request): Promise<TenantWorkspaceRecord> => {
+    // Registry membership keys contain a subject, not an issuer+subject tuple.
+    // Only the explicitly configured shared human issuer can supply that subject.
+    const canonicalIssuer = deps.canonicalIssuer();
+    try {
+      const issuer = new URL(canonicalIssuer ?? "");
+      if (issuer.protocol !== "https:" || issuer.username || issuer.password || issuer.search || issuer.hash || canonicalIssuer !== canonicalIssuer?.trim()) throw unmapped();
+    } catch { throw unmapped(); }
+    if (!claims || claims.iss !== canonicalIssuer) throw denied();
     if (!registered || !registered.accountId || !claims || typeof claims.sub !== "string" || !claims.sub || claims.sub.length > 192
       || claims.tenant_id !== registered.id || claims.account_id !== registered.accountId) throw denied();
     // Downstream native routes still use the legacy native ID representation.
@@ -34,6 +43,7 @@ export function createNativeLoginAuthority(deps: Dependencies) {
   };
 }
 export const nativeLoginAuthority = { current: createNativeLoginAuthority({
+  canonicalIssuer: () => process.env.SERVICEV8_OIDC_ISSUER,
   workspace: discoverWorkspace,
   membership: async (workspace, subject, signal) => {
     const response = await createRegistryReader()(`/v1/tenants/${encodeURIComponent(workspace.id)}/memberships/${encodeURIComponent(subject)}`, { accountId: workspace.accountId! }, signal);

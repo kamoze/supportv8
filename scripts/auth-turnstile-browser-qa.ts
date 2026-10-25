@@ -69,7 +69,9 @@ try {
   try {
    await page.goto("https://support.servicev8.com/?signin=1", { waitUntil: "domcontentloaded", timeout: 120_000 });
    const dialog = page.getByRole("dialog", { name: "Workspace sign in" }); await expect(dialog).toBeVisible();
+   await expect(dialog.getByLabel("Workspace", { exact: true })).toHaveValue("");
    await expect(dialog.getByLabel("Work email", { exact: true })).toHaveCount(0); await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
+   await page.screenshot({ path: path.join(out, `global-workspace-${width}.png`) });
    await dialog.getByLabel("Workspace", { exact: true }).fill("missing-company"); await dialog.getByRole("button", { name: "Go to workspace", exact: true }).click();
    await expect(dialog.getByRole("alert")).toContainText("not found");
    await dialog.getByLabel("Workspace", { exact: true }).fill("acme"); await dialog.getByRole("button", { name: "Go to workspace", exact: true }).click();

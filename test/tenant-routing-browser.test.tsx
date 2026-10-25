@@ -155,10 +155,12 @@ describe("TR08 Served-Browser Tests: Workspace Entry & Sign-In Form Accessibilit
         onSuccess={vi.fn()}
         onOpenSignup={vi.fn()}
         lockedTenantSlug="acme-corp"
+        initialTenantSlug="acme"
       />
     );
 
     expect(container.querySelector("#panel-login-workspace")).not.toBeNull();
+    expect((container.querySelector("#panel-login-workspace") as HTMLInputElement).value).toBe("");
     expect(container.querySelector("#tenant-login-email")).toBeNull();
     expect(container.querySelector("#tenant-login-password")).toBeNull();
     expect(container.textContent).toContain("Go to workspace");

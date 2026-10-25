@@ -31,7 +31,12 @@ Registry discovery uses the existing allowlisted membership reader, explicit
 and tenant IDs stay on the server. No hostname is synthesized on discovery failure.
 
 After password verification, the issuer's access token is cryptographically
-verified. Its subject, tenant_id and account_id must match the consumed Registry
+verified and the password response requires the exact configured human client
+`azp` (demo/service-account tokens are rejected). The verified `iss` must exactly
+equal the explicitly configured shared `SERVICEV8_OIDC_ISSUER` before Registry
+membership is read. Registry stores `(tenant, identitySubject)`, not a cross-issuer
+identity mapping; equal subject strings across realms are never reconciled.
+Its subject, tenant_id and account_id must match the consumed Registry
 binding; the current registered host, current exact membership and actual local
 `supportv8.tenants` ID/domain/account row are checked before issuing cookies.
 No role or account is inferred from the email, hostname, app admin name or slug.
@@ -47,13 +52,16 @@ merge. This branch does not disable that pipeline or add an authentication bypas
 | Identity condition | Result |
 | --- | --- |
 | Verified claims, canonical Registry ID, native persisted ID/domain/account and current membership already exactly agree; existing native ID parser resolves the same slug | Eligible for the existing Support role check |
+| Legacy native issuer (`supportv8` default) differs from the shared canonical human issuer (`servicev8` in current owner configuration), even with equal subject strings | 403; no Registry lookup or session; explicit owner migration required |
 | Canonical tenant ID is opaque/different from the legacy native ID, even if email or slug matches | 503 mapping-not-ready; no session, alias or new owner fabricated |
 | Missing/foreign canonical account/tenant claim or subject, inactive membership, revoked/reassigned host | 403; no session |
 | Native persisted mapping missing, Registry/Redis/provider unavailable | Fail closed; no synthetic success |
 
 Current native `resolveRequestTenant` and refresh still use the legacy native ID
 representation. This PR does not migrate all native identities or introduce a
-canonical mapping table. Every real existing workspace mapping remains unknown
+canonical mapping table. The native realm defaults to `supportv8`, while the observed shared issuer is
+`servicev8`; that mismatch is a rollout blocker, not an implicit migration.
+Every real existing workspace mapping remains unknown
 until compared with owner records. The existing password grant remains a migration
 boundary; this is not authorization-code-flow qualification. Canonical first-owner
 onboarding, invitation lifecycle and local group authority are separate work.
@@ -95,7 +103,7 @@ by this work.
 
 ## Validation evidence
 
-- Full local suite with task-owned disposable Redis: 1,362 passed, zero failures,
+- Full local suite with task-owned disposable Redis: 1,364 passed, zero failures,
   99 existing optional SQL/standalone fixtures skipped. Hosted mandatory SQL gates
   remain unchanged and must pass at the exact final revision.
 - Required Redis lane explicitly exercises independent clients, process replacement
@@ -111,3 +119,18 @@ by this work.
   covers desktop/mobile global-to-tenant navigation, credential rejection after
   proof, company greeting and signup email gating. It does not claim live provider,
   delivery, account provisioning or successful canonical native signin qualification.
+
+## sv8-design conformance record
+
+This is a bounded authentication change, not whole-product conformance.
+
+| Checkpoint | Evidence / remaining gate |
+| --- | --- |
+| Identity | Existing Support four-square/header assets retained; tenant company name comes from current Registry registration. Full logo/favicon/color and tenant-logo audit remains outside this change. |
+| Surfaces | Global modal starts blank and asks only for workspace; tenant hostname shows company greeting and credentials. Desktop/mobile global and tenant screenshots are controlled local fixture previews. Demo/admin shells are not qualified here. |
+| Tenancy | Exact registered host and current Registry binding; unknown/cross-tenant/mismatched canonical identity fail closed. Custom-domain inventory and existing native migration require owner evidence. |
+| Authentication | First-party widget/proof/credential facades, no-store responses, one-use Redis proof, guarded signup/recovery email. Actual live provider, successful canonical signin, full OTP/account bootstrap, OAuth/invites and private-issuer migration remain rollout gates. |
+| Admin | No admin navigation, company settings, themes or sign-out changes. Their full-width responsive/authority conformance is not claimed. |
+| Actions | Both credential POSTs share proof/authority; email requires consumed action binding. Replay and concurrent Redis consumers tested. This does not certify unrelated declarative domain actions. |
+| Boundaries | Registry owns host/membership/account; Identity owns signed human identity; Gateway owns provider secret/verification; Redis owns durable consumption. No app-local owner, host alias or provider success fabricated. |
+| Validation | sv8-design/identity applied; actual Chrome desktop/mobile and rendered accessibility-label checks pass with explicit controlled fixtures. No authenticated admin page changed, so impeccable Operate was not applied. Assistive technology, measured contrast/performance, full theme/ultrawide/reduced-motion and live end-to-end qualification remain unverified. |

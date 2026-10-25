@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { createServer, request as httpRequest, type Server } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { Pool } from "pg";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const enabled = process.env.SUPPORTV8_NEXT_STANDALONE_PROOF === "1";
@@ -240,8 +241,13 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
           request.url === "/realms/test/protocol/openid-connect/token"
         ) {
           response.end(
-            JSON.stringify({ access_token: "synthetic-registry-token" }),
+            JSON.stringify({ access_token: "synthetic-registry-token", token_type: "Bearer", expires_in: 120 }),
           );
+          return;
+        }
+        const ownerUrl = new URL(request.url ?? "/", "http://fixture.test");
+        if (ownerUrl.pathname === "/v1/workspace-hosts/resolve" && ownerUrl.searchParams.get("slug") === "synthetic-support" && ownerUrl.searchParams.get("productAppKey") === "support") {
+          response.end(JSON.stringify({schemaVersion: 1, productAppKey: "support", tenantId: "synthetic-registry", accountId: "synthetic-account", slug: "synthetic-support", companyName: "Synthetic Support", origin: `https://${tenantHost}`}));
           return;
         }
         if (
@@ -311,8 +317,10 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
           HOSTNAME: "127.0.0.1",
           PORT: String(appPort),
           DATABASE_URL: appDatabase.toString(),
-          REGISTRY_URL: `http://127.0.0.1:${registryPort}/`,
-          SERVICEV8_OIDC_ISSUER: `http://127.0.0.1:${registryPort}/realms/test`,
+          REGISTRY_URL: "https://registry.example.test/",
+          SUPPORT_STANDALONE_REGISTRY_FIXTURE: `http://127.0.0.1:${registryPort}/`,
+          NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require=${fileURLToPath(new URL("./standalone-registry-transport.cjs", import.meta.url))}`,
+          SERVICEV8_OIDC_ISSUER: "https://identity.example.test/realms/test",
           SUPPORTV8_RUNTIME_REGISTRY_CLIENT_ID: "synthetic-client",
           SUPPORTV8_RUNTIME_REGISTRY_CLIENT_SECRET: "synthetic-client-secret",
           SUPPORTV8_SERVICE_APP_RUNTIME_SECRET: handoffSecret,
@@ -438,9 +446,26 @@ describe.skipIf(!enabled)("actual Next standalone public Host contract", () => {
       const response = await standaloneRequest(appPort, "/runtime", {
         headers,
       });
-      expect(response.status).toBe(200);
-      expect(response.body).toContain("Access denied");
+      if (headers.host === "support.servicev8.com") {
+        expect(response.status).toBe(200);
+        expect(response.body).toContain("Access denied");
+      } else {
+        expect(response.status).toBe(307);
+        expect(response.headers.location).toBe("/workspace-not-found");
+      }
     }
+  });
+
+  it("rejects an unregistered tenant before rendering credentials", async () => {
+    for (const path of ["/", "/login"]) {
+      const response = await standaloneRequest(appPort, path, {headers: {host: "unknown.support.servicev8.com"}});
+      expect(response.status).toBe(path === "/" ? 307 : 404);
+      if (path === "/") expect(response.headers.location).toBe("/workspace-not-found");
+      expect(response.body).not.toContain('type="password"');
+    }
+    const missing = await standaloneRequest(appPort, "/workspace-not-found", {headers: {host: "unknown.support.servicev8.com"}});
+    expect(missing.status).toBe(404);
+    expect(missing.body).toContain("Workspace not found");
   });
 
   it("clears the cookie for the public HTTPS origin and rejects missing or mismatched origin", async () => {

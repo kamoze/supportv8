@@ -1,3 +1,5 @@
+import { workspacePageFailure } from "@/lib/auth/workspace-page-failure";
+import { resolvePageWorkspace } from "@/lib/auth/page-workspace";
 import { NextRequest, NextResponse } from "next/server";
 import { POST as authenticate } from "@/app/api/auth/login/route";
 import { validateIngressHost, safeNextPath } from "@/lib/tenant-host";
@@ -11,6 +13,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const checked = validateIngressHost(req.headers.get("host"), req.headers.get("x-forwarded-host"));
   if (!checked.valid) return NextResponse.json({ error: checked.error }, { status: checked.status || 400 });
+  const workspace = await resolvePageWorkspace(req.headers);
+  if (workspace === "missing" || workspace === "unavailable") {
+    return workspacePageFailure(workspace === "missing" ? 404 : 503);
+  }
   const target = new URL("/", req.url); target.searchParams.set("signin", "1");
   const next = safeNextPath(req.nextUrl.searchParams.get("next"));
   if (next !== "/") target.searchParams.set("next", next);

@@ -1,3 +1,7 @@
+// Also set REDIS_URL to a task-owned loopback Redis for server-side discovery limits.
+// Start the loopback Next server with SUPPORT_AUTH_QA_FIXTURE=local-only and
+// NODE_OPTIONS="--require=<repo>/scripts/auth-turnstile-qa-owner.cjs" so server-rendered
+// registration gates use the same explicit synthetic owner as mounted route fixtures.
 // Local source qualification only. Chromium renders the actual native app.
 // Mounted handlers use explicit synthetic Registry/Turnstile/identity fixtures;
 // no production account, provider or email request is made.

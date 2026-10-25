@@ -64,13 +64,20 @@ export function SignInModal({
   const [botReset, setBotReset] = useState(0);
   const hostedTenantSlug = typeof window === "undefined" ? null : browserTenantSlugFromHostname(window.location.hostname);
   const [companyName, setCompanyName] = useState("");
+  const [verifiedHost, setVerifiedHost] = useState<string | null>(null);
+  const [workspaceFailure, setWorkspaceFailure] = useState("");
   useEffect(() => {
-    if (!isOpen || !hostedTenantSlug) return;
+    if (!isOpen || !hostedTenantSlug) { setVerifiedHost(null); setCompanyName(""); setWorkspaceFailure(""); return; }
+    setCompanyName(""); setVerifiedHost(null); setWorkspaceFailure("");
     const controller = new AbortController();
-    fetch(`/api/workspace/lookup?workspace=${encodeURIComponent(hostedTenantSlug)}`, { credentials: "same-origin", cache: "no-store", redirect: "error", signal: controller.signal })
-      .then(response => response.ok ? response.json() : null)
-      .then(value => { if (value?.success && value.slug === hostedTenantSlug && typeof value.name === "string") setCompanyName(value.name); })
-      .catch(() => {});
+    fetch(`/api/workspace/lookup?workspace=${encodeURIComponent(hostedTenantSlug)}`, { credentials: "same-origin", cache: "no-store", redirect: "error", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) })
+      .then(async response => { if (!response.ok) throw new Error(response.status === 404 ? "Workspace not found." : "Workspace verification unavailable. Please try again later."); return response.json(); })
+      .then(value => {
+        if (controller.signal.aborted) return;
+        if (value?.success !== true || value.slug !== hostedTenantSlug || typeof value.name !== "string" || !value.name.trim() || value.redirectUrl !== `${window.location.origin}/`) throw new Error("Workspace verification unavailable.");
+        setCompanyName(value.name); setVerifiedHost(hostedTenantSlug);
+      })
+      .catch(error => { if (!controller.signal.aborted) setWorkspaceFailure(error instanceof Error ? error.message : "Workspace verification unavailable."); });
     return () => controller.abort();
   }, [isOpen, hostedTenantSlug]);
 
@@ -98,6 +105,16 @@ export function SignInModal({
   const dialogRef = useFamilyDialog(isOpen, onClose);
 
   if (!isOpen) return null;
+  if (hostedTenantSlug && verifiedHost !== hostedTenantSlug) return (
+    <div role="dialog" aria-modal="true" aria-label="Workspace sign in" ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <section className="w-full max-w-md rounded-2xl bg-[#141C26] p-6 text-[#EAF1F8]">
+        <h2>{workspaceFailure || "Verifying workspace…"}</h2>
+        <p role={workspaceFailure ? "alert" : "status"}>Sign-in is available only for a verified, active workspace.</p>
+        <a href="https://support.servicev8.com/?signin=1" className="block py-3 text-[#2ED8B6]">Choose another workspace</a>
+        <button type="button" onClick={onClose} className="min-h-11 px-3">Close</button>
+      </section>
+    </div>
+  );
 
   // Handler: Normal Sign In
   const handleSignIn = async (e: React.FormEvent) => {

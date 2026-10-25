@@ -134,3 +134,23 @@ This is a bounded authentication change, not whole-product conformance.
 | Actions | Both credential POSTs share proof/authority; email requires consumed action binding. Replay and concurrent Redis consumers tested. This does not certify unrelated declarative domain actions. |
 | Boundaries | Registry owns host/membership/account; Identity owns signed human identity; Gateway owns provider secret/verification; Redis owns durable consumption. No app-local owner, host alias or provider success fabricated. |
 | Validation | sv8-design/identity applied; actual Chrome desktop/mobile and rendered accessibility-label checks pass with explicit controlled fixtures. No authenticated admin page changed, so impeccable Operate was not applied. Assistive technology, measured contrast/performance, full theme/ultrawide/reduced-motion and live end-to-end qualification remain unverified. |
+
+## Unregistered-host follow-up (2026-10-25)
+
+The reported `dex.support.servicev8.com` public page rendered a company greeting
+from its slug and credential fields without registration evidence. This is not
+proof that the named workspace exists or that login succeeds. The source repair
+now resolves the exact active Registry origin before rendering tenant pages or
+redirecting `/login`; unknown hosts return not-found, and owner outages never
+render page children or credentials. The modal independently waits for successful
+same-origin registration lookup, including on reopening, rather than presenting
+fields while branding loads. A negative lookup cannot invent a company greeting.
+
+Service worker v2 removes the prior cache and never caches pages, RSC, auth/API
+responses or Cloudflare resources. Offline navigation returns an unavailable
+screen, not an old login page. The server/route, rendered-modal and executable
+service-worker regressions cover unknown, mismatched, suspended, pending lookup,
+owner outage and registered positive cases. A real local-browser check with the
+reported Host header and unavailable owner showed no credential inputs. This is
+local source evidence, not deployment of the public fix; the release prerequisites
+above still apply. The earlier b47aed3 Circle result does not qualify this follow-up.

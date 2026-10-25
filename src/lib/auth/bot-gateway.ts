@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute } from "node:path";
-import { boundedJson } from "../tasksv8/http";
+import { authDeadline, readAuthJson } from "./bounded-http";
 import { type BotAction, unavailableBotProof } from "./bot-transaction";
 
 export type BoundBotProof = { token: string; hostname: string; action: BotAction; cdata: string };
@@ -23,28 +23,28 @@ export function createGatewayBotVerifier(config: { gatewayUrl: string; tokenUrl:
   const gateway = endpoint(config.gatewayUrl, true), issuer = endpoint(config.tokenUrl, false), request = config.request ?? fetch;
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(config.clientId)) throw unavailableBotProof();
   return async (proof, parent) => {
-    const signal = AbortSignal.any([parent, AbortSignal.timeout(8_000)]);
+    const deadline = authDeadline(8000, parent), signal = deadline.signal;
     try {
-      const secret = await withinBotDeadline(config.readSecret(), signal);
+      const secret = await deadline.wait(() => config.readSecret());
       if (!secret || secret.length > 4096) throw unavailableBotProof();
-      const credential = await withinBotDeadline(request(issuer, {
+      const credential = await deadline.wait(() => request(issuer, {
         method: "POST", redirect: "error", cache: "no-store", signal,
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ grant_type: "client_credentials", client_id: config.clientId, client_secret: secret, audience: "servicev8-action-gateway", scope: "bot:verify" }),
-      }), signal);
+      }));
       if (credential.status !== 200 || credential.redirected) { void credential.body?.cancel().catch(() => {}); throw unavailableBotProof(); }
-      const token = await boundedJson(credential, 32_768, signal) as Record<string, unknown>;
+      const token = await deadline.wait(() => readAuthJson(credential, signal, 32768, deadline.check)) as Record<string, unknown>;
       if (!token || typeof token.access_token !== "string" || !token.access_token || token.access_token.length > 16_384 || token.token_type !== "Bearer"
         || !Number.isSafeInteger(token.expires_in) || Number(token.expires_in) < 1 || Number(token.expires_in) > 300) throw unavailableBotProof();
-      const response = await withinBotDeadline(request(new URL("/v1/security/bot/verify", gateway), {
+      const response = await deadline.wait(() => request(new URL("/v1/security/bot/verify", gateway), {
         method: "POST", redirect: "error", cache: "no-store", signal,
         headers: { authorization: `Bearer ${token.access_token}`, "content-type": "application/json" }, body: JSON.stringify({ schemaVersion: 1, ...proof }),
-      }), signal);
+      }));
       if (response.status !== 200 || response.redirected) { void response.body?.cancel().catch(() => {}); throw unavailableBotProof(); }
-      const result = await boundedJson(response, 4096, signal) as Record<string, unknown>;
+      const result = await deadline.wait(() => readAuthJson(response, signal, 4096, deadline.check)) as Record<string, unknown>;
       if (!result || Array.isArray(result) || Object.keys(result).sort().join(",") !== "schemaVersion,success" || result.schemaVersion !== 1 || typeof result.success !== "boolean") throw unavailableBotProof();
-      signal.throwIfAborted(); return result.success;
-    } catch { throw unavailableBotProof(); }
+      deadline.check(); return result.success;
+    } catch { throw unavailableBotProof(); } finally { deadline.close(); }
   };
 }
 

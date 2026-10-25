@@ -16,6 +16,17 @@ describe("strict Gateway bot client", () => {
     expect(await requests[1].json()).toEqual({ schemaVersion: 1, ...challenge });
     expect(requests[1].headers.get("authorization")).toBe("Bearer fixture-access-token");
   });
+  it.each([
+    '{"schemaVersion":1,"success":false,"success":false}',
+    '{"schemaVersion":1,"success":true,"success":false}',
+    '{"schemaVersion":1,"success":false,"success":true}',
+    '{"schemaVersion":1,"schemaVersion":1,"success":false}',
+    '{"schemaVersion":2,"schemaVersion":1,"success":false}',
+    '{"schemaVersion":1,"success":false,"succe\\u0073s":false}',
+  ])("rejects duplicate fields even when their effective value would deny proof: %s", async body => {
+    const verify=createGatewayBotVerifier({...config,request:async url=>String(url).endsWith('/token')?Response.json({access_token:'fixture',token_type:'Bearer',expires_in:120}):new Response(body)});
+    await expect(verify(challenge,new AbortController().signal)).rejects.toMatchObject({status:503});
+  });
   it("does not downgrade to a legacy boolean or trust malformed output", async () => {
     for (const value of [{ success: true }, { schemaVersion: 2, success: true }, { schemaVersion: 1, success: true, extra: true }, { schemaVersion: 1, success: "true" }, null]) {
       const verify = createGatewayBotVerifier({ ...config, request: async url => String(url).endsWith("/token") ? Response.json({ access_token: "fixture-token", token_type: "Bearer", expires_in: 120 }) : Response.json(value) });

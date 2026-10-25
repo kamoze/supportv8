@@ -6,6 +6,7 @@ import { PostgresClient } from '../../src/lib/db/pg-client';
 import { createSupportTaskWorkRequestHandler } from '../../src/lib/tasksv8/request';
 import { authorizeRuntimeSupportRequest,signRuntimeSupportSession,RUNTIME_SUPPORT_COOKIE } from '../../src/lib/service-app/runtime-session';
 import { taskWorkDigest } from '../../src/lib/tasksv8/authority';
+import { readSupportTaskWorkStatus } from '../../src/lib/tasksv8/status';
 const enabled=process.env.SUPPORT_TASK_WORK_SQL_REQUIRED==='true';
 const database=`support_task_work_${process.pid}`;
 let admin:Pool,owner:Pool,app:Pool,client:PostgresClient;
@@ -71,6 +72,25 @@ describe.skipIf(!enabled)('native Support Tasks lifecycle durable authority',()=
   let settled=false;const pending=record(source).then(()=>{settled=true;return 'recorded';},error=>{settled=true;return String(error.message);});
   try{await new Promise(r=>setTimeout(r,30));expect(settled).toBe(false);}finally{await held.query('commit');held.release();}
   expect(await pending).toMatch(/source denied/);expect((await owner.query('select * from supportv8.task_work_outcomes where intake_id=$1',[source.id])).rows).toHaveLength(0);
+ });
+ it('reads exact saved receipts with current manager/source checks and no cross-scope or late-drift disclosure',async()=>{
+  await issue('issue-status');const source=await escalate('issue-status'),leased=await claim(source.id),intakeReceipt=ack(leased);await finish(leased,intakeReceipt);
+  const outcomeReceipt=(await record(source))[0].receipt;
+  const secret='support-task-status-fixture-key-32chars',host='fixture.support.servicev8.com';
+  let reader=true,requester=true,changeDuringCheck=false,checks=0,revokeAfter=Infinity;
+  const authorize:typeof authorizeRuntimeSupportRequest=r=>authorizeRuntimeSupportRequest(r,{secret,resolve:async s=>reader&&++checks<revokeAfter?{...s,capability:'support:manage',email:'operator@fixture.example',domain:'fixture'}:null});
+  const handler=createSupportTaskWorkRequestHandler({authorize,client,enabled:()=>true,current:async()=>{if(changeDuringCheck)await client.withTenantSession(target.workspaceId,db=>db.query("update supportv8.issues set summary='New native revision' where id='issue-status'"));return requester;}});
+  const cookie=signRuntimeSupportSession({...target,verticalId:'runtime',sub:'operator-1',roleCap:'support:manage',tenantDomain:'fixture'},secret)!;
+  const request=(suffix='')=>new Request(`https://${host}/api/runtime/tickets/issue-status/task-work${suffix}`,{headers:{host,cookie:`${RUNTIME_SUPPORT_COOKIE}=${cookie}`}});
+  const response=await handler(request(),'issue-status');expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('no-store');
+  const body=await response.json();expect(body.taskWork).toEqual({requestId:source.id,sourceRevision:0,workId:intakeReceipt.workId,intake:{eventId:source.event.id,state:'delivered',receipt:intakeReceipt},outcome:{eventId:outcomeReceipt.eventId,receipt:{...outcomeReceipt,state:'recorded'}}});
+  expect(JSON.stringify(body)).not.toMatch(/lease_|requested_by|actual verification receipt|problemStatement|binding|request_body/);
+  expect((await handler(request('?tenant=foreign'),'issue-status')).status).toBe(400);
+  expect(await readSupportTaskWorkStatus(client,{tenantId:'tenant_foreign',accountId:'account-b',registryTenantId:'registry-b'},'issue-status')).toBeNull();
+  reader=false;expect((await handler(request(),'issue-status')).status).toBe(401);reader=true;
+  requester=false;expect((await handler(request(),'issue-status')).status).toBe(403);requester=true;
+  checks=0;revokeAfter=2;expect((await handler(request(),'issue-status')).status).toBe(403);revokeAfter=Infinity;
+  changeDuringCheck=true;expect((await handler(request(),'issue-status')).status).toBe(403);
  });
  it('denies credentials that expire while waiting for the native ticket lock',async()=>{
   await issue('issue-expiry-race');const source=await escalate('issue-expiry-race'),claimed=await claim(source.id);await finish(claimed,ack(claimed));

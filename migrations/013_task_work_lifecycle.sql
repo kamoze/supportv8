@@ -67,17 +67,26 @@ CREATE FUNCTION supportv8.claim_task_work(worker varchar, claim_limit integer) R
  WITH candidates AS(SELECT id FROM supportv8.task_work_outbox WHERE state='pending' AND next_attempt_at<=clock_timestamp() AND(lease_expires_at IS NULL OR lease_expires_at<clock_timestamp()) ORDER BY next_attempt_at,id LIMIT greatest(1,least(claim_limit,32)) FOR UPDATE SKIP LOCKED)
  UPDATE supportv8.task_work_outbox o SET lease_owner=worker,lease_token=gen_random_uuid(),lease_generation=lease_generation+1,lease_expires_at=clock_timestamp()+interval '30 seconds',attempts=attempts+1 FROM candidates c WHERE o.id=c.id RETURNING o.*
 $$;
-CREATE FUNCTION supportv8.finish_task_work(ref uuid,worker varchar,generation bigint,token uuid,ack jsonb,error_code varchar) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,supportv8 AS $$
+CREATE FUNCTION supportv8.finish_task_work(ref uuid,worker varchar,generation bigint,token uuid,ack jsonb,error_code varchar,authority_expires_at timestamptz) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,supportv8 AS $$
 DECLARE o supportv8.task_work_outbox;
 BEGIN
+ -- Match request/outcome lock order: native ticket, then outbox, then lifecycle.
+ SELECT * INTO o FROM supportv8.task_work_outbox WHERE id=ref;
+ IF NOT FOUND THEN RAISE EXCEPTION 'task work lease lost' USING ERRCODE='40001'; END IF;
+ PERFORM 1 FROM supportv8.issues WHERE id=o.issue_id AND tenant_id=o.native_workspace_id FOR SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'task work source no longer current' USING ERRCODE='42501'; END IF;
  SELECT * INTO o FROM supportv8.task_work_outbox WHERE id=ref AND state='pending' AND lease_owner=worker AND lease_generation=generation AND lease_token=token AND lease_expires_at>clock_timestamp() FOR UPDATE;
  IF NOT FOUND OR o.lease_expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'task work lease lost' USING ERRCODE='40001'; END IF;
  IF ack IS NOT NULL THEN
+  PERFORM 1 FROM supportv8.runtime_support_workspaces w JOIN supportv8.managed_support_registration_jobs j ON j.installation_id=w.installation_id AND j.acquisition_id=w.operation_id AND j.account_id=w.account_id AND j.registry_tenant_id=w.registry_tenant_id AND j.native_workspace_id=w.native_tenant_id JOIN supportv8.tenants t ON t.id=w.native_tenant_id AND t.domain=w.native_domain AND t.servicev8_account_id=w.account_id WHERE w.installation_id=o.installation_id AND w.native_tenant_id=o.native_workspace_id AND w.account_id=o.account_id AND w.registry_tenant_id=o.registry_tenant_id AND w.state='workspace_created' AND w.deleted_at IS NULL AND j.state='ready' AND j.desired_state='active' AND j.observed_generation=0 FOR SHARE OF w,j,t;
+  IF NOT FOUND THEN RAISE EXCEPTION 'task work source no longer current' USING ERRCODE='42501'; END IF;
+  IF authority_expires_at IS NULL OR authority_expires_at<=clock_timestamp() OR authority_expires_at>clock_timestamp()+interval '120 seconds' THEN RAISE EXCEPTION 'task work credential expired' USING ERRCODE='42501'; END IF;
   IF jsonb_typeof(ack)<>'object' OR (SELECT count(*) FROM jsonb_object_keys(ack))<>7 OR NOT(ack ?& ARRAY['receiptId','eventId','state','scope','workId','payloadDigest','sourceRevision']) OR jsonb_typeof(ack->'receiptId') IS DISTINCT FROM 'string' OR ack->>'receiptId' !~ '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$' OR ack->>'eventId' IS DISTINCT FROM o.event->>'id' OR coalesce(ack->>'state','') NOT IN('recorded','duplicate') OR ack->'scope' IS DISTINCT FROM jsonb_build_object('accountId',o.account_id,'tenantId',o.registry_tenant_id) OR jsonb_typeof(ack->'workId') IS DISTINCT FROM 'string' OR ack->>'workId' !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$' OR (o.source_work_id IS NOT NULL AND ack->>'workId' IS DISTINCT FROM o.source_work_id) OR ack->>'payloadDigest' IS DISTINCT FROM o.payload_digest OR ack->'sourceRevision' IS DISTINCT FROM to_jsonb(o.source_revision) THEN RAISE EXCEPTION 'task work receipt mismatch'; END IF;
   IF NOT EXISTS(SELECT 1 FROM supportv8.task_work_fact(ref)) THEN RAISE EXCEPTION 'task work source no longer current'; END IF;
  END IF;
  UPDATE supportv8.task_work_outbox SET state=CASE WHEN ack IS NULL THEN 'pending' ELSE 'delivered' END,work_id=ack->>'workId',receipt=ack,last_error=left(error_code,128),next_attempt_at=clock_timestamp()+interval '30 seconds',lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL WHERE id=ref AND lease_token=token AND lease_generation=generation AND lease_expires_at>clock_timestamp();
  IF NOT FOUND THEN RAISE EXCEPTION 'task work lease lost' USING ERRCODE='40001'; END IF;
+ IF ack IS NOT NULL AND authority_expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'task work credential expired' USING ERRCODE='42501'; END IF;
 END $$;
 -- The signed tuple locates only a previously delivered native source link.
 CREATE FUNCTION supportv8.task_work_link(account varchar,tenant varchar,issue varchar,revision bigint,work varchar) RETURNS SETOF supportv8.task_work_outbox LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,supportv8 AS $$ SELECT o.* FROM supportv8.task_work_outbox o WHERE o.account_id=account AND o.registry_tenant_id=tenant AND o.issue_id=issue AND o.source_revision=revision AND o.work_id=work AND o.state='delivered' AND EXISTS(SELECT 1 FROM supportv8.task_work_fact(o.id)) $$;
@@ -109,11 +118,11 @@ BEGIN
  -- Intentionally no issue status mutation. The operator owns ticket closure.
 END $$;
 REVOKE ALL ON supportv8.task_work_outbox,supportv8.task_work_outcomes FROM PUBLIC;
-REVOKE ALL ON FUNCTION supportv8.request_task_work(uuid,varchar,varchar,jsonb),supportv8.task_work_fact(uuid),supportv8.claim_task_work(varchar,integer),supportv8.finish_task_work(uuid,varchar,bigint,uuid,jsonb,varchar),supportv8.task_work_link(varchar,varchar,varchar,bigint,varchar),supportv8.record_task_work_outcome(uuid,jsonb,jsonb,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION supportv8.request_task_work(uuid,varchar,varchar,jsonb),supportv8.task_work_fact(uuid),supportv8.claim_task_work(varchar,integer),supportv8.finish_task_work(uuid,varchar,bigint,uuid,jsonb,varchar,timestamptz),supportv8.task_work_link(varchar,varchar,varchar,bigint,varchar),supportv8.record_task_work_outcome(uuid,jsonb,jsonb,timestamptz) FROM PUBLIC;
 DO $grants$ DECLARE r text; BEGIN
  FOREACH r IN ARRAY ARRAY['supportv8_app','supportv8_relay','supportv8_scaler'] LOOP IF to_regrole(r) IS NOT NULL THEN EXECUTE format('REVOKE ALL ON supportv8.task_work_outbox,supportv8.task_work_outcomes FROM %I',r); END IF; END LOOP;
  IF to_regrole('supportv8_app') IS NOT NULL THEN
  GRANT SELECT ON supportv8.task_work_outbox,supportv8.task_work_outcomes TO supportv8_app;
- GRANT EXECUTE ON FUNCTION supportv8.request_task_work(uuid,varchar,varchar,jsonb),supportv8.task_work_fact(uuid),supportv8.claim_task_work(varchar,integer),supportv8.finish_task_work(uuid,varchar,bigint,uuid,jsonb,varchar),supportv8.task_work_link(varchar,varchar,varchar,bigint,varchar),supportv8.record_task_work_outcome(uuid,jsonb,jsonb,timestamptz) TO supportv8_app;
+ GRANT EXECUTE ON FUNCTION supportv8.request_task_work(uuid,varchar,varchar,jsonb),supportv8.task_work_fact(uuid),supportv8.claim_task_work(varchar,integer),supportv8.finish_task_work(uuid,varchar,bigint,uuid,jsonb,varchar,timestamptz),supportv8.task_work_link(varchar,varchar,varchar,bigint,varchar),supportv8.record_task_work_outcome(uuid,jsonb,jsonb,timestamptz) TO supportv8_app;
  END IF;
 END $grants$;

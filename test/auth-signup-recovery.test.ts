@@ -49,7 +49,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
         adminName: "QA Lead",
         adminEmail,
         verificationReceipt,
-        password: chosenPassword,
+        password: chosenPassword, passwordConfirmation: chosenPassword,
         initialMode: "autonomous",
         primaryStream: "customers",
       }),
@@ -105,7 +105,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
           adminName: "Secure Admin",
           adminEmail,
           verificationReceipt,
-          password: "CorrectPassword#1",
+          password: "CorrectPassword#1", passwordConfirmation: "CorrectPassword#1",
         }),
       })
     );
@@ -133,7 +133,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
       domain: uniqueSlug,
       adminName: "Receipt Admin",
       adminEmail,
-      password: "ReceiptPassword#2026!",
+      password: "ReceiptPassword#2026!", passwordConfirmation: "ReceiptPassword#2026!",
     };
 
     const missingReceipt = await handleSignup(
@@ -188,7 +188,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
           domain: tenantSlug,
           adminName: "Original Owner",
           adminEmail: ownerEmail,
-          password: "OwnerPassword#2026!",
+          password: "OwnerPassword#2026!", passwordConfirmation: "OwnerPassword#2026!",
           verificationReceipt: ownerReceipt,
         }),
       })
@@ -204,7 +204,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
           domain: tenantSlug,
           adminName: "Attacker",
           adminEmail: attackerEmail,
-          password: "AttackerPassword#2026!",
+          password: "AttackerPassword#2026!", passwordConfirmation: "AttackerPassword#2026!",
           verificationReceipt: attackerReceipt,
         }),
       })
@@ -230,7 +230,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const weak = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
-        body: JSON.stringify({ ...baseBody, password: "short" }),
+        body: JSON.stringify({ ...baseBody, password: "short", passwordConfirmation: "short" }),
       })
     );
     expect(weak.status).toBe(400);
@@ -238,7 +238,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const retry = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
-        body: JSON.stringify({ ...baseBody, password: "StrongPassword#2026" }),
+        body: JSON.stringify({ ...baseBody, password: "StrongPassword#2026", passwordConfirmation: "StrongPassword#2026" }),
       })
     );
     expect(retry.status).toBe(200);
@@ -254,7 +254,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
       adminName: "Identity Admin",
       adminEmail,
       verificationReceipt,
-      password: "StrongPassword#2026",
+      password: "StrongPassword#2026", passwordConfirmation: "StrongPassword#2026",
     };
 
     vi.stubEnv("NODE_ENV", "production");

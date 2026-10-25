@@ -277,7 +277,7 @@ it('U8: temporary reservation outage does not consume signup receipt so retry is
   const req = () => new NextRequest('https://support.servicev8.com/api/tenant/signup', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'Recovery', domain, adminEmail: email, password: 'SyntheticReview123!', verificationReceipt }),
+    body: JSON.stringify({ name: 'Recovery', domain, adminName: 'Recovery Owner', adminEmail: email, password: 'SyntheticReview123!', passwordConfirmation: 'SyntheticReview123!', verificationReceipt }),
   });
   try {
     expect((await signup(req())).status).toBe(503);

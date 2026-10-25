@@ -5,7 +5,6 @@ import { invitationStore } from "./invitation-store";
 import { sendInvitationEmail } from "./invitation-email";
 import { passwordPolicyError } from "./password-policy";
 import { tenantSlugFromId } from "./request-tenant";
-import { marketplaceService } from "@/lib/services/marketplace-service";
 
 export class AccountError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); }
@@ -109,32 +108,7 @@ export class AccountMembers {
   async list(ctx: RequestTenantContext, first = 0) {
     if (ctx.runtimeLinked) {
       requireAccountManager(ctx);
-      const localMembers = marketplaceService.getMembers(ctx.tenantSlug);
-      const adminEmail = ctx.username || `admin@${ctx.tenantSlug}.com`;
-      const hasAdmin = localMembers.some(
-        m => m.email.toLowerCase() === adminEmail.toLowerCase() || m.id === ctx.userId
-      );
-      const members: TenantMember[] = hasAdmin
-        ? localMembers
-        : [
-            {
-              id: ctx.userId || `mem_${ctx.tenantSlug}_admin`,
-              name: ctx.displayName || "Workspace Administrator",
-              email: adminEmail,
-              role: "Owner / CX Director",
-              status: "active",
-              twoFactorEnabled: false,
-              lastActive: "Online now",
-              avatarUrl: "",
-            },
-            ...localMembers,
-          ];
-      return {
-        members,
-        hasMore: false,
-        owner: ctx.roles.includes("support_superadmin") || ctx.roles.includes("support_cx_lead"),
-        actorId: ctx.userId || `mem_${ctx.tenantSlug}_admin`,
-      };
+      throw new AccountError("Member management is not connected for this workspace. Contact your workspace administrator.", 503);
     }
 
     const { api, owner } = await this.manager(ctx);
@@ -152,6 +126,7 @@ export class AccountMembers {
   async profile(ctx: RequestTenantContext, updates?: { firstName: unknown; nickname: unknown }) {
     requireAccountIdentity(ctx);
     if (ctx.runtimeLinked) {
+      if (updates) throw new AccountError("Profile changes are not connected for this workspace. Contact your workspace administrator.", 503);
       const displayName = ctx.displayName || ctx.username?.split("@")[0] || "Administrator";
       return {
         firstName: displayName.split(" ")[0] || "Administrator",
@@ -182,33 +157,7 @@ export class AccountMembers {
   async update(ctx: RequestTenantContext, id: string, updates: Record<string, unknown>) {
     if (ctx.runtimeLinked) {
       requireAccountManager(ctx);
-      const name = profileName(updates.name);
-      const role = updates.role as TenantMember["role"];
-      if (!Object.hasOwn(MEMBER_ROLES, role) || !["active", "disabled", "invited"].includes(String(updates.status))) {
-        throw new AccountError("Choose a supported role and account status.");
-      }
-      const updated = marketplaceService.updateMember(id, {
-        name,
-        role,
-        status: updates.status as TenantMember["status"],
-      }, ctx.tenantSlug);
-      if (updated) {
-        return updated;
-      }
-      if (id === ctx.userId || id === `mem_${ctx.tenantSlug}_admin`) {
-        const updatedSelf: TenantMember = {
-          id,
-          name,
-          email: ctx.username || `admin@${ctx.tenantSlug}.com`,
-          role,
-          status: updates.status as TenantMember["status"],
-          twoFactorEnabled: false,
-          lastActive: "Online now",
-          avatarUrl: "",
-        };
-        return marketplaceService.addMember(updatedSelf, ctx.tenantSlug);
-      }
-      throw new AccountError("Member not found in this workspace.", 404);
+      throw new AccountError("Member management is not connected for this workspace. Contact your workspace administrator.", 503);
     }
 
     const { api, owner } = await this.manager(ctx);
@@ -247,15 +196,7 @@ export class AccountMembers {
   async invite(ctx: RequestTenantContext, input: Record<string, unknown>) {
     if (ctx.runtimeLinked) {
       requireAccountManager(ctx);
-      const name = profileName(input.name);
-      const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
-      const role = input.role as TenantMember["role"];
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !Object.hasOwn(MEMBER_ROLES, role)) throw new AccountError("Enter a valid email and role.");
-      if (!ctx.roles.includes("support_superadmin") && (role === "Owner / CX Director" || role === "CX Operations Lead")) {
-        throw new AccountError("Only owners can invite leadership roles.", 403);
-      }
-      const member = marketplaceService.inviteMember(name, email, role, ctx.tenantSlug);
-      return { member, invitationSent: true };
+      throw new AccountError("Member management is not connected for this workspace. Contact your workspace administrator.", 503);
     }
 
     const { api, owner } = await this.manager(ctx);
@@ -285,10 +226,7 @@ export class AccountMembers {
   async resendInvite(ctx: RequestTenantContext, id: string) {
     if (ctx.runtimeLinked) {
       requireAccountManager(ctx);
-      const members = marketplaceService.getMembers(ctx.tenantSlug);
-      const member = members.find(m => m.id === id);
-      if (!member) throw new AccountError("Member not found in this workspace.", 404);
-      return;
+      throw new AccountError("Member management is not connected for this workspace. Contact your workspace administrator.", 503);
     }
 
     const { api, owner } = await this.manager(ctx);

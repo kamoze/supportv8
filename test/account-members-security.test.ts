@@ -153,28 +153,20 @@ describe("durable account permissions and profile", () => {
       roles: ["support_cx_lead"],
     };
 
-    it("lists members for runtime-linked workspace without querying Keycloak", async () => {
-      const result = await new AccountMembers().list(runtimeCtx);
-      expect(result.owner).toBe(true);
-      expect(result.members.length).toBeGreaterThanOrEqual(1);
-      expect(result.members.some(m => m.email === "admin@runtime-acceptance.com")).toBe(true);
+    it("does not manufacture a Runtime owner roster", async () => {
+      await expect(new AccountMembers().list(runtimeCtx)).rejects.toMatchObject({ status: 503 });
+      expect(calls).toHaveLength(0);
     });
 
-    it("invites and updates members for runtime-linked workspace", async () => {
-      const inviteResult = await new AccountMembers().invite(runtimeCtx, {
-        name: "New Specialist",
-        email: "specialist@runtime-acceptance.com",
-        role: "Tier 2 Escalation Agent",
-      });
-      expect(inviteResult.invitationSent).toBe(true);
-      expect(inviteResult.member.email).toBe("specialist@runtime-acceptance.com");
-
-      const updateResult = await new AccountMembers().update(runtimeCtx, inviteResult.member.id, {
-        name: "Senior Specialist",
-        role: "Tier 2 Escalation Agent",
-        status: "active",
-      });
-      expect(updateResult.name).toBe("Senior Specialist");
+    it("never claims invitation delivery or membership changes without a durable owner", async () => {
+      const service = new AccountMembers();
+      await expect(service.invite(runtimeCtx, { name: "New Specialist", email: "specialist@runtime-acceptance.com", role: "Tier 2 Escalation Agent" })).rejects.toMatchObject({ status: 503 });
+      await expect(service.update(runtimeCtx, runtimeCtx.userId!, { name: "Senior Specialist", role: "Tier 2 Escalation Agent", status: "active" })).rejects.toMatchObject({ status: 503 });
+      await expect(service.resendInvite(runtimeCtx, "missing-member")).rejects.toMatchObject({ status: 503 });
+      await expect(service.profile(runtimeCtx, { firstName: "Changed", nickname: "Changed" })).rejects.toMatchObject({ status: 503 });
+      expect(calls).toHaveLength(0);
+      expect(invitationStore.issue).not.toHaveBeenCalled();
+      expect(sendInvitationEmail).not.toHaveBeenCalled();
     });
   });
 });

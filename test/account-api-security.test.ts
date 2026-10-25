@@ -62,3 +62,23 @@ describe("browser-origin checks behind TLS ingress", () => {
     expect(() => requireSameOrigin(new Request("http://127.0.0.1:3005/api/members", { headers: { origin: "http://127.0.0.1:3005" } }))).not.toThrow();
   });
 });
+
+
+describe("Runtime-linked account operations without a canonical write owner", () => {
+  it.each([
+    { method: "GET", path: "/api/members", run: members.GET, body: undefined },
+    { method: "POST", path: "/api/members", run: members.POST, body: { name: "New Staff", email: "staff@alpha.example", role: "Tier 2 Escalation Agent" } },
+    { method: "POST", path: "/api/members", run: members.POST, body: { action: "resend_invite", memberId: "agent" } },
+    { method: "PUT", path: "/api/members", run: members.PUT, body: { memberId: "operator", updates: { name: "Changed", role: "Tier 2 Escalation Agent", status: "active" } } },
+    { method: "PUT", path: "/api/auth/profile", run: profile.PUT, body: { firstName: "Changed", nickname: "Changed" } },
+  ])("$method $path returns unavailable without fake membership/delivery success", async ({ method, path, run, body }) => {
+    vi.mocked(resolveRequestTenant).mockResolvedValue({ authenticated: true, runtimeLinked: true, tenantId: "tenant_rt_alpha", tenantSlug: "alpha", userId: "operator", roles: ["support_cx_lead"] });
+    const response = await run(new Request(`https://alpha.support.servicev8.com${path}`, {
+      method, headers: { host: "alpha.support.servicev8.com", origin: "https://alpha.support.servicev8.com", "content-type": "application/json" },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ success: false, error: expect.any(String) });
+    expect(getAdminToken).not.toHaveBeenCalled();
+  });
+});

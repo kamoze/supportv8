@@ -10,6 +10,8 @@ The attached Temporal worker claims one generation-fenced delivery at a time. It
 
 A changed ticket or revoked manager leaves a stale pending request denied. There is no automatic supersession: an earlier issued token or uncertain delivery cannot safely be canceled locally. Operators must reconcile uncertain deliveries before another source generation can be admitted.
 
+The same manager GET returns `taskWork: null` before a request exists, or the current `requestId`, `sourceRevision`, `workId`, intake state/saved receipt and recorded outcome receipt. This bounded historical read exposes no request body, worker lease, credentials or issuer policy. It repeats current reader and original requester authorization, then rechecks the native ticket/source after those reads. Source drift or revocation denies the read; reading a saved receipt never renews verification or grants publication authority. Query parameters are rejected.
+
 ## Activation prerequisites
 
 Apply migration `013_task_work_lifecycle.sql` through the existing reviewed GitOps database process. Do not manually run it on production. The app role must remain restricted; the migration revokes application update/delete/truncate access to immutable lifecycle tables and grants only bounded definer functions.

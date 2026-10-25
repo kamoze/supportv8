@@ -85,7 +85,9 @@ export function middleware(request: NextRequest) {
 
   // Machine-to-machine private API endpoints and health checks bypass browser tenant middleware.
   // Private endpoints enforce their own workload JWT auth, tenant matching, and RLS.
-  if (url.pathname === "/api/health" || url.pathname.startsWith("/api/private/")) {
+  if (url.pathname === "/api/health" || url.pathname.startsWith("/api/private/")
+    || url.pathname === "/api/v1/internal/task-work/issuance-policy"
+    || url.pathname === "/api/internal/tasksv8/outcomes") {
     return NextResponse.next();
   }
 

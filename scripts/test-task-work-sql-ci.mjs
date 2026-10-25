@@ -1,0 +1,14 @@
+import {spawnSync} from 'node:child_process';
+import {mkdtempSync,readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const raw=process.env.SUPPORT_TASK_WORK_TEST_ADMIN_URL;
+if(!raw)throw Error('task_work_sql_fixture_required');
+const url=new URL(raw);
+if(!['postgres:','postgresql:'].includes(url.protocol)||url.hostname!=='127.0.0.1'||url.port!=='5432'||url.username!=='postgres'||url.pathname!=='/postgres'||url.search||url.hash)throw Error('isolated_circle_sql_fixture_required');
+const report=join(mkdtempSync(join(tmpdir(),'support-task-work-sql-')),'report.json');
+const result=spawnSync(process.execPath,['scripts/test-local-only.mjs','test/tasksv8/lifecycle.postgres.test.ts','--reporter=default','--reporter=json',`--outputFile=${report}`],{stdio:'inherit',env:{PATH:process.env.PATH,NODE_ENV:'test',CI:'true',SUPPORT_TASK_WORK_SQL_REQUIRED:'true',SUPPORT_TASK_WORK_TEST_ADMIN_URL:raw}});
+if(result.error||result.signal||result.status!==0)throw Error('task_work_sql_runner_failed');
+const body=JSON.parse(readFileSync(report,'utf8'));
+if(body.success!==true||body.numTotalTests!==8||body.numPassedTests!==8||body.numFailedTests!==0||body.numPendingTests!==0||body.numTodoTests!==0||body.testResults?.length!==1||body.testResults[0].status!=='passed'||body.testResults[0].assertionResults?.length!==8||body.testResults[0].assertionResults.some(c=>c.status!=='passed'||c.failureMessages.length))throw Error('task_work_sql_evidence_incomplete');
+console.log('Required Task work SQL gate: 8 passed, 0 skipped');

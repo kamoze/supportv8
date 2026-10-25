@@ -41,7 +41,7 @@ describe.skipIf(!enabled)('genuine PostgreSQL canonical/native binding and RLS',
  });
  it('imports only the two exact existing identities idempotently, preserving native IDs',async()=>{
   const sql=await readFile(new URL('../ops/workspace-recovery/existing-bindings-20261025.sql',import.meta.url),'utf8');
-  await admin.query(sql);await admin.query(sql);
+  for(let attempt=0;attempt<2;attempt++){await admin.query("BEGIN");try{await admin.query(sql);await admin.query("COMMIT");}catch(error){await admin.query("ROLLBACK");throw error;}}
   expect((await admin.query("SELECT native_tenant_id FROM supportv8.workspace_identity_bindings WHERE registry_tenant_id IN ('tenant-acme','tenant_5c88ae327c3a') ORDER BY registry_tenant_id")).rows).toEqual([{native_tenant_id:'tenant_acme'},{native_tenant_id:'tenant_rt_1503c79c0aa4ce249614a8911980eb3d20cf548baf036559'}]);
   expect((await admin.query('SELECT count(*)::int n FROM supportv8.tenants')).rows[0].n).toBe(4);
  });

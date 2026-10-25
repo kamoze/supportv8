@@ -1,7 +1,7 @@
 -- Apply only AFTER Support migration 014, with migration authority, in one
 -- transaction after fresh Registry/identity qualification of this release.
+-- Caller MUST use psql --single-transaction (or BEGIN/COMMIT around this file).
 -- Does not create tenants, accounts, users, memberships, roles or grants.
-BEGIN;
 SET LOCAL statement_timeout='10s';
 LOCK TABLE supportv8.tenants IN SHARE MODE;
 DO $$ BEGIN
@@ -22,4 +22,3 @@ DO $$ BEGIN
     RAISE EXCEPTION 'Reviewed canonical/native identity conflicts with persisted binding' USING ERRCODE='23514';
   END IF;
 END $$;
-COMMIT;

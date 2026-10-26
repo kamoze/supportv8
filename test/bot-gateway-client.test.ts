@@ -53,3 +53,28 @@ describe("strict Gateway bot client", () => {
     }
   });
 });
+
+describe('dedicated supportv8-auth-bot profile', () => {
+  const dedicated = {...config, clientId:'supportv8-auth-bot', tokenUrl:'https://keycloak.servicev8.com/realms/servicev8/protocol/openid-connect/token'};
+  it.each([{expires_in:300},{expires_in:121},{expires_in:0},{expires_in:1.5},{expires_in:'120'},{scope:'bot:verify action:execute'},{scope:''},{scope:undefined},{scope:'action:execute'},{refresh_token:null},{refresh_token:''},{token_type:'bearer'}])('rejects invalid dedicated token before Gateway/provider %j', async patch => {
+    let calls=0;
+    const verify=createGatewayBotVerifier({...dedicated,request:async()=>++calls===1?Response.json({access_token:'fixture',token_type:'Bearer',expires_in:120,scope:'bot:verify',...patch}):Response.json({schemaVersion:1,success:true})});
+    await expect(verify(challenge,new AbortController().signal)).rejects.toMatchObject({status:503});
+    expect(calls).toBe(1);
+  });
+  it.each([1,120])('admits legitimate dedicated lifetime %s',async expires_in=>{
+    let calls=0;
+    const verify=createGatewayBotVerifier({...dedicated,request:async()=>++calls===1?Response.json({access_token:'fixture',token_type:'Bearer',expires_in,scope:'bot:verify'}):Response.json({schemaVersion:1,success:true})});
+    expect(await verify(challenge,new AbortController().signal)).toBe(true);expect(calls).toBe(2);
+  });
+  it.each(['https://identity.fixture.test/token','https://keycloak.servicev8.com/realms/other/protocol/openid-connect/token','https://keycloak.servicev8.com/realms/servicev8/protocol/openid-connect/token/'])('pins dedicated token endpoint %s',tokenUrl=>{
+    expect(()=>createGatewayBotVerifier({...dedicated,tokenUrl})).toThrow();
+  });
+  it.each(['supportv8-execution','support-auth-fixture','supportv8-auth-bot-other'])('preserves configurable legacy profile %s including 300s and optional scope/refresh fields',async clientId=>{
+    for(const extra of [{},{scope:'bot:verify action:execute',refresh_token:'legacy'}]) {
+      let calls=0;
+      const verify=createGatewayBotVerifier({...config,clientId,request:async()=>++calls===1?Response.json({access_token:'fixture',token_type:'Bearer',expires_in:300,...extra}):Response.json({schemaVersion:1,success:true})});
+      expect(await verify(challenge,new AbortController().signal)).toBe(true);expect(calls).toBe(2);
+    }
+  });
+});

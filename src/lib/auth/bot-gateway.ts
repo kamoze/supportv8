@@ -20,6 +20,8 @@ function endpoint(value: string, gateway: boolean): URL {
   return url;
 }
 export function createGatewayBotVerifier(config: { gatewayUrl: string; tokenUrl: string; clientId: string; readSecret: () => Promise<string>; request?: typeof fetch }): BotVerifier {
+  const dedicated = config.clientId === "supportv8-auth-bot";
+  if (dedicated && config.tokenUrl !== "https://keycloak.servicev8.com/realms/servicev8/protocol/openid-connect/token") throw unavailableBotProof();
   const gateway = endpoint(config.gatewayUrl, true), issuer = endpoint(config.tokenUrl, false), request = config.request ?? fetch;
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(config.clientId)) throw unavailableBotProof();
   return async (proof, parent) => {
@@ -35,7 +37,8 @@ export function createGatewayBotVerifier(config: { gatewayUrl: string; tokenUrl:
       if (credential.status !== 200 || credential.redirected) { void credential.body?.cancel().catch(() => {}); throw unavailableBotProof(); }
       const token = await deadline.wait(() => readAuthJson(credential, signal, 32768, deadline.check)) as Record<string, unknown>;
       if (!token || typeof token.access_token !== "string" || !token.access_token || token.access_token.length > 16_384 || token.token_type !== "Bearer"
-        || !Number.isSafeInteger(token.expires_in) || Number(token.expires_in) < 1 || Number(token.expires_in) > 300) throw unavailableBotProof();
+        || !Number.isSafeInteger(token.expires_in) || Number(token.expires_in) < 1 || Number(token.expires_in) > (dedicated ? 120 : 300)
+        || (dedicated && (token.scope !== "bot:verify" || Object.hasOwn(token, "refresh_token")))) throw unavailableBotProof();
       const response = await deadline.wait(() => request(new URL("/v1/security/bot/verify", gateway), {
         method: "POST", redirect: "error", cache: "no-store", signal,
         headers: { authorization: `Bearer ${token.access_token}`, "content-type": "application/json" }, body: JSON.stringify({ schemaVersion: 1, ...proof }),

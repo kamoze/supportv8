@@ -58,16 +58,17 @@ import { createGatewayBotVerifier } from "../src/lib/auth/bot-gateway";
 describe("mounted browser challenge through both credential POST paths", () => {
   let membershipActive = true;
   let gatewayResponse: () => Response;
+  let tokenPatch: Record<string, unknown>;
   let ownerCalls: Array<{ url: string; body: unknown }>;
   beforeEach(() => {
     vi.stubEnv("NODE_ENV", "production"); ownerCalls = []; membershipActive = true;
-    gatewayResponse = () => Response.json({schemaVersion:1,success:true});
+    gatewayResponse = () => Response.json({schemaVersion:1,success:true}); tokenPatch={};
     const service = new AuthBotChallengeService({
       siteKey: "synthetic-widget-public-key", store: new BotTransactionStore(new InMemoryOtpBackend()),
       workspace: async () => ({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha Inc", status: "active", url: "https://alpha.support.servicev8.com/" }),
-      verify: createGatewayBotVerifier({ gatewayUrl: "https://gateway.example.test", tokenUrl: "https://identity.example.test/token", clientId: "registered-support-bot", readSecret: async () => "synthetic-client-secret", request: (async (url, init) => {
+      verify: createGatewayBotVerifier({ gatewayUrl: "https://gateway.example.test", tokenUrl: "https://keycloak.servicev8.com/realms/servicev8/protocol/openid-connect/token", clientId: "supportv8-auth-bot", readSecret: async () => "synthetic-client-secret", request: (async (url, init) => {
         ownerCalls.push({ url: String(url), body: init?.body });
-        return String(url).endsWith("/token") ? Response.json({ access_token: "synthetic-token", token_type: "Bearer", expires_in: 120 }) : gatewayResponse();
+        return String(url).endsWith("/token") ? Response.json({ access_token: "synthetic-token", token_type: "Bearer", expires_in: 120, scope:"bot:verify", ...tokenPatch }) : gatewayResponse();
       }) as typeof fetch }),
     });
     vi.spyOn(authBotChallenge, "start").mockImplementation(service.start.bind(service));
@@ -112,6 +113,18 @@ describe("mounted browser challenge through both credential POST paths", () => {
       expect((await handler(req())).status).toBe(503);
       const calls=ownerCalls.length;
       expect((await handler(req())).status).toBe(400);expect(ownerCalls).toHaveLength(calls);
+      expect(effects.credential).not.toHaveBeenCalled();expect(effects.issue).not.toHaveBeenCalled();expect(effects.email).not.toHaveBeenCalled();
+    }
+  });
+  it.each([{expires_in:300},{scope:undefined},{scope:'bot:verify action:execute'},{refresh_token:null}])('dedicated token denial %j burns proof on both login aliases and signup before effects',async patch=>{
+    tokenPatch=patch;
+    for(const path of ['/api/auth/login','/login','/api/auth/otp/send']) {
+      const signup=path.endsWith('/send'),form=path==='/login',hostname=signup?'support.servicev8.com':'alpha.support.servicev8.com';
+      const issued=await proof(signup?'signup':'signin',hostname),body={...issued.body,...(signup?{companyName:'Alpha Inc'}:{})};
+      const req=()=>new NextRequest(`https://${hostname}${path}`,{method:'POST',headers:{host:hostname,origin:`https://${hostname}`,cookie:issued.cookie,'content-type':form?'application/x-www-form-urlencoded':'application/json'},body:form?new URLSearchParams(body):JSON.stringify(body)});
+      const handler=signup?sendOtp:form?loginForm:login,count=ownerCalls.length;
+      expect((await handler(req())).status).toBe(503);expect(ownerCalls).toHaveLength(count+1);expect(ownerCalls.at(-1)!.url).toContain('/token');
+      expect((await handler(req())).status).toBe(400);expect(ownerCalls).toHaveLength(count+1);
       expect(effects.credential).not.toHaveBeenCalled();expect(effects.issue).not.toHaveBeenCalled();expect(effects.email).not.toHaveBeenCalled();
     }
   });

@@ -55,11 +55,10 @@ jobs:
             SUPPORTV8_NEXT_STANDALONE_PROOF: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
   push-image:
-    docker:
-      - image: cimg/base:stable
+    machine: true
+    resource_class: redoosolutions/local-runner
     steps:
       - checkout
-      - setup_remote_docker
       - run:
           name: Build and push Docker image
           command: |

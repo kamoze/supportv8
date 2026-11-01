@@ -22,11 +22,10 @@ jobs:
           name: Build Next.js Application
           command: npm run build
   push-image:
-    docker:
-      - image: cimg/base:stable
+    machine: true
+    resource_class: redoosolutions/local-runner
     steps:
       - checkout
-      - setup_remote_docker
       - run:
           name: Build and push Docker image
           command: |

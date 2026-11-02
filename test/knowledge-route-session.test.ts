@@ -1,3 +1,5 @@
+const canonical=vi.hoisted(()=>({authorize:vi.fn()}));
+vi.mock("@/lib/auth/canonical-request-workspace",()=>({authorizeCanonicalRequestWorkspace:canonical.authorize}));
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 vi.mock('@/lib/auth/keycloak', async original => ({
@@ -20,6 +22,7 @@ const request=(method='GET',credential?:string)=>new NextRequest('https://owned.
 });
 beforeEach(()=>{
   vi.resetAllMocks();vi.stubEnv('NODE_ENV','production');
+  canonical.authorize.mockImplementation(async claims=>{if(claims.tenant_id!=='tenant_owned')throw Error('foreign');return {nativeTenantId:'tenant_owned',slug:'owned',accountId:'account-owned'};});
   vi.mocked(ragIngestion.getDurableDocuments).mockResolvedValue([]);
   vi.mocked(ragIngestion.getDurableArticles).mockResolvedValue([]);
   vi.mocked(ragIngestion.ingestTicketToRag).mockResolvedValue({document:{id:'doc'},chunks:[]} as any);

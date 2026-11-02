@@ -123,7 +123,10 @@ export function supportOperatorDisplayName(
 
 /** Verify signature, issuer, expiry, and the client that received the token. */
 export async function verifySupportAccessToken(token: string): Promise<VerifiedSupportToken> {
-  const cfg = getKeycloakConfig();
+  return verifyConfiguredAccessToken(token, getKeycloakConfig(), false);
+}
+
+async function verifyConfiguredAccessToken(token: string, cfg: KeycloakAuthConfig, humanPassword: boolean): Promise<VerifiedSupportToken> {
   const baseUrl = cfg.adminBaseUrl?.replace(/\/$/, "");
   if (!baseUrl) throw new Error("Keycloak issuer is not configured");
 
@@ -136,10 +139,21 @@ export async function verifySupportAccessToken(token: string): Promise<VerifiedS
 
   const { payload } = await jwtVerify(token, jwks, {
     issuer,
+    ...(humanPassword ? { requiredClaims: ["sub", "iat", "exp", "azp"] } : {}),
     algorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
   });
 
   const expectedClient = cfg.clientId || "supportv8-app";
+  if (humanPassword) {
+    // A password response must belong to this human client; a matching audience
+    // cannot turn another authorized party or a demo workload into that client.
+    if (payload.azp !== expectedClient || typeof payload.sub !== "string" || !payload.sub
+      || expectedClient.startsWith("supportv8-demo-")
+      || (typeof payload.preferred_username === "string" && payload.preferred_username.startsWith("service-account-"))) {
+      throw new Error("Access token was not issued to the configured SupportV8 human client");
+    }
+    return payload as VerifiedSupportToken;
+  }
   const allowedClients = new Set([
     expectedClient,
     "supportv8-demo-acme",
@@ -238,15 +252,7 @@ export async function verifyKeycloakPassword(
 
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      let decodedClaims: Record<string, any> | undefined;
-      if (data.access_token) {
-        try {
-          const parts = data.access_token.split(".");
-          if (parts.length === 3) {
-            decodedClaims = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
-          }
-        } catch (_) {}
-      }
+      const decodedClaims = typeof data.access_token === "string" ? await verifyConfiguredAccessToken(data.access_token, cfg, true) : undefined;
       return {
         ok: true,
         accessToken: data.access_token,

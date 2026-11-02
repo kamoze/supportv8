@@ -195,7 +195,7 @@ export function middleware(request: NextRequest) {
 
     // Unauthenticated visit to root / on tenant host -> rewrite to /login to serve tenant sign-in identifying workspace
     if (url.pathname === "/" || url.pathname === "") {
-      if (!hasSession) {
+      if (!hasSession && url.searchParams.get("signin") !== "1") {
         const loginUrl = request.nextUrl.clone();
         loginUrl.pathname = "/login";
         return NextResponse.rewrite(loginUrl, { request: { headers: requestHeaders } });
@@ -242,7 +242,7 @@ export function middleware(request: NextRequest) {
   if (["/accept-invite", "/signup"].includes(url.pathname)) {
     response.headers.set(
       "Content-Security-Policy",
-      "connect-src 'self'; form-action 'self'; frame-src 'none'; base-uri 'self'; frame-ancestors 'self'",
+      "connect-src 'self' https://challenges.cloudflare.com; form-action 'self'; frame-src https://challenges.cloudflare.com; base-uri 'self'; frame-ancestors 'self'",
     );
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("Cache-Control", "no-store");

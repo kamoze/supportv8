@@ -1,6 +1,5 @@
-const CACHE_NAME = 'supportv8-pwa-v1';
+const CACHE_NAME = 'supportv8-pwa-v2';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.webmanifest',
   '/favicon.svg',
   '/family-theme.js'
@@ -23,47 +22,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Dynamic API and chat streaming requests always bypass cache
-  if (url.pathname.startsWith('/api/') || event.request.method !== 'GET') {
+  // Tenant pages must be verified by the server on every navigation, never
+  // replayed from an old cache (including a formerly registered workspace).
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request, {cache: 'no-store'}).catch(() => new Response(
+      '<!doctype html><html lang="en"><title>Workspace unavailable</title><body><h1>Workspace verification unavailable</h1><p>Reconnect to verify your workspace.</p></body></html>',
+      {status: 503, statusText: 'Service Unavailable', headers: {'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}}
+    )));
     return;
   }
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-
-      return fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(async () => {
-          if (event.request.mode === 'navigate') {
-            const rootCached = await caches.match('/');
-            if (rootCached) {
-              return rootCached;
-            }
-            return new Response(
-              '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Offline</title><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="background:#090E15;color:#EAF1F8;font-family:system-ui,sans-serif;padding:2rem;text-align:center;"><h1>Offline</h1><p style="color:#8E9AA8;">Network unavailable. Please reconnect.</p></body></html>',
-              {
-                status: 503,
-                statusText: 'Service Unavailable',
-                headers: { 'Content-Type': 'text/html; charset=utf-8' },
-              }
-            );
-          }
-
-          return new Response('Network unavailable', {
-            status: 503,
-            statusText: 'Service Unavailable',
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-          });
-        });
-    })
-  );
+  // Only known same-origin static assets may be cached. No auth, RSC, HTML,
+  // CAPTCHA, API or query responses are eligible.
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.search || !STATIC_ASSETS.includes(url.pathname)) return;
+  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+    if (response.ok && response.type === 'basic') {
+      const copy = response.clone();
+      event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)));
+    }
+    return response;
+  })));
 });

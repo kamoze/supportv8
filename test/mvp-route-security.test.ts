@@ -1,3 +1,6 @@
+// These domain-role cases isolate the current workspace authority; its real
+// host/membership/crosswalk boundary has dedicated regressions.
+vi.mock("@/lib/auth/canonical-request-workspace",()=>({authorizeCanonicalRequestWorkspace:vi.fn(async()=>({nativeTenantId:"tenant_acme",slug:"acme",accountId:"account-acme"}))}));
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 

@@ -123,6 +123,7 @@ describe.skipIf(!enabled)(
     });
     beforeAll(async () => {
       vi.stubEnv("SUPPORTV8_WORKSPACE_ACCESS_SYNC_ENABLED","true");
+      vi.stubEnv("SUPPORTV8_ACCESS_SYNC_TARGETS_JSON",JSON.stringify([{accountId:scope.accountId,tenantId:scope.tenantId}]));
       const fixture = ownedDatabase(databaseUrl);
       const parsed = new URL(fixture.url);
       admin = new Pool({ connectionString: fixture.url });

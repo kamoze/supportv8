@@ -1,3 +1,4 @@
+import { usesWorkspaceAccessProjection } from './runtime-access-rollout';
 import { pgClient, type PostgresClient } from "../db/pg-client";
 import { RegistrySupportAccessClient } from "./runtime-access-projection-client";
 import { mapWorkspaceAccess, type AccessMembership } from "./runtime-access-projection";
@@ -79,7 +80,7 @@ export class RegistrySupportAuthority {
       if(!object(memberValue)||!object(projectionValue)||!Array.isArray(projectionValue.installations)) return null;
       const exact=projectionValue.installations.filter(item=>object(item)&&item.accountId===parsed.accountId&&item.tenantId===parsed.tenantId&&item.verticalId==="runtime"&&item.installationId===parsed.installationId);
       if(exact.length!==1)return null;
-      if(this.env.SUPPORTV8_WORKSPACE_ACCESS_SYNC_ENABLED==='true'){
+      if(usesWorkspaceAccessProjection(parsed,this.env)){
         const workspaceAccess=await new RegistrySupportAccessClient(this.env,this.request).current(parsed,parsed.subject);
         if(!workspaceAccess)return null;
         return {member:memberValue as RegistryMember,projection:exact[0] as RegistryProjection,workspaceAccess};
@@ -90,8 +91,7 @@ export class RegistrySupportAuthority {
 }
 
 async function readLocalWorkspace(scope:SupportRuntimeScope,client:PostgresClient):Promise<LocalWorkspace|null>{
-  const projected=process.env.SUPPORTV8_WORKSPACE_ACCESS_SYNC_ENABLED==="true";
-  try{return await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},async db=>{
+  try{const projected=usesWorkspaceAccessProjection(scope);return await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},async db=>{
     const rows=await db.query<Record<string,string>>(`SELECT w.installation_id,w.account_id,w.registry_tenant_id,w.vertical_id,w.native_tenant_id,w.native_domain,w.subject,t.servicev8_account_id,${projected?"p.status AS projected_status,p.capability AS projected_capability,p.local_denied,p.local_capability":"NULL AS projected_status,NULL AS projected_capability,NULL AS local_denied,NULL AS local_capability"}
       FROM supportv8.runtime_support_workspaces w JOIN supportv8.tenants t
         ON t.id=w.native_tenant_id AND t.domain=w.native_domain AND t.servicev8_account_id=w.account_id

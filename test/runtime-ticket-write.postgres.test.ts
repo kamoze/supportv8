@@ -1,11 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PostgresClient } from "@/lib/db/pg-client";
 import {
   resolveOperationalSupportAccess,
   type SupportRuntimeScope,
 } from "@/lib/service-app/runtime-access";
+import { SupportAccessProjectionStore } from "@/lib/service-app/runtime-access-projection-store";
+import { mapWorkspaceAccess, type AccessMembership } from "@/lib/service-app/runtime-access-projection";
 import { RuntimeSupportTicketReader } from "@/lib/service-app/runtime-ticket-reader";
 
 const enabled = process.env.SUPPORTV8_REAL_POSTGRES === "1";
@@ -120,6 +122,7 @@ describe.skipIf(!enabled)(
       projection,
     });
     beforeAll(async () => {
+      vi.stubEnv("SUPPORTV8_WORKSPACE_ACCESS_SYNC_ENABLED","true");
       const fixture = ownedDatabase(databaseUrl);
       const parsed = new URL(fixture.url);
       admin = new Pool({ connectionString: fixture.url });
@@ -203,12 +206,15 @@ describe.skipIf(!enabled)(
       await admin.query(
         `GRANT USAGE ON SCHEMA supportv8 TO ${readerRole}; GRANT SELECT ON supportv8.tenants,supportv8.runtime_support_workspaces TO ${readerRole}; GRANT SELECT,INSERT,UPDATE ON supportv8.issues TO ${readerRole}`,
       );
+      await admin.query(await readFile(new URL('../migrations/014_runtime_access_projection.sql',import.meta.url),'utf8'));
+      await admin.query(`GRANT SELECT,INSERT,UPDATE ON supportv8.runtime_access_projections,supportv8.runtime_access_cursors TO ${readerRole}; GRANT EXECUTE ON FUNCTION supportv8.list_runtime_access_targets(text,integer) TO ${readerRole}`);
       parsed.username = readerRole;
       parsed.password = "synthetic-only";
       app = new Pool({ connectionString: parsed.toString() });
       client = new PostgresClient(undefined, app);
     }, 30_000);
     afterAll(async () => {
+      vi.unstubAllEnvs();
       await app?.end();
       if (admin) {
         if (schemaCreated) await admin.query("DROP SCHEMA supportv8 CASCADE");
@@ -275,6 +281,15 @@ describe.skipIf(!enabled)(
       ]);
       expect(await reader.get(scope, "other-1")).toBeNull();
     });
+    it("maps a current Viewer through the receiver and denies domain create and update without SQL writes",async()=>{
+      const viewerCurrent=async()=>{const authority=await current();return {...authority,member:{...authority.member,role:'VIEWER'}};};
+      const reader=new RuntimeSupportTicketReader({client,resolve:value=>resolveOperationalSupportAccess(value,{current:viewerCurrent,client})});
+      expect((await reader.list(scope,{})).tickets.length).toBe(3);
+      const before=await admin.query('SELECT * FROM supportv8.issues ORDER BY id');
+      await expect(reader.create(scope,{customerName:'No write',summary:'No write',priority:'normal'})).rejects.toThrow('support_manage_denied');
+      await expect(reader.update(scope,'voice-1',{status:'closed'})).rejects.toThrow('support_manage_denied');
+      expect((await admin.query('SELECT * FROM supportv8.issues ORDER BY id')).rows).toEqual(before.rows);
+    });
     it("persists manager create and update while preserving tenant isolation", async () => {
       const reader = new RuntimeSupportTicketReader({
         client,
@@ -320,6 +335,37 @@ describe.skipIf(!enabled)(
         readOnly.update(scope, created.id, { status: "closed" }),
       ).rejects.toThrow("support_manage_denied");
       expect((await fresh.get(scope, created.id))?.status).toBe("resolved");
+    });
+    it('persists per-subject receipts, ignores duplicates/reordering, keeps local deny and enforces RLS',async()=>{
+      const store=new SupportAccessProjectionStore(client);
+      const member:AccessMembership={accountId:scope.accountId,tenantId:scope.tenantId,identitySubject:scope.subject,role:'admin',status:'active',revision:2,groupIds:['b1d580ef-e57d-40ec-a004-f0b2fa233424'],mappingStatus:'mapped'};
+      expect(await store.eligible(scope)).toBe(true);expect((await store.targets('',4)).map(s=>s.installationId)).toEqual([scope.installationId]);expect(await store.cursor(scope)).toBe('');
+      const first=await store.apply(scope,member,mapWorkspaceAccess(member,scope));
+      expect(first.status).toBe('synced');
+      expect(await new SupportAccessProjectionStore(client).apply(scope,member,mapWorkspaceAccess(member,scope))).toEqual(first);
+      const revoked={...member,status:'suspended',revision:4};
+      const latest=await store.apply(scope,revoked,mapWorkspaceAccess(revoked,scope));
+      expect(latest.status).toBe('revoked');
+      expect(await store.apply(scope,member,mapWorkspaceAccess(member,scope))).toEqual(latest);
+      expect(await resolveOperationalSupportAccess(scope,{current,client})).toBeNull();
+      const restored={...member,revision:5};await store.apply(scope,restored,mapWorkspaceAccess(restored,scope));
+      await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},db=>db.query('UPDATE supportv8.runtime_access_projections SET local_denied=true,local_capability=$1 WHERE installation_id=$2',['support:read',scope.installationId]));
+      const next={...member,revision:6};expect((await store.apply(scope,next,mapWorkspaceAccess(next,scope))).status).toBe('synced');
+      expect(await resolveOperationalSupportAccess(scope,{current,client})).toBeNull();
+      await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},db=>db.query('UPDATE supportv8.runtime_access_projections SET local_denied=false WHERE installation_id=$1',[scope.installationId]));
+      expect((await resolveOperationalSupportAccess(scope,{current,client}))?.capability).toBe('support:read');
+      const secondScope={...scope,subject:'invited-member'};const second={...member,identitySubject:secondScope.subject,role:'viewer',revision:1};
+      await store.apply(secondScope,second,mapWorkspaceAccess(second,secondScope));
+      expect((await admin.query('SELECT count(*)::int n FROM supportv8.runtime_access_projections')).rows[0].n).toBe(2);
+      expect((await admin.query('SELECT count(*)::int n FROM supportv8.runtime_access_audit')).rows[0].n).toBe(5);
+      await expect(admin.query("UPDATE supportv8.runtime_access_audit SET status='synced'")).rejects.toThrow('access audit is immutable');
+      await store.advance(scope,'','invited-member');expect(await store.cursor(scope)).toBe('invited-member');
+      await expect(store.advance(scope,'','outdated')).rejects.toThrow('projection_cursor_changed');
+      await store.fail(scope,'authority_unavailable');
+      await expect(store.cursor(scope)).rejects.toThrow('projection_retry_not_due');expect(await store.targets('',4)).toEqual([]);
+      await store.retry(scope);expect(await store.cursor(scope)).toBe('invited-member');
+      expect(await store.eligible({...scope,tenantId:'other'})).toBe(false);
+      await expect(store.apply({...scope,tenantId:'other'},member,mapWorkspaceAccess(member,scope))).rejects.toThrow('installation_unavailable');
     });
   },
 );

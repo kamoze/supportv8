@@ -124,6 +124,10 @@ async function main() {
     try { await client.workflow.start('supportTaskWorkOutboxWorkflow',{workflowId:'support-task-work-outbox-v1',taskQueue:TASK_QUEUE}); }
     catch(error){if((error as Error).name!=='WorkflowExecutionAlreadyStartedError')throw error;}
   }
+  if(process.env.SUPPORTV8_WORKSPACE_ACCESS_SYNC_ENABLED==='true'&&process.env.SUPPORTV8_WORKSPACE_ACCESS_SYNC_WORKER_DISABLED!=='true') {
+    try { await client.workflow.start('runtimeWorkspaceAccessWorkflow',{workflowId:'support-workspace-access-v1',taskQueue:TASK_QUEUE}); }
+    catch(error){if((error as Error).name!=='WorkflowExecutionAlreadyStartedError')throw error;}
+  }
   // Register periodic Schedules (idempotent)
   try {
     const res = await ensureTemporalSchedules(client);

@@ -145,7 +145,7 @@ export async function resolveRequestTenant(
     const path = new URL(request.url).pathname;
     const isCustomerChatIntake =
       path === "/api/chat/session" || (path === "/api/chat/message" && !options.requireAuthentication);
-    if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout" && !isCustomerChatIntake))) {
+    if (role === "support:read" && (path === "/api/voice/sophia/launch" || (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) && path !== "/api/auth/logout" && (!isCustomerChatIntake || access.workspaceRole === "viewer")))) {
       throw new RequestAuthError("This workspace role is read only", 403);
     }
 

@@ -207,7 +207,8 @@ describe.skipIf(!enabled)(
         `GRANT USAGE ON SCHEMA supportv8 TO ${readerRole}; GRANT SELECT ON supportv8.tenants,supportv8.runtime_support_workspaces TO ${readerRole}; GRANT SELECT,INSERT,UPDATE ON supportv8.issues TO ${readerRole}`,
       );
       await admin.query(await readFile(new URL('../migrations/014_runtime_access_projection.sql',import.meta.url),'utf8'));
-      await admin.query(`GRANT SELECT,INSERT,UPDATE ON supportv8.runtime_access_projections,supportv8.runtime_access_cursors TO ${readerRole}; GRANT EXECUTE ON FUNCTION supportv8.list_runtime_access_targets(text,integer) TO ${readerRole}`);
+      await admin.query(await readFile(new URL('../migrations/015_runtime_access_receiver_receipts.sql',import.meta.url),'utf8'));
+      await admin.query(`GRANT SELECT,INSERT,UPDATE ON supportv8.runtime_access_receiver_receipts,supportv8.runtime_access_projections,supportv8.runtime_access_cursors TO ${readerRole}; GRANT EXECUTE ON FUNCTION supportv8.list_runtime_access_targets(text,integer) TO ${readerRole}`);
       parsed.username = readerRole;
       parsed.password = "synthetic-only";
       app = new Pool({ connectionString: parsed.toString() });
@@ -341,7 +342,7 @@ describe.skipIf(!enabled)(
       const member:AccessMembership={accountId:scope.accountId,tenantId:scope.tenantId,identitySubject:scope.subject,role:'admin',status:'active',revision:2,groupIds:['b1d580ef-e57d-40ec-a004-f0b2fa233424'],mappingStatus:'mapped'};
       expect(await store.eligible(scope)).toBe(true);expect((await store.targets('',4)).map(s=>s.installationId)).toEqual([scope.installationId]);expect(await store.cursor(scope)).toBe('');
       const first=await store.apply(scope,member,mapWorkspaceAccess(member,scope));
-      expect(first.status).toBe('synced');
+      expect(first.status).toBe('synced');expect(first.receiverSequence).toBe(1);
       expect(await new SupportAccessProjectionStore(client).apply(scope,member,mapWorkspaceAccess(member,scope))).toEqual(first);
       const revoked={...member,status:'suspended',revision:4};
       const latest=await store.apply(scope,revoked,mapWorkspaceAccess(revoked,scope));
@@ -350,7 +351,7 @@ describe.skipIf(!enabled)(
       expect(await resolveOperationalSupportAccess(scope,{current,client})).toBeNull();
       const restored={...member,revision:5};await store.apply(scope,restored,mapWorkspaceAccess(restored,scope));
       await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},db=>db.query('UPDATE supportv8.runtime_access_projections SET local_denied=true,local_capability=$1 WHERE installation_id=$2',['support:read',scope.installationId]));
-      const next={...member,revision:6};expect((await store.apply(scope,next,mapWorkspaceAccess(next,scope))).status).toBe('synced');
+      const next={...member,revision:6};expect((await store.apply(scope,next,mapWorkspaceAccess(next,scope))).status).toBe('blocked');
       expect(await resolveOperationalSupportAccess(scope,{current,client})).toBeNull();
       await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},db=>db.query('UPDATE supportv8.runtime_access_projections SET local_denied=false WHERE installation_id=$1',[scope.installationId]));
       expect((await resolveOperationalSupportAccess(scope,{current,client}))?.capability).toBe('support:read');
@@ -366,6 +367,31 @@ describe.skipIf(!enabled)(
       await store.retry(scope);expect(await store.cursor(scope)).toBe('invited-member');
       expect(await store.eligible({...scope,tenantId:'other'})).toBe(false);
       await expect(store.apply({...scope,tenantId:'other'},member,mapWorkspaceAccess(member,scope))).rejects.toThrow('installation_unavailable');
+    });
+    it('sequences same-revision local policy changes and permits canonical promotion without overwriting ceilings',async()=>{
+      const store=new SupportAccessProjectionStore(client),target={...scope,subject:'policy-member'};
+      const membership:AccessMembership={accountId:scope.accountId,tenantId:scope.tenantId,identitySubject:target.subject,role:'viewer',status:'active',revision:1,groupIds:['b1d580ef-e57d-40ec-a004-f0b2fa233424'],mappingStatus:'mapped'};
+      const initial=await store.apply(target,membership,mapWorkspaceAccess(membership,target));expect(initial.receiverSequence).toBe(1);
+      const promoted={...membership,role:'admin',revision:2};
+      const promotion=await store.apply(target,promoted,mapWorkspaceAccess(promoted,target));expect(promotion.receiverSequence).toBe(2);
+      expect((await store.restriction(target))?.capability).toBe('support:manage');
+      const policy=(denied:boolean,capability:string|null)=>client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},db=>db.query('UPDATE supportv8.runtime_access_projections SET local_denied=$1,local_capability=$2 WHERE installation_id=$3 AND identity_subject=$4',[denied,capability,target.installationId,target.subject]));
+      await policy(true,null);
+      const denied=await store.apply(target,promoted,mapWorkspaceAccess(promoted,target));expect(denied).toMatchObject({revision:2,receiverSequence:3,status:'blocked'});
+      expect(await store.apply(target,promoted,mapWorkspaceAccess(promoted,target))).toEqual(denied);
+      await policy(false,'support:read');
+      const limited=await store.apply(target,promoted,mapWorkspaceAccess(promoted,target));expect(limited).toMatchObject({revision:2,receiverSequence:4,status:'blocked'});
+      expect((await store.restriction(target))?.capability).toBe('support:read');
+      await policy(false,null);
+      expect(await store.apply(target,promoted,mapWorkspaceAccess(promoted,target))).toMatchObject({revision:2,receiverSequence:5,status:'synced'});
+      const failure=await store.memberFailure(target,promoted,'unavailable','authority_unavailable');expect(failure).toMatchObject({receiverSequence:6,status:'unavailable',appliedRevision:null});
+      expect(await store.attemptMember(target,2)).toBe(false);expect(await store.attemptMember(target,3)).toBe(true);
+      await store.retry(scope);expect(await store.attemptMember(target,2)).toBe(true);
+      expect(await store.apply(target,promoted,mapWorkspaceAccess(promoted,target))).toMatchObject({receiverSequence:7,status:'synced'});
+      const removed={...promoted,status:'revoked',revision:3,groupIds:[],email:''};
+      const tombstone=await store.apply(target,removed,mapWorkspaceAccess(removed,target));expect(tombstone).toMatchObject({receiverSequence:8,status:'revoked'});
+      expect(await store.apply(target,promoted,mapWorkspaceAccess(promoted,target))).toEqual(tombstone);
+      expect((await store.restriction(target))?.denied).toBe(true);
     });
   },
 );

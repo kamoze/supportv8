@@ -8,7 +8,7 @@ it('uses exact product-bound scope, no cache, no redirects and bounded reads',as
  expect(await new RegistrySupportAccessClient(env,request).current(scope,'user-2')).toBeNull();
  expect(String(calls[0]!.init.body)).toContain('scope=registry%3Aworkspace-access%3Aread');
  expect(String(calls[0]!.init.body)).toContain('audience=servicev8-registry');
- expect(JSON.parse(String(calls[1]!.init.body))).toEqual({subject:'user-2',accountId:'acct-1',installationId:'install-1',productId:'servicev8.service-app.supportv8'});
+ expect(JSON.parse(String(calls[1]!.init.body))).toEqual({subject:'user-2',accountId:'acct-1',installationId:'install-1'});
  expect(calls[1]!.url).toBe('https://registry.test/v1/workspace-access/registry-1/read');
  expect(calls.every(c=>c.init.cache==='no-store'&&c.init.redirect==='error'&&c.init.signal)).toBe(true);
 });

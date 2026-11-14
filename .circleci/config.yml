@@ -48,7 +48,7 @@ jobs:
             SUPPORTV8_REAL_POSTGRES: "1"
             SUPPORTV8_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:support-workspace-test@127.0.0.1:5432/postgres
       - run:
-          name: Verify Runtime Support durable ticket writes and RLS
+          name: Verify Runtime Support ticket writes, access projection and RLS
           command: node scripts/test-local-only.mjs test/runtime-ticket-write.postgres.test.ts
           environment:
             SUPPORTV8_REAL_POSTGRES: "1"

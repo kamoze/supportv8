@@ -321,3 +321,6 @@ export async function drainPendingInteractionsWorkflow(
 
 export { runRetentionPurgeWorkflow } from "./retention-workflow";
 
+
+const workspaceAccessActivities=proxyActivities<typeof activities>({startToCloseTimeout:'5 minutes',retry:{initialInterval:'5 seconds',maximumInterval:'1 minute',maximumAttempts:3}});
+export async function runtimeWorkspaceAccessWorkflow(input:{after?:string}={}):Promise<never>{let after=input.after??'';for(let i=0;i<100;i++){try{after=(await workspaceAccessActivities.reconcileRuntimeWorkspaceAccessActivity({after})).after;}catch{}await sleep('30 seconds');}return continueAsNew<typeof runtimeWorkspaceAccessWorkflow>({after});}

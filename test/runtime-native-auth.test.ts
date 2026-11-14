@@ -51,3 +51,8 @@ it('allows customer chat intake for runtime sessions including read-only role wh
   await expect(resolveRequestTenant(operatorReplyRequest, { requireAuthentication: true })).rejects.toThrow('This workspace role is read only');
 });
 
+it.each(['/api/chat/session','/api/chat/message','/api/issues','/api/voice/sophia/launch'])('denies current Viewer mutations and execution at %s including customer intake',async path=>{
+ auth.mockResolvedValue({access:{email:'viewer@example.test',workspaceRole:'viewer'},session:{workspaceId:'tenant_rt_'+'a'.repeat(48),tenantDomain:'acme',sub:'viewer'},role:'support:read'});
+ const req=new Request(`https://acme.support.servicev8.com${path}`,{method:'POST',headers:{host:'acme.support.servicev8.com',cookie:'__Host-sv8_runtime_support=test'}});
+ await expect(resolveRequestTenant(req)).rejects.toThrow('This workspace role is read only');
+});

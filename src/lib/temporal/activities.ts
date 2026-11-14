@@ -226,3 +226,5 @@ export {
 
 export { drainSupportTaskWorkActivity } from '../tasksv8/runtime';
 
+
+export async function reconcileRuntimeWorkspaceAccessActivity(input:{after?:string}={}){const {reconcileSupportAccessBatch}=await import('../service-app/runtime-access-reconciler');return reconcileSupportAccessBatch(input);}

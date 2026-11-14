@@ -1,4 +1,7 @@
+import { usesWorkspaceAccessProjection } from './runtime-access-rollout';
 import { pgClient, type PostgresClient } from "../db/pg-client";
+import { RegistrySupportAccessClient } from "./runtime-access-projection-client";
+import { mapWorkspaceAccess, type AccessMembership } from "./runtime-access-projection";
 
 export type SupportRuntimeScope = {
   accountId: string;
@@ -11,6 +14,7 @@ export type SupportRuntimeScope = {
 export type SupportCapability = "support:read" | "support:manage";
 export type OperationalSupportAccess = SupportRuntimeScope & {
   capability: SupportCapability;
+  workspaceRole?: string;
   email: string;
   domain: string;
   planId?: string;
@@ -21,12 +25,12 @@ export type BootstrapSupportAccess = { verified: true };
 
 type RegistryMember = { accountId:unknown;tenantId:unknown;identitySubject:unknown;email:unknown;role:unknown;status:unknown;slug:unknown;displayName?:unknown };
 type RegistryProjection = Record<string, unknown>;
-type CurrentAuthority = { member: RegistryMember; projection: RegistryProjection };
-type LocalWorkspace = { installationId:string;accountId:string;tenantId:string;verticalId:"runtime";workspaceId:string;domain:string;ownerAccountId:string;creatorSubject:string };
+type CurrentAuthority = { member: RegistryMember; projection: RegistryProjection; workspaceAccess?:AccessMembership };
+type LocalWorkspace = { installationId:string;accountId:string;tenantId:string;verticalId:"runtime";workspaceId:string;domain:string;ownerAccountId:string;creatorSubject:string; projectedStatus?:string; projectedCapability?:SupportCapability; localDenied?:boolean; localCapability?:SupportCapability };
 type Environment = Readonly<Record<string,string|undefined>>;
 type Dependencies = { now?:()=>number; current?:(scope:SupportRuntimeScope)=>Promise<CurrentAuthority|null>; local?:(scope:SupportRuntimeScope)=>Promise<LocalWorkspace|null>; client?:PostgresClient };
 
-const roleCapabilities:Readonly<Record<string,SupportCapability>>={OWNER:"support:manage",ADMIN:"support:manage",MANAGER:"support:read",STAFF:"support:read",MEMBER:"support:read"};
+const roleCapabilities:Readonly<Record<string,SupportCapability>>={OWNER:"support:manage",ADMIN:"support:manage",MANAGER:"support:read",STAFF:"support:read",MEMBER:"support:read",VIEWER:"support:read"};
 const reference=/^[A-Za-z0-9_:@.-]{1,192}$/;
 const workspace=/^tenant_[a-z0-9_]{1,56}$/;
 const object=(value:unknown):value is Record<string,unknown>=>value!==null&&typeof value==="object"&&!Array.isArray(value);
@@ -75,26 +79,36 @@ export class RegistrySupportAuthority {
       const [memberValue,projectionValue]=await Promise.all([this.get(membershipUrl),this.get(projectionUrl)]);
       if(!object(memberValue)||!object(projectionValue)||!Array.isArray(projectionValue.installations)) return null;
       const exact=projectionValue.installations.filter(item=>object(item)&&item.accountId===parsed.accountId&&item.tenantId===parsed.tenantId&&item.verticalId==="runtime"&&item.installationId===parsed.installationId);
-      return exact.length===1?{member:memberValue as RegistryMember,projection:exact[0] as RegistryProjection}:null;
+      if(exact.length!==1)return null;
+      if(usesWorkspaceAccessProjection(parsed,this.env)){
+        const workspaceAccess=await new RegistrySupportAccessClient(this.env,this.request).current(parsed,parsed.subject);
+        if(!workspaceAccess)return null;
+        return {member:memberValue as RegistryMember,projection:exact[0] as RegistryProjection,workspaceAccess};
+      }
+      return {member:memberValue as RegistryMember,projection:exact[0] as RegistryProjection};
     } catch { return null; }
   }
 }
 
 async function readLocalWorkspace(scope:SupportRuntimeScope,client:PostgresClient):Promise<LocalWorkspace|null>{
-  try{return await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},async db=>{
-    const rows=await db.query<Record<string,string>>(`SELECT w.installation_id,w.account_id,w.registry_tenant_id,w.vertical_id,w.native_tenant_id,w.native_domain,w.subject,t.servicev8_account_id
+  try{const projected=usesWorkspaceAccessProjection(scope);return await client.withWorkspaceProvisioningSession({tenantId:scope.workspaceId,accountId:scope.accountId,registryTenantId:scope.tenantId},async db=>{
+    const rows=await db.query<Record<string,string>>(`SELECT w.installation_id,w.account_id,w.registry_tenant_id,w.vertical_id,w.native_tenant_id,w.native_domain,w.subject,t.servicev8_account_id,${projected?"p.status AS projected_status,p.capability AS projected_capability,p.local_denied,p.local_capability":"NULL AS projected_status,NULL AS projected_capability,NULL AS local_denied,NULL AS local_capability"}
       FROM supportv8.runtime_support_workspaces w JOIN supportv8.tenants t
         ON t.id=w.native_tenant_id AND t.domain=w.native_domain AND t.servicev8_account_id=w.account_id
+      ${projected?"LEFT JOIN supportv8.runtime_access_projections p ON p.installation_id=w.installation_id AND p.identity_subject=$5 AND p.native_tenant_id=w.native_tenant_id AND p.account_id=w.account_id AND p.registry_tenant_id=w.registry_tenant_id":""}
       WHERE w.installation_id=$1 AND w.account_id=$2 AND w.registry_tenant_id=$3 AND w.vertical_id='runtime'
-        AND w.native_tenant_id=$4 AND w.state='workspace_created' AND w.deleted_at IS NULL`,[scope.installationId,scope.accountId,scope.tenantId,scope.workspaceId]);
-    const row=rows.length===1?rows[0]:undefined; return row?{installationId:row.installation_id!,accountId:row.account_id!,tenantId:row.registry_tenant_id!,verticalId:"runtime",workspaceId:row.native_tenant_id!,domain:row.native_domain!,ownerAccountId:row.servicev8_account_id!,creatorSubject:row.subject!}:null;
+        AND w.native_tenant_id=$4 AND w.state='workspace_created' AND w.deleted_at IS NULL`,[scope.installationId,scope.accountId,scope.tenantId,scope.workspaceId,...(projected?[scope.subject]:[])]);
+    const row=rows.length===1?rows[0]:undefined; return row?{installationId:row.installation_id!,accountId:row.account_id!,tenantId:row.registry_tenant_id!,verticalId:"runtime",workspaceId:row.native_tenant_id!,domain:row.native_domain!,ownerAccountId:row.servicev8_account_id!,creatorSubject:row.subject!,projectedStatus:row.projected_status??undefined,projectedCapability:(row.projected_capability??undefined) as SupportCapability|undefined,localDenied:(row.local_denied as unknown)===true,localCapability:(row.local_capability??undefined) as SupportCapability|undefined}:null;
   });}catch{return null;}
 }
 
 function common(scope:SupportRuntimeScope,current:CurrentAuthority,local:LocalWorkspace,now:number):{capability:SupportCapability;email:string;domain:string;planId?:string;poolAccountId?:string;credits?:number}|null{
   const {member,projection:p}=current;
   if(member.accountId!==scope.accountId||member.tenantId!==scope.tenantId||member.identitySubject!==scope.subject||member.status!=="active"||typeof member.email!=="string"||!member.email.trim()||typeof member.role!=="string"||typeof member.slug!=="string") return null;
-  const capability=roleCapabilities[member.role.toUpperCase()]; if(!capability) return null;
+  let capability=roleCapabilities[member.role.toUpperCase()]; if(!capability) return null;
+  if(current.workspaceAccess){const mapped=mapWorkspaceAccess(current.workspaceAccess,scope);if(mapped.status!=="synced"||!mapped.capability)return null;if(mapped.capability==="support:read")capability="support:read";}
+  if(local.localDenied||(local.projectedStatus!==undefined&&local.projectedStatus!=="synced"))return null;
+  if(local.projectedCapability==="support:read"||local.localCapability==="support:read")capability="support:read";
   if(p.accountId!==scope.accountId||p.tenantId!==scope.tenantId||p.verticalId!=="runtime"||p.installationId!==scope.installationId||p.productId!=="servicev8.service-app.supportv8"||p.productVersion!=="1.0.0"||p.productKind!=="service_app"||p.entitlementStatus!=="active"||p.tenantDomain!==member.slug) return null;
   if(p.expiresAt!==undefined&&(typeof p.expiresAt!=="string"||!Number.isFinite(Date.parse(p.expiresAt))||Date.parse(p.expiresAt)<=now)) return null;
   if(local.installationId!==scope.installationId||local.accountId!==scope.accountId||local.tenantId!==scope.tenantId||local.verticalId!=="runtime"||local.workspaceId!==scope.workspaceId||local.domain!==member.slug||local.ownerAccountId!==scope.accountId) return null;
@@ -119,7 +133,7 @@ export async function resolveOperationalSupportAccess(value:unknown,deps:Depende
   const scope=parseSupportRuntimeScope(value); if(!scope)return null; const found=await dependencies(scope,deps); if(!found)return null; const allowed=common(scope,found[0],found[1],(deps.now??Date.now)()); if(!allowed)return null;
   const p=found[0].projection,b=p.serviceAppBinding;
   if(p.installationState!=="active"||!object(p.serviceAppReadiness)||p.serviceAppReadiness.state!=="ready"||!object(p.serviceAppPlanAccess)||p.serviceAppPlanAccess.state!=="included"||!object(b)||b.schemaVersion!=="servicev8.service-app-binding.v1"||b.appKey!=="supportv8"||b.externalWorkspaceId!==scope.workspaceId||b.poolAccountId!==scope.accountId||b.provisioningState!=="provisioned"||b.poolBindingState!=="verified")return null;
-  return {...scope,...allowed};
+  return {...scope,...allowed,workspaceRole:found[0].workspaceAccess?.role??String(found[0].member.role).toLowerCase()};
 }
 export async function resolveBootstrapSupportAccess(value:unknown,deps:Dependencies={}):Promise<BootstrapSupportAccess|null>{
   const scope=parseSupportRuntimeScope(value);if(!scope)return null;const found=await dependencies(scope,deps);if(!found)return null;const allowed=common(scope,found[0],found[1],(deps.now??Date.now)());if(!allowed||allowed.capability!=="support:manage"||found[1].creatorSubject!==scope.subject||found[0].projection.principalId!==scope.subject||!["provisioning","configuration_required","active"].includes(String(found[0].projection.installationState)))return null;return {verified:true};

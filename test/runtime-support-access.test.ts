@@ -13,7 +13,14 @@ const projection = { accountId:scope.accountId,tenantId:scope.tenantId,verticalI
 const local = { installationId:scope.installationId,accountId:scope.accountId,tenantId:scope.tenantId,verticalId:"runtime" as const,workspaceId:scope.workspaceId,domain:"acme-support",ownerAccountId:scope.accountId,creatorSubject:"creator-1" };
 
 describe("current Runtime Support access",()=>{
-  it.each([["OWNER","support:manage"],["ADMIN","support:manage"],["MANAGER","support:read"],["STAFF","support:read"],["MEMBER","support:read"]])("maps %s to %s",async(role,capability)=>{
+  it('uses current canonical group authority to cap a lagging legacy role',async()=>{
+    const workspaceAccess={accountId:scope.accountId,tenantId:scope.tenantId,identitySubject:scope.subject,role:'viewer',status:'active',revision:7,groupIds:['b1d580ef-e57d-40ec-a004-f0b2fa233424'],mappingStatus:'mapped'};
+    const deps={current:async()=>({member:{...member,role:'ADMIN'},projection,workspaceAccess}),local:async()=>local};
+    expect(await resolveOperationalSupportAccess(scope,deps)).toMatchObject({capability:'support:read',workspaceRole:'viewer'});
+    workspaceAccess.status='suspended';expect(await resolveOperationalSupportAccess(scope,deps)).toBeNull();
+    workspaceAccess.status='active';workspaceAccess.groupIds=[];expect(await resolveOperationalSupportAccess(scope,deps)).toBeNull();
+  });
+  it.each([["OWNER","support:manage"],["ADMIN","support:manage"],["MANAGER","support:read"],["STAFF","support:read"],["MEMBER","support:read"],["VIEWER","support:read"]])("maps %s to %s",async(role,capability)=>{
     const result=await resolveOperationalSupportAccess(scope,{current:async()=>({member:{...member,role},projection}),local:async()=>local});
     expect(result).toMatchObject({...scope,capability,email:member.email,domain:"acme-support"});
   });

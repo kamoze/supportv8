@@ -13,3 +13,7 @@ node --import ./test/local-only-network-guard.mjs --import tsx scripts/verify-wo
 ```
 
 The rehearsal substituted in-process transport, fixture Identity tokens and a scoped fixture entitlement resolver. Hosted CI, production migration and runtime configuration, live workload claims, OLG delivery and end-to-end tenant acceptance remain unverified.
+
+## Initial rollout scope
+
+Enabled reconciliation requires `SUPPORTV8_ACCESS_SYNC_TARGETS_JSON` containing an explicit JSON array of `{accountId, tenantId}` pairs. Missing or malformed scope fails before database access. Production starts with only runtime-acceptance; unrelated workspaces are excluded. The focused rollout checks and TypeScript passed on h5 on 2026-11-14.

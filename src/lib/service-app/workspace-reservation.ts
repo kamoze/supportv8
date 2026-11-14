@@ -1,3 +1,4 @@
+import { requireVerifiedWorkspaceOwner } from "../auth/workspace-owner-verification";
 import { createHash } from "node:crypto";
 import { pgClient, type PostgresClient } from "@/lib/db/pg-client";
 import { marketplaceService } from "@/lib/services/marketplace-service";
@@ -59,6 +60,7 @@ export class RuntimeSupportWorkspaceStore {
 
   async acquire(raw: unknown): Promise<RuntimeSupportWorkspace> {
     const input = validateRuntimeSupportWorkspaceInput(raw);
+    requireVerifiedWorkspaceOwner({slug:input.tenantDomain});
     const workspaceId = nativeWorkspaceId(input);
     try {
       return await this.client.withWorkspaceProvisioningSession({ tenantId: workspaceId, accountId: input.accountId, registryTenantId: input.registryTenantId }, async (db) => {

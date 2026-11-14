@@ -1,3 +1,4 @@
+import { requiresWorkspaceOwnerVerification } from "../auth/workspace-owner-verification";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   resolveOperationalSupportAccess,
@@ -54,6 +55,7 @@ export function signRuntimeSupportSession(
 ): string | null {
   const k = key(secret);
   if (
+    requiresWorkspaceOwnerVerification({slug:input.tenantDomain,nativeTenantId:input.workspaceId}) ||
     !k ||
     !Number.isSafeInteger(now) ||
     !Number.isInteger(ttl) ||
@@ -144,7 +146,7 @@ export function verifyRuntimeSupportSession(
     )
       return null;
     const parsed = awaitParseScope(scope);
-    return parsed ? (body as RuntimeSupportSession) : null;
+    return parsed && !requiresWorkspaceOwnerVerification({slug:body.tenantDomain,nativeTenantId:body.workspaceId as string}) ? (body as RuntimeSupportSession) : null;
   } catch {
     return null;
   }

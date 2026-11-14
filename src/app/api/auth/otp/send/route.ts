@@ -5,6 +5,8 @@ import {
   OtpStoreUnavailableError,
 } from "@/lib/auth/otp-store";
 import { ResendService } from "@/lib/services/resend-service";
+import { authBotChallenge, authJson, botProofFailure } from "@/lib/auth/bot-challenge";
+import { BotProofError } from "@/lib/auth/bot-transaction";
 
 function clientIp(req: NextRequest): string | undefined {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -14,10 +16,10 @@ function clientIp(req: NextRequest): string | undefined {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await authJson(req);
     const { email, companyName, tenantSlug } = body;
 
-    if (!email || !email.includes("@") || !email.includes(".")) {
+    if (typeof email !== "string" || !email.includes("@") || !email.includes(".")) {
       return NextResponse.json(
         { success: false, error: "A valid administrator email address is required." },
         { status: 400 }
@@ -26,13 +28,15 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    const cleanTenantSlug = (tenantSlug || "").trim().toLowerCase();
+    const cleanTenantSlug = typeof tenantSlug === "string" ? tenantSlug.trim().toLowerCase() : "";
     if (!cleanTenantSlug) {
       return NextResponse.json(
         { success: false, error: "Workspace subdomain is required." },
         { status: 400 }
       );
     }
+
+    await authBotChallenge.consume(req, "signup", body);
 
     await otpStore.enforceIssueRateLimit(
       "signup",
@@ -48,7 +52,7 @@ export async function POST(req: NextRequest) {
     const emailResult = await ResendService.dispatchOtpEmail({
       email: cleanEmail,
       code,
-      companyName: companyName?.trim(),
+      companyName: typeof companyName === "string" ? companyName.trim() : undefined,
       tenantSlug: cleanTenantSlug,
     });
 
@@ -71,6 +75,7 @@ export async function POST(req: NextRequest) {
       debugCode: process.env.NODE_ENV === "test" ? code : undefined,
     });
   } catch (err: unknown) {
+    if (err instanceof BotProofError) return botProofFailure(err);
     const status =
       err instanceof OtpStoreUnavailableError || err instanceof OtpRateLimitError
         ? err.status

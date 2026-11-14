@@ -106,14 +106,15 @@ export const AuthService = {
   async loginWithPassword(
     email: string,
     password: string,
-    tenantSlug?: string
+    tenantSlug?: string,
+    proof?: { challengeId: string; botToken: string },
   ): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST", redirect: "error",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, tenantSlug }),
+        body: JSON.stringify({ email, password, tenantSlug, ...proof }),
       }).then((r) => r.json());
 
       if (res.success && res.session) {

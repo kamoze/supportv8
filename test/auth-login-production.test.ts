@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+// These downstream identity/OTP unit cases isolate proof transport; actual proof composition is covered by auth-bot-proof-routes.test.ts.
+vi.mock("@/lib/auth/bot-challenge", async (original) => ({ ...await original<typeof import("@/lib/auth/bot-challenge")>(), authBotChallenge: { consume: vi.fn().mockResolvedValue({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha", status: "active", url: "https://alpha.support.servicev8.com/" }) } }));
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const keycloakMocks = vi.hoisted(() => ({
@@ -13,6 +15,8 @@ vi.mock("@/lib/auth/keycloak", async (importOriginal) => {
   };
 });
 
+import { authBotChallenge } from "../src/lib/auth/bot-challenge";
+import { createNativeLoginAuthority, nativeLoginAuthority } from "../src/lib/auth/native-login-authority";
 import { POST } from "../src/app/api/auth/login/route";
 
 function loginRequest() {
@@ -28,8 +32,12 @@ function loginRequest() {
 }
 
 describe("production login identity boundaries", () => {
+  beforeEach(() => { vi.mocked(authBotChallenge.consume).mockResolvedValue({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha", status: "active", url: "https://alpha.support.servicev8.com/" }); vi.spyOn(nativeLoginAuthority, "current").mockImplementation(createNativeLoginAuthority({ canonicalIssuer: () => "https://identity.example.test/realms/servicev8",
+    workspace: async () => ({ id: "tenant_alpha", accountId: "account-alpha", slug: "alpha", name: "Alpha", status: "active", url: "https://alpha.support.servicev8.com/" }),
+    membership: async (workspace, subject) => ({ accountId: workspace.accountId, tenantId: workspace.id, identitySubject: subject, status: "active", role: "member" }), native: async () => "tenant_alpha",
+  })); });
   afterEach(() => {
-    vi.unstubAllEnvs();
+    vi.unstubAllEnvs(); vi.restoreAllMocks();
     keycloakMocks.verifyKeycloakPassword.mockReset();
   });
 
@@ -38,9 +46,9 @@ describe("production login identity boundaries", () => {
     keycloakMocks.verifyKeycloakPassword.mockResolvedValue({
       ok: true,
       accessToken: "token",
-      decodedClaims: {
+      decodedClaims: { iss: "https://identity.example.test/realms/servicev8",
         sub: "user-1",
-        tenant_id: "tenant_alpha",
+        tenant_id: "tenant_alpha", account_id: "account-alpha",
         realm_access: { roles: ["admin"] },
       },
     });
@@ -55,10 +63,10 @@ describe("production login identity boundaries", () => {
     keycloakMocks.verifyKeycloakPassword.mockResolvedValue({
       ok: true,
       accessToken: "token",
-      decodedClaims: {
+      decodedClaims: { iss: "https://identity.example.test/realms/servicev8",
         sub: "user-1",
         exp: Math.floor(Date.now() / 1000) + 3600,
-        tenant_id: "tenant_alpha",
+        tenant_id: "tenant_alpha", account_id: "account-alpha",
         realm_access: { roles: ["support_operator"] },
       },
     });
@@ -79,10 +87,10 @@ describe("production login identity boundaries", () => {
       refreshToken: "refresh-token",
       expiresIn: 300,
       refreshExpiresIn: 28_800,
-      decodedClaims: {
+      decodedClaims: { iss: "https://identity.example.test/realms/servicev8",
         sub: "user-1",
         exp: Math.floor(Date.now() / 1000) + 300,
-        tenant_id: "tenant_alpha",
+        tenant_id: "tenant_alpha", account_id: "account-alpha",
         realm_access: { roles: ["support_operator"] },
       },
     });
@@ -102,7 +110,7 @@ describe("production login identity boundaries", () => {
       keycloakMocks.verifyKeycloakPassword.mockResolvedValueOnce({
         ok: true,
         accessToken: "token",
-        decodedClaims: {
+        decodedClaims: { iss: "https://identity.example.test/realms/servicev8",
           sub: "user-1",
           tenant_id: tenantId,
           realm_access: { roles: ["support_operator"] },
@@ -118,7 +126,7 @@ describe("production login identity boundaries", () => {
     keycloakMocks.verifyKeycloakPassword.mockResolvedValue({
       ok: true,
       accessToken: "token",
-      decodedClaims: {
+      decodedClaims: { iss: "https://identity.example.test/realms/servicev8",
         sub: "user-1",
         tenant_id: "tenant_other",
         realm_access: { roles: ["support_operator"] },

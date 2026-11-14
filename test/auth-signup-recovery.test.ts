@@ -1,3 +1,5 @@
+// These downstream identity/OTP unit cases isolate proof transport; actual proof composition is covered by auth-bot-proof-routes.test.ts.
+vi.mock("@/lib/auth/bot-challenge", async (original) => ({ ...await original<typeof import("@/lib/auth/bot-challenge")>(), authBotChallenge: { consume: vi.fn().mockResolvedValue(undefined) } }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { POST as handleSignup } from "../src/app/api/tenant/signup/route";
 import { POST as handleLogin } from "../src/app/api/auth/login/route";
@@ -12,6 +14,7 @@ async function getSignupVerificationReceipt(email: string, tenantSlug: string): 
   const sendRes = await sendSignupOtp(
     new NextRequest("http://localhost:3000/api/auth/otp/send", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, tenantSlug, companyName: "QA Workspace" }),
     })
   );
@@ -21,6 +24,7 @@ async function getSignupVerificationReceipt(email: string, tenantSlug: string): 
   const verifyRes = await verifySignupOtp(
     new NextRequest("http://localhost:3000/api/auth/otp/verify", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, tenantSlug, code: debugCode }),
     })
   );
@@ -43,6 +47,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     // Step 1: Sign up tenant
     const signupReq = new NextRequest("http://localhost:3000/api/tenant/signup", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: "QA Logistics Inc",
         domain: uniqueSlug,
@@ -75,6 +80,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     // Step 2: Login with the chosen password
     const loginReq = new NextRequest("http://localhost:3000/api/auth/login", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         email: adminEmail,
         password: chosenPassword,
@@ -99,6 +105,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: "QA Secure Co",
           domain: uniqueSlug,
@@ -112,6 +119,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
 
     const badLoginReq = new NextRequest("http://localhost:3000/api/auth/login", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         email: adminEmail,
         password: "WrongPassword#999",
@@ -139,6 +147,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const missingReceipt = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(signupBody),
       })
     );
@@ -148,6 +157,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const wrongWorkspace = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...signupBody,
           domain: `${uniqueSlug}-other`,
@@ -160,6 +170,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const verifiedSignup = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...signupBody, verificationReceipt }),
       })
     );
@@ -168,6 +179,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const replay = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...signupBody, verificationReceipt }),
       })
     );
@@ -183,6 +195,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const ownerSignup = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: "Protected Workspace",
           domain: tenantSlug,
@@ -199,6 +212,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const takeover = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: "Attacker Rename",
           domain: tenantSlug,
@@ -230,6 +244,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const weak = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...baseBody, password: "short", passwordConfirmation: "short" }),
       })
     );
@@ -238,6 +253,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const retry = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...baseBody, password: "StrongPassword#2026", passwordConfirmation: "StrongPassword#2026" }),
       })
     );
@@ -264,6 +280,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const unavailable = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       })
     );
@@ -273,6 +290,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const retry = await handleSignup(
       new NextRequest("http://localhost:3000/api/tenant/signup", {
         method: "POST",
+        headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       })
     );
@@ -283,7 +301,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     const response = await handleRecovery(
       new NextRequest("http://localhost:3000/api/auth/password/recover", {
         method: "POST",
-        headers: { "x-real-ip": `192.0.2.${Math.floor(Math.random() * 200) + 1}` },
+        headers: { "content-type": "application/json", "x-real-ip": `192.0.2.${Math.floor(Math.random() * 200) + 1}` },
         body: JSON.stringify({
           action: "send_otp",
           email: `missing-${Date.now()}@example.com`,
@@ -311,6 +329,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     // Request recovery OTP
     const otpReq = new NextRequest("http://localhost:3000/api/auth/password/recover", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: "send_otp",
         email: adminEmail,
@@ -344,6 +363,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     // Step 1: Send OTP
     const otpReq = new NextRequest("http://localhost:3000/api/auth/password/recover", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: "send_otp",
         email: adminEmail,
@@ -357,6 +377,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     // Step 2: Reset password
     const resetReq = new NextRequest("http://localhost:3000/api/auth/password/recover", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: "reset_password",
         email: adminEmail,
@@ -373,6 +394,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
     // Step 3: Login with new password
     const loginReq = new NextRequest("http://localhost:3000/api/auth/login", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         email: adminEmail,
         password: newPass,
@@ -389,6 +411,7 @@ describe("SupportV8 Auth: Role Persona Removal, Password Recovery & Sign Up Regi
   it("5. Password recovery: should reject invalid OTP code", async () => {
     const resetReq = new NextRequest("http://localhost:3000/api/auth/password/recover", {
       method: "POST",
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         action: "reset_password",
         email: "nonexistent@company.com",

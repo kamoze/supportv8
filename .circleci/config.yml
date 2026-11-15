@@ -63,6 +63,9 @@ jobs:
           name: Build Next.js Application
           command: npm run build
       - run:
+          name: Qualify bounded image publication
+          command: node scripts/test-ci-image-build.mjs
+      - run:
           name: Require native Tasks lifecycle transaction, RLS, receipt and lease evidence
           command: node scripts/test-task-work-sql-ci.mjs
           environment:
@@ -80,13 +83,7 @@ jobs:
       - checkout
       - run:
           name: Build and push Docker image
-          command: |
-            TAG="web-${CIRCLE_SHA1:0:7}"
-            IMAGE="redoosolutions/supportv8"
-            docker build -t "$IMAGE:$TAG" -t "$IMAGE:web-latest" .
-            echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            docker push "$IMAGE:$TAG"
-            docker push "$IMAGE:web-latest"
+          command: bash scripts/ci/build-support-image.sh
   update-devops:
     resource_class: redoosolutions/servicev8
     docker:
@@ -95,7 +92,7 @@ jobs:
       - run:
           name: Update ServiceV8 DevOps image tag
           command: |
-            IMAGE_TAG="web-${CIRCLE_SHA1:0:7}"
+            IMAGE_TAG="web-${CIRCLE_SHA1}"
             git clone "https://${GITHUB_TOKEN}@github.com/kamoze/servicev8-devops.git" devops
             cd devops
             sed -i "s|image: redoosolutions/supportv8:.*|image: redoosolutions/supportv8:$IMAGE_TAG|g" apps/supportv8/deployment.yaml

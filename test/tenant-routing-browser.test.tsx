@@ -147,7 +147,7 @@ describe("TR08 Served-Browser Tests: Workspace Entry & Sign-In Form Accessibilit
     expect(alert?.textContent).toContain("Workspace not found");
   });
 
-  it("SignInModal: scoped tenant host displays locked workspace badge and hides redundant slug field", () => {
+  it("SignInModal: a prop alone cannot turn a global host into a credential form", () => {
     const { container } = render(
       <SignInModal
         isOpen={true}
@@ -155,26 +155,15 @@ describe("TR08 Served-Browser Tests: Workspace Entry & Sign-In Form Accessibilit
         onSuccess={vi.fn()}
         onOpenSignup={vi.fn()}
         lockedTenantSlug="acme-corp"
+        initialTenantSlug="acme"
       />
     );
 
-    // Redundant workspace input is hidden on scoped tenant host
-    expect(container.querySelector("#panel-login-workspace")).toBeNull();
-    expect(container.textContent).toContain("Acme Corp Workspace");
-    expect(container.textContent).toContain("acme-corp.support.servicev8.com");
-
-    // Email and password inputs have accessible labels and autocompletes
-    const emailInput = container.querySelector("#tenant-login-email") as HTMLInputElement;
-    expect(emailInput).not.toBeNull();
-    expect(emailInput.getAttribute("autocomplete")).toBe("email");
-    const emailLabel = container.querySelector('label[for="tenant-login-email"]');
-    expect(emailLabel).not.toBeNull();
-
-    const pwdInput = container.querySelector("#tenant-login-password") as HTMLInputElement;
-    expect(pwdInput).not.toBeNull();
-    expect(pwdInput.getAttribute("autocomplete")).toBe("current-password");
-    const pwdLabel = container.querySelector('label[for="tenant-login-password"]');
-    expect(pwdLabel).not.toBeNull();
+    expect(container.querySelector("#panel-login-workspace")).not.toBeNull();
+    expect((container.querySelector("#panel-login-workspace") as HTMLInputElement).value).toBe("");
+    expect(container.querySelector("#tenant-login-email")).toBeNull();
+    expect(container.querySelector("#tenant-login-password")).toBeNull();
+    expect(container.textContent).toContain("Go to workspace");
   });
 
   it("SignInModal: global modal provides accessible workspace field when unlocked", () => {

@@ -10,7 +10,9 @@ it('sends the exact entered password and confirmation through the rendered signu
   document.body.append(container);
   const root = createRoot(container);
   let signup: Record<string, unknown> | undefined;
+  window.turnstile = { remove: () => {}, render: (_element, options) => { queueMicrotask(() => (options.callback as (token: string) => void)('controlled-browser-proof')); return 'widget'; } };
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (url === '/api/auth/challenge') return Response.json({ success: true, challengeId: 'a'.repeat(64), cdata: 'a'.repeat(64), action: 'signup', siteKey: 'synthetic-public-widget-key' });
     if (url === '/api/auth/otp/send') return Response.json({ success: true });
     if (url === '/api/auth/otp/verify') return Response.json({ success: true, verificationReceipt: 'controlled-otp-receipt' });
     if (url === '/api/tenant/signup') {
@@ -37,9 +39,7 @@ it('sends the exact entered password and confirmation through the rendered signu
     const password = ' Exact Password Bytes#2026 ';
     await fill('Password', password);
     await fill('Confirm password', password);
-    // Existing arithmetic prompt is only traversed here, not qualified as bot proof.
-    const sum = container.textContent!.match(/(\d+)\s*\+\s*(\d+)\s*=/)!;
-    await fill('Security verification answer', String(Number(sum[1]) + Number(sum[2])));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 550)); });
     await submit('step2-form');
     const otpInput = container.querySelector<HTMLInputElement>('#step3-otp-form input')!;
     await act(async () => {
@@ -51,6 +51,7 @@ it('sends the exact entered password and confirmation through the rendered signu
   } finally {
     await act(async () => root.unmount());
     container.remove();
+    delete window.turnstile;
     vi.unstubAllGlobals();
   }
 });

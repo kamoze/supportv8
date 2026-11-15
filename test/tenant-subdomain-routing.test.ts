@@ -1,3 +1,5 @@
+vi.mock("@/lib/auth/workspace-discovery-limit", () => ({ workspaceDiscoveryLimiter: { enforce: vi.fn().mockResolvedValue(undefined) } }));
+vi.mock("@/lib/auth/workspace-discovery", async () => ({ discoverWorkspace: (await import("@/lib/tenant-resolver")).resolveTenantBySlug }));
 import { describe, expect, it, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { middleware } from "@/middleware";
@@ -46,16 +48,10 @@ describe("Tenant Subdomain Routing & Workspace Discovery Standard (TR01-TR08)", 
       },
     });
     const resLogin = await getLogin(reqLogin);
-    expect(resLogin.status).toBe(200);
-    expect(resLogin.headers.get("content-type")).toContain("text/html");
-    const html = await resLogin.text();
-    expect(html).toContain("Welcome to Acme Corp");
-    expect(html).toContain("acme-corp.support.servicev8.com");
-    expect(html).toContain('<form method="POST" action="/login');
-    expect(html).toContain('name="email"');
-    expect(html).toContain('name="password"');
-    // Scoped tenant host hides/does not prompt for workspace slug re-entry
-    expect(html).not.toContain('id="panel-login-workspace"');
+    expect(resLogin.status).toBe(302);
+    expect(resLogin.headers.get("location")).toBe("https://acme-corp.support.servicev8.com/?signin=1");
+    // Accessible credential fields are checked in the rendered native sign-in suite.
+
 
     // 3. Protected deep link (/workspace) with browser HTML accept redirects 302 to /login?next=...
     const reqDeepHtml = new NextRequest("https://acme-corp.support.servicev8.com/workspace", {
@@ -281,10 +277,14 @@ describe("Tenant Subdomain Routing & Workspace Discovery Standard (TR01-TR08)", 
       },
       body: "email=admin%40acme.com&password=SupportV8%232026%21Secure",
     });
+    // The historical unguarded form now fails before credential or cookie effects.
     const resLogin = await postLogin(reqLogin);
-    expect(resLogin.status).toBe(302);
-    expect(resLogin.headers.get("location")).toBe("https://acme.support.servicev8.com/tickets/TCK-8821");
-    expect(resLogin.headers.get("set-cookie")).toContain("sv8_access_token=");
+    expect(resLogin.status).toBe(400);
+    expect(resLogin.headers.get("set-cookie")).toBeNull();
+    const entry = await getLogin(new NextRequest(reqLogin.url, { headers: { host: "acme.support.servicev8.com" } }));
+    expect(entry.headers.get("location")).toBe("https://acme.support.servicev8.com/?signin=1&next=%2Ftickets%2FTCK-8821");
+    // Successful proof-bearing form return-path behavior has mounted composition coverage.
+
 
     // 2. Logout clears session cookie and returns 303
     const reqLogout = new NextRequest("https://acme.support.servicev8.com/logout", {
@@ -330,18 +330,10 @@ describe("Tenant Subdomain Routing & Workspace Discovery Standard (TR01-TR08)", 
       },
     });
     const resLogin = await getLogin(reqLogin);
-    const html = await resLogin.text();
+    expect(resLogin.status).toBe(302);
+    expect(resLogin.headers.get("location")).toBe("https://acme-corp.support.servicev8.com/?signin=1");
+    // Native React accessibility is covered in tenant-routing-browser.test.tsx.
 
-    expect(html).toContain('<label for="tenant-login-email"');
-    expect(html).toContain('id="tenant-login-email"');
-    expect(html).toContain('autocomplete="email"');
-
-    expect(html).toContain('<label for="tenant-login-password"');
-    expect(html).toContain('id="tenant-login-password"');
-    expect(html).toContain('autocomplete="current-password"');
-
-    // Scoped tenant login does not render duplicate workspace prompt
-    expect(html).not.toContain('id="panel-login-workspace"');
 
     // 2. Host validation rules
     expect(isTrustedServiceV8Hostname("support.servicev8.com")).toBe(true);

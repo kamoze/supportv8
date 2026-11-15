@@ -6,6 +6,7 @@ import {
   supportOperatorDisplayName,
   supportRolesFromClaims,
 } from "@/lib/auth/keycloak";
+import { authorizeCanonicalRequestWorkspace } from "@/lib/auth/canonical-request-workspace";
 import { tenantSlugFromId } from "@/lib/auth/request-tenant";
 
 const MAX_BROWSER_SESSION_SECONDS = 8 * 60 * 60;
@@ -21,6 +22,9 @@ function setAccessCookie(response: NextResponse, token: string, maxAge: number) 
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin");
+  if (process.env.NODE_ENV === "production" && (!origin || origin !== `https://${request.headers.get("host")}` || request.headers.get("sec-fetch-site") === "cross-site"))
+    return NextResponse.json({success:false,error:"Invalid session renewal origin."},{status:403,headers:{"cache-control":"no-store"}});
   const refreshToken = request.cookies.get("sv8_refresh_token")?.value;
 
   if (refreshToken) {
@@ -32,7 +36,12 @@ export async function POST(request: NextRequest) {
     if (typeof tenantId !== "string") {
       return NextResponse.json({ success: false, error: "Session tenant is invalid." }, { status: 403 });
     }
-    const tenantSlug = tenantSlugFromId(tenantId);
+    let tenantSlug: string;
+    try {
+      tenantSlug = process.env.NODE_ENV === "production"
+        ? (await authorizeCanonicalRequestWorkspace(refreshed.decodedClaims, request)).slug
+        : tenantSlugFromId(tenantId);
+    } catch { return NextResponse.json({success:false,error:"Workspace access is unavailable or revoked."},{status:403,headers:{"cache-control":"no-store"}}); }
     const roles = supportRolesFromClaims(refreshed.decodedClaims);
     const role = mapRealmRolesToSupportRole(roles);
     if (!role) {
@@ -43,7 +52,7 @@ export async function POST(request: NextRequest) {
     const session = AuthService.createSession(tenantSlug, email, role, name);
     const browserSeconds = Math.min(refreshed.refreshExpiresIn || MAX_BROWSER_SESSION_SECONDS, MAX_BROWSER_SESSION_SECONDS);
     session.expiresAt = Date.now() + browserSeconds * 1000;
-    const response = NextResponse.json({ success: true, session });
+    const response = NextResponse.json({ success: true, session }, {headers:{"cache-control":"no-store"}});
     setAccessCookie(response, refreshed.accessToken, refreshed.expiresIn || 5 * 60);
     if (refreshed.refreshToken) {
       response.cookies.set("sv8_refresh_token", refreshed.refreshToken, {

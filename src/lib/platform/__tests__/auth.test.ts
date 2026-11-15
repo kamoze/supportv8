@@ -1,3 +1,5 @@
+// These downstream identity/OTP unit cases isolate proof transport; actual proof composition is covered by auth-bot-proof-routes.test.ts.
+vi.mock("@/lib/auth/bot-challenge", async (original) => ({ ...await original<typeof import("@/lib/auth/bot-challenge")>(), authBotChallenge: { consume: vi.fn().mockResolvedValue(undefined) } }));
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { POST as postOtpSend } from "@/app/api/auth/otp/send/route";

@@ -1,3 +1,4 @@
+import { nativeLoginAuthority } from "@/lib/auth/native-login-authority";
 import { NextRequest, NextResponse } from "next/server";
 import { credentialStore } from "@/lib/auth/credential-store";
 import { AuthService } from "@/lib/auth-service";
@@ -7,19 +8,22 @@ import {
   supportRolesFromClaims,
   verifyKeycloakPassword,
 } from "@/lib/auth/keycloak";
-import { tenantIdFromSlug, tenantSlugFromId } from "@/lib/auth/request-tenant";
+import { authBotChallenge, authJson, botProofFailure } from "@/lib/auth/bot-challenge";
+import { BotProofError } from "@/lib/auth/bot-transaction";
 
-export async function POST(req: NextRequest) {
+async function authenticate(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await authJson(req);
     const { email, password, tenantSlug } = body;
 
-    if (!email || !password) {
+    if (typeof email !== "string" || !email || email.length > 254 || typeof password !== "string" || !password || password.length > 256 || typeof tenantSlug !== "string") {
       return NextResponse.json(
         { success: false, error: "Email and password are required." },
         { status: 400 }
       );
     }
+
+    const registered = await authBotChallenge.consume(req, "signin", body);
 
     const cleanEmail = email.trim().toLowerCase();
     let user;
@@ -28,7 +32,7 @@ export async function POST(req: NextRequest) {
     let refreshExpiresIn: number | undefined;
     let tokenExpiresAt: number | undefined;
 
-    // Production identity and tenant membership come directly from Keycloak.
+    // Keycloak verifies identity; fresh Registry membership and the persisted native binding authorize this workspace.
     // The process-local credential store is only a test/development adapter.
     if (process.env.NODE_ENV === "production") {
       const keycloak = await verifyKeycloakPassword(cleanEmail, password);
@@ -39,35 +43,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const claimTenant =
-        keycloak.decodedClaims?.tenant_id ||
-        keycloak.decodedClaims?.attributes?.tenant_id?.[0];
-      if (typeof claimTenant !== "string") {
-        return NextResponse.json(
-          { success: false, error: "Identity provider tenant claim is missing or invalid." },
-          { status: 403 }
-        );
-      }
-
-      let resolvedTenantSlug: string;
-      try {
-        resolvedTenantSlug = tenantSlugFromId(claimTenant);
-      } catch {
-        return NextResponse.json(
-          { success: false, error: "Identity provider tenant claim is missing or invalid." },
-          { status: 403 }
-        );
-      }
-      if (
-        tenantSlug &&
-        tenantSlug.trim().toLowerCase() !== "global" &&
-        claimTenant !== tenantIdFromSlug(tenantSlug)
-      ) {
-        return NextResponse.json(
-          { success: false, error: "Authenticated tenant claim does not match this workspace." },
-          { status: 403 }
-        );
-      }
+      const current = await nativeLoginAuthority.current(registered, keycloak.decodedClaims, req);
+      const resolvedTenantSlug = current.slug;
 
       const role = mapRealmRolesToSupportRole(
         supportRolesFromClaims(keycloak.decodedClaims || {})
@@ -150,9 +127,17 @@ export async function POST(req: NextRequest) {
     }
     return response;
   } catch (err: unknown) {
+    if (err instanceof BotProofError) return botProofFailure(err);
     return NextResponse.json(
       { success: false, error: "Authentication service is temporarily unavailable." },
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  const response = await authenticate(req);
+  response.headers.set("cache-control", "no-store");
+  response.headers.set("referrer-policy", "no-referrer");
+  return response;
 }

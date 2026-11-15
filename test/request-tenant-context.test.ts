@@ -1,3 +1,6 @@
+// Domain-role unit cases isolate the current canonical authority. The real host,
+// Registry and persisted binding composition is tested separately.
+vi.mock("@/lib/auth/canonical-request-workspace",()=>({authorizeCanonicalRequestWorkspace:vi.fn(async()=>({nativeTenantId:"tenant_acme",slug:"acme",accountId:"account-acme"}))}));
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/keycloak", async (importOriginal) => {

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { resolvePageWorkspace } from "@/lib/auth/page-workspace";
 import "./globals.css";
 import "./family.css";
 import "./family-legacy-tokens.css";
@@ -15,11 +18,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const workspace = await resolvePageWorkspace(await headers());
+  if (workspace === "verification_required") redirect("/workspace-verification-required");
+  if (workspace === "missing") redirect("/workspace-not-found");
+  if (workspace === "unavailable") redirect("/workspace-unavailable");
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>

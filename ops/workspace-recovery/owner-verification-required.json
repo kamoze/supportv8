@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "decisionDate": "2026-10-25",
+  "decision": "Require owner verification before linking",
+  "workspaces": [
+    {"slug": "lexiflowers", "nativeTenantId": "tenant_lexiflowers"},
+    {"slug": "bookdemo", "nativeTenantId": "tenant_bookdemo"},
+    {"slug": "booksdemo", "nativeTenantId": "tenant_booksdemo"},
+    {"slug": "asun-palace-store", "nativeTenantId": "tenant_asun_palace_store"}
+  ]
+}

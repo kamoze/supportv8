@@ -1,3 +1,5 @@
+// These downstream identity/OTP unit cases isolate proof transport; actual proof composition is covered by auth-bot-proof-routes.test.ts.
+vi.mock("@/lib/auth/bot-challenge", async (original) => ({ ...await original<typeof import("@/lib/auth/bot-challenge")>(), authBotChallenge: { consume: vi.fn().mockResolvedValue(undefined) } }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -42,7 +44,7 @@ import { POST } from "../src/app/api/auth/password/recover/route";
 function recoveryRequest(body: Record<string, unknown>) {
   return new NextRequest("https://alpha.support.servicev8.com/api/auth/password/recover", {
     method: "POST",
-    headers: { "x-real-ip": "192.0.2.10" },
+    headers: { "x-real-ip": "192.0.2.10", "content-type": "application/json" },
     body: JSON.stringify({ email: "admin@example.com", tenantSlug: "alpha", ...body }),
   });
 }

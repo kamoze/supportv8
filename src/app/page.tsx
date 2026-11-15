@@ -153,6 +153,7 @@ import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { runtimeTicketHref } from "@/lib/service-app/runtime-native-workdesk";
 import { RuntimeNativeWorkdesk } from "@/components/workspace/RuntimeNativeWorkdesk";
 import { AuthService, type AuthSession } from "@/lib/auth-service";
+import { supportRoleLabel } from "@/lib/auth/role-presentation";
 import {
   browserTenantSlugFromHostname,
   resolveBrowserWorkspace,
@@ -1834,6 +1835,7 @@ export default function SupportV8Dashboard() {
 
   const currentRole: AuthSession["role"] = operatorSession?.role || "cx_lead";
   const isContractorRole = currentRole === "contractor" || currentRole === "contractor_lead" || currentRole === "technician";
+  const currentRoleLabel = supportRoleLabel(currentRole);
 
   const allNavSections = [
     {
@@ -2284,7 +2286,7 @@ export default function SupportV8Dashboard() {
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           onSelect={(id) => { setActiveTab(id); setIsMobileSidebarOpen(false); }}
           identity={operatorSession?.name || currentTenantSlug}
-          roleLabel={isContractorRole ? "Contractor" : currentRole === "operator" ? "Operator" : "CX Lead"}
+          roleLabel={currentRoleLabel}
           footerAction={<><button type="button" onClick={() => setIsChatOpen(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#2ED8B6] hover:bg-[#18222E]" aria-label="Ask supportV8"><MessagesSquare className="h-4 w-4" /></button><button type="button" onClick={handleLogout} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#E5484D] hover:bg-[#E5484D]/10" aria-label="Sign out"><LogOut className="h-4 w-4" /></button></>}
         />
       }
@@ -2432,14 +2434,14 @@ export default function SupportV8Dashboard() {
                 }`}
               >
                 <div className="w-6 h-6 rounded-lg bg-[#182635] border border-[var(--line-2)] flex items-center justify-center text-xs font-bold text-[#2ED8B6]">
-                  {isContractorRole ? <HardHat className="w-3.5 h-3.5" /> : currentRole === "operator" ? <Headphones className="w-3.5 h-3.5" /> : <Award className="w-3.5 h-3.5" />}
+                  {isContractorRole ? <HardHat className="w-3.5 h-3.5" /> : currentRole === "observer" ? <Eye className="w-3.5 h-3.5" /> : currentRole === "operator" ? <Headphones className="w-3.5 h-3.5" /> : <Award className="w-3.5 h-3.5" />}
                 </div>
                 <div className="hidden lg:flex flex-col text-left text-xs font-mono">
                   <span className="font-bold text-[#EAF1F8] leading-tight truncate max-w-[110px]">
                     {operatorSession?.name || "Admin"}
                   </span>
                   <span className="text-[9px] text-[#2ED8B6] uppercase tracking-wider">
-                    {isContractorRole ? "Contractor" : currentRole === "operator" ? "Operator" : "CX Lead"}
+                    {currentRoleLabel}
                   </span>
                 </div>
                 <ChevronDown className={`w-3.5 h-3.5 text-[#6B7C8D] transition-transform ${isUserMenuOpen ? "rotate-180 text-[#2ED8B6]" : ""}`} />

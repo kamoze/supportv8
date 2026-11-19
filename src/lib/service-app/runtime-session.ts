@@ -5,6 +5,7 @@ import {
   type SupportRuntimeScope,
 } from "./runtime-access";
 import type { RuntimeSupportRole } from "./runtime-handoff-claims";
+import { isTrustedRuntimeWorkspaceUrl } from "./runtime-url";
 
 export const RUNTIME_SUPPORT_COOKIE = "__Host-sv8_runtime_support";
 export const RUNTIME_SUPPORT_SESSION_TTL = 8 * 60 * 60;
@@ -14,6 +15,8 @@ export type RuntimeSupportSession = Omit<SupportRuntimeScope, "subject"> & {
   aud: "supportv8-runtime-session";
   roleCap: RuntimeSupportRole;
   tenantDomain: string;
+  /** From a v2 hand-off: the tenant's Runtime workspace. Optional; presentation only. */
+  runtimeUrl?: string;
   iat: number;
   exp: number;
 };
@@ -80,6 +83,7 @@ export function verifyRuntimeSupportSession(
   secret: string | undefined,
   host: string,
   now = Math.floor(Date.now() / 1000),
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): RuntimeSupportSession | null {
   const k = key(secret);
   if (
@@ -112,9 +116,12 @@ export function verifyRuntimeSupportSession(
       actual.length !== expected.length ||
       !timingSafeEqual(actual, expected) ||
       !object(body) ||
-      Object.keys(body).length !== fields.length ||
+      Object.keys(body).length !== fields.length + (Object.hasOwn(body, "runtimeUrl") ? 1 : 0) ||
       !fields.every((f) => Object.hasOwn(body, f))
     )
+      return null;
+    // A Runtime URL is re-checked on every read against the configured Runtime origin.
+    if (Object.hasOwn(body, "runtimeUrl") && !isTrustedRuntimeWorkspaceUrl(body.runtimeUrl, body.tenantDomain, env))
       return null;
     const scope = {
       accountId: body.accountId,

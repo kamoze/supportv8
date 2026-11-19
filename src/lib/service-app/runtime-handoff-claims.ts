@@ -1,12 +1,20 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isTrustedRuntimeWorkspaceUrl } from "./runtime-url";
 
 export const RUNTIME_SUPPORT_HANDOFF_VERSION =
   "servicev8.support-handoff.v1" as const;
+/** v2 is exactly v1 plus a required `runtimeUrl` (kamoze/servicev8-agentic-runtime#187). */
+export const RUNTIME_SUPPORT_HANDOFF_VERSION_WITH_RUNTIME_URL =
+  "servicev8.support-handoff.v2" as const;
 export const RUNTIME_SUPPORT_HANDOFF_AUDIENCE =
   "supportv8-service-app" as const;
 export type RuntimeSupportRole = "support:read" | "support:manage";
 export type RuntimeSupportHandoffClaims = {
-  version: typeof RUNTIME_SUPPORT_HANDOFF_VERSION;
+  version:
+    | typeof RUNTIME_SUPPORT_HANDOFF_VERSION
+    | typeof RUNTIME_SUPPORT_HANDOFF_VERSION_WITH_RUNTIME_URL;
+  /** v2 only: the tenant's Runtime workspace, validated against SUPPORTV8_RUNTIME_ORIGIN. */
+  runtimeUrl?: string;
   iss: "runtime";
   aud: typeof RUNTIME_SUPPORT_HANDOFF_AUDIENCE;
   sub: string;
@@ -54,6 +62,8 @@ const optionalFields = [
   "poolAccountId",
 ];
 const allowedKeys = new Set([...fields, ...optionalFields]);
+// v2 = v1 + runtimeUrl (required). v1 never carries runtimeUrl.
+const allowedKeysV2 = new Set([...allowedKeys, "runtimeUrl"]);
 const ref = /^[A-Za-z0-9_:@.-]{1,192}$/;
 const reference = (v: unknown): v is string =>
   typeof v === "string" && ref.test(v);
@@ -74,6 +84,7 @@ export function verifyRuntimeSupportHandoffToken(
   token: unknown,
   secret: string | undefined,
   nowSeconds = Math.floor(Date.now() / 1000),
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): RuntimeSupportHandoffClaims | null {
   if (
     typeof token !== "string" ||
@@ -105,14 +116,21 @@ export function verifyRuntimeSupportHandoffToken(
       header.typ !== "JWT" ||
       !object(body) ||
       !fields.every((k) => Object.hasOwn(body, k)) ||
-      !Object.keys(body).every((k) => allowedKeys.has(k))
+      !Object.keys(body).every((k) =>
+        (body.version === RUNTIME_SUPPORT_HANDOFF_VERSION_WITH_RUNTIME_URL ? allowedKeysV2 : allowedKeys).has(k),
+      )
     )
       return null;
     const expected = createHmac("sha256", secret).update(`${h}.${p}`).digest();
     if (sb.length !== expected.length || !timingSafeEqual(sb, expected))
       return null;
     if (
-      body.version !== RUNTIME_SUPPORT_HANDOFF_VERSION ||
+      (body.version !== RUNTIME_SUPPORT_HANDOFF_VERSION &&
+        body.version !== RUNTIME_SUPPORT_HANDOFF_VERSION_WITH_RUNTIME_URL) ||
+      // v2 requires a Runtime workspace URL this deployment trusts, for this tenant.
+      (body.version === RUNTIME_SUPPORT_HANDOFF_VERSION_WITH_RUNTIME_URL &&
+        !isTrustedRuntimeWorkspaceUrl(body.runtimeUrl, body.tenantDomain, env)) ||
+      (body.version === RUNTIME_SUPPORT_HANDOFF_VERSION && Object.hasOwn(body, "runtimeUrl")) ||
       body.iss !== "runtime" ||
       body.aud !== RUNTIME_SUPPORT_HANDOFF_AUDIENCE ||
       body.verticalId !== "runtime" ||

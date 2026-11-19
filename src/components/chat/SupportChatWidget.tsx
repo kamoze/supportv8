@@ -49,6 +49,7 @@ import { soundAlertService } from "@/lib/services/sound-alert-service";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import { ChatMessage as ChatMessageView, PlainChatText } from "@/components/chat-ui/ChatMessage";
 import { ChatTranscript } from "@/components/chat-ui/ChatTranscript";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
 import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
 
@@ -130,7 +131,6 @@ function createClientChatSession(
     assignedId: "emp_support_lead",
     assignedName: assignedTo,
     assignedTo,
-    assignedAvatar: "/avatars/beaver-sophia.jpg",
     status: "active",
     priority: "normal",
     createdAt: new Date().toISOString(),
@@ -660,10 +660,12 @@ export function SupportChatWidget({
           <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between shrink-0 pt-[max(env(safe-area-inset-top),12px)] sm:pt-4">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[var(--chat-brand-soft)] border border-[var(--chat-brand-border)] flex items-center justify-center text-[var(--chat-brand)] font-bold shrink-0">
-                {activeSession?.assignedAvatar ? (
-                  <img
+                {activeSession && (activeSession.assignedAvatar || activeSession.assignedType === "ai") ? (
+                  <EmployeeAvatar
                     src={activeSession.assignedAvatar}
-                    alt="Agent"
+                    name={activeSession.assignedName}
+                    role="support"
+                    size={36}
                     className="w-full h-full object-cover rounded-xl"
                   />
                 ) : (
@@ -986,7 +988,7 @@ export function SupportChatWidget({
                       author={msg.senderName || (isAi ? "AI specialist" : "Support team")}
                       role={isAi ? "AI specialist" : "Support team"}
                       time={msg.timestamp}
-                      portrait={isAi ? { name: msg.senderName || "", role: "support" } : null}
+                      portrait={isAi ? { name: msg.senderName || "", role: "support", src: msg.senderAvatar } : null}
                       footer={(msg.citations?.length || msg.suggestedActions?.length) ? (
                         <div className="chat-message-footer">
                           {/* Citations */}

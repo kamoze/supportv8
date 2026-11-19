@@ -38,7 +38,7 @@ export function ChatMessage({
   role?: string;
   time?: string;
   /** AI employees and assistants only: the name/role the portrait is resolved from. */
-  portrait?: { name: string; role?: string; kind?: "employee" | "intern" } | null;
+  portrait?: { name: string; role?: string; kind?: "employee" | "intern"; src?: string | null } | null;
   children: ReactNode;
   /** Citations, actions or delivery state, after the body. */
   footer?: ReactNode;
@@ -49,7 +49,7 @@ export function ChatMessage({
     <article className={`chat-bubble ${kind} ${className}`.trim()} data-testid={testId}>
       <div className="chat-meta">
         <strong className="chat-author">
-          {portrait && <EmployeeAvatar name={portrait.name} role={portrait.role} kind={portrait.kind} size={28} />}
+          {portrait && <EmployeeAvatar name={portrait.name} role={portrait.role} kind={portrait.kind} src={portrait.src} size={28} />}
           <span className="chat-author-text">
             <span className="chat-author-name">{author}</span>
             {handle && <small className="employee-handle">@{handle}</small>}

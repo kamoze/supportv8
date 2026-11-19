@@ -30,6 +30,7 @@ import type {
   KnowledgeDocument,
   KnowledgeWebSource,
 } from "@/lib/types";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 
 interface KnowledgeGraphCanvasProps {
   knowledge: {
@@ -883,10 +884,10 @@ export function KnowledgeGraphCanvas({
               {/* Column 3: AI Curators */}
               <div className="space-y-3">
                 {[
-                  { id: "emp_jordan", name: "Jordan (KB Specialist)", role: "Deficit Mining", avatar: "/avatars/beaver-curator.jpg" },
-                  { id: "emp_alex", name: "Alex (Support Lead)", role: "Autonomous Resolution", avatar: "/avatars/beaver-manager.jpg" },
-                  { id: "emp_maya", name: "Maya (Incident Analyst)", role: "Blast Radius Analysis", avatar: "/avatars/beaver-analyst.jpg" },
-                  { id: "emp_eleanor", name: "Eleanor (Governance)", role: "Safety Auditing", avatar: "/avatars/beaver-eleanor.jpg" },
+                  { id: "emp_jordan", name: "Jordan (KB Specialist)", role: "Deficit Mining" },
+                  { id: "emp_alex", name: "Alex (Support Lead)", role: "Autonomous Resolution" },
+                  { id: "emp_maya", name: "Maya (Incident Analyst)", role: "Blast Radius Analysis" },
+                  { id: "emp_eleanor", name: "Eleanor (Governance)", role: "Safety Auditing" },
                 ].map((emp) => {
                   const isLit = litLifecycleNode === emp.id;
                   return (
@@ -900,7 +901,8 @@ export function KnowledgeGraphCanvas({
                           : "bg-[#121A24] border-[var(--line)] hover:border-[#2ED8B6]/50"
                       }`}
                     >
-                      <img src={emp.avatar} alt={emp.name} className="w-7 h-7 rounded-lg object-cover border border-[var(--line)]" />
+                      {/* Mock curators resolve by name and role like every other employee. */}
+                      <EmployeeAvatar name={emp.name} role={emp.role} size={28} className="w-7 h-7 rounded-lg object-cover border border-[var(--line)]" />
                       <div>
                         <div className="text-xs font-bold text-[#EAF1F8]">{emp.name.split("(")[0]}</div>
                         <div className="text-[10px] font-mono text-[#6B7C8D]">{emp.role}</div>

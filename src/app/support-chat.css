@@ -50,7 +50,8 @@
 .chat-author-role { color: var(--sv8-muted); font-size: 12px; font-weight: 500; }
 .chat-time { flex-shrink: 0; color: var(--sv8-muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .employee-handle { color: var(--sv8-selected-text); font-size: 12px; font-weight: 500; }
-.employee-avatar { flex: none; display: block; border-radius: 50%; object-fit: cover; background: var(--sv8-raised); }
+.employee-avatar { flex: none; display: block; object-fit: cover; background: var(--sv8-raised); }
+.chat-bubble .employee-avatar, .chat-person .employee-avatar { border-radius: 50%; }
 
 .chat-body { font-size: 14px; line-height: 1.55; }
 .chat-plain { margin: 0; white-space: pre-wrap; font-size: 14px; line-height: 1.55; }

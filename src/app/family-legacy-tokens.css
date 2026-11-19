@@ -11,3 +11,4 @@ html[data-family-theme="light"] .text-white { color:var(--text); }
 html[data-family-theme="light"] [class*="bg-gradient-"] { background-image:none; }
 :is([class~="text-[#6B7C8D]"],[class~="text-[#8E9AA8]"],[class~="text-[#8E9CAE]"]) { color:var(--muted); }
 html[data-family-theme="light"] :is([class~="text-[var(--support-sec-text)]"]) { color:var(--support-sec-text); }
+html[data-family-theme="light"] [class~="text-[var(--support-lime)]"] { color:#476d00; }

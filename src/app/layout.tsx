@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./family.css";
 import "./family-legacy-tokens.css";
+import "./support-family-bridge.css";
 
 export const metadata: Metadata = {
   title: "supportv8 — AI Customer Support Intelligence & Automation",
@@ -24,6 +25,10 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <script src="/family-theme.js" />
+        {/* Shared ServiceV8 family shell, vendored by scripts/sync-family-ui.mjs (no CDN). */}
+        <link rel="stylesheet" href="/vendor/family-ui/family.css" />
+        {/* Fetched early; SupportFamilyShell runs it once as a module script. */}
+        <link rel="modulepreload" href="/vendor/family-ui/family.js" />
         <meta name="theme-color" content="#0B1017" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -32,12 +37,6 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/favicon.svg" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
         <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-regular-rounded/css/uicons-regular-rounded.css" />
         <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css" />
         <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.6.0/uicons-bold-rounded/css/uicons-bold-rounded.css" />

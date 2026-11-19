@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { FamilyThemeToggle, groupSupportNavigation, useFamilyDialog } from "@/components/FamilyControls";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { groupSupportNavigation } from "@/components/FamilyControls";
 import {
   Activity,
   AlertCircle,
@@ -85,7 +85,9 @@ import {
   X,
   Zap,
 } from "@/components/ui/FlatIcon";
-import { SupportWorkspaceHeaderFrame, SupportWorkspaceNavigation, SupportWorkspaceShell } from "@/components/workspace/SupportWorkspaceShell";
+import { SupportWorkspaceHeaderFrame } from "@/components/workspace/SupportWorkspaceShell";
+import { SupportFamilyShell } from "@/components/shell/SupportFamilyShell";
+import { SUPPORT_SHELL_TOOLS, supportShellNav } from "@/components/shell/support-nav";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import { soundAlertService } from "@/lib/services/sound-alert-service";
 import type {
@@ -318,15 +320,6 @@ export default function SupportV8Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [studioSubTab, setStudioSubTab] = useState<"workflows" | "templates" | "simulator" | "sweeps" | "setup" | "fleet">("workflows");
   const [studioEmployeeId, setStudioEmployeeId] = useState<string>("emp_support_lead");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
-  const mobileRail = useFamilyDialog<HTMLElement>(isMobileSidebarOpen, () => setIsMobileSidebarOpen(false));
-  useEffect(() => {
-    const breakpoint = matchMedia("(min-width: 768px)");
-    const closeMobile = () => { if (breakpoint.matches) setIsMobileSidebarOpen(false); };
-    breakpoint.addEventListener("change", closeMobile);
-    return () => breakpoint.removeEventListener("change", closeMobile);
-  }, []);
   // The tenant's stored AI mode from /api/policies; null means "Not set" (never a default).
   const [operatingMode, setOperatingMode] = useState<TenantOperatingMode | null>(null);
   const [isSavingOperatingMode, setIsSavingOperatingMode] = useState(false);
@@ -2131,6 +2124,15 @@ export default function SupportV8Dashboard() {
     }
   }, [currentRole, activeTab, navSections, isContractorRole]);
 
+  // One navigation for the family shell: the rendered grouping of navSections, plus Voice.
+  // The structure is rebuilt only when ids or labels change; counts go to the sidebar as badges.
+  const shellNavKey = JSON.stringify(navSections.map((s) => [s.title, s.items.map((i) => [i.id, i.label])]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const shellNav = useMemo(() => supportShellNav(groupSupportNavigation(navSections, isContractorRole), { contractor: isContractorRole }), [shellNavKey, isContractorRole]);
+  const shellBadges = Object.fromEntries(navSections.flatMap((s) => s.items.map((i) => [i.id, (i as { badge?: number }).badge ?? 0])));
+  // Embedded when the session came through the Runtime hand-off (/auth/runtime/handoff), standalone otherwise.
+  const shellMode: "standalone" | "embedded" = runtimeHandoff ? "embedded" : "standalone";
+
   if (viewMode === "global_landing") {
     return (
       <>
@@ -2336,24 +2338,18 @@ export default function SupportV8Dashboard() {
   }
 
   return (
-    <SupportWorkspaceShell
-      mobileOpen={isMobileSidebarOpen}
-      onCloseMobile={() => setIsMobileSidebarOpen(false)}
-      navigation={
-        <SupportWorkspaceNavigation
-          sections={groupSupportNavigation(navSections, isContractorRole)}
-          activeId={activeTab}
-          collapsed={isSidebarCollapsed}
-          mobileOpen={isMobileSidebarOpen}
-          navigationRef={mobileRail}
-          onToggleCollapsed={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onCloseMobile={() => setIsMobileSidebarOpen(false)}
-          onSelect={(id) => { setActiveTab(id); setIsMobileSidebarOpen(false); }}
-          identity={operatorSession?.name || currentTenantSlug}
-          roleLabel={currentRoleLabel}
-          footerAction={<><button type="button" onClick={() => setIsChatOpen(true)} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#2ED8B6] hover:bg-[#18222E]" aria-label="Ask supportV8"><MessagesSquare className="h-4 w-4" /></button><button type="button" onClick={handleLogout} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#E5484D] hover:bg-[#E5484D]/10" aria-label="Sign out"><LogOut className="h-4 w-4" /></button></>}
-        />
-      }
+    <SupportFamilyShell
+      mode={shellMode}
+      active={activeTab}
+      nav={shellNav}
+      badges={shellBadges}
+      tools={SUPPORT_SHELL_TOOLS}
+      tenant={currentTenantSlug}
+      tenantSub={shellMode === "embedded" ? "Runtime workspace" : `${currentTenantSlug}.support.servicev8.com`}
+      userName={`${operatorSession?.name || currentTenantSlug} · ${currentRoleLabel}`}
+      onNavigate={setActiveTab}
+      onSignOut={handleLogout}
+      onTool={(id) => { if (id === "ask") setIsChatOpen(true); }}
     >
       {/* Toast Notification */}
       {actionNotice && (
@@ -2393,14 +2389,6 @@ export default function SupportV8Dashboard() {
         <SupportWorkspaceHeaderFrame>
           {/* Left: Breadcrumbs & Active Tenant Tag */}
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-            <button
-              type="button"
-              aria-label="Open navigation"
-              onClick={() => { setIsSidebarCollapsed(false); setIsMobileSidebarOpen(true); }}
-              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--line)] bg-[#121A24] text-[#8E9AA8] transition-colors hover:border-[#2ED8B6] hover:text-[#EAF1F8] md:hidden"
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
             <div className="flex items-center gap-1 sm:gap-2 text-xs min-w-0">
               <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
                 <span className="text-white font-extrabold text-sm">support</span>
@@ -2451,8 +2439,8 @@ export default function SupportV8Dashboard() {
               })}
             </div>
 
-            {/* ForgeGW Credits Pill Button */}
-            <button
+            {/* ForgeGW Credits Pill Button: standalone only; Runtime manages models and credits when embedded. */}
+            {shellMode === "standalone" && <button
               type="button"
               onClick={() => setIsForgeGwModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#101722] hover:bg-[#141E2B] border border-[var(--line)] hover:border-[#2ED8B6]/40 text-xs font-mono transition-all cursor-pointer"
@@ -2462,7 +2450,7 @@ export default function SupportV8Dashboard() {
               <span className="text-[#EAF1F8] font-bold">
                 {modelProvider === "forgegw" ? `${forgeGwCredits.toLocaleString()} Credits` : "BYOM Key"}
               </span>
-            </button>
+            </button>}
           </div>
 
           {/* Right: Quick Search, Refresh, Audio & Unified User Profile Dropdown */}
@@ -3084,6 +3072,6 @@ export default function SupportV8Dashboard() {
           notify(`Workspace '${slug}' provisioned! Please sign in with your administrator credentials.`, "success");
         }}
       />
-    </SupportWorkspaceShell>
+    </SupportFamilyShell>
   );
 }

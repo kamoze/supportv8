@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { randomBytes } from "crypto";
 import { hashPassword, verifyPasswordHash } from "./password";
 import {
   verifyKeycloakPassword,
@@ -21,9 +22,16 @@ export interface UserCredentialRecord {
   passwordModified?: boolean;
 }
 
-// Default master password for seeded demo accounts: SupportV8#2026!Secure
-const DEFAULT_DEMO_PASSWORD = "SupportV8#2026!Secure";
-const DEFAULT_DEMO_HASH = hashPassword(DEFAULT_DEMO_PASSWORD);
+// Seeded development accounts. Production sign-in goes through Keycloak (see
+// the login routes), whose seed-user passwords come from SSM via ESO in
+// servicev8-devops. Locally, set SUPPORTV8_DEV_SEED_PASSWORD to sign in as these
+// accounts; without it they get a random per-process password nobody knows.
+// No password is ever committed here.
+function seedPasswordHash(): string {
+  const configured = process.env.NODE_ENV === "production" ? undefined : process.env.SUPPORTV8_DEV_SEED_PASSWORD;
+  return hashPassword(configured && configured.length >= 12 ? configured : randomBytes(32).toString("base64url"));
+}
+const DEFAULT_DEMO_HASH = seedPasswordHash();
 
 export const INITIAL_USER_CREDENTIALS: UserCredentialRecord[] = [
   {
@@ -73,39 +81,6 @@ export const INITIAL_USER_CREDENTIALS: UserCredentialRecord[] = [
     name: "Meridian Field Dispatch",
     tenantSlug: "meridian",
     role: "contractor_lead",
-    status: "active",
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
-];
-
-export const QA_PRESET_CREDENTIALS: UserCredentialRecord[] = [
-  {
-    id: "usr_lexi_plant",
-    email: "lexi14425@gmail.com",
-    passwordHash: hashPassword("1@aBcdef"),
-    name: "Alexis Akpabio",
-    tenantSlug: "lexi-s-planthouse",
-    role: "cx_lead",
-    status: "active",
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
-  {
-    id: "usr_winnie_shoes",
-    email: "lisadynamite1@gmail.com",
-    passwordHash: hashPassword("2#abcdefg"),
-    name: "Winifred Douglas",
-    tenantSlug: "winnie-shoes-demo",
-    role: "cx_lead",
-    status: "active",
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
-  {
-    id: "usr_lexi_win",
-    email: "lexi14425@gmail.com",
-    passwordHash: hashPassword("45678901"),
-    name: "Alexis Akpabio",
-    tenantSlug: "windowsdemo",
-    role: "cx_lead",
     status: "active",
     createdAt: "2026-01-01T00:00:00.000Z",
   },
@@ -163,12 +138,6 @@ export class UserCredentialStore {
       this.users.set(key, { ...u });
       if (!this.users.has(u.email.toLowerCase().trim())) {
         this.users.set(u.email.toLowerCase().trim(), { ...u });
-      }
-    }
-    for (const u of QA_PRESET_CREDENTIALS) {
-      const key = this.getKey(u.email, u.tenantSlug);
-      if (!this.users.has(key)) {
-        this.users.set(key, { ...u });
       }
     }
     const persisted = loadPersistedUsers();

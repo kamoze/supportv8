@@ -61,6 +61,15 @@ npx vitest run
 PORT=3005 npm run dev
 ```
 
+### Family shell
+The signed-in workspace runs on the shared ServiceV8 family shell
+(`@kamoze/servicev8-family-ui`): `<sv8-shell app="support">` with one
+`<sv8-sidebar>` (`src/components/shell/`). The built files are vendored into
+`public/vendor/family-ui/` and served from SupportV8's own origin; refresh them
+with `node scripts/sync-family-ui.mjs [path-to-family-ui/dist]`.
+`src/app/support-family-bridge.css` maps the existing views onto the family
+tokens until plan step 5 replaces their hard-coded colours.
+
 ### Demo sandbox (off by default)
 The Acme and Meridian demo tenants, their named personas, the seeded demo
 credentials, the landing-page demo entries and the demo access modal exist only

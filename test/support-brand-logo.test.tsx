@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { SupportV8Logo, SUPPORT_BRAND } from "@/components/SupportV8Logo";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 
-const file = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const file = (path: string) => readFileSync(`${process.cwd()}/${path}`, "utf8");
 const squares = (svg: string) =>
   [...svg.matchAll(/<rect x="(\d+)" y="(\d+)"[^>]*fill="(#[0-9a-f]{6})"/gi)].map(([, x, y, fill]) => `${x},${y}:${fill.toUpperCase()}`);
 const FAMILY_MARK = ["0,0:#C8FF00", "17,0:#2ED8B6", "0,17:#C8FF00", "17,17:#00F2FE"];
@@ -20,7 +20,7 @@ describe("SupportV8 family logo (F4)", () => {
 
   it("keeps the previous marks in the brand backups", () => {
     for (const name of ["SupportV8Logo.tsx.txt", "icon.svg", "favicon.svg", "README.md"]) {
-      expect(existsSync(new URL(`../docs/brand-backups/2026-11-18/${name}`, import.meta.url))).toBe(true);
+      expect(existsSync(`${process.cwd()}/docs/brand-backups/2026-11-18/${name}`)).toBe(true);
     }
     expect(file("docs/brand-backups/2026-11-18/favicon.svg")).toContain("#2ED8B6");
   });

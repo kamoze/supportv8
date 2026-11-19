@@ -1,17 +1,24 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { ChatMessage } from "@/app/page";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import { ArrowRight, Bot, CornerDownLeft, RefreshCw, Send, Sparkles, Trash2, X } from "@/components/ui/FlatIcon";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { DEFAULT_RAG_ASSISTANT } from "@/lib/types";
+import { ChatMessage as ChatMessageView, PlainChatText } from "@/components/chat-ui/ChatMessage";
+import { ChatTranscript } from "@/components/chat-ui/ChatTranscript";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
+import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
+import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
+import { employeeDisplayName } from "@/lib/chat/employee-avatar";
 
 export interface CopilotConsoleModalProps {
   chatLoading: boolean;
   chatMessages: ChatMessage[];
   chatQuery: string;
-  handleAskChat: (e?: React.FormEvent, overrideQuery?: string) => Promise<void>;
+  /** Resolves false when no reply arrived; the draft is then kept. */
+  handleAskChat: (e?: React.FormEvent, overrideQuery?: string) => Promise<boolean | void>;
   handleChatAction: (act: { label: string; action: string; targetTab?: string; payload?: any; }) => void;
   handleClearChat: () => void;
   handleSelectEmployee: (empId: string) => void;
@@ -38,6 +45,26 @@ export function CopilotConsoleModal({
   showModalPrompts,
   workforce,
 }: CopilotConsoleModalProps) {
+  // The page sends to selectedEmployeeId, or to the RAG assistant when none is selected.
+  const recipient = workforce.find((w) => w.id === selectedEmployeeId) || DEFAULT_RAG_ASSISTANT;
+  const recipientName = employeeDisplayName(recipient.name);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const pending = chatLoading || sending;
+  const send = async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (!chatQuery.trim() || pending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const answered = await handleAskChat();
+      if (answered === false) setSendError("No reply was received. Your draft is still here; try again.");
+    } catch {
+      setSendError("No reply was received. Your draft is still here; try again.");
+    } finally {
+      setSending(false);
+    }
+  };
   return (
 <div className="fixed inset-0 z-50 bg-[#0B1017]/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 md:p-6 pb-12 sm:pb-8">
           <div className="w-full max-w-4xl h-[78vh] max-h-[720px] card shadow-2xl p-0 border-[var(--line)] flex flex-col overflow-hidden bg-[#0C121A] rounded-2xl">
@@ -49,7 +76,7 @@ export function CopilotConsoleModal({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-[#EAF1F8]">Workforce Chat</h3>
+                    <h3 className="text-sm font-bold text-[#EAF1F8]" data-testid="chat-room-heading">{recipientName ? `Speak with ${recipientName}` : "Team conversation"}</h3>
                     <span className="pill ok text-[10px] py-0 px-2">
                       <i className="dot"></i> {workforce.length} HIRED
                     </span>
@@ -106,7 +133,7 @@ export function CopilotConsoleModal({
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <img src={w.avatarUrl} alt="" className="h-7 w-7 rounded-lg object-cover" />
+                        <EmployeeAvatar name={employeeDisplayName(w.name)} role={w.role} kind={w.level === "ai_intern" ? "intern" : undefined} />
                         <span
                           className={`text-[9px] font-mono px-1 py-0.2 rounded ${
                             w.level === "ai_employee"
@@ -134,127 +161,76 @@ export function CopilotConsoleModal({
               </div>
             </div>
 
-            {/* Chat Message Stream (Multi-Turn) */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-4 bg-[#0B1017]">
+            {/* Chat Message Stream (Multi-Turn): Runtime's transcript and message anatomy */}
+            <ChatTranscript className="flex-1 min-h-0 compact">
               {chatMessages.length === 0 && (
-                <div className="flex h-full min-h-40 items-center justify-center text-center">
-                  <div className="max-w-sm space-y-2">
-                    <Bot className="mx-auto h-6 w-6 text-[#6B7C8D]" />
-                    <p className="text-sm font-semibold text-[#EAF1F8]">No AI conversation yet</p>
-                    <p className="text-xs text-[#8E9AA8]">
-                      {selectedEmployeeId === DEFAULT_RAG_ASSISTANT.id
-                        ? "Query tickets, runbooks, and pgvector knowledge with SupportV8 RAG Intelligence."
-                        : workforce.length > 0
-                        ? `Ask ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "your AI employee"} anything or select a prompt below.`
-                        : "Hire an AI employee from Marketplace before starting a workforce chat."}
-                    </p>
-                  </div>
+                <div className="chat-no-messages">
+                  <h3>No AI conversation yet</h3>
+                  <p>
+                    {selectedEmployeeId === DEFAULT_RAG_ASSISTANT.id
+                      ? "Query tickets, runbooks, and pgvector knowledge with SupportV8 RAG Intelligence."
+                      : workforce.length > 0
+                      ? `Ask ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "your AI employee"} anything or select a prompt below.`
+                      : "Hire an AI employee from Marketplace before starting a workforce chat."}
+                  </p>
                 </div>
               )}
               {chatMessages.map((msg) => {
                 if (msg.role === "system") {
                   return (
-                    <div key={msg.id} className="flex justify-center my-2">
-                      <div className="text-[11px] text-[#6B7C8D] font-mono bg-[#121A24] px-3 py-1 rounded-full border border-[var(--line)] shadow-sm">
-                        {msg.content}
-                      </div>
-                    </div>
+                    <ChatMessageView key={msg.id} kind="system" author="SupportV8" time={msg.timestamp}>
+                      <FormattedChatMessage content={msg.content} />
+                    </ChatMessageView>
                   );
                 }
-
                 if (msg.role === "user") {
                   return (
-                    <div key={msg.id} className="flex justify-end">
-                      <div className="max-w-[85%] sm:max-w-[70%] bg-[#18222E] border border-[var(--line-2)] text-[#EAF1F8] p-3.5 rounded-2xl rounded-tr-sm text-xs shadow-md">
-                        <div className="flex items-center justify-between gap-3 pb-1 mb-1 border-b border-[var(--line)]/50 text-[10px] text-[#6B7C8D] font-mono">
-                          <span className="font-semibold text-[#B4C2D0]">You (CX Lead)</span>
-                          <span>{msg.timestamp}</span>
-                        </div>
-                        <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
-                      </div>
-                    </div>
+                    <ChatMessageView key={msg.id} kind="user" author="You" time={msg.timestamp}>
+                      <PlainChatText content={msg.content} />
+                    </ChatMessageView>
                   );
                 }
-
-                // Assistant message
+                const emp = workforce.find((w) => w.id === msg.employeeId);
+                const name = employeeDisplayName(msg.employeeName || emp?.name || "AI employee");
+                const role = msg.employeeRole || emp?.role;
                 return (
-                  <div key={msg.id} className="flex gap-3 max-w-[92%] sm:max-w-[85%]">
-                    <WorkforceAvatar
-                      name={msg.employeeName}
-                      avatar={msg.employeeAvatar}
-                      role={msg.employeeRole}
-                      size="sm"
-                    />
-                    <div className="flex-1 bg-[#121A24] border border-[var(--line)] text-[#EAF1F8] p-4 rounded-2xl rounded-tl-sm text-xs space-y-3 shadow-md">
-                      <div className="flex items-center justify-between pb-2 border-b border-[var(--line)] text-[11px]">
-                        <div className="flex items-center gap-2">
-                          <strong className="text-[#2ED8B6] font-semibold">
-                            {msg.employeeName || "AI employee"}
-                          </strong>
-                          <span className="text-[10px] text-[#6B7C8D]">({msg.employeeRole || "AI Employee"})</span>
-                        </div>
-                        <span className="text-[10px] font-mono text-[#6B7C8D]">{msg.timestamp}</span>
-                      </div>
-
-                      <div className="whitespace-pre-wrap leading-relaxed text-[#EAF1F8]">
-                        {msg.content}
-                      </div>
-
-                      {/* Citations */}
-                      {msg.citations && msg.citations.length > 0 && (
-                        <div className="pt-2 border-t border-[var(--line)] space-y-1.5">
-                          <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider block">
-                            Grounded Knowledge Citations:
+                  <ChatMessageView
+                    key={msg.id}
+                    kind="assistant"
+                    author={name}
+                    role={role}
+                    time={msg.timestamp}
+                    portrait={{ name, role, kind: emp?.level === "ai_intern" ? "intern" : undefined }}
+                    footer={(msg.citations?.length || msg.suggestedActions?.length) ? (
+                      <div className="chat-message-footer">
+                        {/* Grounded knowledge citations */}
+                        {msg.citations?.map((c, i) => (
+                          <span key={i} className="pill text-[11px] py-0.5 px-2">
+                            <span className="font-mono">{c.id}:</span> {c.title}
                           </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {msg.citations.map((c, i) => (
-                              <span key={i} className="pill text-[10px] py-0.5 px-2 bg-[#18222E] border-[var(--line-2)] text-[#B4C2D0]">
-                                <i className="dot"></i>
-                                <span className="font-mono">{c.id}:</span> {c.title}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Suggested Actions */}
-                      {msg.suggestedActions && msg.suggestedActions.length > 0 && (
-                        <div className="pt-2 border-t border-[var(--line)] space-y-1.5">
-                          <span className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider block">
-                            Suggested Autonomous Actions:
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            {msg.suggestedActions.map((act, i) => (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => handleChatAction(act)}
-                                className="btn btn-secondary text-xs py-1 px-2.5 hover:border-[#2ED8B6] hover:text-[#2ED8B6] cursor-pointer flex items-center gap-1.5 transition-all"
-                              >
-                                <ArrowRight className="w-3 h-3 text-[#2ED8B6]" />
-                                <span>{act.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        ))}
+                        {/* Suggested actions */}
+                        {msg.suggestedActions?.map((act, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => handleChatAction(act)}
+                            className="btn btn-secondary text-xs py-1 px-2.5 cursor-pointer flex items-center gap-1.5"
+                          >
+                            <ArrowRight className="w-3 h-3" />
+                            <span>{act.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : undefined}
+                  >
+                    <FormattedChatMessage content={msg.content} />
+                  </ChatMessageView>
                 );
               })}
 
-              {chatLoading && (
-                <div className="flex gap-3 max-w-[80%] animate-pulse">
-                  <div className="w-8 h-8 rounded-xl bg-[#121A24] border border-[#2ED8B6]/40 flex items-center justify-center text-base shrink-0">
-                    <Sparkles className="w-4 h-4 text-[#2ED8B6] animate-spin" />
-                  </div>
-                  <div className="bg-[#121A24] border border-[#2ED8B6]/30 text-[#2ED8B6] p-3.5 rounded-2xl rounded-tl-sm text-xs flex items-center gap-2 font-mono">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Querying pgvector embeddings &amp; synthesizing response...</span>
-                  </div>
-                </div>
-              )}
-            </div>
+              {pending && <p className="chat-pending" role="status">Waiting for {recipientName}’s reply…</p>}
+            </ChatTranscript>
 
             {/* Dynamic Suggestion Chips */}
             {selectedEmployeeId && showModalPrompts ? (
@@ -438,44 +414,37 @@ export function CopilotConsoleModal({
               </div>
             ) : null}
 
-            {/* Chat Input Bar with Drag-to-Resize Support */}
-            <div className="p-4 border-t border-[var(--line)] bg-[#121A24] shrink-0">
-              <form onSubmit={handleAskChat} className="space-y-2">
-                <div className="relative">
-                  <textarea
-                    rows={2}
-                    value={chatQuery}
-                    onChange={(e) => setChatQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAskChat(e);
-                      }
-                    }}
-                    placeholder={`Ask ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "SupportV8 RAG Intelligence"} about tickets, runbooks, or vector knowledge...`}
-                    disabled={chatLoading}
-                    className="w-full bg-[#18222E] text-[#EAF1F8] p-3 pr-12 rounded-xl border border-[var(--line-2)] focus:outline-none focus:border-[#2ED8B6] text-xs transition-colors shadow-inner resize-y min-h-[64px] max-h-[240px] leading-relaxed"
-                  />
-                  <div className="absolute right-3 top-3 text-[10px] font-mono text-[#6B7C8D] pointer-events-none flex items-center gap-1">
-                    <CornerDownLeft className="w-2.5 h-2.5" />
-                    <span>ENTER</span>
+            {/* Composer: Runtime's label, "To:", Enter/Shift+Enter, read-only while pending, draft kept on error */}
+            <div className="chat-compose compact">
+              <form onSubmit={send}>
+                <label htmlFor="copilot-chat-message">Message your AI team</label>
+                <p className="chat-recipient-summary" aria-live="polite">{pending ? `Sending to ${recipientName}…` : `To: ${recipientName}`}</p>
+                <textarea
+                  id="copilot-chat-message"
+                  rows={2}
+                  value={chatQuery}
+                  onChange={(e) => { setChatQuery(e.target.value); setSendError(null); }}
+                  onKeyDown={(e) => handleChatComposerKeyDown(e, () => void send(), pending)}
+                  placeholder={`Ask ${workforce.find((w) => w.id === selectedEmployeeId)?.name || "SupportV8 RAG Intelligence"} about tickets, runbooks, or vector knowledge...`}
+                  readOnly={pending}
+                  aria-invalid={sendError ? true : undefined}
+                  aria-describedby={sendError ? "copilot-chat-error copilot-chat-help" : "copilot-chat-help"}
+                />
+                {sendError && <p id="copilot-chat-error" className="chat-compose-error" role="alert">{sendError}</p>}
+                <div className="chat-compose-actions">
+                  <span id="copilot-chat-help" className="chat-compose-help">Enter to send; Shift+Enter for a new line. Drag the corner to resize.</span>
+                  <div className="chat-compose-buttons">
+                    <button
+                      type="submit"
+                      disabled={pending || !chatQuery.trim()}
+                      className="btn btn-primary py-2 px-4 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{pending ? "Sending…" : "Send"}</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between gap-3 text-[11px] font-mono text-[#6B7C8D]">
-                  <span className="text-[10px] text-[#2ED8B6] flex items-center gap-1">
-                    <span>Drag corner to resize</span>
-                  </span>
-
-                  <button
-                    type="submit"
-                    disabled={chatLoading || !chatQuery.trim()}
-                    className="btn btn-primary py-2 px-4 text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shrink-0"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send</span>
-                  </button>
-                </div>
+                {pending && <span className="sv8-sr-only" role="status">Sending to {recipientName}. Your draft clears when the reply arrives.</span>}
               </form>
             </div>
           </div>

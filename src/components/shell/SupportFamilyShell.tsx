@@ -53,6 +53,7 @@ export function applyFamilyTheme(theme: string | undefined): void {
 
 export function SupportFamilyShell({
   mode,
+  runtimeUrl,
   active,
   nav,
   badges = {},
@@ -66,6 +67,8 @@ export function SupportFamilyShell({
   children,
 }: {
   mode: "standalone" | "embedded";
+  /** The tenant's Runtime workspace (v2 hand-off). Used only when embedded. */
+  runtimeUrl?: string;
   active: string;
   nav: ShellNavGroup[];
   /** Counts per nav id, patched in place (setBadge) rather than re-rendering the sidebar. */
@@ -161,6 +164,7 @@ export function SupportFamilyShell({
       id="support-shell"
       app="support"
       mode={mode}
+      runtime-url={mode === "embedded" ? runtimeUrl : undefined}
       className="family-admin"
       data-testid="support-shell"
     >

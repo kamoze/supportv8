@@ -70,6 +70,12 @@ with `node scripts/sync-family-ui.mjs [path-to-family-ui/dist]`.
 `src/app/support-family-bridge.css` maps the existing views onto the family
 tokens until plan step 5 replaces their hard-coded colours.
 
+When Runtime hands a tenant over with `servicev8.support-handoff.v2`, the
+signed `runtimeUrl` (validated against `SUPPORTV8_RUNTIME_ORIGIN`, default
+`https://runtime.servicev8.com`) gives the embedded shell "Back to Runtime"
+and Runtime links for Marketplace and Plan. See
+[docs/runtime-support-handoff.md](docs/runtime-support-handoff.md).
+
 ### Demo sandbox (off by default)
 The Acme and Meridian demo tenants, their named personas, the seeded demo
 credentials, the landing-page demo entries and the demo access modal exist only

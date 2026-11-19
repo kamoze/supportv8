@@ -17,6 +17,8 @@ import {
 import { marketplaceService } from "../services/marketplace-service";
 type Deps = {
   handoffSecret?: string;
+  /** Environment for SUPPORTV8_RUNTIME_ORIGIN (tests); defaults to process.env. */
+  env?: Readonly<Record<string, string | undefined>>;
   sessionSecret?: string;
   now?: () => number;
   replay?: RuntimeHandoffReplayStore;
@@ -61,6 +63,7 @@ export async function handleRuntimeSupportHandoff(
       url.searchParams.get("token"),
       deps.handoffSecret ?? process.env.SUPPORTV8_SERVICE_APP_RUNTIME_SECRET,
       now(),
+      deps.env ?? process.env,
     );
     if (
       !claims ||
@@ -98,6 +101,8 @@ export async function handleRuntimeSupportHandoff(
         sub: scope.subject,
         roleCap,
         tenantDomain: claims.tenantDomain,
+        // v2: the validated Runtime workspace (presentation only), re-checked on every read.
+        ...(claims.runtimeUrl ? { runtimeUrl: claims.runtimeUrl } : {}),
       },
       deps.sessionSecret ?? process.env.SUPPORTV8_RUNTIME_SESSION_SECRET,
       now(),

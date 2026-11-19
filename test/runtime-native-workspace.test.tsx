@@ -81,9 +81,11 @@ describe("Runtime native Support workspace", () => {
       `${process.cwd()}/src/app/page.tsx`,
       "utf8",
     );
-    expect(nativePage).toContain("<SupportWorkspaceShell");
-    expect(nativePage).toContain("<SupportWorkspaceNavigation");
+    // The dashboard moved onto the family shell (one navigation); the header frame is shared.
+    expect(nativePage).toContain("<SupportFamilyShell");
     expect(nativePage).toContain("<SupportWorkspaceHeaderFrame>");
+    // The Runtime-native /runtime page still uses the shared navigation primitive.
+    expect(readFileSync(`${process.cwd()}/src/app/runtime/runtime-workspace.tsx`, "utf8")).toContain("<SupportWorkspaceNavigation");
   });
   it("keeps Runtime identity and data paths free of native browser and demo fallbacks", () => {
     const source = [

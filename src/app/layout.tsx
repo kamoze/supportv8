@@ -3,6 +3,7 @@ import "./globals.css";
 import "./family.css";
 import "./family-legacy-tokens.css";
 import "./support-family-bridge.css";
+import "./support-chat.css";
 
 export const metadata: Metadata = {
   title: "supportv8 — AI Customer Support Intelligence & Automation",

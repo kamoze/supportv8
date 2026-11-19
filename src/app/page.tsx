@@ -139,7 +139,10 @@ import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { runtimeTicketHref } from "@/lib/service-app/runtime-native-workdesk";
 import { RuntimeNativeWorkdesk } from "@/components/workspace/RuntimeNativeWorkdesk";
-import { AuthService, type AuthSession } from "@/lib/auth-service";
+import { AuthService, isRuntimeHandoffSession, type AuthSession } from "@/lib/auth-service";
+import { useSupportDemoEnabled } from "@/components/demo/useSupportDemoEnabled";
+import { demoPersonasFor } from "@/components/demo/demo-personas";
+import { canChangeOperatingMode, operatingModeLabel, tenantOperatingMode, type TenantOperatingMode } from "@/lib/operating-mode";
 import { supportRoleLabel } from "@/lib/auth/role-presentation";
 import {
   browserTenantSlugFromHostname,
@@ -254,6 +257,9 @@ const ForgeGwModal = dynamic(() => import("@/components/views/dashboard/ForgeGwM
 export default function SupportV8Dashboard() {
   // Global View Mode & Multi-Tenant Routing
   const [operatorSession, setOperatorSession] = useState<AuthSession | null>(() => AuthService.getActiveSession());
+  // Demo sandbox (personas, demo access modal) only when the deployment enables it.
+  const demoEnabled = useSupportDemoEnabled();
+  const runtimeHandoff = isRuntimeHandoffSession(operatorSession);
   const [currentTenantSlug, setCurrentTenantSlug] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const hostedTenant = browserTenantSlugFromHostname(window.location.hostname);
@@ -321,7 +327,9 @@ export default function SupportV8Dashboard() {
     breakpoint.addEventListener("change", closeMobile);
     return () => breakpoint.removeEventListener("change", closeMobile);
   }, []);
-  const [operatingMode, setOperatingMode] = useState<OperatingMode>("autonomous");
+  // The tenant's stored AI mode from /api/policies; null means "Not set" (never a default).
+  const [operatingMode, setOperatingMode] = useState<TenantOperatingMode | null>(null);
+  const [isSavingOperatingMode, setIsSavingOperatingMode] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [rawSourceIssue, setRawSourceIssue] = useState<Issue | null>(null);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -686,6 +694,7 @@ export default function SupportV8Dashboard() {
         setComplianceReports([]);
         setAuditLogs([]);
         setForgeGwCredits(0);
+        setOperatingMode(null);
       }
       const tenantQuery = `?tenant=${encodeURIComponent(activeSlug)}`;
       const headers = { "x-tenant-slug": activeSlug };
@@ -761,7 +770,9 @@ export default function SupportV8Dashboard() {
       }
       if (polRes.success) {
         setPolicy(polRes.data);
-        setOperatingMode(polRes.data.operatingMode);
+        setOperatingMode(tenantOperatingMode(polRes.data));
+      } else {
+        setOperatingMode(null);
       }
       if (trRes.success) setTrends(trRes.data);
     } catch (err) {
@@ -1227,6 +1238,32 @@ export default function SupportV8Dashboard() {
       notify("Network error during simulator execution", "error");
     } finally {
       setSimLoading(false);
+    }
+  };
+
+  // Persist the header mode switch to the tenant policy; the label changes only once the server confirms.
+  const handleChangeOperatingMode = async (mode: TenantOperatingMode) => {
+    if (!canChangeOperatingMode(operatorSession?.role) || isSavingOperatingMode || mode === operatingMode) return;
+    setIsSavingOperatingMode(true);
+    try {
+      const response = await AuthService.authenticatedFetch(`/api/policies?tenant=${encodeURIComponent(currentTenantSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-tenant-slug": currentTenantSlug },
+        body: JSON.stringify({
+          action: "update",
+          // Send the stored retention too, so changing the mode never resets it.
+          policyUpdates: { operatingMode: mode, ...(policy ? { retentionRawContextHours: policy.retentionRawContextHours } : {}) },
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Policy update failed");
+      setPolicy(payload.data);
+      setOperatingMode(tenantOperatingMode(payload.data));
+      notify(`Tenant operating mode set to ${operatingModeLabel(mode).toUpperCase()}`, "info");
+    } catch {
+      notify(`Could not change the operating mode; it is still ${operatingModeLabel(operatingMode)}.`, "error");
+    } finally {
+      setIsSavingOperatingMode(false);
     }
   };
 
@@ -1724,6 +1761,10 @@ export default function SupportV8Dashboard() {
   };
 
   const handleUpdateSettings = async (updates: Partial<TenantSettingConfig>) => {
+    // The AI mode lives in the tenant policy; the settings copy is not the source of truth.
+    if (updates.operatingMode && updates.operatingMode !== operatingMode) {
+      void handleChangeOperatingMode(updates.operatingMode);
+    }
     try {
       const updated = { ...tenantSettings, ...updates };
       const res = await AuthService.authenticatedFetch(
@@ -2099,13 +2140,14 @@ export default function SupportV8Dashboard() {
             setCurrentTenantSlug(slug || "acme");
             setViewMode("tenant_landing");
           }}
+          demoEnabled={demoEnabled}
           onOpenDemoGate={(slug = "acme") => {
             setTargetDemoSlug(slug);
             setIsDemoModalOpen(true);
           }}
           onOpenSignup={() => setIsSignupModalOpen(true)}
         />
-        <DemoAccessModal
+        {demoEnabled && <DemoAccessModal
           isOpen={isDemoModalOpen}
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
@@ -2116,7 +2158,7 @@ export default function SupportV8Dashboard() {
             setIsDemoModalOpen(false);
             setIsSignInModalOpen(true);
           }}
-        />
+        />}
         <SignInModal
           isOpen={isSignInModalOpen}
           lockedTenantSlug={
@@ -2162,6 +2204,7 @@ export default function SupportV8Dashboard() {
       <>
         <TenantLandingView
           tenantSlug={currentTenantSlug}
+          demoEnabled={demoEnabled}
           onOpenSignIn={() => setIsSignInModalOpen(true)}
           onOpenGlobalLanding={() => setViewMode("global_landing")}
           onOpenSignup={() => setIsSignupModalOpen(true)}
@@ -2170,7 +2213,7 @@ export default function SupportV8Dashboard() {
             notify(`Switched active tenant preview to ${slug}.support.servicev8.com`, "info");
           }}
         />
-        <DemoAccessModal
+        {demoEnabled && <DemoAccessModal
           isOpen={isDemoModalOpen}
           initialTenantSlug={targetDemoSlug}
           onClose={() => setIsDemoModalOpen(false)}
@@ -2181,7 +2224,7 @@ export default function SupportV8Dashboard() {
             setIsDemoModalOpen(false);
             setIsSignInModalOpen(true);
           }}
-        />
+        />}
         <SignInModal
           isOpen={isSignInModalOpen}
           lockedTenantSlug={currentTenantSlug}
@@ -2377,19 +2420,23 @@ export default function SupportV8Dashboard() {
 
           {/* Center: Autonomy Mode & ForgeGW Credits Capsule */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
-            {/* Autonomy Mode Selector */}
-            <div className="flex items-center bg-[#101722] p-1 rounded-xl border border-[var(--line)]">
-              {(["observe", "copilot", "autonomous"] as OperatingMode[]).map((mode) => {
+            {/* Autonomy Mode Selector: shows the tenant's stored mode, or "Not set". */}
+            <div className="flex items-center bg-[#101722] p-1 rounded-xl border border-[var(--line)]" role="group" aria-label={`AI operating mode: ${operatingModeLabel(operatingMode)}`} data-operating-mode={operatingMode ?? "unset"}>
+              {!operatingMode && (
+                <span className="px-2 text-xs font-mono text-[#8E9AA8]" data-testid="operating-mode-unset">AI mode: Not set</span>
+              )}
+              {(["observe", "copilot", "autonomous"] as TenantOperatingMode[]).map((mode) => {
                 const isActive = operatingMode === mode;
+                const canChange = canChangeOperatingMode(operatorSession?.role);
                 return (
                   <button
                     key={mode}
-                    onClick={() => {
-                      setOperatingMode(mode);
-                      notify(`Tenant operating mode set to ${mode.toUpperCase()}`, "info");
-                    }}
-                    title={`Autonomy Mode: ${mode.toUpperCase()}`}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                    type="button"
+                    aria-pressed={isActive}
+                    disabled={!canChange || isSavingOperatingMode}
+                    onClick={() => void handleChangeOperatingMode(mode)}
+                    title={canChange ? `Set autonomy mode: ${mode.toUpperCase()}` : `Autonomy mode${isActive ? " (current)" : ""}: ${mode.toUpperCase()}. Only CX leads and administrators can change it.`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-default ${
                       isActive
                         ? "bg-[#182635] text-[#2ED8B6] border border-[#2ED8B6]/40 font-bold shadow-sm"
                         : "text-[#6B7C8D] hover:text-[#EAF1F8] hover:bg-[#141C26]"
@@ -2499,22 +2546,16 @@ export default function SupportV8Dashboard() {
                     {isProfileEditorOpen && operatorSession && <OperatorProfileEditor
                       session={operatorSession} onSaved={setOperatorSession} onClose={() => setIsProfileEditorOpen(false)} />}
 
-                    {/* Persona Switcher List: ONLY rendered for official demo sandboxes (acme / meridian) */}
-                    {(currentTenantSlug === "acme" || currentTenantSlug === "meridian") && (
+                    {/* Persona switcher: demo sandbox only (explicit flag, fixture tenant, never a Runtime hand-off). */}
+                    {demoPersonasFor({ demoEnabled, tenantSlug: currentTenantSlug, runtimeHandoff }).length > 0 && (
                       <div className="space-y-1">
                         <div className="px-2 pt-1 text-[10px] font-bold text-[#6B7C8D] uppercase tracking-wider">
                           Switch Demo Persona ({currentTenantSlug})
                         </div>
-                        {[
-                          { role: "contractor_lead", email: "dispatch@meridian.com", name: "Meridian Field Dispatch", slug: "meridian", icon: HardHat, label: "Field Dispatch (Contractor)" },
-                          { role: "operator", email: "david.kim@acme.com", name: "David Kim", slug: "acme", icon: Headphones, label: "David Kim (Operator)" },
-                          { role: "cx_lead", email: "admin@acme.com", name: "Sarah Chen", slug: "acme", icon: Award, label: "Sarah Chen (CX Lead)" },
-                          { role: "observer", email: "auditor@compliance.org", name: "Audit Officer", slug: "acme", icon: Eye, label: "Compliance Auditor" },
-                        ]
-                          .filter((p) => p.slug === currentTenantSlug)
+                        {demoPersonasFor({ demoEnabled, tenantSlug: currentTenantSlug, runtimeHandoff })
                           .map((p) => {
                             const isCurrent = currentRole === p.role;
-                            const PersonaIcon = p.icon;
+                            const PersonaIcon = ({ contractor_lead: HardHat, operator: Headphones, cx_lead: Award, observer: Eye } as Partial<Record<string, typeof Award>>)[p.role] ?? Award;
                             return (
                               <button
                                 key={p.role}
@@ -2918,6 +2959,7 @@ export default function SupportV8Dashboard() {
         {activeTab === "gov_settings" && (
           <GovernanceSettingsView
             settings={tenantSettings}
+            tenantOperatingMode={operatingMode}
             onUpdateSettings={handleUpdateSettings}
             onNotify={notify}
           />

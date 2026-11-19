@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { isSupportDemoTenant } from "@/lib/demo-mode";
 import type { QueryResultRow } from "pg";
 import type {
   ChatStreamType,
@@ -158,8 +159,7 @@ const ASSIGNMENTS: Record<ChatStreamType, Assignment> = {
 };
 
 export function assignmentForTenant(tenantSlug: string, stream: ChatStreamType): Assignment {
-  const clean = tenantSlug.trim().toLowerCase();
-  if (clean === "acme" || clean === "meridian") {
+  if (isSupportDemoTenant(tenantSlug)) {
     return ASSIGNMENTS[stream];
   }
   return {

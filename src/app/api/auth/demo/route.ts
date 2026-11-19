@@ -12,13 +12,19 @@ import {
   supportRolesFromClaims,
 } from "@/lib/auth/keycloak";
 
-const DEMO_TENANTS = new Set(["acme", "meridian"]);
+import { isSupportDemoTenantSlug, supportDemoEnabled } from "@/lib/demo-mode";
 
 export async function POST(request: NextRequest) {
+  if (!supportDemoEnabled()) {
+    return NextResponse.json(
+      { success: false, error: "Demo access is not enabled on this deployment." },
+      { status: 404 }
+    );
+  }
   try {
     const body = await request.json().catch(() => ({}));
     const tenantSlug = String(body.tenantSlug || "").trim().toLowerCase();
-    if (!DEMO_TENANTS.has(tenantSlug)) {
+    if (!isSupportDemoTenantSlug(tenantSlug)) {
       return NextResponse.json(
         { success: false, error: "Demo access is not available for this workspace." },
         { status: 400 }

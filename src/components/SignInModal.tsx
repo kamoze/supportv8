@@ -298,8 +298,8 @@ export function SignInModal({
           )}
 
           {successMsg && (
-            <div role="status" className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-[#2ED8B6] shrink-0" />
+            <div role="status" className="p-3.5 rounded-xl bg-[#EC4899]/10 border border-[#EC4899]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-[var(--support-sec-text)] shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
@@ -307,7 +307,7 @@ export function SignInModal({
           {debugOtpCode && (
             <div className="p-3 rounded-xl bg-[#F5A623]/10 border border-[#F5A623]/30 text-xs font-mono text-[#EAF1F8] flex items-center justify-between">
               <span className="text-[#F5A623]">6-Digit Code (Dev Preview):</span>
-              <span className="font-bold tracking-widest text-[#2ED8B6] bg-[#141C26] px-2 py-0.5 rounded border border-[var(--line)]">
+              <span className="font-bold tracking-widest text-[var(--support-sec-text)] bg-[#141C26] px-2 py-0.5 rounded border border-[var(--line)]">
                 {debugOtpCode}
               </span>
             </div>
@@ -322,7 +322,7 @@ export function SignInModal({
               {lockedTenantSlug ? (
                 <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Building2 className="w-5 h-5 text-[#2ED8B6]" />
+                    <Building2 className="w-5 h-5 text-[var(--support-sec-text)]" />
                     <div>
                       <div className="text-sm font-bold text-[#EAF1F8]">{formattedTenantName} Workspace</div>
                       <div className="text-xs font-mono text-[#6B7C8D]">{lockedTenantSlug}.support.servicev8.com</div>
@@ -334,7 +334,7 @@ export function SignInModal({
                 <div className="space-y-1.5">
                   <label htmlFor="panel-login-workspace" className="text-xs font-mono text-[#B4C2D0] flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <Building2 className="w-4 h-4 text-[#2ED8B6]" />
+                      <Building2 className="w-4 h-4 text-[var(--support-sec-text)]" />
                       <span>Workspace Domain</span>
                     </span>
                     <span className="text-xs text-[#6B7C8D] font-mono">.support.servicev8.com</span>
@@ -349,7 +349,7 @@ export function SignInModal({
                     onChange={(e) => setTenantSlug(e.target.value)}
                     placeholder="e.g. acme or meridian"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm font-mono text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                   />
                 </div>
               )}
@@ -370,7 +370,7 @@ export function SignInModal({
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={lockedTenantSlug ? `staff@${lockedTenantSlug}.com` : "name@company.com"}
                   required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                 />
               </div>
 
@@ -389,7 +389,7 @@ export function SignInModal({
                       setSuccessMsg("");
                       setModalView("forgot_email");
                     }}
-                    className="text-xs text-[#2ED8B6] hover:underline cursor-pointer font-mono"
+                    className="text-xs text-[var(--support-sec-text)] hover:underline cursor-pointer font-mono"
                   >
                     Forgot Password?
                   </button>
@@ -405,7 +405,7 @@ export function SignInModal({
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#2ED8B6]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#EC4899]"
                   />
                   <button
                     type="button"
@@ -420,7 +420,7 @@ export function SignInModal({
               {/* Security Captcha */}
               <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-mono text-[#B4C2D0]">
-                  <span className="flex items-center gap-1.5 text-[#2ED8B6]">
+                  <span className="flex items-center gap-1.5 text-[var(--support-sec-text)]">
                     <Shield className="w-4 h-4" />
                     <span>Security Verification</span>
                   </span>
@@ -448,7 +448,7 @@ export function SignInModal({
                     placeholder="Enter sum"
                     required
                     className={`flex-1 bg-[#141C26] border rounded-2xl px-4 py-2.5 text-sm font-mono text-[#EAF1F8] focus:outline-none ${
-                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#2ED8B6]"
+                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#EC4899]"
                     }`}
                   />
                 </div>
@@ -463,7 +463,7 @@ export function SignInModal({
             <form id="forgot-email-form" onSubmit={handleSendRecoveryOtp} className="space-y-4">
               <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-2">
                 <div className="flex items-center gap-2.5 text-sm font-bold text-[#EAF1F8]">
-                  <KeyRound className="w-4 h-4 text-[#2ED8B6]" />
+                  <KeyRound className="w-4 h-4 text-[var(--support-sec-text)]" />
                   <span>Password Reset Request</span>
                 </div>
                 <p className="text-xs text-[#8E9AA8] leading-relaxed">
@@ -483,7 +483,7 @@ export function SignInModal({
                   placeholder="name@company.com"
                   required
                   autoFocus
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                 />
               </div>
             </form>
@@ -496,7 +496,7 @@ export function SignInModal({
             <form id="forgot-otp-form" onSubmit={handleResetPassword} className="space-y-4">
               <div className="p-4 rounded-2xl bg-[#141C26] border border-[var(--line)] space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-[#2ED8B6] font-bold">Step 2: Enter Verification Code</span>
+                  <span className="text-xs font-mono text-[var(--support-sec-text)] font-bold">Step 2: Enter Verification Code</span>
                   <span className="text-[11px] font-mono text-[#6B7C8D]">{forgotEmail}</span>
                 </div>
                 <p className="text-xs text-[#8E9AA8]">
@@ -515,7 +515,7 @@ export function SignInModal({
                     type="button"
                     onClick={handleSendRecoveryOtp}
                     disabled={isLoading}
-                    className="text-xs text-[#2ED8B6] hover:underline cursor-pointer font-mono"
+                    className="text-xs text-[var(--support-sec-text)] hover:underline cursor-pointer font-mono"
                   >
                     Resend Code
                   </button>
@@ -528,14 +528,14 @@ export function SignInModal({
                   placeholder="123456"
                   required
                   autoFocus
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-center text-lg font-mono tracking-widest text-[#2ED8B6] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-center text-lg font-mono tracking-widest text-[var(--support-sec-text)] focus:outline-none focus:border-[#EC4899]"
                 />
               </div>
 
               {/* New Password */}
               <div className="space-y-1.5">
                 <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-[#2ED8B6]" />
+                  <Lock className="w-4 h-4 text-[var(--support-sec-text)]" />
                   <span>New Password (min. 6 chars)</span>
                 </label>
                 <div className="relative">
@@ -545,7 +545,7 @@ export function SignInModal({
                     onChange={(e) => setForgotNewPassword(e.target.value)}
                     placeholder="••••••••••••"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#2ED8B6]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#EC4899]"
                   />
                   <button
                     type="button"
@@ -569,7 +569,7 @@ export function SignInModal({
                   onChange={(e) => setForgotConfirmPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                 />
               </div>
             </form>
@@ -586,7 +586,7 @@ export function SignInModal({
                   onClose();
                   onOpenSignup();
                 }}
-                className="text-xs sm:text-sm text-[#2ED8B6] font-semibold hover:underline cursor-pointer flex items-center gap-1"
+                className="text-xs sm:text-sm text-[var(--support-sec-text)] font-semibold hover:underline cursor-pointer flex items-center gap-1"
               >
                 <span>Create Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -596,7 +596,7 @@ export function SignInModal({
                 type="submit"
                 form="signin-form"
                 disabled={isLoading}
-                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
@@ -630,7 +630,7 @@ export function SignInModal({
                 type="submit"
                 form="forgot-email-form"
                 disabled={isLoading}
-                className="btn btn-primary px-6 py-2.5 text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                className="btn btn-primary px-6 py-2.5 text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
@@ -664,7 +664,7 @@ export function SignInModal({
                 type="submit"
                 form="forgot-otp-form"
                 disabled={isLoading}
-                className="btn btn-primary px-6 py-2.5 text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                className="btn btn-primary px-6 py-2.5 text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
                   <>

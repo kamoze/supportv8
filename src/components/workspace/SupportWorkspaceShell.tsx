@@ -249,7 +249,7 @@ export function SupportWorkspaceHeader({
         <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
           <span className="flex items-center tracking-[-0.035em] font-sans shrink-0">
             <span className="text-white font-extrabold text-sm">support</span>
-            <span className="text-[#2ED8B6] font-mono font-extrabold text-sm ml-0.5">
+            <span className="text-[var(--support-lime)] font-mono font-extrabold text-sm ml-0.5">
               v8
             </span>
           </span>

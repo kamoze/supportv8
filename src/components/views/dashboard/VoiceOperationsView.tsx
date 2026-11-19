@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Bot, Cpu, Edit3, Mic, PhoneCall, Plus, Radio, RefreshCw, Shield, Sliders, Trash2, Volume2 } from "@/components/ui/FlatIcon";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 
 export interface VoiceOperationsViewProps {
   fetchData: (overrideTenant?: string) => Promise<void>;
@@ -118,7 +119,6 @@ export function VoiceOperationsView({
                   const localEmp = workforce.find((w) => w.id === cfg.employeeId) || {
                     name: cfg.employeeName || cfg.agentName,
                     role: "Voice Lead",
-                    avatarUrl: "/avatars/beaver-sophia.jpg",
                   };
                   return (
                     <div
@@ -155,9 +155,11 @@ export function VoiceOperationsView({
                           </div>
                           <div className="flex items-center justify-between gap-2 text-xs">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <img
-                                src={localEmp.avatarUrl || "/avatars/beaver-sophia.jpg"}
-                                alt={localEmp.name}
+                              <EmployeeAvatar
+                                src={localEmp.avatarUrl}
+                                name={localEmp.name}
+                                role={localEmp.role}
+                                size={24}
                                 className="w-6 h-6 rounded-lg object-cover border border-[#2ED8B6]/40 shrink-0"
                               />
                               <span className="font-bold text-[#EAF1F8] text-[11px] truncate">

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { CheckCircle2, PhoneCall, X } from "@/components/ui/FlatIcon";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 
 export interface VoiceProvisionModalProps {
   handleProvisionVoiceBot: () => Promise<void>;
@@ -94,9 +95,11 @@ export function VoiceProvisionModal({
                               : "bg-[#18222E] border-[var(--line)] text-[#6B7C8D] hover:text-[#EAF1F8]"
                           }`}
                         >
-                          <img
-                            src={emp.avatarUrl || "/avatars/beaver-sophia.jpg"}
-                            alt={emp.name}
+                          <EmployeeAvatar
+                            src={emp.avatarUrl}
+                            name={emp.name}
+                            role={emp.role}
+                            size={32}
                             className="w-8 h-8 rounded-lg object-cover border border-[#2ED8B6]/40 shrink-0"
                           />
                           <div className="truncate">

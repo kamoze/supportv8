@@ -33,7 +33,7 @@ import { ChatTranscript } from "@/components/chat-ui/ChatTranscript";
 import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
 import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
-import { employeeDisplayName } from "@/lib/chat/employee-avatar";
+import { employeeDisplayName } from "@/lib/portraits";
 
 interface AskWorkspaceViewProps {
   workforce: any[];
@@ -55,7 +55,6 @@ const DEFAULT_FALLBACK_ASSISTANT = {
   level: "copilot",
   status: "active",
   autonomyLevel: "L2 Assisted",
-  avatarUrl: "/avatars/beaver-curator.jpg",
   isHired: false,
 };
 
@@ -379,7 +378,7 @@ export function AskWorkspaceView({
                     aria-pressed={isSelected}
                     className="chat-person"
                   >
-                    <EmployeeAvatar name={employeeDisplayName(emp.name)} role={emp.role} kind={emp.level === "ai_intern" ? "intern" : undefined} />
+                    <EmployeeAvatar src={emp.avatarUrl} name={employeeDisplayName(emp.name)} role={emp.role} kind={emp.level === "ai_intern" ? "intern" : undefined} />
                     <span>
                       <strong>{employeeDisplayName(emp.name)}</strong>
                       <small>{emp.role}</small>
@@ -432,7 +431,7 @@ export function AskWorkspaceView({
                 author={name}
                 role={role}
                 time={msg.timestamp}
-                portrait={{ name, role, kind: emp?.level === "ai_intern" ? "intern" : undefined }}
+                portrait={{ name, role, kind: emp?.level === "ai_intern" ? "intern" : undefined, src: msg.employeeAvatar || emp?.avatarUrl }}
                 footer={(msg.citations?.length || msg.suggestedActions?.length) ? (
                   <div className="chat-message-footer">
                     {/* Grounded Knowledge Citations */}
@@ -685,9 +684,11 @@ export function AskWorkspaceView({
 
             <div className="space-y-4">
               <div className="relative inline-block">
-                <img
-                  src={activeEmployee.avatarUrl || "/avatars/beaver-manager.jpg"}
-                  alt={activeEmployee.name}
+                <EmployeeAvatar
+                  src={activeEmployee.avatarUrl}
+                  name={employeeDisplayName(activeEmployee.name)}
+                  role={activeEmployee.role}
+                  size={96}
                   className="w-24 h-24 rounded-3xl object-cover border-4 border-[#2ED8B6] shadow-xl mx-auto"
                 />
                 <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#2ED8B6] text-[#04201C] flex items-center justify-center text-xs font-bold">

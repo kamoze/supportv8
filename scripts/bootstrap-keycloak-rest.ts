@@ -4,6 +4,8 @@
  * Directly calls Keycloak Admin REST API using standard HTTPS
  */
 
+import { readFileSync } from "fs";
+
 const KEYCLOAK_URL = (process.env.KEYCLOAK_URL || "https://keycloak.servicev8.com").replace(/\/$/, "");
 const ADMIN_USER = process.env.KEYCLOAK_ADMIN_USER || process.argv[2] || "admin";
 const ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD || process.argv[3] || "";
@@ -15,6 +17,26 @@ console.log(`   Target: ${KEYCLOAK_URL}`);
 console.log(`   Realm:  ${REALM}`);
 console.log(`   Admin:  ${ADMIN_USER}`);
 console.log(`======================================================\n`);
+
+// Seed-user passwords are never committed. Point SUPPORTV8_SEED_USERS_FILE at a
+// JSON file shaped like the SSM SecureString /servicev8/supportv8-seed-users
+// ({"acme-admin": "...", ...}; see servicev8-devops ops/supportv8-seed-users).
+// In the shared cluster, the GitOps realm bootstrap owns these users instead.
+const SEED_USERS_FILE_ENV = "SUPPORTV8_SEED_USERS_FILE";
+function readSeedPasswords(keys: string[]): Record<string, string> {
+  const file = process.env[SEED_USERS_FILE_ENV];
+  if (!file) {
+    throw new Error(`${SEED_USERS_FILE_ENV} is required; no default seed passwords exist.`);
+  }
+  const parsed = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+  for (const key of keys) {
+    const value = parsed[key];
+    if (typeof value !== "string" || !/^[A-Za-z0-9_-]{32,}$/.test(value)) {
+      throw new Error(`${SEED_USERS_FILE_ENV} has no valid password for ${key} (32+ base64url characters).`);
+    }
+  }
+  return parsed as Record<string, string>;
+}
 
 async function run() {
   if (!ADMIN_PASSWORD) {
@@ -149,6 +171,7 @@ async function run() {
   console.log(`\n👤 Provisioning Core User Accounts & Passwords...`);
   const users = [
     {
+      key: "acme-admin",
       email: "acme@servicev8.com",
       firstName: "Acme",
       lastName: "Admin",
@@ -156,6 +179,7 @@ async function run() {
       tenant: "tenant_acme",
     },
     {
+      key: "acme-sarah-chen",
       email: "admin@acme.com",
       firstName: "Sarah",
       lastName: "Chen",
@@ -163,6 +187,7 @@ async function run() {
       tenant: "tenant_acme",
     },
     {
+      key: "acme-david-kim",
       email: "david.kim@acme.com",
       firstName: "David",
       lastName: "Kim",
@@ -170,6 +195,7 @@ async function run() {
       tenant: "tenant_acme",
     },
     {
+      key: "meridian-dispatch",
       email: "dispatch@meridian.com",
       firstName: "Meridian",
       lastName: "Dispatch",
@@ -178,7 +204,7 @@ async function run() {
     },
   ];
 
-  const defaultPassword = "SupportV8#2026!Secure";
+  const seedPasswords = readSeedPasswords(users.map((u) => u.key));
 
   for (const u of users) {
     // Check if user exists
@@ -221,12 +247,12 @@ async function run() {
         method: "PUT",
         body: JSON.stringify({
           type: "password",
-          value: defaultPassword,
+          value: seedPasswords[u.key],
           temporary: false,
         }),
       });
       if (pwdRes.ok) {
-        console.log(`      🔑 Password set: ${defaultPassword}`);
+        console.log(`      🔑 Password set from ${SEED_USERS_FILE_ENV}`);
       }
 
       // Assign Roles

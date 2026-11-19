@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    setupFiles: ["./test/local-only-network-guard.mjs"],
+    setupFiles: ["./test/local-only-network-guard.mjs", "./test/seed-password.setup.ts"],
     fileParallelism: false,
   },
   resolve: {

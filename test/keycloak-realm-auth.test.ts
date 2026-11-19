@@ -1,3 +1,4 @@
+import { TEST_SEED_PASSWORD } from "./fixtures/seed-password";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { hashPassword, verifyPasswordHash } from "../src/lib/auth/password";
 import { UserCredentialStore } from "../src/lib/auth/credential-store";
@@ -15,7 +16,7 @@ afterEach(() => {
 describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
   describe("Cryptographic Password Hashing", () => {
     it("should hash and verify passwords using salted scrypt", () => {
-      const password = "SupportV8#2026!Secure";
+      const password = TEST_SEED_PASSWORD;
       const hash = hashPassword(password);
 
       expect(hash).toContain(":");
@@ -30,7 +31,7 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
     });
 
     it("should generate distinct salts for identical passwords", () => {
-      const password = "SupportV8#2026!Secure";
+      const password = TEST_SEED_PASSWORD;
       const hash1 = hashPassword(password);
       const hash2 = hashPassword(password);
 
@@ -45,19 +46,19 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       const store = new UserCredentialStore();
 
       // 1. Acme Master Admin
-      const acmeMaster = await store.authenticate("acme@servicev8.com", "SupportV8#2026!Secure");
+      const acmeMaster = await store.authenticate("acme@servicev8.com", TEST_SEED_PASSWORD);
       expect(acmeMaster.success).toBe(true);
       expect(acmeMaster.user?.tenantSlug).toBe("acme");
       expect(acmeMaster.user?.role).toBe("cx_lead");
 
       // 2. Acme Admin
-      const acmeAdmin = await store.authenticate("admin@acme.com", "SupportV8#2026!Secure");
+      const acmeAdmin = await store.authenticate("admin@acme.com", TEST_SEED_PASSWORD);
       expect(acmeAdmin.success).toBe(true);
       expect(acmeAdmin.user?.tenantSlug).toBe("acme");
       expect(acmeAdmin.user?.name).toBe("Sarah Chen");
 
       // 3. Meridian Field Dispatch
-      const meridianDispatch = await store.authenticate("dispatch@meridian.com", "SupportV8#2026!Secure");
+      const meridianDispatch = await store.authenticate("dispatch@meridian.com", TEST_SEED_PASSWORD);
       expect(meridianDispatch.success).toBe(true);
       expect(meridianDispatch.user?.tenantSlug).toBe("meridian");
       expect(meridianDispatch.user?.role).toBe("contractor_lead");
@@ -111,11 +112,11 @@ describe("SupportV8 Keycloak Realm & Password Auth Architecture", () => {
       expect(badChange.success).toBe(false);
 
       // Correct current password
-      const goodChange = store.changePassword("david.kim@acme.com", "SupportV8#2026!Secure", "BrandNewPassword#2026");
+      const goodChange = store.changePassword("david.kim@acme.com", TEST_SEED_PASSWORD, "BrandNewPassword#2026");
       expect(goodChange.success).toBe(true);
 
       // Old password fails, new password succeeds
-      const oldAuth = await store.authenticate("david.kim@acme.com", "SupportV8#2026!Secure");
+      const oldAuth = await store.authenticate("david.kim@acme.com", TEST_SEED_PASSWORD);
       expect(oldAuth.success).toBe(false);
 
       const newAuth = await store.authenticate("david.kim@acme.com", "BrandNewPassword#2026");

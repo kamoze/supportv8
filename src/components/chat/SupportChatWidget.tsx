@@ -47,6 +47,10 @@ import {
 } from "@/lib/chat/use-chat-realtime";
 import { soundAlertService } from "@/lib/services/sound-alert-service";
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
+import { ChatMessage as ChatMessageView, PlainChatText } from "@/components/chat-ui/ChatMessage";
+import { ChatTranscript } from "@/components/chat-ui/ChatTranscript";
+import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
+import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
 
 interface SupportChatWidgetProps {
   tenantSlug?: string;
@@ -161,6 +165,7 @@ export function SupportChatWidget({
   const [activeSession, setActiveSession] = useState<CustomerChatSession | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [sendingDraft, setSendingDraft] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [isGuestShopper, setIsGuestShopper] = useState(false);
 
@@ -177,7 +182,6 @@ export function SupportChatWidget({
     });
   });
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const tenantSessionKey = tenantDomain || tenantSlug;
   const rawHost = typeof window !== "undefined" ? window.location.hostname : "";
@@ -406,12 +410,7 @@ export function SupportChatWidget({
     return () => window.removeEventListener("supportv8:open-chat", openFromPortal);
   }, [activeSession, defaultStream, tenantSessionKey, tenantSlug, workflows]);
 
-  // Auto-scroll on new messages
-  useEffect(() => {
-    if (activeStep === "chat") {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [activeSession?.messages, isTyping, activeStep]);
+  // The transcript (ChatTranscript) follows new messages while the reader is within 64px of the bottom.
 
   const handleSelectStream = (stream: ChatStreamType) => {
     setSelectedStream(stream);
@@ -487,10 +486,12 @@ export function SupportChatWidget({
 
   const handleSendMessage = async (e?: React.FormEvent, directText?: string) => {
     e?.preventDefault();
-    const textToSend = (directText !== undefined ? directText : inputMessage).trim();
-    if (!textToSend || !activeSession) return;
+    const typed = directText === undefined;
+    const textToSend = (typed ? inputMessage : directText).trim();
+    if (!textToSend || !activeSession || (typed && sendingDraft)) return;
 
-    setInputMessage("");
+    // A typed draft stays (read-only) until the message is saved; it is kept if saving fails.
+    if (typed) setSendingDraft(true);
     setIsTyping(true);
     setChatError(null);
     const clientMessageId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -555,6 +556,7 @@ export function SupportChatWidget({
       }
 
       setActiveSession((current) => mergeChatSession(current, res.session as CustomerChatSession));
+      if (typed) setInputMessage((draft) => (draft.trim() === textToSend ? "" : draft));
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sv8_ticket_created", { detail: res.session }));
       }
@@ -564,9 +566,10 @@ export function SupportChatWidget({
           ? { ...current, messages: current.messages.filter((message) => message.id !== clientMessageId) }
           : current,
       );
-      setInputMessage(textToSend);
+      if (!typed) setInputMessage(textToSend);
       setChatError(error instanceof Error ? error.message : "Unable to save your message. Please try again.");
     } finally {
+      if (typed) setSendingDraft(false);
       setTimeout(() => setIsTyping(false), 450);
     }
   };
@@ -652,7 +655,7 @@ export function SupportChatWidget({
 
       {/* Expanded Modal / Native Fullscreen Phone Flyout */}
       {isOpen && (
-        <div className="fixed inset-0 bottom-20 sm:bottom-6 sm:right-6 sm:inset-auto z-50 w-full sm:w-[480px] h-[100dvh] max-h-[calc(100dvh-5rem)] sm:h-[640px] sm:max-h-[88vh] bg-[#0E1520] border-0 sm:border sm:border-[var(--line-2)] rounded-none sm:rounded-3xl shadow-2xl shadow-black/90 flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 text-[#EAF1F8]">
+        <div className="chat-widget-panel fixed inset-0 bottom-20 sm:bottom-6 sm:right-6 sm:inset-auto z-50 w-full sm:w-[480px] h-[100dvh] max-h-[calc(100dvh-5rem)] sm:h-[640px] sm:max-h-[88vh] bg-[#0E1520] border-0 sm:border sm:border-[var(--line-2)] rounded-none sm:rounded-3xl shadow-2xl shadow-black/90 flex flex-col overflow-hidden backdrop-blur-2xl animate-in slide-in-from-bottom-5 duration-200 text-[#EAF1F8]">
           {/* Widget Header */}
           <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-[#121A24] border-b border-[var(--line)] flex items-center justify-between shrink-0 pt-[max(env(safe-area-inset-top),12px)] sm:pt-4">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -952,126 +955,101 @@ export function SupportChatWidget({
                 </button>
               </div>
 
-              {/* Message List */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+              {/* Message List: Runtime's transcript and message anatomy */}
+              <ChatTranscript className="flex-1 min-h-0 compact chat-widget-transcript">
                 {activeSession.messages.map((msg) => {
-                  const isUser = msg.sender === "customer";
-                  const isSystem = msg.sender === "system";
-
-                  if (isSystem) {
+                  if (msg.sender === "system") {
                     return (
-                      <div key={msg.id} className="p-2.5 rounded-xl bg-[#E5484D]/10 border border-[#E5484D]/30 text-xs text-[#EAF1F8] flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 text-[#E5484D] shrink-0 mt-0.5" />
-                        <span>{msg.content}</span>
-                      </div>
+                      <ChatMessageView key={msg.id} kind="system" author={msg.senderName || `${tenantName} Support`} time={msg.timestamp}>
+                        <FormattedChatMessage content={msg.content} />
+                      </ChatMessageView>
                     );
                   }
-
+                  if (msg.sender === "customer") {
+                    return (
+                      <ChatMessageView
+                        key={msg.id}
+                        kind="user"
+                        author="You"
+                        time={msg.timestamp}
+                        footer={msg.deliveryState === "sending" ? <span className="chat-delivery" role="status">Sending…</span> : undefined}
+                      >
+                        <PlainChatText content={msg.content} />
+                      </ChatMessageView>
+                    );
+                  }
+                  const isAi = msg.sender === "ai_employee";
                   return (
-                    <div
+                    <ChatMessageView
                       key={msg.id}
-                      className={`flex items-start gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+                      kind="assistant"
+                      author={msg.senderName || (isAi ? "AI specialist" : "Support team")}
+                      role={isAi ? "AI specialist" : "Support team"}
+                      time={msg.timestamp}
+                      portrait={isAi ? { name: msg.senderName || "", role: "support" } : null}
+                      footer={(msg.citations?.length || msg.suggestedActions?.length) ? (
+                        <div className="chat-message-footer">
+                          {/* Citations */}
+                          {msg.citations?.map((c) => (
+                            <span key={c.id} className="chat-widget-chip">
+                              <Shield className="w-3 h-3" />
+                              <span>{c.title}</span>
+                            </span>
+                          ))}
+                          {/* Suggested 1-Click Action Chips */}
+                          {msg.suggestedActions?.map((act, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => handleActionClick(act.actionId, act.label)}
+                              className="chat-widget-chip chat-widget-action"
+                            >
+                              <span>{act.label}</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          ))}
+                        </div>
+                      ) : undefined}
                     >
-                      {!isUser && (
-                        <div className="w-7 h-7 rounded-lg bg-[var(--chat-brand-soft)] border border-[var(--chat-brand-border)] flex items-center justify-center text-[var(--chat-brand)] text-xs font-bold shrink-0 overflow-hidden">
-                          {msg.senderAvatar ? (
-                            <img src={msg.senderAvatar} alt="Avatar" className="w-full h-full object-cover" />
-                          ) : (
-                            <Bot className="w-4 h-4" />
-                          )}
-                        </div>
-                      )}
-
-                      <div className={`space-y-1 max-w-[88%] ${isUser ? "items-end text-right" : "items-start text-left"}`}>
-                        <div className="text-[10px] font-mono text-[#6B7C8D] flex items-center gap-1.5">
-                          <span className="font-bold text-[#B4C2D0]">{msg.senderName}</span>
-                          <span>{msg.timestamp}</span>
-                        </div>
-
-                        <div
-                          className={`p-3 rounded-2xl text-xs sm:text-[11px] leading-relaxed shadow-sm ${
-                            isUser
-                              ? "bg-[var(--chat-brand-soft)] border border-[var(--chat-brand-border)] text-[#EAF1F8] rounded-tr-none"
-                              : "bg-[#141C26] border border-[var(--line)] text-[#EAF1F8] rounded-tl-none whitespace-pre-line"
-                          }`}
-                        >
-                          {msg.content}
-                        </div>
-                        {isUser && msg.deliveryState === "sending" && (
-                          <span className="text-[9px] text-[#8E9AA8]" role="status">Sending…</span>
-                        )}
-
-                        {/* Citations */}
-                        {msg.citations && msg.citations.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {msg.citations.map((c) => (
-                              <div
-                                key={c.id}
-                                className="px-2 py-0.5 rounded-lg bg-[#101720] border border-[var(--line)] text-[9px] font-mono text-[var(--chat-brand)] flex items-center gap-1"
-                              >
-                                <Shield className="w-2.5 h-2.5" />
-                                <span>{c.title}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Suggested 1-Click Action Chips */}
-                        {msg.suggestedActions && msg.suggestedActions.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {msg.suggestedActions.map((act, i) => (
-                              <button
-                                key={i}
-                                onClick={() => handleActionClick(act.actionId, act.label)}
-                                className="px-2.5 py-1 rounded-xl bg-[#18222E] border border-[var(--chat-brand-border)] hover:border-[var(--chat-brand)] text-[10px] font-mono text-[var(--chat-brand)] flex items-center gap-1 transition-colors cursor-pointer active:scale-95 shadow-sm"
-                              >
-                                <span>{act.label}</span>
-                                <ChevronRight className="w-2.5 h-2.5" />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      {isAi ? <FormattedChatMessage content={msg.content} /> : <PlainChatText content={msg.content} />}
+                    </ChatMessageView>
                   );
                 })}
 
-                {isTyping && (
-                  <div className="flex items-center gap-1.5 text-xs font-mono text-[#6B7C8D] p-2 bg-[#141C26] rounded-xl w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chat-brand)] animate-pulse" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chat-brand)] animate-pulse delay-75" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chat-brand)] animate-pulse delay-150" />
-                    <span>Sending message securely…</span>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+                {isTyping && <p className="chat-pending" role="status">Sending your message securely…</p>}
+              </ChatTranscript>
 
-              {/* Chat Input Bar */}
-              <div className="bg-[#121A24] border-t border-[var(--line)] shrink-0">
-                {chatError && (
-                  <p className="px-3 pt-2 text-xs text-[#E5484D]" role="alert">
-                    {chatError}
-                  </p>
-                )}
-                <form
-                  onSubmit={handleSendMessage}
-                  className="p-3 flex items-center gap-2 pb-[max(env(safe-area-inset-bottom),12px)] sm:pb-3"
-                >
-                  <input
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Type a message, ask about PINs, or status..."
-                    className="flex-1 bg-[#18222E] border border-[var(--line)] rounded-xl px-3.5 py-2.5 text-sm sm:text-xs text-[#EAF1F8] focus:outline-none focus:border-[var(--chat-brand)]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!inputMessage.trim()}
-                    className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-[var(--chat-brand)] text-[var(--chat-on-brand)] flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shrink-0 active:scale-95 shadow-md"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
+              {/* Composer: label, Enter/Shift+Enter, read-only while sending, draft kept on error */}
+              <div className="chat-compose compact chat-widget-compose shrink-0 pb-[max(env(safe-area-inset-bottom),12px)] sm:pb-3">
+                <form onSubmit={handleSendMessage}>
+                  <label htmlFor="support-widget-message">Message {tenantName} Support</label>
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      id="support-widget-message"
+                      rows={2}
+                      value={inputMessage}
+                      onChange={(e) => { setInputMessage(e.target.value); if (chatError) setChatError(null); }}
+                      onKeyDown={(e) => handleChatComposerKeyDown(e, () => void handleSendMessage(), sendingDraft)}
+                      readOnly={sendingDraft}
+                      aria-invalid={chatError ? true : undefined}
+                      aria-describedby={chatError ? "support-widget-error support-widget-help" : "support-widget-help"}
+                      placeholder="Type a message, ask about PINs, or status..."
+                    />
+                    <button
+                      type="submit"
+                      aria-label={sendingDraft ? "Sending message" : "Send message"}
+                      disabled={!inputMessage.trim() || sendingDraft}
+                      className="w-11 h-11 rounded-xl bg-[var(--chat-brand)] text-[var(--chat-on-brand)] flex items-center justify-center hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shrink-0"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {chatError && (
+                    <p id="support-widget-error" className="chat-compose-error" role="alert">
+                      {chatError}
+                    </p>
+                  )}
+                  <span id="support-widget-help" className="chat-compose-help">Enter to send; Shift+Enter for a new line.</span>
                 </form>
               </div>
             </div>

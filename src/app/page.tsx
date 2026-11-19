@@ -141,7 +141,7 @@ import { DemoAccessModal } from "@/components/DemoAccessModal";
 import { WorkforceAvatar } from "@/components/WorkforceAvatar";
 import { runtimeTicketHref } from "@/lib/service-app/runtime-native-workdesk";
 import { RuntimeNativeWorkdesk } from "@/components/workspace/RuntimeNativeWorkdesk";
-import { AuthService, isRuntimeHandoffSession, type AuthSession } from "@/lib/auth-service";
+import { AuthService, isRuntimeHandoffSession, runtimeShellUrl, type AuthSession } from "@/lib/auth-service";
 import { useSupportDemoEnabled } from "@/components/demo/useSupportDemoEnabled";
 import { demoPersonasFor } from "@/components/demo/demo-personas";
 import { canChangeOperatingMode, operatingModeLabel, tenantOperatingMode, type TenantOperatingMode } from "@/lib/operating-mode";
@@ -2340,6 +2340,7 @@ export default function SupportV8Dashboard() {
   return (
     <SupportFamilyShell
       mode={shellMode}
+      runtimeUrl={runtimeShellUrl(operatorSession)}
       active={activeTab}
       nav={shellNav}
       badges={shellBadges}

@@ -61,6 +61,15 @@ npx vitest run
 PORT=3005 npm run dev
 ```
 
+### Demo sandbox (off by default)
+The Acme and Meridian demo tenants, their named personas, the seeded demo
+credentials, the landing-page demo entries and the demo access modal exist only
+when the deployment sets `SUPPORTV8_DEMO_MODE=true` (server-side, read at
+request time; the browser asks `GET /api/demo/status`). Any other value, or no
+value, means no demo: real tenants, including Runtime hand-offs whose domain is
+`acme` or `meridian`, never see demo data. The test suite enables it in
+`vitest.config.ts`; `test/demo-mode-gate.test.tsx` covers it switched off.
+
 ### Build Docker Container:
 ```bash
 docker build -t redoosolutions/supportv8:web-latest .

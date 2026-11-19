@@ -8,6 +8,7 @@ import type {
   PriorityLevel,
   Issue,
 } from "@/lib/types";
+import { isSupportDemoTenant } from "@/lib/demo-mode";
 import { db } from "@/lib/db/mock-data";
 import { INITIAL_WORKFORCE } from "@/lib/workforce";
 
@@ -619,9 +620,7 @@ export class ChatWorkflowService {
     const sessionId = `chat_sess_${seqChat}`;
 
     // Demo AI fixtures are separate from real, authenticated staff presence.
-    const isDemoTenant = ["acme", "meridian"].includes(
-      (params.tenantDomain || "").toLowerCase()
-    );
+    const isDemoTenant = isSupportDemoTenant(params.tenantDomain);
     // Resolve Tenant Subdomain Brand & Routing
     const rawSubdomain = (params.tenantDomain || "acme").toLowerCase().replace(".support.servicev8.com", "").replace(".support.servicev8.internal", "").replace(".support.", "");
     const tenantData = db.getTenantData(rawSubdomain);

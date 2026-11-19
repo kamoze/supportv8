@@ -6,6 +6,7 @@
  * No hardcoded fake numbers — figures reflect the actual business data.
  */
 
+import { isSupportDemoTenant } from "@/lib/demo-mode";
 import { db } from "../db/mock-data";
 import { reportingService } from "./reporting-service";
 import { acquireScenarioForTenant } from "@/lib/platform/scenarios";
@@ -892,7 +893,7 @@ export class MarketplaceService {
     const existing = this.tenantStates.get(clean);
     if (existing) return existing;
 
-    const isDemoTenant = clean === "acme" || clean === "meridian";
+    const isDemoTenant = isSupportDemoTenant(clean);
     const state = {
       connectors: this.clone(INITIAL_CONNECTORS).map((connector) =>
         isDemoTenant
@@ -1488,9 +1489,7 @@ export class MarketplaceService {
    */
   public getReports(tenantSlug = "acme"): ComplianceAuditReport[] {
     const historical = this.clone(this.stateFor(tenantSlug).reports);
-    const isDemoTenant =
-      tenantSlug.trim().toLowerCase() === "acme" ||
-      tenantSlug.trim().toLowerCase() === "meridian";
+    const isDemoTenant = isSupportDemoTenant(tenantSlug);
 
     if (isDemoTenant) {
       // Prepend the live current-period report so numbers always reflect reality.
@@ -1608,8 +1607,7 @@ export class MarketplaceService {
   }
 
   public isDemoTenant(tenantSlug: string): boolean {
-    const clean = tenantSlug.trim().toLowerCase();
-    return clean === "acme" || clean === "meridian";
+    return isSupportDemoTenant(tenantSlug);
   }
 
   public selectPlan(

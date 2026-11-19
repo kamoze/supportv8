@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSupportDemoTenant } from "@/lib/demo-mode";
 import { WorkforceSpine } from "@/lib/workforce-spine/orchestrator";
 import { WorkforceGovernance } from "@/lib/workforce-spine/governance";
 import { WarmVoiceTransferEngine } from "@/lib/workforce-spine/voice-transfer";
@@ -15,7 +16,7 @@ function workforceError(error: unknown) {
 export async function GET(request: NextRequest) {
   try {
     const tenant = await resolveRequestTenant(request, { requireAuthentication: true });
-    const isDemoTenant = tenant.tenantSlug === "acme" || tenant.tenantSlug === "meridian";
+    const isDemoTenant = isSupportDemoTenant(tenant.tenantSlug);
     const employees = isDemoTenant
       ? ["employee_sophia", "employee_alex", "employee_barnaby"].map((employeeId) => {
           const employee = WorkforceGovernance.getEmployee(employeeId);
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     const tenant = await resolveRequestTenant(request, { requireAuthentication: true });
     const body = await request.json();
     const { actionType, payload, employeeId } = body;
-    const isDemoTenant = tenant.tenantSlug === "acme" || tenant.tenantSlug === "meridian";
+    const isDemoTenant = isSupportDemoTenant(tenant.tenantSlug);
     const hiredEmployee = marketplaceService
       .getWorkforceCatalog(tenant.tenantSlug)
       .some((employee) => employee.isHired && employee.id === employeeId);

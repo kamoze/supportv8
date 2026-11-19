@@ -403,6 +403,12 @@ export interface SupportPolicy {
   retentionRawContextHours: number;
   retentionDerivedMonths: number;
   rules?: PolicyRule[];
+  /**
+   * False when the tenant has no stored policy row: operatingMode is then the
+   * engine's fail-closed evaluation default ("observe"), not a tenant choice,
+   * and the UI shows "Not set".
+   */
+  operatingModeConfigured?: boolean;
 }
 
 export interface PolicyRule {

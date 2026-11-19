@@ -1281,10 +1281,11 @@ export default function SupportV8Dashboard() {
     }
   };
 
-  const handleAskChat = async (e?: React.FormEvent, overrideQuery?: string) => {
+  /** Resolves true when a reply arrived; false keeps the draft (and drops the unanswered message) for a retry. */
+  const handleAskChat = async (e?: React.FormEvent, overrideQuery?: string): Promise<boolean> => {
     if (e) e.preventDefault();
     const queryToSend = overrideQuery || chatQuery;
-    if (!queryToSend.trim()) return;
+    if (!queryToSend.trim()) return false;
     const targetEmployeeId = selectedEmployeeId || DEFAULT_RAG_ASSISTANT.id;
 
     const userMsg: ChatMessage = {
@@ -1295,8 +1296,8 @@ export default function SupportV8Dashboard() {
     };
 
     setChatMessages((prev) => [...prev, userMsg]);
-    setChatQuery("");
     setChatLoading(true);
+    let answered = false;
 
     try {
       const res = await fetch("/api/chat", {
@@ -1325,6 +1326,7 @@ export default function SupportV8Dashboard() {
         setChatMessages((prev) => [...prev, assistantMsg]);
         setChatResponse(res.data);
         void soundAlertService.playChatAlert();
+        answered = true;
       } else {
         notify(res.error || "Chat query failed", "error");
       }
@@ -1334,6 +1336,13 @@ export default function SupportV8Dashboard() {
     } finally {
       setChatLoading(false);
     }
+    if (answered) {
+      // The console's draft clears only after a reply was accepted.
+      if (!overrideQuery) setChatQuery("");
+    } else {
+      setChatMessages((prev) => prev.filter((message) => message.id !== userMsg.id));
+    }
+    return answered;
   };
 
   const handleSelectEmployee = (empId: string) => {

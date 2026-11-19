@@ -28,13 +28,20 @@ import {
 import { SoundAlertToggle } from "@/components/SoundAlertToggle";
 import type { ChatMessage } from "@/app/page";
 import type { GovernedActionItem } from "@/lib/types/marketplace-types";
+import { ChatMessage as ChatMessageView, PlainChatText } from "@/components/chat-ui/ChatMessage";
+import { ChatTranscript } from "@/components/chat-ui/ChatTranscript";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
+import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
+import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
+import { employeeDisplayName } from "@/lib/chat/employee-avatar";
 
 interface AskWorkspaceViewProps {
   workforce: any[];
   selectedEmployeeId: string;
   onSelectEmployee: (empId: string) => void;
   messages: ChatMessage[];
-  onSendMessage: (query: string) => void;
+  /** Resolves false when the question was not answered, so the draft is kept. */
+  onSendMessage: (query: string) => void | boolean | Promise<void | boolean>;
   onClearChat: () => void;
   onChatAction: (action: any) => void;
   loading: boolean;
@@ -147,11 +154,28 @@ export function AskWorkspaceView({
     DEFAULT_FALLBACK_ASSISTANT;
   const hasHiredEmployee = workforce.length > 0;
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputQuery.trim() || loading) return;
-    onSendMessage(inputQuery.trim());
-    setInputQuery("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const pending = loading || sending;
+  // Who the question really goes to: the page sends selectedEmployeeId (or the RAG assistant) in every mode.
+  const recipient = workforce.find((w) => w.id === selectedEmployeeId) || DEFAULT_FALLBACK_ASSISTANT;
+  const recipientName = employeeDisplayName(recipient.name);
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const query = inputQuery.trim();
+    if (!query || pending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      // The draft stays (read-only) until the reply is accepted; on failure it is kept for a retry.
+      const result = await onSendMessage(query);
+      if (result === false) setSendError("No reply was received. Your draft is still here; try again.");
+      else setInputQuery("");
+    } catch {
+      setSendError("No reply was received. Your draft is still here; try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleStartVoiceCall = () => {
@@ -279,8 +303,8 @@ export function AskWorkspaceView({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-sm font-bold text-[#EAF1F8] truncate">
-                    {hasHiredEmployee ? "AgenticOS Chat" : "Workspace Copilot"}
+                  <h2 className="text-sm font-bold text-[#EAF1F8] truncate" data-testid="chat-room-heading">
+                    {recipientName ? `Speak with ${recipientName}` : "Team conversation"}
                   </h2>
                   <span className="pill ok text-[9px] font-mono shrink-0">
                     {hasHiredEmployee ? "RUNTIME ACCEPTANCE" : "VECTOR KNOWLEDGE"}
@@ -327,55 +351,39 @@ export function AskWorkspaceView({
 
           {/* AI Workforce Selector Carousel / Copilot Pill */}
           {hasHiredEmployee ? (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {/* All Team Collaboration Pill */}
+            <div className="chat-roster-list" role="group" aria-label="AI employees">
+              {/* All Team Collaboration */}
               <button
                 type="button"
                 onClick={() => setTargetMode("all")}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer shrink-0 ${
-                  targetMode === "all"
-                    ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] shadow-md ring-1 ring-[#2ED8B6]/40"
-                    : "bg-[#18222E] border-[var(--line)] text-[#B4C2D0] hover:bg-[#1C2836]"
-                }`}
+                aria-pressed={targetMode === "all"}
+                className="chat-person"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#2ED8B6]/20 text-[#2ED8B6] flex items-center justify-center shrink-0 border border-[#2ED8B6]/40">
-                  <Users className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <div className="text-xs font-bold truncate max-w-[130px]">All Team</div>
-                  <div className="text-[10px] font-mono text-[#2ED8B6] uppercase tracking-wider">
-                    Omnichannel
-                  </div>
-                </div>
+                <span>
+                  <strong>All Team</strong>
+                  <small>Omnichannel</small>
+                </span>
               </button>
 
-              {/* Individual Employee Pills */}
+              {/* Individual employees: 40px portrait, name, muted role (SupportV8 has no @handles). */}
               {workforce.map((emp) => {
                 const isSelected = targetMode === "single" && emp.id === selectedEmployeeId;
                 return (
                   <button
                     key={emp.id}
+                    type="button"
                     onClick={() => {
                       setTargetMode("single");
                       onSelectEmployee(emp.id);
                     }}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all cursor-pointer shrink-0 ${
-                      isSelected
-                        ? "bg-[#2ED8B6]/15 border-[#2ED8B6] text-[#EAF1F8] shadow-md ring-1 ring-[#2ED8B6]/40"
-                        : "bg-[#18222E] border-[var(--line)] text-[#B4C2D0] hover:bg-[#1C2836]"
-                    }`}
+                    aria-pressed={isSelected}
+                    className="chat-person"
                   >
-                    <img
-                      src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
-                      alt={emp.name}
-                      className="w-8 h-8 rounded-lg object-cover border border-[var(--line-2)] shrink-0"
-                    />
-                    <div className="text-left">
-                      <div className="text-xs font-bold truncate max-w-[130px]">{emp.name.split("—")[0]}</div>
-                      <div className="text-[10px] font-mono text-[#6B7C8D] uppercase tracking-wider">
-                        {emp.level === "ai_employee" ? "AI Lead" : "Intern"} &bull; {emp.autonomyLevel}
-                      </div>
-                    </div>
+                    <EmployeeAvatar name={employeeDisplayName(emp.name)} role={emp.role} kind={emp.level === "ai_intern" ? "intern" : undefined} />
+                    <span>
+                      <strong>{employeeDisplayName(emp.name)}</strong>
+                      <small>{emp.role}</small>
+                    </span>
                   </button>
                 );
               })}
@@ -391,91 +399,66 @@ export function AskWorkspaceView({
           )}
         </div>
 
-        {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 max-w-4xl w-full mx-auto">
+        {/* Message Stream: Runtime's transcript and message anatomy */}
+        <ChatTranscript className="flex-1 min-h-0">
+          {messages.length === 0 && (
+            <div className="chat-no-messages">
+              <h3>No messages yet</h3>
+              <p>Ask {recipientName} about tickets, runbooks or knowledge. Replies are advisory.</p>
+            </div>
+          )}
           {messages.map((msg) => {
-            const isUser = msg.role === "user";
-            const isSystem = msg.role === "system";
-
-            if (isSystem) {
+            if (msg.role === "system") {
               return (
-                <div key={msg.id} className="text-center my-3">
-                  <span className="inline-block px-3 py-1 rounded-full bg-[#18222E] border border-[var(--line)] text-[10px] font-mono text-[#6B7C8D]">
-                    {msg.content}
-                  </span>
-                </div>
+                <ChatMessageView key={msg.id} kind="system" author="SupportV8" time={msg.timestamp}>
+                  <FormattedChatMessage content={msg.content} />
+                </ChatMessageView>
               );
             }
-
-            const emp = workforce.find((w) => w.id === msg.employeeId) || activeEmployee;
-
+            if (msg.role === "user") {
+              return (
+                <ChatMessageView key={msg.id} kind="user" author="You" time={msg.timestamp}>
+                  <PlainChatText content={msg.content} />
+                </ChatMessageView>
+              );
+            }
+            const emp = workforce.find((w) => w.id === msg.employeeId);
+            const name = employeeDisplayName(msg.employeeName || emp?.name || "AI employee");
+            const role = msg.employeeRole || emp?.role;
             return (
-              <div
+              <ChatMessageView
                 key={msg.id}
-                className={`flex items-start gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+                kind="assistant"
+                author={name}
+                role={role}
+                time={msg.timestamp}
+                portrait={{ name, role, kind: emp?.level === "ai_intern" ? "intern" : undefined }}
+                footer={(msg.citations?.length || msg.suggestedActions?.length) ? (
+                  <div className="chat-message-footer">
+                    {/* Grounded Knowledge Citations */}
+                    {msg.citations?.map((cit, idx) => (
+                      <span key={idx} className="pill text-[11px] flex items-center gap-1">
+                        <Shield className="w-3 h-3" />
+                        <span>{cit.title}</span>
+                      </span>
+                    ))}
+                    {/* Suggested 1-Click Action Buttons */}
+                    {msg.suggestedActions?.map((act, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => onChatAction(act)}
+                        className="btn btn-secondary py-1 px-2.5 text-[12px] flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>{act.label}</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    ))}
+                  </div>
+                ) : undefined}
               >
-                {isUser ? (
-                  <div className="w-8 h-8 rounded-xl bg-[#2ED8B6]/20 text-[#2ED8B6] border border-[#2ED8B6]/40 flex items-center justify-center text-xs font-bold shrink-0">
-                    U
-                  </div>
-                ) : (
-                  <img
-                    src={emp?.avatarUrl || "/avatars/beaver-manager.jpg"}
-                    alt="Avatar"
-                    className="w-8 h-8 rounded-xl object-cover border border-[var(--line)] shrink-0"
-                  />
-                )}
-
-                <div className={`space-y-2 max-w-[85%] ${isUser ? "items-end" : "items-start"}`}>
-                  <div className="flex items-center gap-2 text-[10px] font-mono text-[#6B7C8D]">
-                    <span className="font-bold text-[#B4C2D0]">
-                      {isUser ? "You (Operator Desk)" : emp?.name || "AI employee"}
-                    </span>
-                    <span>{msg.timestamp}</span>
-                  </div>
-
-                  <div
-                    className={`p-4 rounded-2xl text-xs leading-relaxed ${
-                      isUser
-                        ? "bg-[#2ED8B6]/15 border border-[#2ED8B6]/30 text-[#EAF1F8] rounded-tr-none"
-                        : "bg-[#18222E] border border-[var(--line-2)] text-[#EAF1F8] rounded-tl-none whitespace-pre-line"
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-
-                  {/* Grounded Knowledge Citations */}
-                  {msg.citations && msg.citations.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {msg.citations.map((cit, idx) => (
-                        <span
-                          key={idx}
-                          className="pill text-[9px] font-mono flex items-center gap-1 bg-[#121A24] border border-[var(--line)]"
-                        >
-                          <Shield className="w-2.5 h-2.5 text-[#2ED8B6]" />
-                          <span>{cit.title}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Suggested 1-Click Action Buttons */}
-                  {msg.suggestedActions && msg.suggestedActions.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {msg.suggestedActions.map((act, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => onChatAction(act)}
-                          className="btn btn-secondary py-1 px-2.5 text-[11px] font-mono flex items-center gap-1.5 hover:border-[#2ED8B6] text-[#2ED8B6] cursor-pointer"
-                        >
-                          <span>{act.label}</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+                <FormattedChatMessage content={msg.content} />
+              </ChatMessageView>
             );
           })}
 
@@ -599,24 +582,10 @@ export function AskWorkspaceView({
             </div>
           )}
 
-          {loading && hasHiredEmployee && (
-            <div className="flex items-center gap-3">
-              <img
-                src={activeEmployee?.avatarUrl || "/avatars/beaver-manager.jpg"}
-                alt="Avatar"
-                className="w-8 h-8 rounded-xl object-cover border border-[var(--line)] shrink-0 animate-pulse"
-              />
-              <div className="p-3.5 rounded-2xl bg-[#18222E] border border-[var(--line)] text-xs text-[#6B7C8D] font-mono flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#2ED8B6] animate-ping" />
-                <span>
-                  {targetMode === "all"
-                    ? "Workforce hive is correlating cross-domain telemetry..."
-                    : `${activeEmployee?.name.split("—")[0]} is analyzing telemetry & knowledge graph...`}
-                </span>
-              </div>
-            </div>
+          {pending && (
+            <p className="chat-pending" role="status">Waiting for {recipientName}’s reply…</p>
           )}
-        </div>
+        </ChatTranscript>
 
         {/* Suggested Prompt Chips */}
         {showPrompts ? (
@@ -663,52 +632,41 @@ export function AskWorkspaceView({
           </div>
         )}
 
-        {/* Query Input Bar */}
-        <form onSubmit={handleSend} className="p-3 sm:p-4 bg-[#0E1520] border-t border-[#2ED8B6]/30 shrink-0">
-          <div className="max-w-4xl mx-auto space-y-2">
-            <div className="relative">
-              <textarea
-                rows={3}
-                value={inputQuery}
-                onChange={(e) => setInputQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend(e);
-                  }
-                }}
-                placeholder={
-                  targetMode === "all"
-                    ? "Ask All Team about active incidents, customer trends, or cross-domain runbooks..."
-                    : `Ask ${activeEmployee.name} about tickets, runbooks, or vector knowledge...`
-                }
-                disabled={loading}
-                className="w-full bg-[#18222E] text-[#EAF1F8] p-3.5 pr-14 rounded-xl border border-[var(--line-2)] text-xs focus:outline-none focus:border-[#2ED8B6] focus:ring-1 focus:ring-[#2ED8B6]/40 font-medium transition-all shadow-inner resize-y min-h-[80px] max-h-[360px] leading-relaxed"
-              />
-              <div className="absolute right-3.5 top-3.5 text-[#6B7C8D] text-[10px] font-mono pointer-events-none flex items-center gap-1">
-                <CornerDownLeft className="w-2.5 h-2.5" />
-                <span>ENTER</span>
+        {/* Composer: Runtime's label, "To:", Enter/Shift+Enter, read-only while pending, draft kept on error */}
+        <div className="chat-compose">
+          <form onSubmit={handleSend}>
+            <label htmlFor="ask-chat-message">Message your AI team</label>
+            <p className="chat-recipient-summary" aria-live="polite">
+              {pending ? `Sending to ${recipientName}…` : `To: ${recipientName}`}
+            </p>
+            <textarea
+              id="ask-chat-message"
+              rows={2}
+              value={inputQuery}
+              onChange={(e) => { setInputQuery(e.target.value); setSendError(null); }}
+              onKeyDown={(e) => handleChatComposerKeyDown(e, () => void handleSend(), pending)}
+              placeholder={`Ask ${activeEmployee.name} about tickets, runbooks, or vector knowledge...`}
+              readOnly={pending}
+              aria-invalid={sendError ? true : undefined}
+              aria-describedby={sendError ? "ask-chat-error ask-chat-help" : "ask-chat-help"}
+            />
+            {sendError && <p id="ask-chat-error" className="chat-compose-error" role="alert">{sendError}</p>}
+            <div className="chat-compose-actions">
+              <span id="ask-chat-help" className="chat-compose-help">Enter to send; Shift+Enter for a new line.</span>
+              <div className="chat-compose-buttons">
+                <button
+                  type="submit"
+                  disabled={!inputQuery.trim() || pending}
+                  className="btn btn-primary py-2.5 px-5 text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{pending ? "Sending…" : "Ask AI"}</span>
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center justify-between gap-3 text-[11px] font-mono text-[#6B7C8D]">
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline">Press <strong className="text-[#EAF1F8]">Enter</strong> to send</span>
-                <span className="hidden sm:inline">&bull;</span>
-                <span className="hidden sm:inline"><strong className="text-[#EAF1F8]">Shift + Enter</strong> for new line</span>
-              </div>
-
-              <button
-                type="submit"
-                disabled={!inputQuery.trim() || loading}
-                className="btn btn-primary py-2.5 px-5 text-xs font-bold flex items-center gap-2 disabled:opacity-40 cursor-pointer shadow-md shrink-0"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Ask AI</span>
-              </button>
-            </div>
-          </div>
-        </form>
+            {pending && <span className="sv8-sr-only" role="status">Sending to {recipientName}. Your draft clears when the reply arrives.</span>}
+          </form>
+        </div>
       </div>
 
       {/* ========================================================================= */}

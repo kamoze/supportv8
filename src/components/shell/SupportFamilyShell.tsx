@@ -10,7 +10,7 @@
  * real hrefs), and sign out, the Ask tool, the active view and the theme flow
  * between the two.
  */
-import React, { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import React, { useEffect, useRef, type ReactNode } from "react";
 import type { ShellNavGroup, ShellTool } from "./support-nav";
 
 const FAMILY_JS = "/vendor/family-ui/family.js";
@@ -88,16 +88,6 @@ export function SupportFamilyShell({
   const data = useRef({ nav, tools, badges });
   data.current = { nav, tools, badges };
 
-  // <sv8-shell>'s app and mode are read-only properties backed by attributes. React 19
-  // assigns props to existing properties on defined custom elements, which would throw,
-  // so set them as attributes here (before paint) instead of as JSX props.
-  useLayoutEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    shell.setAttribute("app", "support");
-    shell.setAttribute("mode", mode);
-  }, [mode]);
-
   // Load the elements once, then hand the sidebar its data.
   useEffect(() => {
     let live = true;
@@ -165,7 +155,14 @@ export function SupportFamilyShell({
   }, []);
 
   return (
-    <sv8-shell ref={shellRef} id="support-shell" className="family-admin" data-testid="support-shell">
+    <sv8-shell
+      ref={shellRef}
+      id="support-shell"
+      app="support"
+      mode={mode}
+      className="family-admin"
+      data-testid="support-shell"
+    >
       <sv8-sidebar
         ref={sidebarRef}
         id="support-sidebar"

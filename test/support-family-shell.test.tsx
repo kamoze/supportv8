@@ -68,7 +68,8 @@ describe("SupportFamilyShell", () => {
         <div id="support-workspace">content</div>
       </SupportFamilyShell>,
     );
-    expect(html).toMatch(/<sv8-shell[^>]*id="support-shell"/);
+    // family-ui 0.1.3+ makes app/mode writable, so React renders them directly.
+    expect(html).toMatch(/<sv8-shell[^>]*id="support-shell"[^>]*app="support"[^>]*mode="embedded"/);
     expect(html).toMatch(/<sv8-sidebar[^>]*active="workspace"[^>]*sign-out=""[^>]*><\/sv8-sidebar>/);
     expect(html).not.toContain("runtime-url");
     expect(html).toContain('<div id="support-workspace">content</div>');
@@ -124,6 +125,36 @@ describe("SupportFamilyShell", () => {
     for (const id of ["voice", "gov_settings", "gov_members", "workspace"]) expect(ids).toContain(id);
   });
 
+  it("keeps the theme the early script set on <html> when the shell connects", async () => {
+    document.cookie = "sv8-ui=; Max-Age=0; Path=/";
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.familyTheme = "light";
+    const { container } = await mount("standalone");
+    expect(container.querySelector("sv8-shell")!.getAttribute("theme")).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.dataset.familyTheme).toBe("light");
+    delete document.documentElement.dataset.theme;
+  });
+
+  it("follows a mode change from the session without re-mounting", async () => {
+    const nav = supportShellNav(groupSupportNavigation(CX_LEAD_SECTIONS, false), { contractor: false });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const render = (mode: "standalone" | "embedded") => root.render(
+      <SupportFamilyShell mode={mode} active="issues" nav={nav} tools={SUPPORT_SHELL_TOOLS} tenant="acme" onNavigate={vi.fn()} onSignOut={vi.fn()} onTool={vi.fn()}><main /></SupportFamilyShell>,
+    );
+    await act(async () => render("standalone"));
+    await act(async () => { await customElements.whenDefined("sv8-sidebar"); });
+    const shell = container.querySelector("sv8-shell")!;
+    expect(shell.getAttribute("mode")).toBe("standalone");
+    await act(async () => render("embedded"));
+    expect(container.querySelector("sv8-shell")).toBe(shell);
+    expect(shell.getAttribute("mode")).toBe("embedded");
+    expect(desktopLinks(container).map((a) => a.dataset.id)).not.toContain("market_plans");
+  });
+
   it("routes plain clicks through the app, keeps modified clicks, and wires sign out, Ask and theme", async () => {
     const { container, handlers } = await mount("standalone");
     const voice = desktopLinks(container).find((a) => a.dataset.id === "voice")!;
@@ -157,8 +188,8 @@ describe("SupportV8 page on the shell", () => {
     expect(page).toMatch(/shellMode === "standalone" && <button[\s\S]{0,400}setIsForgeGwModalOpen\(true\)/);
   });
 
-  it("vendors family-ui 0.1.2 and serves it from the app's own origin with system fonts", () => {
-    expect(source("public/vendor/family-ui/VERSION").trim()).toBe("@kamoze/servicev8-family-ui 0.1.2");
+  it("vendors family-ui 0.1.4 and serves it from the app's own origin with system fonts", () => {
+    expect(source("public/vendor/family-ui/VERSION").trim()).toBe("@kamoze/servicev8-family-ui 0.1.4");
     expect(existsSync(`${process.cwd()}/public/vendor/family-ui/family.css`)).toBe(true);
     const layout = source("src/app/layout.tsx");
     expect(layout).toContain('href="/vendor/family-ui/family.css"');

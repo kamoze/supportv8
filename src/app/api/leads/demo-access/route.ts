@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResendService } from "@/lib/services/resend-service";
+import { supportDemoEnabled } from "@/lib/demo-mode";
+
+const demoDisabled = () =>
+  NextResponse.json({ success: false, error: "Demo access is not enabled on this deployment." }, { status: 404 });
 
 export interface DemoLeadRecord {
   id: string;
@@ -21,6 +25,7 @@ export interface DemoLeadRecord {
 const demoLeadsStore: DemoLeadRecord[] = [];
 
 export async function POST(req: NextRequest) {
+  if (!supportDemoEnabled()) return demoDisabled();
   try {
     const body = await req.json();
     const {
@@ -124,6 +129,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  if (!supportDemoEnabled()) return demoDisabled();
   return NextResponse.json({
     totalLeadsCaptured: demoLeadsStore.length,
     leads: demoLeadsStore.slice(0, 50),

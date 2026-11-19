@@ -39,6 +39,8 @@ interface GlobalLandingViewProps {
   onOpenDemoGate?: (slug?: string) => void;
   onOpenDemoLogin?: (slug?: string) => void;
   onOpenSignup: () => void;
+  /** The Acme/Meridian demo sandbox is shown only when the deployment enables it (SUPPORTV8_DEMO_MODE). */
+  demoEnabled?: boolean;
 }
 
 export function GlobalLandingView({
@@ -47,6 +49,7 @@ export function GlobalLandingView({
   onOpenDemoGate,
   onOpenDemoLogin,
   onOpenSignup,
+  demoEnabled = false,
 }: GlobalLandingViewProps) {
 
   const [workspaceSlug, setWorkspaceSlug] = React.useState("");
@@ -149,7 +152,7 @@ export function GlobalLandingView({
           </form>
 
           {/* Demo Sandbox Quick Jump */}
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
+          {demoEnabled && <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
             <button
               onClick={() => handleLaunchDemo("acme")}
               className="px-2.5 py-1 rounded-lg text-[#2ED8B6] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
@@ -167,7 +170,7 @@ export function GlobalLandingView({
               <HardHat className="w-3 h-3 text-[#F5A623]" />
               <span>Meridian Demo</span>
             </button>
-          </div>
+          </div>}
 
           <button
             onClick={onOpenSignIn}
@@ -199,7 +202,7 @@ export function GlobalLandingView({
           <p>Bring customer issues, field work and recurring problems into a shared work desk. Keep human decisions, AI assistance and governed actions in context.</p>
           <div className="family-hero-actions">
             <button type="button" onClick={onOpenSignup} className="btn btn-primary">Get Started <ArrowRight size={16} /></button>
-            <button type="button" onClick={() => handleLaunchDemo("acme")} className="btn btn-secondary">Explore the work desk <ArrowRight size={16} /></button>
+            {demoEnabled && <button type="button" onClick={() => handleLaunchDemo("acme")} className="btn btn-secondary">Explore the work desk <ArrowRight size={16} /></button>}
             <a href="#capabilities">See how it works</a>
           </div>
         </div>
@@ -208,7 +211,7 @@ export function GlobalLandingView({
       </section>
 
       {/* INSTANT DEMO SANDBOX OPERATOR ACCESS */}
-      <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
+      {demoEnabled && <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
         <div className="p-8 rounded-3xl bg-gradient-to-b from-[#121A24] to-[#0D1520] border border-[var(--line-2)] shadow-2xl relative overflow-hidden space-y-6">
           {/* Subtle Ambient Background Glow */}
           <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#2ED8B6]/5 rounded-full blur-3xl pointer-events-none" />
@@ -304,7 +307,7 @@ export function GlobalLandingView({
             </button>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* SECTION 1: Capabilities & Omnichannel Architecture */}
       <section id="capabilities" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">

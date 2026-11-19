@@ -104,6 +104,7 @@ export class PolicyEngine {
       return {
         tenantId,
         operatingMode: mode,
+        operatingModeConfigured: ["observe", "copilot", "autonomous"].includes(dbRow?.mode),
         autonomyThreshold: mode === "autonomous" ? "high" : mode === "copilot" ? "medium" : "read",
         confidenceMin: mode === "autonomous" ? 0.8 : 0.85,
         sentimentEscalationEnabled: true,
@@ -179,6 +180,7 @@ export class PolicyEngine {
       return {
         tenantId,
         operatingMode: mode,
+        operatingModeConfigured: true,
         autonomyThreshold: partial.autonomyThreshold ?? (mode === "autonomous" ? "high" : mode === "copilot" ? "medium" : "read"),
         confidenceMin: partial.confidenceMin ?? (mode === "autonomous" ? 0.8 : 0.85),
         sentimentEscalationEnabled: partial.sentimentEscalationEnabled ?? true,

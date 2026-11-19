@@ -11,6 +11,14 @@ export interface AuthSession {
   role: "superadmin" | "operator" | "cx_lead" | "contractor_lead" | "technician" | "contractor" | "observer";
   issuedAt: number;
   expiresAt: number;
+  /** Set by /api/auth/workspace-session when the session came through the Runtime hand-off. */
+  source?: "runtime_handoff";
+}
+
+/** A Runtime hand-off session: SupportV8 runs embedded in Runtime. Display only; grants nothing. */
+export function isRuntimeHandoffSession(session: Pick<AuthSession, "token"> & { source?: string } | null | undefined): boolean {
+  if (!session) return false;
+  return session.source === "runtime_handoff" || session.token.startsWith("workspace:");
 }
 
 const SESSION_STORAGE_KEY = "sv8_operator_session";

@@ -8,6 +8,7 @@ import {
   getKeycloakConfig,
   supportRolesFromClaims,
 } from "./keycloak";
+import { supportDemoEnabled } from "@/lib/demo-mode";
 
 export interface UserCredentialRecord {
   id: string;
@@ -132,8 +133,14 @@ export class UserCredentialStore {
     return `${cleanEmail}:${cleanSlug}`;
   }
 
-  constructor(initialUsers: UserCredentialRecord[] = INITIAL_USER_CREDENTIALS) {
-    for (const u of initialUsers) {
+  /**
+   * The named demo personas are seeded only when the demo
+   * sandbox is explicitly enabled (SUPPORTV8_DEMO_MODE=true). Otherwise the
+   * store starts empty and holds only users who signed up or were persisted.
+   */
+  constructor(initialUsers?: UserCredentialRecord[]) {
+    const demo = supportDemoEnabled();
+    for (const u of initialUsers ?? (demo ? INITIAL_USER_CREDENTIALS : [])) {
       const key = this.getKey(u.email, u.tenantSlug);
       this.users.set(key, { ...u });
       if (!this.users.has(u.email.toLowerCase().trim())) {

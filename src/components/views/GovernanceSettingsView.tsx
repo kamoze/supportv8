@@ -39,12 +39,18 @@ interface GovernanceSettingsViewProps {
   settings: TenantSettingConfig;
   onUpdateSettings: (updates: Partial<TenantSettingConfig>) => void;
   onNotify?: (msg: string, type?: "success" | "error" | "info") => void;
+  /**
+   * The tenant's stored AI mode (tenant policy). When given it wins over the
+   * workspace settings copy; null means the tenant has not set one.
+   */
+  tenantOperatingMode?: "observe" | "copilot" | "autonomous" | null;
 }
 
 export function GovernanceSettingsView({
   settings,
   onUpdateSettings,
   onNotify,
+  tenantOperatingMode,
 }: GovernanceSettingsViewProps) {
   const [activeSettingsTab, setActiveSettingsTab] = useState<"byom" | "embeddings" | "forgegw" | "guardrails" | "api_tokens" | "general">("byom");
 
@@ -167,9 +173,13 @@ export function GovernanceSettingsView({
   // General & Security
   const [workspaceName, setWorkspaceName] = useState<string>(settings.workspaceName || "Acme Enterprise");
   const [webhookUrl, setWebhookUrl] = useState<string>(settings.webhookUrl || "https://support.servicev8.com/api/ingress/webhook");
-  const [operatingMode, setOperatingMode] = useState<"observe" | "copilot" | "autonomous">(
-    settings.operatingMode || "autonomous"
+  // Never default to a mode the tenant did not choose: null shows "Not set".
+  const [operatingMode, setOperatingMode] = useState<"observe" | "copilot" | "autonomous" | null>(
+    tenantOperatingMode !== undefined ? tenantOperatingMode : settings.operatingMode || null
   );
+  useEffect(() => {
+    if (tenantOperatingMode !== undefined) setOperatingMode(tenantOperatingMode);
+  }, [tenantOperatingMode]);
   const [retentionDays, setRetentionDays] = useState<number>(settings.dataRetentionDays || 90);
   const [autoEscalate, setAutoEscalate] = useState<boolean>(settings.autoEscalateFrustrated ?? true);
   const [requireApproval, setRequireApproval] = useState<boolean>(
@@ -289,7 +299,7 @@ export function GovernanceSettingsView({
       routingMode,
       workspaceName,
       webhookUrl,
-      operatingMode,
+      ...(operatingMode ? { operatingMode } : {}),
       dataRetentionDays: retentionDays,
       autoEscalateFrustrated: autoEscalate,
       requireApprovalForBroadcast: requireApproval,
@@ -1558,6 +1568,7 @@ export function GovernanceSettingsView({
             <div className="flex items-center gap-2 text-xs font-bold text-[#EAF1F8] border-b border-[var(--line)] pb-2">
               <Sliders className="w-4 h-4 text-[#2ED8B6]" />
               <span>Operating Autonomy Mode</span>
+              {!operatingMode && <span className="ml-auto text-[10px] font-mono font-normal text-[#8E9AA8]">Not set</span>}
             </div>
 
             <div className="grid grid-cols-3 gap-2">

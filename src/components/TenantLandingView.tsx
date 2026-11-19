@@ -20,6 +20,8 @@ interface TenantLandingViewProps {
   onOpenGlobalLanding: () => void;
   onOpenSignup: () => void;
   onSwitchTenant?: (slug: string) => void;
+  /** Demo ticket lookups for the Acme/Meridian fixtures run only when the sandbox is enabled. */
+  demoEnabled?: boolean;
 }
 
 interface Citation {
@@ -72,11 +74,12 @@ export function TenantLandingView({
   tenantSlug = "acme",
   onOpenSignIn,
   onOpenGlobalLanding,
+  demoEnabled = false,
 }: TenantLandingViewProps) {
   const cleanSlug = tenantSlug.toLowerCase().trim();
   const formattedName = displayName(cleanSlug);
   const isMeridian = cleanSlug === "meridian";
-  const isDemo = cleanSlug === "acme" || isMeridian;
+  const isDemo = demoEnabled && (cleanSlug === "acme" || isMeridian);
   const [config, setConfig] = useState<PortalConfig>(() => emptyPortalConfig(formattedName));
   const [portalLoaded, setPortalLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

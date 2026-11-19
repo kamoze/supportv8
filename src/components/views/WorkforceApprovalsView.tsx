@@ -37,7 +37,6 @@ const INITIAL_APPROVALS: PendingApproval[] = [
     id: "app_101",
     actionId: "act_refund_9941",
     employeeName: "Sophia — Customer Support Lead",
-    employeeAvatar: "/avatars/beaver-sophia.jpg",
     actionType: "orderv8.refund",
     payload: {
       orderId: "ORD-99412",
@@ -55,7 +54,6 @@ const INITIAL_APPROVALS: PendingApproval[] = [
     id: "app_102",
     actionId: "act_override_sla_881",
     employeeName: "Arthur — Autonomous Auditor",
-    employeeAvatar: "/avatars/beaver-arthur.jpg",
     actionType: "ticket.sla_override",
     payload: {
       ticketId: "ISS-1004",
@@ -72,7 +70,6 @@ const INITIAL_APPROVALS: PendingApproval[] = [
     id: "app_103",
     actionId: "act_kb_auto_publish_302",
     employeeName: "Vivian — Knowledge Specialist",
-    employeeAvatar: "/avatars/beaver-vivian.jpg",
     actionType: "knowledge.publish_article",
     payload: {
       articleTitle: "Resolving 504 Gateway Timeouts During Peak Checkout",

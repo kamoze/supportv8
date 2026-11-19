@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Bot, Box, Briefcase, Cpu, Lock, MessageSquare, Plus, Shield, ShoppingBag, Sparkles, Users } from "@/components/ui/FlatIcon";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 
 export interface WorkforceDirectoryViewProps {
   handleOpenAssignWorkModal: (emp: any) => void;
@@ -145,9 +146,12 @@ export function WorkforceDirectoryView({
                             {/* Employee Header */}
                             <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--line)]">
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <img
-                                  src={emp.avatarUrl || "/avatars/beaver-manager.jpg"}
-                                  alt={emp.name}
+                                <EmployeeAvatar
+                                  src={emp.avatarUrl}
+                                  name={emp.name}
+                                  role={emp.role}
+                                  kind={emp.level === "ai_intern" ? "intern" : undefined}
+                                  size={48}
                                   className="w-12 h-12 rounded-2xl object-cover border-2 border-[#2ED8B6]/50 shadow-md shrink-0"
                                 />
                                 <div className="min-w-0 flex-1">
@@ -212,9 +216,12 @@ export function WorkforceDirectoryView({
                                       className="p-2 rounded-xl bg-[#18222E] border border-[var(--line-2)] flex items-center justify-between text-xs font-mono"
                                     >
                                       <div className="flex items-center gap-2">
-                                        <img
-                                          src={intern.avatarUrl || "/avatars/beaver-intern.jpg"}
-                                          alt={intern.name}
+                                        <EmployeeAvatar
+                                          src={intern.avatarUrl}
+                                          name={intern.name}
+                                          role={intern.role}
+                                          kind="intern"
+                                          size={20}
                                           className="w-5 h-5 rounded-lg object-cover border border-[#2ED8B6]/30 shrink-0"
                                         />
                                         <span className="text-[#EAF1F8] text-[11px] font-bold">
@@ -329,9 +336,12 @@ export function WorkforceDirectoryView({
                           <div className="space-y-3.5">
                             <div className="flex items-start justify-between gap-2 pb-3 border-b border-[var(--line)]">
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <img
-                                  src={intern.avatarUrl || "/avatars/beaver-intern.jpg"}
-                                  alt={intern.name}
+                                <EmployeeAvatar
+                                  src={intern.avatarUrl}
+                                  name={intern.name}
+                                  role={intern.role}
+                                  kind="intern"
+                                  size={48}
                                   className="w-12 h-12 rounded-2xl object-cover border-2 border-[#F5A623]/40 shadow-md shrink-0"
                                 />
                                 <div className="min-w-0 flex-1">

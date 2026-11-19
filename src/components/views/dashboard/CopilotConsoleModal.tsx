@@ -11,7 +11,7 @@ import { ChatTranscript } from "@/components/chat-ui/ChatTranscript";
 import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
 import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
-import { employeeDisplayName } from "@/lib/chat/employee-avatar";
+import { employeeDisplayName } from "@/lib/portraits";
 
 export interface CopilotConsoleModalProps {
   chatLoading: boolean;
@@ -133,7 +133,7 @@ export function CopilotConsoleModal({
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <EmployeeAvatar name={employeeDisplayName(w.name)} role={w.role} kind={w.level === "ai_intern" ? "intern" : undefined} />
+                        <EmployeeAvatar src={w.avatarUrl} name={employeeDisplayName(w.name)} role={w.role} kind={w.level === "ai_intern" ? "intern" : undefined} />
                         <span
                           className={`text-[9px] font-mono px-1 py-0.2 rounded ${
                             w.level === "ai_employee"
@@ -200,7 +200,7 @@ export function CopilotConsoleModal({
                     author={name}
                     role={role}
                     time={msg.timestamp}
-                    portrait={{ name, role, kind: emp?.level === "ai_intern" ? "intern" : undefined }}
+                    portrait={{ name, role, kind: emp?.level === "ai_intern" ? "intern" : undefined, src: msg.employeeAvatar || emp?.avatarUrl }}
                     footer={(msg.citations?.length || msg.suggestedActions?.length) ? (
                       <div className="chat-message-footer">
                         {/* Grounded knowledge citations */}

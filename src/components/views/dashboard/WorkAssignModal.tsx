@@ -3,6 +3,7 @@
 import React from "react";
 import { Briefcase, CheckCircle2, X, Zap } from "@/components/ui/FlatIcon";
 import type { Issue } from "@/lib/types";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 
 export interface WorkAssignModalProps {
   assignDescription: string;
@@ -49,9 +50,11 @@ export function WorkAssignModal({
 
             {/* Target Employee Info */}
             <div className="p-3 rounded-xl bg-[#18222E] border border-[var(--line)] flex items-center gap-3">
-              <img
-                src={selectedEmployeeForAssign.avatarUrl || "/avatars/beaver-manager.jpg"}
-                alt={selectedEmployeeForAssign.name}
+              <EmployeeAvatar
+                src={selectedEmployeeForAssign.avatarUrl}
+                name={selectedEmployeeForAssign.name}
+                role={selectedEmployeeForAssign.role}
+                size={40}
                 className="w-10 h-10 rounded-xl object-cover border border-[#2ED8B6]/40 shrink-0"
               />
               <div>

@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 // SupportV8 chat surfaces follow ServiceV8 Runtime's chat design (messages and composer).
 import React, { act } from "react";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatMessage, PlainChatText } from "@/components/chat-ui/ChatMessage";
 import { ChatTranscript, FOLLOW_THRESHOLD_PX, isNearBottom } from "@/components/chat-ui/ChatTranscript";
 import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
 import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
-import { AVATAR_SIZES, employeeAvatar, employeeAvatarSources } from "@/lib/chat/employee-avatar";
 import { AskWorkspaceView } from "@/components/views/AskWorkspaceView";
 import { CopilotConsoleModal } from "@/components/views/dashboard/CopilotConsoleModal";
 import { SupportChatWidget } from "@/components/chat/SupportChatWidget";
@@ -124,29 +123,7 @@ describe("composer keys", () => {
   });
 });
 
-describe("portraits", () => {
-  it("resolves in Runtime's order and never uses initials or the full-size JPEG", () => {
-    expect(employeeAvatar("Auto-Tagger Intern", "")).toBe("/avatars/beaver-intern.jpg");
-    expect(employeeAvatar("Sophia", "finance")).toBe("/avatars/beaver-sophia.jpg");
-    expect(employeeAvatar("Maya", "Incident Response Employee")).toBe("/avatars/beaver-default.jpg");
-    expect(employeeAvatar("Jordan", "knowledge curator")).toBe("/avatars/beaver-oliver.jpg");
-    expect(employeeAvatarSources("Alex", "Senior Support Employee", undefined, 40).src).toBe("/avatars/beaver-sophia-40.webp");
-  });
-
-  it("ships a small WebP at 1x and 2x for every portrait chat can show (each at most 30 KB)", () => {
-    const names = ["arthur", "barnaby", "cornelius", "default", "eleanor", "intern", "maxwell", "oliver", "penelope", "sophia", "vivian"];
-    for (const name of names) {
-      for (const size of AVATAR_SIZES) {
-        for (const px of [size, size * 2]) {
-          const file = `${process.cwd()}/public/avatars/beaver-${name}-${px}.webp`;
-          expect(existsSync(file), file).toBe(true);
-          expect(statSync(file).size, file).toBeLessThanOrEqual(30 * 1024);
-        }
-      }
-    }
-    expect(existsSync(`${process.cwd()}/public/avatars/README.md`)).toBe(true);
-  });
-});
+// Portrait resolution and files: test/portraits-canonical.test.tsx.
 
 describe("AgenticOS chat (AskWorkspaceView)", () => {
   const employee = { id: "emp_support_lead", name: "Alex — Support Intelligence Lead", role: "Senior Support Employee", level: "ai_employee", autonomyLevel: "high" };
@@ -277,7 +254,7 @@ describe("operator workdesk conversation", () => {
     expect(view).toMatch(/className="chat-transcript compact[^"]*"\s+role="log"\s+aria-live="polite"\s+aria-label="Messages"\s+tabIndex=\{0\}/);
     expect(view).toContain("isNearLiveChatEdge(event.currentTarget, FOLLOW_THRESHOLD_PX)");
     expect(view).toMatch(/kind="user"\s+author=\{!msg.senderName \|\| msg.senderName === operatorName \? "You" : msg.senderName\}/);
-    expect(view).toContain('portrait={isAi ? { name: msg.senderName || "" } : null}');
+    expect(view).toContain('portrait={isAi ? { name: msg.senderName || "", src: (msg as { senderAvatar?: string }).senderAvatar } : null}');
   });
   it("keeps the live reply draft on failure and sends on Enter only on the chat channel", () => {
     expect(view).toContain('setLiveReplyError("Your reply was not sent. Your draft is still here; try again.")');

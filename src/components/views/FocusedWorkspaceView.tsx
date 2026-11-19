@@ -2544,7 +2544,7 @@ function LegacyFocusedWorkspaceView({
                             author={msg.senderName || (isAi ? "AI employee" : selectedIssue.customerName)}
                             role={isAi ? undefined : "Customer"}
                             time={msg.timestamp}
-                            portrait={isAi ? { name: msg.senderName || "" } : null}
+                            portrait={isAi ? { name: msg.senderName || "", src: (msg as { senderAvatar?: string }).senderAvatar } : null}
                           >
                             {isAi ? <FormattedChatMessage content={msg.content} /> : <PlainChatText content={msg.content} />}
                           </ChatMessageView>
@@ -2698,7 +2698,7 @@ function LegacyFocusedWorkspaceView({
                       author={msg.senderName || (isAi ? "AI employee" : "Customer")}
                       role={isAi ? undefined : "Customer"}
                       time={msg.timestamp}
-                      portrait={isAi ? { name: msg.senderName || "" } : null}
+                      portrait={isAi ? { name: msg.senderName || "", src: (msg as { senderAvatar?: string }).senderAvatar } : null}
                     >
                       {isAi ? <FormattedChatMessage content={msg.content} /> : <PlainChatText content={msg.content} />}
                     </ChatMessageView>

@@ -2404,7 +2404,7 @@ export default function SupportV8Dashboard() {
             <div className="flex items-center gap-1 sm:gap-2 text-xs min-w-0">
               <span className="flex items-center tracking-[-0.035em] font-sans select-none shrink-0">
                 <span className="text-white font-extrabold text-sm">support</span>
-                <span className="text-[#2ED8B6] font-mono font-extrabold text-sm tracking-[-0.02em] ml-0.5">v8</span>
+                <span className="text-[var(--support-lime)] font-mono font-extrabold text-sm tracking-[-0.02em] ml-0.5">v8</span>
               </span>
               <span className="text-[#6B7C8D] font-mono shrink-0">/</span>
               <span className="text-[#EAF1F8] font-bold font-mono text-xs truncate max-w-[85px] xs:max-w-[120px] sm:max-w-[200px]">

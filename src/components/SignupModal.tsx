@@ -393,23 +393,23 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
 
         {/* Stepper Progress */}
         <div className="family-signup-steps px-8 py-3 bg-[#0B1017] border-b border-[var(--line)] flex items-center justify-between text-xs font-mono">
-          <div className={`flex items-center gap-2 ${step >= 1 ? "text-[#2ED8B6] font-bold" : "text-[#6B7C8D]"}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 1 ? "bg-[#2ED8B6] text-[#090E15]" : "bg-[#18222E]"}`}>1</span>
+          <div className={`flex items-center gap-2 ${step >= 1 ? "text-[var(--support-sec-text)] font-bold" : "text-[#6B7C8D]"}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 1 ? "bg-[#EC4899] text-[#090E15]" : "bg-[#18222E]"}`}>1</span>
             <span>Organization</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-[#6B7C8D]" />
-          <div className={`flex items-center gap-2 ${step >= 2 ? "text-[#2ED8B6] font-bold" : "text-[#6B7C8D]"}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 2 ? "bg-[#2ED8B6] text-[#090E15]" : "bg-[#18222E]"}`}>2</span>
+          <div className={`flex items-center gap-2 ${step >= 2 ? "text-[var(--support-sec-text)] font-bold" : "text-[#6B7C8D]"}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 2 ? "bg-[#EC4899] text-[#090E15]" : "bg-[#18222E]"}`}>2</span>
             <span>Credentials</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-[#6B7C8D]" />
-          <div className={`flex items-center gap-2 ${step >= 3 ? "text-[#2ED8B6] font-bold" : "text-[#6B7C8D]"}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 3 ? "bg-[#2ED8B6] text-[#090E15]" : "bg-[#18222E]"}`}>3</span>
+          <div className={`flex items-center gap-2 ${step >= 3 ? "text-[var(--support-sec-text)] font-bold" : "text-[#6B7C8D]"}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 3 ? "bg-[#EC4899] text-[#090E15]" : "bg-[#18222E]"}`}>3</span>
             <span>Verify OTP</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-[#6B7C8D]" />
-          <div className={`flex items-center gap-2 ${step >= 4 ? "text-[#2ED8B6] font-bold" : "text-[#6B7C8D]"}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 4 ? "bg-[#2ED8B6] text-[#090E15]" : "bg-[#18222E]"}`}>4</span>
+          <div className={`flex items-center gap-2 ${step >= 4 ? "text-[var(--support-sec-text)] font-bold" : "text-[#6B7C8D]"}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step >= 4 ? "bg-[#EC4899] text-[#090E15]" : "bg-[#18222E]"}`}>4</span>
             <span>Provision</span>
           </div>
         </div>
@@ -428,7 +428,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
             <form id="step1-form" onSubmit={handleStep1Submit} className="space-y-5">
               <div className="space-y-1.5">
                 <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-[#2ED8B6]" />
+                  <Building2 className="w-4 h-4 text-[var(--support-sec-text)]" />
                   <span>Organization Name</span>
                 </label>
                 <input aria-label="Organization name"
@@ -437,7 +437,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   onChange={(e) => handleCompanyNameChange(e.target.value)}
                   placeholder="e.g. Acme Movers or Apex Logistics"
                   required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                 />
               </div>
 
@@ -458,14 +458,14 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     required
                     readOnly={Boolean(lockedDomainSlug)}
                     aria-readonly={Boolean(lockedDomainSlug)}
-                    className={`flex-1 bg-[#141C26] border border-r-0 border-[var(--line)] rounded-l-2xl px-4 py-3 text-sm font-mono text-[#2ED8B6] focus:outline-none focus:border-[#2ED8B6] ${lockedDomainSlug ? "cursor-not-allowed opacity-80" : ""}`}
+                    className={`flex-1 bg-[#141C26] border border-r-0 border-[var(--line)] rounded-l-2xl px-4 py-3 text-sm font-mono text-[var(--support-sec-text)] focus:outline-none focus:border-[#EC4899] ${lockedDomainSlug ? "cursor-not-allowed opacity-80" : ""}`}
                   />
                   <span className="bg-[#18222E] border border-l-0 border-[var(--line)] rounded-r-2xl px-4 py-3 text-xs font-mono text-[#6B7C8D] select-none">
                     .support.servicev8.com
                   </span>
                 </div>
                 {lockedDomainSlug && (
-                  <p className="text-[11px] font-mono text-[#2ED8B6]">
+                  <p className="text-[11px] font-mono text-[var(--support-sec-text)]">
                     Domain detected from this workspace URL and locked for tenant safety.
                   </p>
                 )}
@@ -480,8 +480,8 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     onClick={() => setPrimaryStream("customers")}
                     className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                       primaryStream === "customers"
-                        ? "bg-[#2ED8B6]/15 border-[#2ED8B6]"
-                        : "bg-[#141C26] border-[var(--line)] hover:border-[#2ED8B6]/40"
+                        ? "bg-[#EC4899]/15 border-[#EC4899]"
+                        : "bg-[#141C26] border-[var(--line)] hover:border-[#EC4899]/40"
                     }`}
                   >
                     <div className="text-xs font-bold text-[#EAF1F8] mb-1">Customer Success</div>
@@ -524,7 +524,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-mono text-[#B4C2D0] flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-[#2ED8B6]" />
+                    <User className="w-4 h-4 text-[var(--support-sec-text)]" />
                     <span>Administrator Name</span>
                   </label>
                   <input
@@ -533,7 +533,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     onChange={(e) => setAdminName(e.target.value)}
                     placeholder="Alex Vance"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                   />
                 </div>
 
@@ -548,7 +548,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     onChange={(e) => setAdminEmail(e.target.value)}
                     placeholder="alex@company.com"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                   />
                 </div>
               </div>
@@ -567,7 +567,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                       placeholder="••••••••••••"
                       required
                       minLength={8}
-                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                      className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                     />
                     <button
                       type="button"
@@ -586,7 +586,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                       <span>Confirm Password</span>
                     </span>
                     {passwordsMatch && (
-                      <span className="text-xs font-mono text-[#2ED8B6] flex items-center gap-1">
+                      <span className="text-xs font-mono text-[var(--support-sec-text)] flex items-center gap-1">
                         <Check className="w-3.5 h-3.5" /> Match
                       </span>
                     )}
@@ -602,8 +602,8 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                       passwordHasError
                         ? "border-[#E5484D]"
                         : passwordsMatch
-                        ? "border-[#2ED8B6]"
-                        : "border-[var(--line)] focus:border-[#2ED8B6]"
+                        ? "border-[#EC4899]"
+                        : "border-[var(--line)] focus:border-[#EC4899]"
                     }`}
                   />
                 </div>
@@ -612,7 +612,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               {/* Interactive Captcha Challenge */}
               <div className="p-4 rounded-2xl bg-[#121A24] border border-[var(--line)] space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-mono text-[#B4C2D0]">
-                  <span className="flex items-center gap-1.5 text-[#2ED8B6]">
+                  <span className="flex items-center gap-1.5 text-[var(--support-sec-text)]">
                     <Shield className="w-4 h-4" />
                     <span>Security Verification</span>
                   </span>
@@ -640,7 +640,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     placeholder="Enter sum"
                     required
                     className={`flex-1 bg-[#141C26] border rounded-2xl px-4 py-2.5 text-sm font-mono text-[#EAF1F8] focus:outline-none ${
-                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#2ED8B6]"
+                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#EC4899]"
                     }`}
                   />
                 </div>
@@ -651,14 +651,14 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
           {/* STEP 3: Email OTP Verification */}
           {step === 3 && (
             <form id="step3-otp-form" onSubmit={handleStep3VerifyOtp} className="space-y-5 text-center max-w-md mx-auto py-2">
-              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-[#EC4899]/15 border border-[#EC4899]/40 flex items-center justify-center text-[var(--support-sec-text)] mx-auto">
                 <Smartphone className="w-6 h-6" />
               </div>
 
               <div className="space-y-1">
                 <h4 className="text-base font-bold text-[#EAF1F8]">Verify Email Verification Code</h4>
                 <p className="text-xs text-[#8E9AA8]">
-                  We sent a 6-digit verification code to <span className="text-[#2ED8B6] font-mono">{adminEmail}</span>
+                  We sent a 6-digit verification code to <span className="text-[var(--support-sec-text)] font-mono">{adminEmail}</span>
                 </p>
                 {generatedOtp && (
                   <p className="text-[11px] font-mono text-[#6B7C8D]">
@@ -686,7 +686,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   placeholder="123456"
                   required
                   autoFocus
-                  className="w-48 mx-auto text-center tracking-[0.4em] font-mono text-2xl bg-[#141C26] border border-[var(--line)] rounded-2xl py-3 text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
+                  className="w-48 mx-auto text-center tracking-[0.4em] font-mono text-2xl bg-[#141C26] border border-[var(--line)] rounded-2xl py-3 text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
                 />
               </div>
 
@@ -696,7 +696,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendCooldown > 0}
-                  className="text-[#2ED8B6] hover:underline disabled:opacity-50 cursor-pointer font-bold"
+                  className="text-[var(--support-sec-text)] hover:underline disabled:opacity-50 cursor-pointer font-bold"
                 >
                   {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
                 </button>
@@ -709,11 +709,11 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
             <div className="space-y-6 py-4">
               <div className="text-center space-y-2">
                 {isProvisioning ? (
-                  <div className="w-14 h-14 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6] mx-auto animate-spin">
+                  <div className="w-14 h-14 rounded-2xl bg-[#EC4899]/15 border border-[#EC4899]/40 flex items-center justify-center text-[var(--support-sec-text)] mx-auto animate-spin">
                     <Loader2 className="w-7 h-7" />
                   </div>
                 ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-[#2ED8B6] text-[#090E15] flex items-center justify-center mx-auto shadow-xl shadow-[#2ED8B6]/30">
+                  <div className="w-14 h-14 rounded-2xl bg-[#EC4899] text-[#090E15] flex items-center justify-center mx-auto shadow-xl shadow-[#EC4899]/30">
                     <Check className="w-7 h-7 stroke-[3]" />
                   </div>
                 )}
@@ -721,7 +721,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 <h4 className="text-lg font-bold text-[#EAF1F8]">
                   {isProvisioning ? "Configuring Your Support Workspace..." : "Workspace Successfully Created!"}
                 </h4>
-                <p className="text-sm font-mono text-[#2ED8B6]">
+                <p className="text-sm font-mono text-[var(--support-sec-text)]">
                   https://{slug}.support.servicev8.com
                 </p>
               </div>
@@ -729,7 +729,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               {/* Progress Bar */}
               <div className="w-full bg-[#141C26] rounded-full h-2.5 overflow-hidden border border-[var(--line)]">
                 <div
-                  className="bg-gradient-to-r from-[#00F2FE] via-[#2ED8B6] to-[#059669] h-full transition-all duration-300"
+                  className="bg-gradient-to-r from-[#00F2FE] via-[#EC4899] to-[#059669] h-full transition-all duration-300"
                   style={{ width: `${provisionProgress}%` }}
                 />
               </div>
@@ -737,7 +737,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               {/* Terminal Log */}
               <div className="p-4 rounded-2xl bg-[#090E15] border border-[var(--line)] font-mono text-xs text-[#6B7C8D] space-y-2 max-h-36 overflow-y-auto">
                 {provisionLogs.map((log, i) => (
-                  <div key={i} className="text-[#2ED8B6]">
+                  <div key={i} className="text-[var(--support-sec-text)]">
                     {log}
                   </div>
                 ))}
@@ -757,7 +757,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                     onClose();
                     onOpenSignIn();
                   }}
-                  className="text-xs sm:text-sm text-[#2ED8B6] font-semibold hover:underline cursor-pointer flex items-center gap-1"
+                  className="text-xs sm:text-sm text-[var(--support-sec-text)] font-semibold hover:underline cursor-pointer flex items-center gap-1"
                 >
                   <span>Sign In</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -774,7 +774,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
               <button
                 type="submit"
                 form="step1-form"
-                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20"
+                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer"
               >
                 <span>Continue</span>
                 <ChevronRight className="w-4 h-4" />
@@ -796,7 +796,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 type="submit"
                 form="step2-form"
                 disabled={isSendingOtp}
-                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isSendingOtp ? (
                   <>
@@ -827,7 +827,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                 type="submit"
                 form="step3-otp-form"
                 disabled={isVerifyingOtp}
-                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
+                className="btn btn-primary px-7 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isVerifyingOtp ? (
                   <>
@@ -856,7 +856,7 @@ export function SignupModal({ isOpen, onClose, onSuccess, onOpenSignIn }: Signup
                   onSuccess(slug, adminEmail);
                   onClose();
                 }}
-                className="btn btn-primary px-8 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer shadow-xl shadow-[#2ED8B6]/30 disabled:opacity-50"
+                className="btn btn-primary px-8 py-3 text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <span>Sign In</span>
                 <ArrowRight className="w-4 h-4" />

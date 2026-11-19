@@ -17,6 +17,8 @@ for (const file of ["family.css", "family.min.js"]) {
 mkdirSync(target, { recursive: true });
 copyFileSync(join(source, "family.css"), join(target, "family.css"));
 copyFileSync(join(source, "family.min.js"), join(target, "family.js"));
+// React JSX typings for the elements (referenced from src/components/shell/family-elements.d.ts).
+if (existsSync(join(source, "jsx.d.ts"))) copyFileSync(join(source, "jsx.d.ts"), join(target, "jsx.d.ts"));
 const banner = readFileSync(join(source, "family.css"), "utf8").split("\n", 1)[0];
 writeFileSync(join(target, "VERSION"), `${banner.replace(/^\/\*\s*|\s*\*\/$/g, "")}\n`);
 console.log(`Vendored ${banner} into ${target}`);

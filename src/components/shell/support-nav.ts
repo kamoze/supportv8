@@ -18,6 +18,8 @@ export interface ShellNavItem {
   href: string;
   icon?: string;
   badge?: string | number;
+  /** Accessible badge text; "{n}" is replaced by the count (family-ui 0.1.5). */
+  badgeLabel?: string;
   embedded?: "show" | "hide" | "runtime";
   runtimePath?: string;
   runtimeFromOrigin?: boolean;
@@ -66,6 +68,19 @@ const RUNTIME_PAGES: Readonly<Record<string, Pick<ShellNavItem, "embedded" | "ru
   market_plans: { embedded: "runtime", runtimePath: "/settings/plan" },
 });
 
+/** What each count badge means, for screen readers (the shell's default reads "N pending"). */
+export function supportBadgeLabel(id: string, contractor: boolean): string | undefined {
+  switch (id) {
+    case "cx_cockpit": return "{n} at risk of SLA breach";
+    case "problems": return "{n} problems";
+    case "issues": return contractor ? "{n} work orders" : "{n} issues";
+    case "workforce": return "{n} in the workforce";
+    case "gov_audit": return "{n} audit entries";
+    case "gov_members": return "{n} members";
+    default: return undefined;
+  }
+}
+
 export const SUPPORT_SHELL_TOOLS: readonly ShellTool[] = Object.freeze([{ id: "ask", label: "Ask supportV8", icon: "sparkle" }]);
 
 /** The real address of a view, so links can be opened in a new tab or copied. */
@@ -85,6 +100,7 @@ export function supportShellNav(
       href: supportViewHref(item.id),
       icon: SUPPORT_NAV_ICONS[item.id] ?? "workspace",
       ...(item.badge ? { badge: item.badge } : {}),
+      ...(supportBadgeLabel(item.id, options.contractor) ? { badgeLabel: supportBadgeLabel(item.id, options.contractor) } : {}),
       ...(RUNTIME_PAGES[item.id] ?? {}),
     })),
   }));

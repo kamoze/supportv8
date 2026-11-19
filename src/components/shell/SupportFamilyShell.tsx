@@ -127,7 +127,8 @@ export function SupportFamilyShell({
     const onClick = (event: MouseEvent) => {
       const link = (event.target as Element | null)?.closest?.("a.sv8-nav-item, a.sv8-brand") as HTMLAnchorElement | null;
       if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      if (link.target === "_blank" || /opens in Runtime/.test(link.title)) return;
+      // The shell marks links it sends to Runtime or opens in a new tab (family-ui 0.1.5); let those navigate.
+      if (link.matches("[data-runtime], [data-external]")) return;
       event.preventDefault();
       handlers.current.onNavigate(link.classList.contains("sv8-brand") ? "workspace" : link.dataset.id || "workspace");
     };

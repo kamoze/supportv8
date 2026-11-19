@@ -1,4 +1,4 @@
-/* @kamoze/servicev8-family-ui 0.1.4 */
+/* @kamoze/servicev8-family-ui 0.1.5 */
 :root{--lime:#c8ff00;--sv8-lime:#c8ff00;--lime-hover:#d7ff59;--sv8-lime-hover:#d7ff59;--accent-ink:#0c1000;--sv8-accent-ink:#0c1000;--font-ui:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--sv8-font-ui:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--radius-sm:6px;--sv8-radius-sm:6px;--radius-md:10px;--sv8-radius-md:10px;--radius-pill:20px;--sv8-radius-pill:20px;--space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;--sv8-nav-width:236px;--sv8-nav-collapsed:72px;--sv8-panel-width:268px;--sv8-panel-collapsed:56px;color-scheme:dark}
 :root[data-theme="light"]{color-scheme:light}
 :root:not([data-theme="light"]){--bg:#08090b;--sv8-bg:#08090b;--surface:#0d1014;--sv8-surface:#0d1014;--raised:#151a21;--sv8-raised:#151a21;--hover:#202832;--sv8-hover:#202832;--ink:#f4f6f8;--sv8-ink:#f4f6f8;--muted:#a5afb9;--sv8-muted:#a5afb9;--quiet:#929eaa;--sv8-quiet:#929eaa;--line:#2b333d;--sv8-line:#2b333d;--line-strong:#495360;--sv8-line-strong:#495360;--success:#7dddb3;--sv8-success:#7dddb3;--success-bg:#0b3a33;--sv8-success-bg:#0b3a33;--warning-text:#ffd29b;--sv8-warning-text:#ffd29b;--warning-bg:#302516;--sv8-warning-bg:#302516;--error-text:#ffc1c6;--sv8-error-text:#ffc1c6;--error-bg:#361d23;--sv8-error-bg:#361d23;--focus:#7dd3fc;--sv8-focus:#7dd3fc;--brand-accent:#c8ff00;--sv8-brand-accent:#c8ff00;}
@@ -47,7 +47,7 @@
 :root[data-app="tasks"][data-theme="light"][data-base="navy"]{--sec:#0075de;--sv8-sec:#0075de;--ter:#62aef0;--sv8-ter:#62aef0;--selected:#dbecfa;--sv8-selected:#dbecfa;--selected-text:#00386b;--sv8-selected-text:#00386b;--sec-text:#00386b;--sv8-sec-text:#00386b;--sec-bg:#e0eefb;--sv8-sec-bg:#e0eefb;--ter-text:#2c4e6c;--sv8-ter-text:#2c4e6c;}
 
 sv8-shell{display:grid;grid-template-columns:var(--sv8-nav) minmax(0,1fr) auto;grid-template-rows:auto 1fr;grid-template-areas:"nav header panel" "nav main panel";min-height:100dvh;width:100%;background:var(--bg);color:var(--ink);font-family:var(--font-ui);--sv8-nav:var(--sv8-nav-width)}
-sv8-shell[data-sidebar="collapsed"]{--sv8-nav:var(--sv8-nav-collapsed)}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])){--sv8-nav:var(--sv8-nav-collapsed)}
 sv8-shell>sv8-sidebar{grid-area:nav}
 sv8-shell>sv8-header{grid-area:header}
 sv8-shell>main,sv8-shell>.sv8-main{grid-area:main;min-width:0;padding:32px 32px 64px}
@@ -101,12 +101,12 @@ button.sv8-nav-item{width:100%;background:transparent;font:inherit;font-size:12p
 .sv8-signout{display:flex;align-items:center;gap:11px;width:100%;padding:8px 10px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--muted);font:inherit;font-size:12px;text-decoration:none;cursor:pointer}
 .sv8-signout:hover{background:var(--hover);color:var(--ink)}
 .sv8-sidebar-bottom form{margin:0}
-sv8-shell[data-sidebar="collapsed"] .sv8-sidebar-desktop{padding-inline:10px}
-sv8-shell[data-sidebar="collapsed"] .sv8-sidebar-desktop :is(.sv8-wordmark,.sv8-label,.sv8-badge,.sv8-runtime-hint,.sv8-user){display:none}
-sv8-shell[data-sidebar="collapsed"] .sv8-sidebar-desktop .sv8-sidebar-brand{justify-content:center;padding-inline:0}
-sv8-shell[data-sidebar="collapsed"] .sv8-sidebar-desktop .sv8-nav-group{height:1px;margin:12px 7px 7px;border-top:1px solid var(--line);font-size:0}
-sv8-shell[data-sidebar="collapsed"] .sv8-sidebar-desktop :is(.sv8-nav-item,.sv8-back,.sv8-tenant,.sv8-signout){justify-content:center;padding-inline:7px}
-sv8-shell[data-sidebar="collapsed"] .sv8-sidebar-desktop .sv8-sidebar-tools{flex-direction:column;gap:4px}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])) .sv8-sidebar-desktop{padding-inline:10px}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])) .sv8-sidebar-desktop :is(.sv8-wordmark,.sv8-label,.sv8-badge,.sv8-runtime-hint,.sv8-user){display:none}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])) .sv8-sidebar-desktop .sv8-sidebar-brand{justify-content:center;padding-inline:0}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])) .sv8-sidebar-desktop .sv8-nav-group{height:1px;margin:12px 7px 7px;border-top:1px solid var(--line);font-size:0}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])) .sv8-sidebar-desktop :is(.sv8-nav-item,.sv8-back,.sv8-tenant,.sv8-signout){justify-content:center;padding-inline:7px}
+sv8-shell:is([data-sidebar="collapsed"],[sidebar="collapsed"]:not([data-sidebar])) .sv8-sidebar-desktop .sv8-sidebar-tools{flex-direction:column;gap:4px}
 .sv8-mobile-header{display:none}
 .sv8-drawer{width:min(340px,92vw);max-width:92vw;height:100dvh;max-height:100dvh;margin:0;padding:0;border:0;background:transparent;color:var(--ink);overscroll-behavior:contain}
 .sv8-drawer::backdrop{background:#00000099}

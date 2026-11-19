@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { groupSupportNavigation } from "@/components/FamilyControls";
-import { SUPPORT_NAV_ICONS, SUPPORT_SHELL_TOOLS, supportShellNav } from "@/components/shell/support-nav";
+import { SUPPORT_NAV_ICONS, SUPPORT_SHELL_TOOLS, supportBadgeLabel, supportShellNav } from "@/components/shell/support-nav";
 import { SupportFamilyShell } from "@/components/shell/SupportFamilyShell";
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -58,6 +58,24 @@ describe("SupportV8 navigation data for the family shell", () => {
     expect(nav[0].items[0].badge).toBe(4);
     expect(nav[0].items[1].badge).toBeUndefined();
     for (const icon of Object.values(SUPPORT_NAV_ICONS)) expect(KIT_ICONS).toContain(icon);
+  });
+  it("gives every count badge an accurate accessible label with {n}", () => {
+    const labels = (contractor: boolean) => Object.fromEntries(
+      supportShellNav(groupSupportNavigation(CX_LEAD_SECTIONS, false), { contractor }).flatMap((g) => g.items).filter((i) => i.badgeLabel).map((i) => [i.id, i.badgeLabel]),
+    );
+    expect(labels(false)).toEqual({
+      cx_cockpit: "{n} at risk of SLA breach",
+      problems: "{n} problems",
+      issues: "{n} issues",
+      workforce: "{n} in the workforce",
+      gov_audit: "{n} audit entries",
+      gov_members: "{n} members",
+    });
+    expect(supportBadgeLabel("issues", true)).toBe("{n} work orders");
+    // Every id page.tsx gives a count badge has a label (none falls back to "N pending").
+    const counted = [...source("src/app/page.tsx").matchAll(/id: "([a-z_]+)",[^}]*?\n\s+badge: /g)].map((m) => m[1]);
+    expect(counted.length).toBeGreaterThanOrEqual(6);
+    for (const id of counted) expect(supportBadgeLabel(id, false), id).toBeDefined();
   });
 });
 
@@ -155,6 +173,34 @@ describe("SupportFamilyShell", () => {
     expect(desktopLinks(container).map((a) => a.dataset.id)).not.toContain("market_plans");
   });
 
+  it("lets links marked data-runtime or data-external navigate instead of routing them in the app", async () => {
+    const { container, handlers } = await mount("embedded");
+    const shell = container.querySelector("sv8-shell")!;
+    await act(async () => { shell.setAttribute("runtime-url", "https://runtime.servicev8.com/workspace/acme"); });
+    const marketplace = desktopLinks(container).find((a) => a.dataset.id === "studio_marketplace")!;
+    expect(marketplace.hasAttribute("data-runtime")).toBe(true);
+    const toRuntime = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    marketplace.dispatchEvent(toRuntime);
+    expect(toRuntime.defaultPrevented).toBe(false);
+    expect(handlers.onNavigate).not.toHaveBeenCalled();
+
+    const sidebar = container.querySelector("sv8-sidebar") as HTMLElement & { nav: unknown };
+    await act(async () => { sidebar.nav = [{ items: [{ id: "docs", label: "Docs", href: "https://docs.example.com/", external: true }, { id: "issues", label: "Issues Explorer", href: "/?tab=issues" }] }]; });
+    const external = container.querySelector('.sv8-sidebar-desktop a[data-id="docs"]') as HTMLAnchorElement;
+    expect(external.hasAttribute("data-external")).toBe(true);
+    const toExternal = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    external.dispatchEvent(toExternal);
+    expect(toExternal.defaultPrevented).toBe(false);
+    expect(handlers.onNavigate).not.toHaveBeenCalled();
+
+    // An ordinary in-app link is still routed through the app.
+    const issues = container.querySelector('.sv8-sidebar-desktop a[data-id="issues"]') as HTMLAnchorElement;
+    const inApp = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    issues.dispatchEvent(inApp);
+    expect(inApp.defaultPrevented).toBe(true);
+    expect(handlers.onNavigate).toHaveBeenCalledWith("issues");
+  });
+
   it("routes plain clicks through the app, keeps modified clicks, and wires sign out, Ask and theme", async () => {
     const { container, handlers } = await mount("standalone");
     const voice = desktopLinks(container).find((a) => a.dataset.id === "voice")!;
@@ -188,8 +234,8 @@ describe("SupportV8 page on the shell", () => {
     expect(page).toMatch(/shellMode === "standalone" && <button[\s\S]{0,400}setIsForgeGwModalOpen\(true\)/);
   });
 
-  it("vendors family-ui 0.1.4 and serves it from the app's own origin with system fonts", () => {
-    expect(source("public/vendor/family-ui/VERSION").trim()).toBe("@kamoze/servicev8-family-ui 0.1.4");
+  it("vendors family-ui 0.1.5 and serves it from the app's own origin with system fonts", () => {
+    expect(source("public/vendor/family-ui/VERSION").trim()).toBe("@kamoze/servicev8-family-ui 0.1.5");
     expect(existsSync(`${process.cwd()}/public/vendor/family-ui/family.css`)).toBe(true);
     const layout = source("src/app/layout.tsx");
     expect(layout).toContain('href="/vendor/family-ui/family.css"');
@@ -221,10 +267,40 @@ describe("SupportFamilyShell badges", () => {
     await act(async () => { await customElements.whenDefined("sv8-sidebar"); });
     const badge = () => container.querySelector('.sv8-sidebar-desktop a[data-id="issues"] .sv8-badge')?.textContent;
     expect(badge()).toBe("3");
+    const label = () => container.querySelector('.sv8-sidebar-desktop a[data-id="issues"] .sv8-badge')?.getAttribute("aria-label");
+    expect(label()).toBe("3 work orders");
     await act(async () => render(5));
     expect(badge()).toBe("5");
+    expect(label()).toBe("5 work orders");
     await act(async () => render(0));
     expect(badge()).toBeUndefined();
+    act(() => root.unmount());
+  });
+});
+
+describe("SupportFamilyShell badge labels", () => {
+  it("reads Members, Workforce and Audit counts by what they are, not as pending", async () => {
+    await import("../public/vendor/family-ui/family.js");
+    const nav = supportShellNav(groupSupportNavigation(CX_LEAD_SECTIONS, false), { contractor: false });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const render = (badges: Record<string, number>) => root.render(
+      <SupportFamilyShell mode="standalone" active="issues" nav={nav} badges={badges} tools={[]} tenant="acme" onNavigate={vi.fn()} onSignOut={vi.fn()} onTool={vi.fn()}><main /></SupportFamilyShell>,
+    );
+    await act(async () => render({ gov_members: 4, workforce: 2, gov_audit: 120, cx_cockpit: 1, problems: 3, issues: 7 }));
+    await act(async () => { await customElements.whenDefined("sv8-sidebar"); });
+    const label = (id: string) => container.querySelector(`.sv8-sidebar-desktop a[data-id="${id}"] .sv8-badge`)?.getAttribute("aria-label");
+    expect(label("gov_members")).toBe("4 members");
+    expect(label("workforce")).toBe("2 in the workforce");
+    expect(label("gov_audit")).toBe("120 audit entries");
+    expect(label("cx_cockpit")).toBe("1 at risk of SLA breach");
+    expect(label("problems")).toBe("3 problems");
+    expect(label("issues")).toBe("7 issues");
+    // The drawer copy carries the same label.
+    expect(container.querySelector('dialog a[data-id="gov_members"] .sv8-badge')?.getAttribute("aria-label")).toBe("4 members");
+    await act(async () => render({ gov_members: 5, workforce: 2, gov_audit: 120, cx_cockpit: 1, problems: 3, issues: 7 }));
+    expect(label("gov_members")).toBe("5 members");
     act(() => root.unmount());
   });
 });

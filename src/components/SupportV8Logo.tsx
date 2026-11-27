@@ -4,10 +4,10 @@ interface SupportV8LogoProps { className?: string; size?: number; showText?: boo
 
 /**
  * The ServiceV8 family mark for SupportV8 (F4): a 2x2 grid with lime #C8FF00
- * down the left column, SupportV8 pink #EC4899 top-right and cyan #00F2FE
+ * down the left column, SupportV8 teal #2ED8B6 top-right and cyan #00F2FE
  * bottom-right. Same geometry as @kamoze/servicev8-family-ui logos/support.svg.
  */
-export const SUPPORT_BRAND = { lime: "#C8FF00", secondary: "#EC4899", tertiary: "#00F2FE" } as const;
+export const SUPPORT_BRAND = { lime: "#C8FF00", secondary: "#2ED8B6", tertiary: "#00F2FE" } as const;
 
 export function SupportV8Logo({ className = "", size = 34, showText = true }: SupportV8LogoProps) {
   return <div className="family-brand">

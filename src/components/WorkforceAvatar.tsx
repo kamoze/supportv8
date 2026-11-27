@@ -83,7 +83,7 @@ export function WorkforceAvatar({
 
   const colorClasses = isIntern
     ? "bg-[#4D9FFF]/15 text-[#4D9FFF] border border-[#4D9FFF]/30"
-    : "bg-[var(--support-sec-bg)] text-[var(--support-sec-text)] border border-[#EC4899]/40";
+    : "bg-[var(--support-sec-bg)] text-[var(--support-sec-text)] border border-[#2ED8B6]/40";
 
   return (
     <div

@@ -298,7 +298,7 @@ export function SignInModal({
           )}
 
           {successMsg && (
-            <div role="status" className="p-3.5 rounded-xl bg-[#EC4899]/10 border border-[#EC4899]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
+            <div role="status" className="p-3.5 rounded-xl bg-[#2ED8B6]/10 border border-[#2ED8B6]/30 text-xs text-[#EAF1F8] flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[var(--support-sec-text)] shrink-0" />
               <span>{successMsg}</span>
             </div>
@@ -349,7 +349,7 @@ export function SignInModal({
                     onChange={(e) => setTenantSlug(e.target.value)}
                     placeholder="e.g. acme or meridian"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm font-mono text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm font-mono text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                   />
                 </div>
               )}
@@ -370,7 +370,7 @@ export function SignInModal({
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={lockedTenantSlug ? `staff@${lockedTenantSlug}.com` : "name@company.com"}
                   required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
 
@@ -405,7 +405,7 @@ export function SignInModal({
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#EC4899]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#2ED8B6]"
                   />
                   <button
                     type="button"
@@ -448,7 +448,7 @@ export function SignInModal({
                     placeholder="Enter sum"
                     required
                     className={`flex-1 bg-[#141C26] border rounded-2xl px-4 py-2.5 text-sm font-mono text-[#EAF1F8] focus:outline-none ${
-                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#EC4899]"
+                      captchaError ? "border-[#E5484D]" : "border-[var(--line)] focus:border-[#2ED8B6]"
                     }`}
                   />
                 </div>
@@ -483,7 +483,7 @@ export function SignInModal({
                   placeholder="name@company.com"
                   required
                   autoFocus
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
             </form>
@@ -528,7 +528,7 @@ export function SignInModal({
                   placeholder="123456"
                   required
                   autoFocus
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-center text-lg font-mono tracking-widest text-[var(--support-sec-text)] focus:outline-none focus:border-[#EC4899]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-center text-lg font-mono tracking-widest text-[var(--support-sec-text)] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
 
@@ -545,7 +545,7 @@ export function SignInModal({
                     onChange={(e) => setForgotNewPassword(e.target.value)}
                     placeholder="••••••••••••"
                     required
-                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#EC4899]"
+                    className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] pr-12 focus:outline-none focus:border-[#2ED8B6]"
                   />
                   <button
                     type="button"
@@ -569,7 +569,7 @@ export function SignInModal({
                   onChange={(e) => setForgotConfirmPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#EC4899]"
+                  className="w-full bg-[#141C26] border border-[var(--line)] rounded-2xl px-4 py-3 text-sm text-[#EAF1F8] focus:outline-none focus:border-[#2ED8B6]"
                 />
               </div>
             </form>

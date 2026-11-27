@@ -179,7 +179,7 @@ https://servicev8.com`;
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 560px; margin: 0 auto; background-color: #0b1017; color: #eaf1f8; padding: 32px; border-radius: 16px; border: 1px solid #1e2b3a;">
         <div style="margin-bottom: 24px; display: flex; align-items: center; gap: 10px;">
-          <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff;">support<span style="color: #2ed8b6;">v8</span></h2>
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff;">support<span style="color: #c8ff00;">v8</span></h2>
         </div>
         <h1 style="font-size: 22px; font-weight: 700; color: #ffffff; margin-bottom: 12px;">Confirm your registration</h1>
         <p style="font-size: 14px; color: #8e9aa8; line-height: 1.5; margin-bottom: 24px;">

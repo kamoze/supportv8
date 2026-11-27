@@ -10,8 +10,16 @@ export function FamilyThemeToggle() {
   return <button type="button" className="family-icon-button" title={label} aria-label={label} aria-pressed={light} onClick={() => {
     const next = !light;
     setLight(next);
-    document.documentElement.dataset.familyTheme = next ? "light" : "dark";
-    try { localStorage.setItem("supportFamilyTheme", next ? "light" : "dark"); } catch { /* Optional presentation preference. */ }
+    const theme = next ? "light" : "dark";
+    document.documentElement.dataset.familyTheme = theme;
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("supportFamilyTheme", theme);
+      // Keep the family shell's shared preference cookie (theme.sidebar.panel) in step.
+      const current = document.cookie.match(/(?:^|;\s*)sv8-ui=([^;]*)/)?.[1];
+      const [, sidebar = "expanded", panel = "expanded"] = current ? decodeURIComponent(current).split(".") : [];
+      document.cookie = `sv8-ui=${theme}.${sidebar}.${panel}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+    } catch { /* Optional presentation preference. */ }
   }}>{light ? <Moon size={18} /> : <Sun size={18} />}</button>;
 }
 

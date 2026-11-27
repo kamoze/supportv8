@@ -82,6 +82,10 @@ import { AuthService } from "@/lib/auth-service";
 import { AsunPalaceContextPanel } from "@/components/workspace/AsunPalaceContextPanel";
 import { isAsunPalaceTenant } from "@/lib/services/chat-workflow-service";
 import { findSituationsForTicket, type OlgSituation } from "@/lib/signals/olg-consumer";
+import { ChatMessage as ChatMessageView, PlainChatText } from "@/components/chat-ui/ChatMessage";
+import { FormattedChatMessage } from "@/components/chat-ui/FormattedChatMessage";
+import { FOLLOW_THRESHOLD_PX } from "@/components/chat-ui/ChatTranscript";
+import { handleChatComposerKeyDown } from "@/components/chat-ui/composer-keys";
 
 type CommunicationChannel = "chat" | "email" | "whatsapp" | "voice" | "internal_note" | "contractor_sms" | "work_order_push" | "site_pass";
 
@@ -698,6 +702,7 @@ function LegacyFocusedWorkspaceView({
   // Live Chat Operator Takeover State
   const [operatorReplyText, setOperatorReplyText] = useState("");
   const [isSendingOperatorReply, setIsSendingOperatorReply] = useState(false);
+  const [liveReplyError, setLiveReplyError] = useState<string | null>(null);
   const replyInFlightRef = useRef(false);
   const [liveDraftSource, setLiveDraftSource] = useState<"llm" | "fallback" | null>(null);
   const [liveChatSessionKey, setLiveChatSessionKey] = useState(0);
@@ -1329,6 +1334,19 @@ function LegacyFocusedWorkspaceView({
       onNotify(error instanceof Error ? error.message : "Unable to resolve and close ticket", "error");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  /** The live chat console's send: the draft stays until the reply is saved, and is kept with an error otherwise. */
+  const sendLiveReply = async (): Promise<void> => {
+    if (!operatorReplyText.trim() || replyInFlightRef.current) return;
+    setLiveReplyError(null);
+    const sent = await recordReplyForSelectedChannel(operatorReplyText);
+    if (sent) {
+      setOperatorReplyText("");
+      onNotify(commChannel === "internal_note" ? "Internal note saved." : `Reply dispatched via ${commChannel.replace(/_/g, " ")}.`, "success");
+    } else if (canMutate) {
+      setLiveReplyError("Your reply was not sent. Your draft is still here; try again.");
     }
   };
 
@@ -2500,26 +2518,40 @@ function LegacyFocusedWorkspaceView({
                     <p className="text-[#B4C2D0] leading-relaxed">{selectedIssue.summary}</p>
                   </div>
 
-                  {/* Conversation Journey Messages */}
-                  {(selectedIssue.messages || []).map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`p-3 rounded-xl border text-xs space-y-1 ${
-                        msg.sender === "operator"
-                          ? "bg-[#182333] border-[#4D9FFF]/30 ml-3"
-                          : "bg-[#14202B] border-[#2ED8B6]/30 mr-3"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="font-bold text-[#EAF1F8] flex items-center gap-1">
-                          {msg.sender === "operator" ? <User className="w-3 h-3 text-[#4D9FFF]" /> : <Bot className="w-3 h-3 text-[#2ED8B6]" />}
-                          <span>{msg.senderName}</span>
-                        </span>
-                        <span className="text-[#6B7C8D]">{msg.timestamp}</span>
-                      </div>
-                      <p className="text-[#B4C2D0] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  {/* Conversation Journey Messages: Runtime's message anatomy */}
+                  {(selectedIssue.messages || []).length > 0 && (
+                    <div className="chat-stack" aria-label="Ticket conversation">
+                      {(selectedIssue.messages || []).map((msg) => {
+                        if (msg.sender === "system") {
+                          return (
+                            <ChatMessageView key={msg.id} kind="system" author={msg.senderName || "SupportV8"} time={msg.timestamp}>
+                              <FormattedChatMessage content={msg.content} />
+                            </ChatMessageView>
+                          );
+                        }
+                        if (msg.sender === "operator") {
+                          return (
+                            <ChatMessageView key={msg.id} kind="user" author={!msg.senderName || msg.senderName === operatorName ? "You" : msg.senderName} time={msg.timestamp}>
+                              <PlainChatText content={msg.content} />
+                            </ChatMessageView>
+                          );
+                        }
+                        const isAi = msg.sender === "ai_employee";
+                        return (
+                          <ChatMessageView
+                            key={msg.id}
+                            kind="assistant"
+                            author={msg.senderName || (isAi ? "AI employee" : selectedIssue.customerName)}
+                            role={isAi ? undefined : "Customer"}
+                            time={msg.timestamp}
+                            portrait={isAi ? { name: msg.senderName || "", src: (msg as { senderAvatar?: string }).senderAvatar } : null}
+                          >
+                            {isAi ? <FormattedChatMessage content={msg.content} /> : <PlainChatText content={msg.content} />}
+                          </ChatMessageView>
+                        );
+                      })}
                     </div>
-                  ))}
+                  )}
 
                   {/* Chronological Lifecycle Timeline Events */}
                   {(selectedIssue.timeline || []).map((ev) => (
@@ -2622,53 +2654,57 @@ function LegacyFocusedWorkspaceView({
                 </button>
               </div>
 
-              {/* Live Chat Message Stream Box */}
+              {/* Live Chat Message Stream: Runtime's transcript (polite log, follows within 64px) and message anatomy */}
               <div
                 ref={liveChatViewportRef}
                 onScroll={(event) => {
-                  const isFollowing = isNearLiveChatEdge(event.currentTarget);
+                  const isFollowing = isNearLiveChatEdge(event.currentTarget, FOLLOW_THRESHOLD_PX);
                   shouldFollowLiveChatRef.current = isFollowing;
                   if (isFollowing && hasUnreadLiveMessage) setHasUnreadLiveMessage(false);
                 }}
-                className="relative flex-1 bg-[#0B1017] border border-[var(--line)] rounded-2xl p-3 max-h-[260px] overflow-y-auto space-y-2.5 font-sans text-xs"
+                className="chat-transcript compact relative flex-1 max-h-[260px] rounded-2xl border border-[var(--line)]"
+                role="log"
                 aria-live="polite"
-                aria-label="Live chat messages"
+                aria-label="Messages"
+                tabIndex={0}
               >
+                <div className="chat-transcript-content">
                 {matchingChatSession.messages.map((msg, idx) => {
-                  const isCustomer = msg.sender === "customer";
-                  const isSystem = msg.sender === "system";
+                  if (msg.sender === "system") {
+                    return (
+                      <ChatMessageView key={msg.id || idx} kind="system" author={msg.senderName || "SupportV8"} time={msg.timestamp}>
+                        <FormattedChatMessage content={msg.content} />
+                      </ChatMessageView>
+                    );
+                  }
+                  if (msg.sender === "agent") {
+                    return (
+                      <ChatMessageView
+                        key={msg.id || idx}
+                        kind="user"
+                        author={!msg.senderName || msg.senderName === operatorName ? "You" : msg.senderName}
+                        time={msg.timestamp}
+                        footer={msg.deliveryState === "sending" ? <span className="chat-delivery" role="status">Sending…</span> : undefined}
+                      >
+                        <PlainChatText content={msg.content} />
+                      </ChatMessageView>
+                    );
+                  }
+                  const isAi = msg.sender === "ai_employee";
                   return (
-                    <div
+                    <ChatMessageView
                       key={msg.id || idx}
-                      className={`flex flex-col ${isCustomer ? "items-end" : "items-start"} space-y-1`}
+                      kind="assistant"
+                      author={msg.senderName || (isAi ? "AI employee" : "Customer")}
+                      role={isAi ? undefined : "Customer"}
+                      time={msg.timestamp}
+                      portrait={isAi ? { name: msg.senderName || "", src: (msg as { senderAvatar?: string }).senderAvatar } : null}
                     >
-                      <div className="flex items-center gap-1 text-[10px] font-mono text-[#6B7C8D]">
-                        <span>{msg.senderName}</span>
-                        <span>•</span>
-                        <span>{msg.timestamp}</span>
-                      </div>
-
-                      {isSystem ? (
-                        <div className="w-full p-2.5 rounded-xl bg-[#E5484D]/15 border border-[#E5484D]/40 text-[#FF7575] text-[11px] leading-relaxed">
-                          {msg.content}
-                        </div>
-                      ) : (
-                        <div
-                          className={`max-w-[85%] p-2.5 rounded-2xl leading-relaxed ${
-                            isCustomer
-                              ? "bg-[#142622] text-[#2ED8B6] border border-[#2ED8B6]/30 rounded-tr-none"
-                              : "bg-[#18222E] text-[#EAF1F8] border border-[var(--line)] rounded-tl-none"
-                          }`}
-                        >
-                          <p>{msg.content}</p>
-                          {msg.deliveryState === "sending" && (
-                            <span className="mt-1 block text-[9px] text-[#8E9AA8]" role="status">Sending…</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                      {isAi ? <FormattedChatMessage content={msg.content} /> : <PlainChatText content={msg.content} />}
+                    </ChatMessageView>
                   );
                 })}
+                </div>
                 {hasUnreadLiveMessage && (
                   <div className="sticky bottom-0 z-10 flex justify-center pt-1">
                     <button
@@ -2745,29 +2781,39 @@ function LegacyFocusedWorkspaceView({
                 </div>
               </div>
 
-              {/* Operator Reply Composer */}
-              <div className="space-y-1.5 flex flex-col">
-                <textarea
-                  value={operatorReplyText}
-                  onChange={(e) => setOperatorReplyText(e.target.value)}
-                  rows={3}
-                  className="w-full bg-[#161F2C] text-[#EAF1F8] p-3 rounded-2xl border border-[var(--line-2)] text-xs leading-relaxed focus:outline-none focus:border-[#2ED8B6] min-h-[75px]"
-                  placeholder={`Write a ${commChannel.replace(/_/g, " ")} reply to ${selectedIssue.customerName}...`}
-                />
+              {/* Operator Reply Composer: label, "To:", Enter sends on chat, read-only while sending, draft kept on error */}
+              <div className="chat-compose compact rounded-2xl border border-[var(--line)]">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="live-chat-reply">Reply to {selectedIssue.customerName}</label>
+                  <p className="chat-recipient-summary" aria-live="polite">
+                    {isSendingOperatorReply ? `Sending to ${selectedIssue.customerName}…` : `To: ${selectedIssue.customerName} · ${commChannel === "internal_note" ? "internal note" : commChannel.replace(/_/g, " ")}`}
+                  </p>
+                  <textarea
+                    id="live-chat-reply"
+                    value={operatorReplyText}
+                    onChange={(e) => { setOperatorReplyText(e.target.value); setLiveReplyError(null); }}
+                    onKeyDown={(e) => {
+                      // Enter sends only on the live chat channel; email and notes keep Enter for new lines.
+                      if (commChannel === "chat") handleChatComposerKeyDown(e, () => void sendLiveReply(), isSendingOperatorReply);
+                    }}
+                    readOnly={isSendingOperatorReply}
+                    rows={3}
+                    aria-invalid={liveReplyError ? true : undefined}
+                    aria-describedby={liveReplyError ? "live-chat-reply-error live-chat-reply-help" : "live-chat-reply-help"}
+                    placeholder={`Write a ${commChannel.replace(/_/g, " ")} reply to ${selectedIssue.customerName}...`}
+                  />
+                  {liveReplyError && <p id="live-chat-reply-error" className="chat-compose-error" role="alert">{liveReplyError}</p>}
+                  <span id="live-chat-reply-help" className="chat-compose-help">
+                    {commChannel === "chat" ? "Enter to send; Shift+Enter for a new line." : "Use the Send button; Enter adds a new line."}
+                  </span>
+                </div>
               </div>
 
               {/* Operator Dispatch Buttons */}
               <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-[var(--line)]">
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!operatorReplyText.trim()) return;
-                    const sent = await recordReplyForSelectedChannel(operatorReplyText);
-                    if (sent) {
-                      setOperatorReplyText("");
-                      onNotify(commChannel === "internal_note" ? "Internal note saved." : `Reply dispatched via ${commChannel.replace(/_/g, " ")}.`, "success");
-                    }
-                  }}
+                  onClick={() => void sendLiveReply()}
                   disabled={!canMutate || (Boolean(nativeRuntime) && commChannel !== "chat" && commChannel !== "internal_note") || !operatorReplyText.trim() || isSendingOperatorReply}
                   className="btn btn-primary py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#2ED8B6]/20 disabled:opacity-50"
                 >

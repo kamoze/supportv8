@@ -1,6 +1,6 @@
 /* Approved servicev8 family shell. Business/status semantics remain incumbent. */
-:root { --family-lime:#c8ff00; --family-cyan:#00F2FE; --ground:#080c10; --surface:#101820; --surface-2:#19242e; --text:#edf4f7; --body:#c3d0d9; --muted:#9aadb9; --line:#283842; --line-2:#3b4e5b; --r-sm:5px; --r-md:6px; --r-lg:8px; }
-html[data-family-theme="light"] { color-scheme:light; --ground:#f5f8f8; --surface:#ffffff; --surface-2:#e8eff0; --text:#172e33; --body:#334f55; --muted:#536d74; --line:#ccd9dc; --line-2:#a5bcc2; --teal:#096c58; --teal-dim:#d9eee7; --amber:#8c580b; --amber-dim:#f7ebd5; --blue:#1b65ae; --red:#a72b38; --green:#1d7345; }
+:root { --family-lime:#c8ff00; --family-teal:#2ED8B6; --family-cyan:#00F2FE; --ground:#080c10; --surface:#101820; --surface-2:#19242e; --text:#edf4f7; --body:#c3d0d9; --muted:#9aadb9; --line:#283842; --line-2:#3b4e5b; --r-sm:5px; --r-md:6px; --r-lg:8px; }
+html[data-family-theme="light"] { color-scheme:light; --support-sec-text:#0B6B5A; --support-sec-bg:#E3F7F2; --support-ter-text:#006D72; --ground:#f5f8f8; --surface:#ffffff; --surface-2:#e8eff0; --text:#172e33; --body:#334f55; --muted:#536d74; --line:#ccd9dc; --line-2:#a5bcc2; --teal:#096c58; --teal-dim:#d9eee7; --amber:#8c580b; --amber-dim:#f7ebd5; --blue:#1b65ae; --red:#a72b38; --green:#1d7345; }
 :is(button,a,input,textarea,select) { touch-action:manipulation; }
 :is(button,a,input,textarea,select):focus-visible { outline:2px solid var(--family-lime); outline-offset:3px; }
 html[data-family-theme="light"] :is(button,a,input,textarea,select):focus-visible { outline-color:#427000; }
@@ -106,3 +106,10 @@ html[data-family-theme="light"] .family-public .btn-primary { color:#152000; }
   .family-admin .family-main:not(:has(.family-workdesk)) { padding:16px; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important; } }
+/* Family brand (F4) on the public site and auth dialogs: lime primary actions,
+   SupportV8 teal (readable token) for selected and informational accents. */
+.family-public,.family-auth { --teal:var(--support-sec-text); --teal-dim:color-mix(in srgb,var(--support-sec) 14%,transparent); --teal-glow:color-mix(in srgb,var(--support-sec) 25%,transparent); }
+.family-auth .btn-primary { background:var(--family-lime);border-color:var(--family-lime);color:#152000;box-shadow:none; }
+.family-auth .btn-primary:hover:not(:disabled) { background:#d7ff59;border-color:#d7ff59;color:#152000; }
+html[data-family-theme="light"] .family-auth .btn-primary { color:#152000; }
+html[data-family-theme="light"] .support-desk tspan { fill:#476d00; }

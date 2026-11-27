@@ -7,12 +7,13 @@
  * - Entitlement status governs execution readiness
  */
 
+import { isSupportDemoTenant } from "@/lib/demo-mode";
 import { marketplaceService } from "@/lib/services/marketplace-service";
 import type { MarketplaceWorkforceItem } from "@/lib/types/marketplace-types";
 
+/** Demo fixture tenant, and only while the demo sandbox is explicitly enabled (SUPPORTV8_DEMO_MODE). */
 export function isDemoTenant(tenantSlug: string): boolean {
-  const clean = tenantSlug.trim().toLowerCase();
-  return clean === "acme" || clean === "meridian";
+  return isSupportDemoTenant(tenantSlug);
 }
 
 export interface CanonicalWorkforceOptions {

@@ -39,6 +39,8 @@ interface GlobalLandingViewProps {
   onOpenDemoGate?: (slug?: string) => void;
   onOpenDemoLogin?: (slug?: string) => void;
   onOpenSignup: () => void;
+  /** The Acme/Meridian demo sandbox is shown only when the deployment enables it (SUPPORTV8_DEMO_MODE). */
+  demoEnabled?: boolean;
 }
 
 export function GlobalLandingView({
@@ -47,6 +49,7 @@ export function GlobalLandingView({
   onOpenDemoGate,
   onOpenDemoLogin,
   onOpenSignup,
+  demoEnabled = false,
 }: GlobalLandingViewProps) {
 
   const [workspaceSlug, setWorkspaceSlug] = React.useState("");
@@ -95,7 +98,7 @@ export function GlobalLandingView({
   };
 
   return (
-    <div className="family-public min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[#2ED8B6]">
+    <div className="family-public min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[var(--support-sec-text)]">
       <a className="family-skip" href="#support-main">Skip to content</a>
       {/* Top Header Navigation */}
       <header className="sticky top-0 z-40 bg-[#090E15]/85 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
@@ -104,16 +107,16 @@ export function GlobalLandingView({
         </div>
 
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-[#8E9AA8]">
-          <a href="#capabilities" className="hover:text-[#2ED8B6] transition-colors">
+          <a href="#capabilities" className="hover:text-[var(--support-sec-text)] transition-colors">
             Capabilities
           </a>
-          <a href="#workforce" className="hover:text-[#2ED8B6] transition-colors">
+          <a href="#workforce" className="hover:text-[var(--support-sec-text)] transition-colors">
             AI Workforce
           </a>
-          <a href="#architecture" className="hover:text-[#2ED8B6] transition-colors">
+          <a href="#architecture" className="hover:text-[var(--support-sec-text)] transition-colors">
             Architecture
           </a>
-          <a href="#security" className="hover:text-[#2ED8B6] transition-colors">
+          <a href="#security" className="hover:text-[var(--support-sec-text)] transition-colors">
             Security
           </a>
         </nav>
@@ -137,7 +140,7 @@ export function GlobalLandingView({
             <button
               type="submit"
               disabled={isLookingUp || !workspaceSlug.trim()}
-              className="px-2 py-1 rounded-lg text-xs font-mono font-medium text-[#2ED8B6] hover:bg-[#18222E] cursor-pointer disabled:opacity-50"
+              className="px-2 py-1 rounded-lg text-xs font-mono font-medium text-[var(--support-sec-text)] hover:bg-[#18222E] cursor-pointer disabled:opacity-50"
             >
               {isLookingUp ? "..." : "Go to workspace"}
             </button>
@@ -149,13 +152,13 @@ export function GlobalLandingView({
           </form>
 
           {/* Demo Sandbox Quick Jump */}
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
+          {demoEnabled && <div className="hidden sm:flex items-center gap-1.5 bg-[#121A24] p-1 rounded-xl border border-[var(--line)] text-xs font-mono">
             <button
               onClick={() => handleLaunchDemo("acme")}
-              className="px-2.5 py-1 rounded-lg text-[#2ED8B6] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-[var(--support-sec-text)] hover:bg-[#18222E] flex items-center gap-1 cursor-pointer"
               title="Launch live seeded Acme Corp customer care demo session"
             >
-              <Users className="w-3 h-3 text-[#2ED8B6]" />
+              <Users className="w-3 h-3 text-[var(--support-sec-text)]" />
               <span>Acme Demo</span>
             </button>
 
@@ -167,13 +170,13 @@ export function GlobalLandingView({
               <HardHat className="w-3 h-3 text-[#F5A623]" />
               <span>Meridian Demo</span>
             </button>
-          </div>
+          </div>}
 
           <button
             onClick={onOpenSignIn}
             className="btn bg-[#18222E] hover:bg-[#1E2B3A] border border-[var(--line-2)] text-[#EAF1F8] px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
-            <UserCheck className="w-3.5 h-3.5 text-[#2ED8B6]" />
+            <UserCheck className="w-3.5 h-3.5 text-[var(--support-sec-text)]" />
             <span>Sign In</span>
           </button>
 
@@ -199,7 +202,7 @@ export function GlobalLandingView({
           <p>Bring customer issues, field work and recurring problems into a shared work desk. Keep human decisions, AI assistance and governed actions in context.</p>
           <div className="family-hero-actions">
             <button type="button" onClick={onOpenSignup} className="btn btn-primary">Get Started <ArrowRight size={16} /></button>
-            <button type="button" onClick={() => handleLaunchDemo("acme")} className="btn btn-secondary">Explore the work desk <ArrowRight size={16} /></button>
+            {demoEnabled && <button type="button" onClick={() => handleLaunchDemo("acme")} className="btn btn-secondary">Explore the work desk <ArrowRight size={16} /></button>}
             <a href="#capabilities">See how it works</a>
           </div>
         </div>
@@ -208,7 +211,7 @@ export function GlobalLandingView({
       </section>
 
       {/* INSTANT DEMO SANDBOX OPERATOR ACCESS */}
-      <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
+      {demoEnabled && <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
         <div className="p-8 rounded-3xl bg-gradient-to-b from-[#121A24] to-[#0D1520] border border-[var(--line-2)] shadow-2xl relative overflow-hidden space-y-6">
           {/* Subtle Ambient Background Glow */}
           <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#2ED8B6]/5 rounded-full blur-3xl pointer-events-none" />
@@ -216,8 +219,8 @@ export function GlobalLandingView({
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 relative z-10">
             <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18222E] border border-[var(--line)] text-[11px] font-mono text-[#2ED8B6]">
-                <Zap className="w-3.5 h-3.5 text-[#2ED8B6]" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18222E] border border-[var(--line)] text-[11px] font-mono text-[var(--support-sec-text)]">
+                <Zap className="w-3.5 h-3.5 text-[var(--support-sec-text)]" />
                 <span>INTERACTIVE LIVE SANDBOX DEMOS</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-[#EAF1F8] tracking-tight">
@@ -228,7 +231,7 @@ export function GlobalLandingView({
               </p>
             </div>
             <div className="text-[11px] font-mono text-[#6B7C8D]">
-              <span className="text-[#2ED8B6] font-bold">2 Live Environments</span> Ready to Test
+              <span className="text-[var(--support-sec-text)] font-bold">2 Live Environments</span> Ready to Test
             </div>
           </div>
 
@@ -240,11 +243,11 @@ export function GlobalLandingView({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+                  <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[var(--support-sec-text)]">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
+                    <h3 className="text-sm font-bold text-[#EAF1F8] group-hover:text-[var(--support-sec-text)] transition-colors">
                       Acme Corp Sandbox
                     </h3>
                     <p className="text-[10px] font-mono text-[#6B7C8D]">SaaS Customer Care &amp; Account Billing</p>
@@ -260,7 +263,7 @@ export function GlobalLandingView({
               </p>
 
               <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs font-mono">
-                <span className="text-[11px] text-[#2ED8B6] flex items-center gap-1 group-hover:underline">
+                <span className="text-[11px] text-[var(--support-sec-text)] flex items-center gap-1 group-hover:underline">
                   <span>Launch Acme Operator Desk</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </span>
@@ -304,12 +307,12 @@ export function GlobalLandingView({
             </button>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* SECTION 1: Capabilities & Omnichannel Architecture */}
       <section id="capabilities" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
-          <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#2ED8B6]">
+          <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[var(--support-sec-text)]">
             Universal Multi-Stream Architecture
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
@@ -327,15 +330,15 @@ export function GlobalLandingView({
             className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6] transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[var(--support-sec-text)]">
                 <Users className="w-6 h-6" />
               </div>
-              <span className="pill text-[9.5px] font-mono text-[#2ED8B6] flex items-center gap-1">
+              <span className="pill text-[9.5px] font-mono text-[var(--support-sec-text)] flex items-center gap-1">
                 <span>Customer Care</span>
                 <ArrowRight className="w-2.5 h-2.5" />
               </span>
             </div>
-            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[#2ED8B6] transition-colors">
+            <h3 className="text-lg font-bold text-[#EAF1F8] group-hover:text-[var(--support-sec-text)] transition-colors">
               1. Customer Care &amp; Success
             </h3>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
@@ -343,11 +346,11 @@ export function GlobalLandingView({
             </p>
             <ul className="space-y-2 text-xs text-[#B4C2D0] pt-2 border-t border-[var(--line)]">
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[var(--support-sec-text)]" />
                 <span>Autonomous Account Credit Vouchers</span>
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#2ED8B6]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[var(--support-sec-text)]" />
                 <span>Customer 360 &amp; Sentiment Trajectory</span>
               </li>
             </ul>
@@ -422,7 +425,7 @@ export function GlobalLandingView({
       {/* SECTION 2: AI Workforce */}
       <section id="workforce" className="py-20 px-6 lg:px-12 max-w-7xl mx-auto border-b border-[var(--line)]">
         <div className="text-center max-w-3xl mx-auto space-y-3 mb-14">
-          <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[#2ED8B6]">
+          <span className="pill text-xs font-mono uppercase bg-[#18222E] text-[var(--support-sec-text)]">
             Autonomous AI Workforce
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#EAF1F8]">
@@ -437,12 +440,12 @@ export function GlobalLandingView({
           {/* Alex */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 flex items-center justify-center text-[#2ED8B6]">
+              <div className="w-12 h-12 rounded-xl bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 flex items-center justify-center text-[var(--support-sec-text)]">
                 <Bot className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#EAF1F8]">Alex</h4>
-                <p className="text-[11px] text-[#2ED8B6] font-mono">Operations &amp; CX Lead</p>
+                <p className="text-[11px] text-[var(--support-sec-text)] font-mono">Operations &amp; CX Lead</p>
               </div>
             </div>
             <p className="text-xs text-[#8E9AA8] leading-relaxed">
@@ -450,7 +453,7 @@ export function GlobalLandingView({
             </p>
             <div className="pt-2 border-t border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
               <span className="text-[#6B7C8D]">Autonomy</span>
-              <span className="text-[#2ED8B6]">Autonomous L2</span>
+              <span className="text-[var(--support-sec-text)]">Autonomous L2</span>
             </div>
           </div>
 
@@ -540,13 +543,13 @@ export function GlobalLandingView({
             <p className="text-[#8E9AA8] text-[11px] leading-relaxed">
               Self-service customer hubs, vendor dispatch interfaces, and marketplace acquisition with seamless single sign-on.
             </p>
-            <div className="p-2 rounded bg-[#18222E] text-[10px] text-[#2ED8B6]">
+            <div className="p-2 rounded bg-[#18222E] text-[10px] text-[var(--support-sec-text)]">
               Surface: /support
             </div>
           </div>
 
           <div className="card p-6 rounded-3xl bg-[#121A24] border border-[#2ED8B6]/40 space-y-3 shadow-lg shadow-[#2ED8B6]/5">
-            <div className="flex items-center justify-between text-[#2ED8B6] font-bold">
+            <div className="flex items-center justify-between text-[var(--support-sec-text)] font-bold">
               <span>TIER 2: CONTROL PLANE</span>
               <Server className="w-4 h-4" />
             </div>
@@ -591,7 +594,7 @@ export function GlobalLandingView({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="card p-6 rounded-3xl bg-[#121A24] border-[var(--line)] space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[#2ED8B6] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[var(--support-sec-text)] flex items-center justify-center">
               <Lock className="w-5 h-5" />
             </div>
             <h4 className="text-sm font-bold text-[#EAF1F8]">Action Limit Guardrails</h4>
@@ -645,7 +648,7 @@ export function GlobalLandingView({
               onClick={onOpenSignIn}
               className="btn bg-[#18222E] border border-[var(--line)] text-[#EAF1F8] px-6 py-3.5 rounded-2xl text-sm font-mono flex items-center gap-2 cursor-pointer hover:bg-[#1E2B3A]"
             >
-              <UserCheck className="w-4 h-4 text-[#2ED8B6]" />
+              <UserCheck className="w-4 h-4 text-[var(--support-sec-text)]" />
               <span>Sign In to Cockpit</span>
             </button>
           </div>

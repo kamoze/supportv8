@@ -102,16 +102,25 @@ await check("tenant-entry-preserves-locked-workspace", async () => {
 }, publicSite.page);
 
 const admin = await surface("cx_lead");
-const labels = ["Work Desk", "Problem Matrix", "Issues Explorer", "CX Cockpit", "Overview", "Ask supportV8", "Autonomous Studio", "Trend Radar", "Knowledge Suite", "Support Portal", "Work Sweep", "AI Workforce", "Voice Telephony", "Audit Logs", "Reports", "Policies & Rules", "Studio Marketplace", "Active Capabilities", "Settings", "Members", "Plans & Credits"];
+// One navigation on the family shell (<sv8-sidebar>): the incumbent entries, labels and order, plus Voice.
+const labels = ["AgenticOS Chat", "Workspace", "Learning Graph", "Studio", "Overview", "Trend Radar", "Voice", "Applications", "Problem Matrix", "Issues Explorer", "Customers", "Workforce", "Marketplace", "Installed Products", "Connectors", "Support Portal", "Audit", "Logs", "Approvals", "Workflows", "Policies", "Plan", "Credits", "Members"];
+const rail = page => page.locator("#support-sidebar .sv8-sidebar-desktop nav");
+const navLink = (page, name) => rail(page).getByRole("link", { name, exact: true });
 await admin.page.goto(base + "/?tenant=qa-support&admin=true");
-for (const label of labels) await check(`destination-${label}`, async () => { await admin.page.locator("#support-navigation nav").getByRole("button", { name: label, exact: true }).click(); await expect(admin.page.locator("#support-navigation nav").getByRole("button", { name: label, exact: true })).toHaveAttribute("aria-current", "page"); }, admin.page);
+await check("one-navigation", async () => { await expect(rail(admin.page).getByRole("link")).toHaveCount(labels.length); assert.deepEqual(await rail(admin.page).getByRole("link").allInnerTexts(), labels); await expect(admin.page.locator("#support-navigation")).toHaveCount(0); }, admin.page);
+for (const label of labels) await check(`destination-${label}`, async () => { await navLink(admin.page, label).click(); await expect(navLink(admin.page, label)).toHaveAttribute("aria-current", "page"); }, admin.page);
 for (const width of [390, 768, 1440, 2560]) await check(`workspace-${width}`, async () => {
   const { page } = admin; await page.setViewportSize({ width, height: 1000 });
-  if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.locator("#support-navigation nav").getByRole("button", { name: "Work Desk", exact: true }).click();
+  if (width <= 760) { await page.locator("#support-sidebar .sv8-mobile-header").getByRole("button", { name: "Open navigation" }).click(); await page.locator("#support-sidebar dialog nav").getByRole("link", { name: "Workspace", exact: true }).click(); }
+  else await navLink(page, "Workspace").click();
   await expect(page.locator(".family-workdesk")).toBeVisible(); await noOverflow(page);
-  if (width >= 768) { const rail = await page.locator("#support-navigation").boundingBox(); assert.equal(rail.x, 0); const main = await page.locator("#support-workspace").boundingBox(); assert(Math.abs(main.x + main.width - width) < 1); await page.getByRole("button", { name: "Collapse navigation", exact: true }).click(); await page.locator("#support-navigation nav").getByRole("button", { name: "Voice Telephony", exact: true }).click(); await page.getByRole("button", { name: "Expand navigation", exact: true }).click(); await page.locator("#support-navigation nav").getByRole("button", { name: "Work Desk", exact: true }).click(); }
-  await capture(page, `workspace-dark-${width}`); await page.getByRole("button", { name: "Switch to light theme" }).click(); await expect(page.locator("html")).toHaveAttribute("data-family-theme", "light"); await capture(page, `workspace-light-${width}`); await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  if (width > 760) { const sidebar = await page.locator("#support-sidebar .sv8-sidebar-desktop").boundingBox(); assert.equal(sidebar.x, 0); const main = await page.locator("#support-workspace").boundingBox(); assert(Math.abs(main.x + main.width - width) < 1); await page.getByRole("button", { name: "Collapse navigation", exact: true }).click(); await navLink(page, "Voice").click(); await page.getByRole("button", { name: "Expand navigation", exact: true }).click(); await navLink(page, "Workspace").click(); }
+  // The theme control sits in the sidebar; at phone width that is the drawer.
+  const toggleTheme = async () => {
+    if (width <= 760) { await page.locator("#support-sidebar .sv8-mobile-header").getByRole("button", { name: "Open navigation" }).click(); await page.locator('#support-sidebar dialog [data-sv8="theme"]').click(); await page.keyboard.press("Escape"); }
+    else await page.locator('#support-sidebar .sv8-sidebar-desktop [data-sv8="theme"]').click();
+  };
+  await capture(page, `workspace-dark-${width}`); await toggleTheme(); await expect(page.locator("html")).toHaveAttribute("data-family-theme", "light"); await capture(page, `workspace-light-${width}`); await toggleTheme(); await expect(page.locator("html")).toHaveAttribute("data-family-theme", "dark");
 }, admin.page);
 await check("resolution-context-minimize-maximize", async () => {
   await expect(admin.page.locator(".family-context-controls")).toHaveCount(0);
@@ -121,7 +130,7 @@ await check("resolution-context-minimize-maximize", async () => {
     sourceStatus: "open", status: "open", resolutionRiskScore: 0, tags: [], createdAt: "2026-09-10T12:00:00Z", updatedAt: "2026-09-10T12:00:00Z", timeline: [], messages: [], attachments: [],
   }]);
   const { page } = populated; await page.goto(base + "/?tenant=qa-support&admin=true");
-  await page.locator("#support-navigation nav").getByRole("button", { name: "Work Desk", exact: true }).click();
+  await navLink(page, "Workspace").click();
   await expect(page.locator("#support-resolution")).toBeVisible(); await capture(page, "context-expanded-1440");
   await page.getByRole("button", { name: "Minimize resolution context", exact: true }).click(); await expect(page.locator("#support-resolution")).toBeHidden();
   await page.getByRole("button", { name: "Expand resolution context", exact: true }).click(); await expect(page.locator("#support-resolution")).toBeVisible();
@@ -130,16 +139,18 @@ await check("resolution-context-minimize-maximize", async () => {
   assert.deepEqual(populated.errors, []); await populated.context.close();
 }, admin.page);
 await check("mobile-drawer-breakpoint-and-signout", async () => {
-  const { page } = admin; await page.setViewportSize({ width: 390, height: 1000 }); await page.getByRole("button", { name: "Open navigation" }).click(); await expect(page.getByRole("button", { name: "Sign out of Cockpit", exact: true })).toBeVisible();
-  await page.keyboard.press("Escape"); await expect(page.locator("#support-navigation")).toHaveAttribute("data-mobile-open", "false"); await expect(page.getByRole("button", { name: "Open navigation" })).toBeFocused();
-  await page.getByRole("button", { name: "Open navigation" }).click(); await page.setViewportSize({ width: 1440, height: 1000 }); await expect(page.locator("#support-navigation")).toHaveAttribute("data-mobile-open", "false");
-  await page.getByRole("button", { name: "Switch to light theme" }).focus(); await page.keyboard.press("Tab"); assert.equal(await page.evaluate(() => document.querySelector("#support-navigation").contains(document.activeElement)), false);
-  await page.getByRole("button", { name: "Sign out of Cockpit", exact: true }).click(); await expect(page.locator(".family-public")).toBeVisible(); assert.equal(await page.evaluate(() => sessionStorage.getItem("sv8_operator_session")), null);
+  const { page } = admin; await page.setViewportSize({ width: 390, height: 1000 });
+  const trigger = page.locator("#support-sidebar .sv8-mobile-header").getByRole("button", { name: "Open navigation" }); const drawer = page.locator("#support-sidebar dialog");
+  await trigger.click(); await expect(drawer.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape"); await expect(drawer).toBeHidden(); await expect(trigger).toBeFocused();
+  await trigger.click(); await page.setViewportSize({ width: 1440, height: 1000 }); await expect(drawer).toBeHidden();
+  await page.locator('#support-sidebar .sv8-sidebar-desktop [data-sv8="sign-out"]').click(); await expect(page.locator(".family-public")).toBeVisible(); assert.equal(await page.evaluate(() => sessionStorage.getItem("sv8_operator_session")), null);
 }, admin.page);
 for (const role of ["observer", "contractor"]) await check(`permission-menu-${role}`, async () => {
-  const app = await surface(role); await app.page.goto(base + "/?tenant=qa-support&admin=true"); const nav = app.page.locator("#support-navigation nav");
-  await expect(nav.getByRole("button", { name: "Members", exact: true })).toHaveCount(0); await expect(nav.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
-  await expect(nav.getByRole("button", { name: role === "observer" ? "Overview" : "Field Work Desk", exact: true })).toBeVisible(); assert.deepEqual(app.errors, []); await app.context.close();
+  const app = await surface(role); await app.page.goto(base + "/?tenant=qa-support&admin=true"); const nav = rail(app.page);
+  await expect(nav.getByRole("link", { name: role === "observer" ? "Overview" : "Field Work Desk", exact: true })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Members", exact: true })).toHaveCount(0); await expect(nav.getByRole("link", { name: "Credits", exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: "Voice", exact: true })).toHaveCount(role === "observer" ? 1 : 0); assert.deepEqual(app.errors, []); await app.context.close();
 });
 await check("browser-console", async () => {
   // The deliberately intercepted email outage emits one expected HTTP 503 console entry.

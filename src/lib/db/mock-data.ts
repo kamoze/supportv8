@@ -3,6 +3,7 @@
  * Production-ready mock data matching supportV8 design specification v0.3
  */
 
+import { isSupportDemoTenant } from "@/lib/demo-mode";
 import type {
   Issue,
   Problem,
@@ -1559,8 +1560,7 @@ class SupportDatabase {
 
   public getTenantAdminName(slug: string = "acme"): string {
     const clean = slug.toLowerCase().trim();
-    if (clean === "acme") return "Sarah Chen";
-    if (clean === "meridian") return "Meridian Dispatch";
+    if (isSupportDemoTenant(clean)) return clean === "acme" ? "Sarah Chen" : "Meridian Dispatch";
     const found = this.dynamicTenants.get(clean);
     return found?.adminName || "Support Lead";
   }

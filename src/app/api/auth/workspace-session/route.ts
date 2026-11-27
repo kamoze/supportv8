@@ -38,6 +38,9 @@ export async function GET(request: Request) {
         session: {
           // A UI correlation marker, never an access token. Authority stays HttpOnly.
           token: `workspace:${session.iat}`,
+          source: 'runtime_handoff',
+          // Present only for a v2 hand-off; validated when the session cookie was read.
+          ...(session.runtimeUrl ? { runtimeUrl: session.runtimeUrl } : {}),
           tenantSlug: session.tenantDomain,
           email: access.email,
           name: role === 'support:manage' ? 'Workspace administrator' : 'Workspace member',

@@ -30,6 +30,7 @@ import {
   SlidersHorizontal,
 } from "@/components/ui/FlatIcon";
 import type { TenantAuditLog } from "@/lib/types/marketplace-types";
+import { EmployeeAvatar } from "@/components/chat-ui/EmployeeAvatar";
 
 interface GovernanceAuditLogsViewProps {
   auditLogs: TenantAuditLog[];
@@ -399,9 +400,10 @@ export function GovernanceAuditLogsView({
                       {/* Actor */}
                       <td>
                         <div className="flex items-center gap-2">
-                          <img
-                            src={log.actorAvatar || "/avatars/beaver-manager.jpg"}
-                            alt={log.actorName}
+                          <EmployeeAvatar
+                            src={log.actorAvatar}
+                            name={log.actorName}
+                            size={24}
                             className="w-6 h-6 rounded-lg object-cover border border-[var(--line)] shrink-0"
                           />
                           <div>

@@ -1,0 +1,157 @@
+/* SupportV8 chat surfaces, following ServiceV8 Runtime's chat design
+ * (servicev8-agentic-runtime DESIGN.md "chat-bubble" and src/app/workspace.css).
+ * App-local: used by the AgenticOS chat, the Workforce Chat console, the
+ * operator workdesk conversation and the customer chat widget. Family tokens
+ * (--sv8-*) carry Runtime's values in both themes. */
+
+.chat-transcript {
+  overflow-y: auto;
+  min-height: 100px;
+  padding: 28px 24px;
+  background: var(--sv8-bg);
+  color: var(--sv8-ink);
+  font-family: var(--sv8-font-ui);
+}
+.chat-transcript:focus-visible { outline: 2px solid var(--sv8-focus); outline-offset: -3px; }
+.chat-transcript-content { display: flex; flex-direction: column; gap: 24px; max-width: 1000px; margin: 0 auto; }
+.chat-transcript.compact { padding: 16px; }
+.chat-transcript.compact .chat-transcript-content { gap: 16px; }
+
+.chat-bubble {
+  align-self: flex-start;
+  max-width: min(680px, 95%);
+  padding: 16px 18px;
+  border: 1px solid var(--sv8-line);
+  border-radius: var(--sv8-radius-md);
+  background: var(--sv8-surface);
+  color: var(--sv8-ink);
+  overflow-wrap: anywhere;
+  box-shadow: none;
+}
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--sv8-selected);
+  border-color: color-mix(in srgb, var(--sv8-selected-text) 18%, transparent);
+}
+.chat-bubble.system {
+  color: var(--sv8-warning-text);
+  background: var(--sv8-warning-bg);
+  border-color: color-mix(in srgb, var(--sv8-warning-text) 25%, transparent);
+  border-radius: var(--sv8-radius-sm);
+}
+.chat-bubble.system .chat-author-name,
+.chat-bubble.system .chat-formatted-content,
+.chat-bubble.system .chat-formatted-content strong { color: var(--sv8-warning-text); }
+
+.chat-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; font-size: 12px; }
+.chat-author { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; font-weight: 600; }
+.chat-author-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; overflow-wrap: anywhere; }
+.chat-author-name { color: var(--sv8-ink); font-size: 13px; }
+.chat-author-role { color: var(--sv8-muted); font-size: 12px; font-weight: 500; }
+.chat-time { flex-shrink: 0; color: var(--sv8-muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.employee-handle { color: var(--sv8-selected-text); font-size: 12px; font-weight: 500; }
+.employee-avatar { flex: none; display: block; object-fit: cover; background: var(--sv8-raised); }
+.chat-bubble .employee-avatar, .chat-person .employee-avatar { border-radius: 50%; }
+
+.chat-body { font-size: 14px; line-height: 1.55; }
+.chat-plain { margin: 0; white-space: pre-wrap; font-size: 14px; line-height: 1.55; }
+.chat-formatted-content { display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.55; }
+.chat-formatted-content p { margin: 0; }
+.chat-heading-2 { font-size: 15px; font-weight: 700; color: var(--sv8-ink); margin: 12px 0 4px; letter-spacing: -0.01em; }
+.chat-heading-2:first-child { margin-top: 0; }
+.chat-heading-3 { font-size: 14px; font-weight: 600; color: var(--sv8-ink); margin: 8px 0 2px; }
+.chat-bullet-list, .chat-ordered-list { margin: 4px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.chat-bullet-list { list-style-type: disc; }
+.chat-ordered-list { list-style-type: decimal; }
+.chat-bullet-list li, .chat-ordered-list li { line-height: 1.5; color: var(--sv8-ink); }
+.chat-formatted-content strong { font-weight: 600; color: var(--sv8-ink); }
+.chat-inline-code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; background: color-mix(in srgb, var(--sv8-ink) 8%, transparent); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--sv8-line); }
+
+.chat-message-footer { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chat-delivery { display: block; margin-top: 8px; color: var(--sv8-muted); font-size: 12px; }
+
+.chat-pending { align-self: flex-start; padding: 12px 14px; border: 1px solid var(--sv8-line); border-radius: var(--sv8-radius-sm); background: var(--sv8-raised); color: var(--sv8-ink); font-size: 13px; }
+.chat-no-messages { padding: 50px 15px; color: var(--sv8-muted); text-align: center; font-size: 14px; }
+.chat-no-messages h3 { margin: 0 0 8px; color: var(--sv8-ink); font-size: 20px; font-weight: 650; }
+
+/* Header and roster (only where the app already has addressable employees). */
+.chat-room-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.chat-room-head h2 { margin: 0; font-size: 18px; font-weight: 650; color: var(--sv8-ink); overflow-wrap: anywhere; }
+.chat-room-head p { margin: 2px 0 0; color: var(--sv8-muted); font-size: 12px; }
+.chat-roster-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.chat-person { display: flex; align-items: center; gap: 10px; flex: none; min-height: 44px; padding: 8px 12px 8px 8px; border: 1px solid transparent; border-radius: var(--sv8-radius-sm); background: transparent; color: var(--sv8-ink); text-align: left; cursor: pointer; font: inherit; }
+.chat-person:hover { background: var(--sv8-raised); border-color: var(--sv8-line); }
+.chat-person[aria-pressed="true"] { background: var(--sv8-selected); border-color: color-mix(in srgb, var(--sv8-selected-text) 30%, transparent); }
+.chat-person:focus-visible { outline: 2px solid var(--sv8-focus); outline-offset: 2px; }
+.chat-person > span { display: flex; flex-direction: column; min-width: 0; }
+.chat-person strong { font-size: 13px; font-weight: 600; }
+.chat-person small { color: var(--sv8-muted); font-size: 12px; }
+
+/* Composer. */
+.chat-compose { padding: 20px 24px 26px; border-top: 1px solid var(--sv8-line); background: var(--sv8-bg); color: var(--sv8-ink); font-family: var(--sv8-font-ui); }
+.chat-compose form { display: flex; flex-direction: column; gap: 8px; max-width: 952px; margin: 0 auto; }
+.chat-compose label { font-size: 13px; font-weight: 600; color: var(--sv8-ink); }
+.chat-recipient-summary { margin: 0; color: var(--sv8-muted); font-size: 12px; }
+.chat-compose textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 15px;
+  border: 1px solid var(--sv8-line-strong);
+  border-radius: var(--sv8-radius-md);
+  background: var(--sv8-surface);
+  color: var(--sv8-ink);
+  font: 15px/1.5 var(--sv8-font-ui);
+}
+.chat-compose textarea::placeholder { color: var(--sv8-quiet); }
+.chat-compose textarea:focus-visible { outline: 2px solid var(--sv8-focus); outline-offset: 1px; }
+.chat-compose textarea[readonly] { opacity: 0.75; }
+.chat-compose textarea[aria-invalid="true"] { border-color: var(--sv8-error-text); }
+.chat-compose-error { margin: 0; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--sv8-error-text) 25%, transparent); border-radius: var(--sv8-radius-sm); background: var(--sv8-error-bg); color: var(--sv8-error-text); font-size: 13px; }
+.chat-compose-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.chat-compose-help { color: var(--sv8-muted); font-size: 11px; max-width: 50ch; }
+.chat-compose-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-compose button { flex: none; min-height: 40px; }
+.chat-compose.compact { padding: 12px 16px 16px; }
+.sv8-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 720px) {
+  .chat-transcript { padding: 20px 16px; }
+  .chat-compose { padding: 14px 16px 18px; }
+  .chat-compose-actions, .chat-compose-buttons { flex-direction: column; align-items: stretch; }
+  .chat-compose button { min-height: 44px; width: 100%; }
+  .chat-person { min-height: 44px; }
+}
+
+/* Message lists inside panels that are not the main transcript (ticket history). */
+.chat-stack { display: flex; flex-direction: column; gap: 12px; }
+.chat-stack .chat-bubble { max-width: 95%; padding: 12px 14px; }
+
+/* Customer chat widget: the panel follows the family theme (dark default,
+ * light supported) instead of a fixed dark palette. The tenant's portal brand
+ * (--chat-brand*) still marks the launcher, send button and the customer's own
+ * messages, as the portal composer configures it. */
+.chat-widget-panel { background: var(--sv8-bg) !important; color: var(--sv8-ink) !important; border-color: var(--sv8-line) !important; font-family: var(--sv8-font-ui); }
+.chat-widget-panel [class~="bg-[#121A24]"],
+.chat-widget-panel [class~="bg-[#141C26]"],
+.chat-widget-panel [class~="bg-[#101720]"] { background-color: var(--sv8-surface); }
+.chat-widget-panel [class~="bg-[#18222E]"],
+.chat-widget-panel [class~="hover:bg-[#16212E]"]:hover,
+.chat-widget-panel [class~="hover:bg-[#1C2836]"]:hover { background-color: var(--sv8-raised); }
+.chat-widget-panel [class~="text-[#EAF1F8]"] { color: var(--sv8-ink); }
+.chat-widget-panel [class~="text-[#B4C2D0]"] { color: color-mix(in srgb, var(--sv8-ink) 75%, var(--sv8-muted)); }
+.chat-widget-panel [class~="text-[#6B7C8D]"],
+.chat-widget-panel [class~="text-[#8E9AA8]"] { color: var(--sv8-muted); }
+.chat-widget-panel [class~="border-[var(--line)]"],
+.chat-widget-panel [class~="border-[var(--line-2)]"] { border-color: var(--sv8-line); }
+.chat-widget-panel input, .chat-widget-panel select { background: var(--sv8-surface); color: var(--sv8-ink); border-color: var(--sv8-line-strong); }
+.chat-widget-transcript { background: var(--sv8-bg); }
+.chat-widget-panel .chat-bubble.user { background: var(--chat-brand-soft, var(--sv8-selected)); border-color: var(--chat-brand-border, color-mix(in srgb, var(--sv8-selected-text) 18%, transparent)); }
+.chat-widget-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--sv8-line-strong); border-radius: var(--sv8-radius-sm); background: var(--sv8-raised); color: var(--sv8-ink); font: 500 12px var(--sv8-font-ui); }
+.chat-widget-action { cursor: pointer; }
+.chat-widget-action:hover { border-color: var(--chat-brand, var(--sv8-selected-text)); }
+.chat-widget-compose { border-top: 1px solid var(--sv8-line); }
+.chat-widget-compose textarea { flex: 1; min-width: 0; }
+@media (max-width: 720px) {
+  .chat-compose.chat-widget-compose button { width: 44px; min-height: 44px; }
+}

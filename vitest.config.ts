@@ -7,6 +7,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./test/local-only-network-guard.mjs", "./test/seed-password.setup.ts"],
     fileParallelism: false,
+    // The suite exercises the Acme/Meridian demo fixtures, which exist only with
+    // the explicit demo flag. test/demo-mode-gate.test.tsx covers the flag off.
+    env: { SUPPORTV8_DEMO_MODE: "true" },
   },
   resolve: {
     alias: {

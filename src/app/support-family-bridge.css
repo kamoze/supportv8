@@ -1,0 +1,171 @@
+/* SupportV8 on the ServiceV8 family palette (plan 05 step 4, shell).
+ *
+ * Loaded after the app's stylesheets and the vendored family.css. Inside the
+ * signed-in shell (#support-shell) it maps SupportV8's variables and its most
+ * common hard-coded utility colours onto the family tokens (--sv8-*): charcoal
+ * base, system type, lime primary actions and SupportV8 teal (readable token
+ * text) for selected and informational states. Values come from the kit, so
+ * the light theme follows the shell's theme too.
+ *
+ * Retire this file view by view as plan step 5 replaces the hard-coded colours
+ * with family variables.
+ */
+
+/* 1. Public pages keep SupportV8's own palette. family.css defines the generic
+ * names --surface, --line and --muted at the root; restore the app's values
+ * there (specificity beats family.css's root theme rules). */
+:root:root:root { --surface:#101820; --line:#283842; --muted:#9aadb9; }
+html[data-family-theme="light"]:root:root { --surface:#ffffff; --line:#ccd9dc; --muted:#536d74; }
+
+/* 2. The signed-in app uses the family palette in both themes. */
+#support-shell {
+  --ground: var(--sv8-bg);
+  --surface: var(--sv8-surface);
+  --surface-2: var(--sv8-raised);
+  --line: var(--sv8-line);
+  --line-2: var(--sv8-line-strong);
+  --text: var(--sv8-ink);
+  --body: color-mix(in srgb, var(--sv8-ink) 70%, var(--sv8-muted));
+  --muted: var(--sv8-muted);
+  --teal: var(--sv8-sec-text);
+  --teal-dim: var(--sv8-selected);
+  --teal-glow: color-mix(in srgb, var(--sv8-sec) 25%, transparent);
+  --support-sec-text: var(--sv8-sec-text);
+  --support-sec-bg: var(--sv8-sec-bg);
+  --support-ter-text: var(--sv8-ter-text);
+  --sans: var(--sv8-font-ui);
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--sv8-font-ui);
+  background: var(--sv8-bg);
+  color: var(--sv8-ink);
+}
+
+/* 3. Layout inside <sv8-shell>: one main area beside the sidebar. */
+#support-shell { height: 100vh; height: 100dvh; overflow: hidden; grid-template-columns: var(--sv8-nav) minmax(0, 1fr); }
+#support-shell > sv8-sidebar { grid-row: 1 / span 2; }
+#support-shell > .support-shell-main { grid-area: main; grid-row: 1 / span 2; display: flex; min-width: 0; min-height: 0; height: 100%; }
+#support-shell > .support-shell-main > #support-workspace { height: 100%; }
+@media (max-width: 760px) {
+  #support-shell { display: flex; flex-direction: column; }
+  #support-shell > .support-shell-main { flex: 1; }
+}
+
+/* 4. Charcoal base for the incumbent hard-coded surfaces. */
+#support-shell [class~="bg-[#0B1017]"],
+#support-shell [class~="bg-[#090E15]"],
+#support-shell [class~="bg-[#080D14]"],
+#support-shell [class~="bg-[#0B1017]/95"],
+#support-shell [class~="bg-[#0B1017]/50"],
+#support-shell [class~="bg-[#0B1017]/70"],
+#support-shell [class~="bg-[#0B1017]/80"],
+#support-shell [class~="bg-[#0B1017]/85"],
+#support-shell [class~="bg-[#090E15]/85"],
+#support-shell [class~="bg-[#0A111F]"],
+#support-shell [class~="bg-[#0A111F]/85"],
+#support-shell [class~="bg-[#0A111F]/80"] { background-color: var(--sv8-bg); }
+#support-shell [class~="bg-[#121A24]"],
+#support-shell [class~="bg-[#141C26]"],
+#support-shell [class~="bg-[#0E1520]"],
+#support-shell [class~="bg-[#101722]"],
+#support-shell [class~="bg-[#0C121A]"],
+#support-shell [class~="bg-[#101720]"],
+#support-shell [class~="bg-[#101620]"],
+#support-shell [class~="bg-[#0E1622]"],
+#support-shell [class~="bg-[#121A24]/90"],
+#support-shell [class~="bg-[#121A24]/95"],
+#support-shell [class~="bg-[#121A24]/60"],
+#support-shell [class~="bg-[#0E1520]/90"] { background-color: var(--sv8-surface); }
+#support-shell [class~="bg-[#18222E]"],
+#support-shell [class~="bg-[#182635]"],
+#support-shell [class~="bg-[#15202E]"],
+#support-shell [class~="bg-[#161F2C]"],
+#support-shell [class~="bg-[#141C28]"],
+#support-shell [class~="bg-[#1A2432]"],
+#support-shell [class~="bg-[#182333]"],
+#support-shell [class~="bg-[#14202B]"],
+#support-shell [class~="bg-[#223040]"],
+#support-shell [class~="bg-[#182230]"],
+#support-shell [class~="bg-[#18222E]/50"],
+#support-shell [class~="bg-[#18222E]/80"],
+#support-shell [class~="bg-[#162724]"],
+#support-shell [class~="bg-[#142622]"] { background-color: var(--sv8-raised); }
+#support-shell [class~="hover:bg-[#18222E]"]:hover,
+#support-shell [class~="hover:bg-[#18222E]/80"]:hover,
+#support-shell [class~="hover:bg-[#141C26]"]:hover,
+#support-shell [class~="hover:bg-[#141E2B]"]:hover,
+#support-shell [class~="hover:bg-[#18222E]/50"]:hover,
+#support-shell [class~="hover:bg-[#18222E]/60"]:hover,
+#support-shell [class~="hover:bg-[#1E2B3A]"]:hover,
+#support-shell [class~="hover:bg-[#203348]"]:hover,
+#support-shell [class~="hover:bg-[#1C2836]"]:hover,
+#support-shell [class~="hover:bg-[#16212E]"]:hover,
+#support-shell [class~="hover:bg-[#121A24]"]:hover,
+#support-shell [class~="hover:bg-[#1C2838]"]:hover,
+#support-shell [class~="hover:bg-[#1A2534]"]:hover,
+#support-shell [class~="hover:bg-[#18222E]/70"]:hover,
+#support-shell [class~="hover:bg-[#15202E]"]:hover,
+#support-shell [class~="hover:bg-[#243244]"]:hover { background-color: var(--sv8-hover); }
+#support-shell [class~="text-[#EAF1F8]"],
+#support-shell [class~="text-white"],
+#support-shell [class~="hover:text-[#EAF1F8]"]:hover,
+#support-shell [class~="hover:text-[#FFFFFF]"]:hover { color: var(--sv8-ink); }
+#support-shell [class~="text-[#B4C2D0]"] { color: color-mix(in srgb, var(--sv8-ink) 70%, var(--sv8-muted)); }
+#support-shell [class~="text-[#6B7C8D]"],
+#support-shell [class~="text-[#8E9AA8]"],
+#support-shell [class~="text-[#8E9CAE]"],
+#support-shell [class~="text-[#6B7C8D]/40"] { color: var(--sv8-muted); }
+#support-shell [class~="border-[var(--line)]"],
+#support-shell [class~="border-[var(--line-2)]"] { border-color: var(--sv8-line); }
+
+/* 5. SupportV8 teal (readable token text) for selected and informational states. */
+#support-shell [class~="text-[#2ED8B6]"],
+#support-shell [class~="text-[#57E5C8]"],
+#support-shell [class~="text-[#2ED8B6]/60"],
+#support-shell [class~="hover:text-[#2ED8B6]"]:hover,
+#support-shell .group:hover [class~="group-hover:text-[#2ED8B6]"] { color: var(--sv8-sec-text); }
+#support-shell [class~="border-[#2ED8B6]"],
+#support-shell [class~="border-[#2ED8B6]/60"],
+#support-shell [class~="border-[#2ED8B6]/50"],
+#support-shell [class~="border-[#2ED8B6]/40"],
+#support-shell [class~="border-[#2ED8B6]/35"],
+#support-shell [class~="border-[#2ED8B6]/30"],
+#support-shell [class~="border-[#2ED8B6]/25"],
+#support-shell [class~="border-[#2ED8B6]/20"],
+#support-shell [class~="border-[#2ED8B6]/10"],
+#support-shell [class~="hover:border-[#2ED8B6]"]:hover,
+#support-shell [class~="hover:border-[#2ED8B6]/60"]:hover,
+#support-shell [class~="hover:border-[#2ED8B6]/50"]:hover,
+#support-shell [class~="hover:border-[#2ED8B6]/40"]:hover,
+#support-shell [class~="hover:border-[#2ED8B6]/30"]:hover { border-color: color-mix(in srgb, var(--sv8-sec) 55%, transparent); }
+#support-shell [class~="focus:border-[#2ED8B6]"]:focus { border-color: var(--sv8-sec); }
+#support-shell [class~="bg-[#2ED8B6]/5"],
+#support-shell [class~="bg-[#2ED8B6]/10"],
+#support-shell [class~="bg-[#2ED8B6]/12"],
+#support-shell [class~="bg-[#2ED8B6]/15"],
+#support-shell [class~="bg-[#2ED8B6]/20"],
+#support-shell [class~="bg-[#2ED8B6]/40"],
+#support-shell [class~="hover:bg-[#2ED8B6]/10"]:hover,
+#support-shell [class~="hover:bg-[#2ED8B6]/20"]:hover,
+#support-shell [class~="hover:bg-[#2ED8B6]/25"]:hover,
+#support-shell .group:hover [class~="group-hover:bg-[#2ED8B6]/10"] { background-color: var(--sv8-selected); }
+#support-shell [class~="accent-[#2ED8B6]"] { accent-color: var(--sv8-sec); }
+
+/* 6. Lime is the primary action colour. */
+#support-shell .btn-primary,
+#support-shell [class~="bg-[#2ED8B6]"],
+#support-shell [class~="bg-[#2ED8B6]/80"] {
+  background: var(--sv8-lime) !important;
+  border-color: var(--sv8-lime) !important;
+  color: var(--sv8-accent-ink) !important;
+  box-shadow: none !important;
+}
+#support-shell .btn-primary:hover:not(:disabled) { background: var(--sv8-lime-hover) !important; border-color: var(--sv8-lime-hover) !important; }
+#support-shell .btn-primary:disabled { opacity: .55; }
+#support-shell .btn-primary :is(svg, i) { color: inherit !important; }
+#support-shell .btn-secondary { background: var(--sv8-surface); border-color: var(--sv8-line-strong); color: var(--sv8-ink); }
+#support-shell .btn-secondary:hover:not(:disabled) { background: var(--sv8-hover); }
+#support-shell .card, #support-shell .card-plain, #support-shell .panel { background: var(--sv8-surface); border-color: var(--sv8-line); }
+#support-shell .card:hover { border-color: var(--sv8-line-strong); box-shadow: none; }
+#support-shell :is(input, select, textarea) { background: var(--sv8-raised); color: var(--sv8-ink); border-color: var(--sv8-line-strong); }
+#support-shell :is(input, select, textarea):focus { outline-color: var(--sv8-focus); border-color: var(--sv8-sec); }
+#support-shell .family-header { background: color-mix(in srgb, var(--sv8-bg) 95%, transparent); border-color: var(--sv8-line); }

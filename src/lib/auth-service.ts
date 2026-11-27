@@ -11,6 +11,33 @@ export interface AuthSession {
   role: "superadmin" | "operator" | "cx_lead" | "contractor_lead" | "technician" | "contractor" | "observer";
   issuedAt: number;
   expiresAt: number;
+  /** Set by /api/auth/workspace-session when the session came through the Runtime hand-off. */
+  source?: "runtime_handoff";
+  /** The tenant's Runtime workspace, from a v2 Runtime hand-off. Display only. */
+  runtimeUrl?: string;
+}
+
+/**
+ * The Runtime workspace URL to give the embedded shell, or undefined. The
+ * server validated it against SUPPORTV8_RUNTIME_ORIGIN; this only refuses
+ * anything that is not an https /workspace/<slug> URL for the session's tenant,
+ * since the browser copy lives in sessionStorage.
+ */
+export function runtimeShellUrl(session: (Pick<AuthSession, "token" | "tenantSlug"> & { source?: string; runtimeUrl?: string }) | null | undefined): string | undefined {
+  if (!session || !isRuntimeHandoffSession(session) || typeof session.runtimeUrl !== "string") return undefined;
+  try {
+    const url = new URL(session.runtimeUrl);
+    if (url.href !== session.runtimeUrl || url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash) return undefined;
+    return url.pathname === `/workspace/${session.tenantSlug}` ? session.runtimeUrl : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A Runtime hand-off session: SupportV8 runs embedded in Runtime. Display only; grants nothing. */
+export function isRuntimeHandoffSession(session: Pick<AuthSession, "token"> & { source?: string } | null | undefined): boolean {
+  if (!session) return false;
+  return session.source === "runtime_handoff" || session.token.startsWith("workspace:");
 }
 
 const SESSION_STORAGE_KEY = "sv8_operator_session";

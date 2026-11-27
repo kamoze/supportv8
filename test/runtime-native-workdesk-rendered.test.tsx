@@ -13,6 +13,8 @@ import {handleRuntimeTicketList,handleRuntimeTicketDetail} from '@/lib/service-a
 import SupportV8Dashboard from '@/app/page';
 import {AuthService} from '@/lib/auth-service';
 import {RuntimeNativeWorkdesk} from '@/components/workspace/RuntimeNativeWorkdesk';
+// The dashboard runs on the family shell; register its real elements as the browser would.
+import '../public/vendor/family-ui/family.js';
 const roots:Root[]=[];
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
 const session={token:'workspace:100',tenantSlug:'acme',email:'person@example.test',name:'Workspace administrator',role:'cx_lead' as const,issuedAt:100,expiresAt:Date.now()+600000};
@@ -70,7 +72,7 @@ it.each([401,403,503])('renders no ticket or mutation controls when owner access
 });
 it('mounts the actual native root with an exact selected ticket outside the current page',async()=>{
  window.history.replaceState({},'','/?view=cockpit&tab=workspace&ticket=wanted');vi.stubGlobal('fetch',ownerFetch());
- const view=await mount(true);expect(view.querySelector('[aria-label="Application navigation"]')).not.toBeNull();
+ const view=await mount(true);expect(view.querySelector('sv8-shell#support-shell > sv8-sidebar')).not.toBeNull();
  const desk=view.querySelector('[aria-label="Runtime workspace tickets"]')!;expect(desk.textContent).toContain('Current request wanted');
  expect(button(desk,'Next page')).toBeTruthy();expect(desk.textContent).not.toContain('Deducted');
 });
@@ -104,7 +106,8 @@ it('opens B from Issues Explorer after a deep link to A, using B in both URL and
  vi.stubGlobal('fetch',ownerFetch(path=>path.startsWith('/api/issues?tenant=')?Response.json({success:true,data:[issue('second')]}):undefined));
  const view=await mount(true);
  expect(view.querySelector('[aria-label="Runtime workspace tickets"]')?.textContent).toContain('Current request first');
- await click([...view.querySelectorAll('button')].find(b=>b.textContent?.includes('Issues Explorer')));
+ await act(async()=>{await customElements.whenDefined('sv8-sidebar');});
+ await click(view.querySelector('.sv8-sidebar-desktop a.sv8-nav-item[data-id="issues"]'));
  await click([...view.querySelectorAll('tbody tr')].find(row=>row.textContent?.includes('second')));
  await click(button(view,'Open Desk'));
  expect(window.location.search).toContain('ticket=second');

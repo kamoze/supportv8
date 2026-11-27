@@ -244,7 +244,7 @@ describe("SupportV8 page on the shell", () => {
     expect(source("src/components/shell/SupportFamilyShell.tsx")).toContain('"/vendor/family-ui/family.js"');
   });
 
-  it("bridges the app palette onto the family tokens: lime primary, pink selected, charcoal base", () => {
+  it("bridges the app palette onto the family tokens: lime primary, teal selected, charcoal base", () => {
     const bridge = source("src/app/support-family-bridge.css");
     expect(bridge).toMatch(/#support-shell \.btn-primary,[\s\S]*?background: var\(--sv8-lime\) !important/);
     expect(bridge).toMatch(/\[class~="text-\[#2ED8B6\]"\][^{]*\{ color: var\(--sv8-sec-text\); \}/);

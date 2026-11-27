@@ -3,7 +3,7 @@
  * Loaded after the app's stylesheets and the vendored family.css. Inside the
  * signed-in shell (#support-shell) it maps SupportV8's variables and its most
  * common hard-coded utility colours onto the family tokens (--sv8-*): charcoal
- * base, system type, lime primary actions and SupportV8 pink (readable token
+ * base, system type, lime primary actions and SupportV8 teal (readable token
  * text) for selected and informational states. Values come from the kit, so
  * the light theme follows the shell's theme too.
  *
@@ -117,7 +117,7 @@ html[data-family-theme="light"]:root:root { --surface:#ffffff; --line:#ccd9dc; -
 #support-shell [class~="border-[var(--line)]"],
 #support-shell [class~="border-[var(--line-2)]"] { border-color: var(--sv8-line); }
 
-/* 5. SupportV8 pink (readable token text) for selected and informational states. */
+/* 5. SupportV8 teal (readable token text) for selected and informational states. */
 #support-shell [class~="text-[#2ED8B6]"],
 #support-shell [class~="text-[#57E5C8]"],
 #support-shell [class~="text-[#2ED8B6]/60"],

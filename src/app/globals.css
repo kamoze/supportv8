@@ -10,15 +10,15 @@
     --text: #EAF1F8;
     --body: #B4C2D0;
     --muted: #6B7C8D;
-    /* SupportV8 family brand (F4): lime primary, pink secondary, cyan tertiary.
+    /* SupportV8 family brand (F4): lime primary, teal secondary, cyan tertiary.
        Brand-coloured text uses --support-sec-text, never the raw secondary.
        --teal is the incumbent accent of the existing views; plan step 5 moves
        those views onto the family tokens. */
     --support-lime: #C8FF00;
-    --support-sec: #EC4899;
+    --support-sec: #2ED8B6;
     --support-ter: #00F2FE;
-    --support-sec-text: #F06DAD;
-    --support-sec-bg: #2C1827;
+    --support-sec-text: #2ED8B6;
+    --support-sec-bg: #0F2A26;
     --support-ter-text: #33F5FE;
     --teal: #2ED8B6;
     --teal-dim: rgba(46, 216, 182, 0.12);

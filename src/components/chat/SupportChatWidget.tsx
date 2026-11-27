@@ -57,8 +57,8 @@ interface SupportChatWidgetProps {
 }
 
 function readableInk(hex: string): string {
-  const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : "EC4899";
-  // Pick the ink with the higher WCAG contrast (SupportV8 pink needs dark ink: 5.5:1 vs 3.5:1 for white).
+  const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex.slice(1) : "2ED8B6";
+  // Pick the ink with the higher WCAG contrast (SupportV8 teal needs dark ink: 10.9:1 vs 1.8:1 for white).
   const luminance = (hex6: string) => {
     const [r, g, b] = [0, 2, 4].map((offset) => {
       const c = Number.parseInt(hex6.slice(offset, offset + 2), 16) / 255;
@@ -140,10 +140,10 @@ export function SupportChatWidget({
   tenantName = "Acme Corp",
   tenantDomain,
   defaultStream = "customers",
-  // SupportV8 pink unless the tenant's portal branding supplies a colour.
-  brandColor = "#EC4899",
+  // SupportV8 teal unless the tenant's portal branding supplies a colour.
+  brandColor = "#2ED8B6",
 }: SupportChatWidgetProps) {
-  const safeBrandColor = /^#[0-9a-f]{6}$/i.test(brandColor) ? brandColor : "#EC4899";
+  const safeBrandColor = /^#[0-9a-f]{6}$/i.test(brandColor) ? brandColor : "#2ED8B6";
   const brandStyle = {
     "--chat-brand": safeBrandColor,
     "--chat-brand-soft": `${safeBrandColor}26`,

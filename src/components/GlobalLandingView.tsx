@@ -98,7 +98,7 @@ export function GlobalLandingView({
   };
 
   return (
-    <div className="family-public min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#EC4899]/30 selection:text-[var(--support-sec-text)]">
+    <div className="family-public min-h-screen bg-[#090E15] text-[#EAF1F8] font-sans selection:bg-[#2ED8B6]/30 selection:text-[var(--support-sec-text)]">
       <a className="family-skip" href="#support-main">Skip to content</a>
       {/* Top Header Navigation */}
       <header className="sticky top-0 z-40 bg-[#090E15]/85 backdrop-blur-xl border-b border-[var(--line)] px-6 lg:px-12 py-4 flex items-center justify-between">
@@ -135,7 +135,7 @@ export function GlobalLandingView({
               value={workspaceSlug}
               onChange={(e) => setWorkspaceSlug(e.target.value)}
               placeholder="e.g. acme"
-              className="bg-[#18222E] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[#EAF1F8] font-mono outline-none focus:border-[#EC4899] w-24 sm:w-28"
+              className="bg-[#18222E] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[#EAF1F8] font-mono outline-none focus:border-[#2ED8B6] w-24 sm:w-28"
             />
             <button
               type="submit"
@@ -182,7 +182,7 @@ export function GlobalLandingView({
 
           <button
             onClick={onOpenSignup}
-            className="btn btn-primary px-4 py-1.5 text-xs font-bold shadow-lg shadow-[#EC4899]/20 flex items-center gap-1.5 cursor-pointer"
+            className="btn btn-primary px-4 py-1.5 text-xs font-bold shadow-lg shadow-[#2ED8B6]/20 flex items-center gap-1.5 cursor-pointer"
           >
             <span>Sign Up</span>
             <ChevronRight className="w-4 h-4" />
@@ -214,7 +214,7 @@ export function GlobalLandingView({
       {demoEnabled && <section className="py-12 px-6 lg:px-12 max-w-6xl mx-auto border-b border-[var(--line)]">
         <div className="p-8 rounded-3xl bg-gradient-to-b from-[#121A24] to-[#0D1520] border border-[var(--line-2)] shadow-2xl relative overflow-hidden space-y-6">
           {/* Subtle Ambient Background Glow */}
-          <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#EC4899]/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#2ED8B6]/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#F5A623]/5 rounded-full blur-3xl pointer-events-none" />
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 relative z-10">
@@ -239,11 +239,11 @@ export function GlobalLandingView({
             {/* Acme Corp Demo Card */}
             <button type="button"
               onClick={() => handleLaunchDemo("acme")}
-              className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#EC4899] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
+              className="p-5 rounded-2xl bg-[#141C26] hover:bg-[#18222E] border border-[var(--line)] hover:border-[#2ED8B6] transition-all cursor-pointer group space-y-3 relative overflow-hidden shadow-lg"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#EC4899]/15 border border-[#EC4899]/40 flex items-center justify-center text-[var(--support-sec-text)]">
+                  <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[var(--support-sec-text)]">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -327,10 +327,10 @@ export function GlobalLandingView({
           {/* 1. Customers & Clients */}
           <div
             onClick={() => onOpenTenantPortal("acme")}
-            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#EC4899] transition-all cursor-pointer group"
+            className="card p-6 rounded-3xl border-[var(--line)] bg-[#121A24] space-y-4 hover:border-[#2ED8B6] transition-all cursor-pointer group"
           >
             <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-2xl bg-[#EC4899]/15 border border-[#EC4899]/40 flex items-center justify-center text-[var(--support-sec-text)]">
+              <div className="w-12 h-12 rounded-2xl bg-[#2ED8B6]/15 border border-[#2ED8B6]/40 flex items-center justify-center text-[var(--support-sec-text)]">
                 <Users className="w-6 h-6" />
               </div>
               <span className="pill text-[9.5px] font-mono text-[var(--support-sec-text)] flex items-center gap-1">
@@ -440,7 +440,7 @@ export function GlobalLandingView({
           {/* Alex */}
           <div className="card p-5 rounded-2xl bg-[#121A24] border-[var(--line)] space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#EC4899]/20 border border-[#EC4899]/40 flex items-center justify-center text-[var(--support-sec-text)]">
+              <div className="w-12 h-12 rounded-xl bg-[#2ED8B6]/20 border border-[#2ED8B6]/40 flex items-center justify-center text-[var(--support-sec-text)]">
                 <Bot className="w-6 h-6" />
               </div>
               <div>
@@ -548,7 +548,7 @@ export function GlobalLandingView({
             </div>
           </div>
 
-          <div className="card p-6 rounded-3xl bg-[#121A24] border border-[#EC4899]/40 space-y-3 shadow-lg shadow-[#EC4899]/5">
+          <div className="card p-6 rounded-3xl bg-[#121A24] border border-[#2ED8B6]/40 space-y-3 shadow-lg shadow-[#2ED8B6]/5">
             <div className="flex items-center justify-between text-[var(--support-sec-text)] font-bold">
               <span>TIER 2: CONTROL PLANE</span>
               <Server className="w-4 h-4" />
@@ -594,7 +594,7 @@ export function GlobalLandingView({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="card p-6 rounded-3xl bg-[#121A24] border-[var(--line)] space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#EC4899]/15 text-[var(--support-sec-text)] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#2ED8B6]/15 text-[var(--support-sec-text)] flex items-center justify-center">
               <Lock className="w-5 h-5" />
             </div>
             <h4 className="text-sm font-bold text-[#EAF1F8]">Action Limit Guardrails</h4>
@@ -638,7 +638,7 @@ export function GlobalLandingView({
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <button
               onClick={onOpenSignup}
-              className="btn btn-primary px-8 py-3.5 rounded-2xl text-sm font-bold shadow-xl shadow-[#EC4899]/30 flex items-center gap-2 cursor-pointer"
+              className="btn btn-primary px-8 py-3.5 rounded-2xl text-sm font-bold shadow-xl shadow-[#2ED8B6]/30 flex items-center gap-2 cursor-pointer"
             >
               <span>Get Started</span>
               <ChevronRight className="w-4 h-4" />

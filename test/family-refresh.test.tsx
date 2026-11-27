@@ -35,7 +35,6 @@ describe("production support family refresh", () => {
     expect(html.match(/width="14" height="14"/g)).toHaveLength(4);
     const fills = [...html.matchAll(/<rect x="(\d+)" y="(\d+)"[^>]*fill="(#[0-9A-F]{6})"/gi)].map(([, x, y, fill]) => `${x},${y}:${fill.toUpperCase()}`);
     expect(fills).toEqual(["0,0:#C8FF00", "17,0:#2ED8B6", "0,17:#C8FF00", "17,17:#00F2FE"]);
-    expect(html).not.toContain("#2ED8B6");
     expect(html).toContain(">v8</span>");
   });
   it("preserves the complete incumbent menu role filters and auth action handlers", () => {

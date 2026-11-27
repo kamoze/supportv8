@@ -40,6 +40,6 @@ describe("SupportV8 family logo (F4)", () => {
   it("defaults the chat widget to SupportV8 teal with dark, readable ink", () => {
     const widget = file("src/components/chat/SupportChatWidget.tsx");
     expect(widget).toContain('brandColor = "#2ED8B6"');
-    expect(widget).not.toContain('"#2ED8B6"');
+    expect(widget).toContain('? brandColor : "#2ED8B6"');
   });
 });

@@ -1,3 +1,4 @@
+import { TEST_SEED_PASSWORD } from "./fixtures/seed-password";
 import { describe, expect, it, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { middleware } from "@/middleware";
@@ -279,7 +280,7 @@ describe("Tenant Subdomain Routing & Workspace Discovery Standard (TR01-TR08)", 
         "content-type": "application/x-www-form-urlencoded",
         origin: "https://acme.support.servicev8.com",
       },
-      body: "email=admin%40acme.com&password=SupportV8%232026%21Secure",
+      body: `email=admin%40acme.com&password=${encodeURIComponent(TEST_SEED_PASSWORD)}`,
     });
     const resLogin = await postLogin(reqLogin);
     expect(resLogin.status).toBe(302);

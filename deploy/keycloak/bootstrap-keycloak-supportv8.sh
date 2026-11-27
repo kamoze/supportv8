@@ -8,7 +8,15 @@ set -euo pipefail
 
 KEYCLOAK_URL="${KEYCLOAK_URL:-https://keycloak.servicev8.com}"
 ADMIN_USER="${KEYCLOAK_ADMIN_USER:-admin}"
-ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}"
+# Seed-user passwords are never committed. JSON shaped like the SSM SecureString
+# /servicev8/supportv8-seed-users ({"acme-admin": "...", ...}); see
+# servicev8-devops ops/supportv8-seed-users. In the shared cluster the GitOps
+# realm bootstrap owns these users instead.
+SEED_USERS_FILE="${SUPPORTV8_SEED_USERS_FILE:?SUPPORTV8_SEED_USERS_FILE is required; no default seed passwords exist}"
+seed_password() {
+  node -e 'const v=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))[process.argv[2]];if(typeof v!=="string"||!/^[A-Za-z0-9_-]{32,}$/.test(v)){console.error("no valid seed password for "+process.argv[2]);process.exit(1)}process.stdout.write(v)' "${SEED_USERS_FILE}" "$1"
+}
 REALM="supportv8"
 KCADM="${KCADM_PATH:-kcadm.sh}"
 
@@ -157,14 +165,14 @@ done
 # 9. Seed Standard Demo Users
 echo "👤 Seeding Core Accounts..."
 USERS=(
-  "acme@servicev8.com:SupportV8#2026!Secure:Acme:Admin:tenant_acme:support_cx_lead,support_superadmin:/CX Directors & Leads"
-  "admin@acme.com:SupportV8#2026!Secure:Sarah:Chen:tenant_acme:support_cx_lead:/CX Directors & Leads"
-  "david.kim@acme.com:SupportV8#2026!Secure:David:Kim:tenant_acme:support_operator:/Frontline Support Operators"
-  "dispatch@meridian.com:SupportV8#2026!Secure:Meridian:Dispatch:tenant_meridian:support_contractor_lead:/Field Contractors & Technicians"
+  "acme@servicev8.com:acme-admin:Acme:Admin:tenant_acme:support_cx_lead,support_superadmin:/CX Directors & Leads"
+  "admin@acme.com:acme-sarah-chen:Sarah:Chen:tenant_acme:support_cx_lead:/CX Directors & Leads"
+  "david.kim@acme.com:acme-david-kim:David:Kim:tenant_acme:support_operator:/Frontline Support Operators"
+  "dispatch@meridian.com:meridian-dispatch:Meridian:Dispatch:tenant_meridian:support_contractor_lead:/Field Contractors & Technicians"
 )
 
 for USER_SPEC in "${USERS[@]}"; do
-  IFS=":" read -r U_EMAIL U_PASS U_FNAME U_LNAME U_TENANT U_ROLES U_GRP <<< "${USER_SPEC}"
+  IFS=":" read -r U_EMAIL U_SEED_KEY U_FNAME U_LNAME U_TENANT U_ROLES U_GRP <<< "${USER_SPEC}"
   if $KCADM get users -r "${REALM}" -q email="${U_EMAIL}" --fields id 2>/dev/null | grep -q id; then
     echo "   User ${U_EMAIL} already exists"
   else
@@ -176,7 +184,10 @@ for USER_SPEC in "${USERS[@]}"; do
       -s enabled=true \
       -s emailVerified=true \
       -s "attributes.tenant_id=[\"${U_TENANT}\"]"
-    $KCADM set-password -r "${REALM}" --username "${U_EMAIL}" --new-password "${U_PASS}"
+    U_ID="$($KCADM get users -r "${REALM}" -q email="${U_EMAIL}" --fields id --format csv --noquotes | head -1)"
+    # Sent on stdin, never as an argument, never printed.
+    printf '{"type":"password","temporary":false,"value":"%s"}' "$(seed_password "${U_SEED_KEY}")" \
+      | $KCADM update "users/${U_ID}/reset-password" -r "${REALM}" -f -
     
     # Assign Roles
     IFS="," read -ra ROLE_ARR <<< "${U_ROLES}"

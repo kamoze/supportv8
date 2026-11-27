@@ -1,3 +1,4 @@
+import { TEST_SEED_PASSWORD } from "./fixtures/seed-password";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { credentialStore, INITIAL_USER_CREDENTIALS } from "@/lib/auth/credential-store";
 import { issueService } from "@/lib/services/issue-service";
@@ -77,13 +78,13 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
       // Register a customer tenant account
       credentialStore.registerUser({
         email: "admin@acme-movers.com",
-        password: "SupportV8#2026!Secure",
+        password: TEST_SEED_PASSWORD,
         tenantSlug: "acme-movers",
         role: "cx_lead",
       });
 
       const email = "admin@acme-movers.com";
-      const pass = "SupportV8#2026!Secure";
+      const pass = TEST_SEED_PASSWORD;
       const targetTenant = "acme"; // Attempting to login to acme workspace
 
       const result = await credentialStore.authenticate(email, pass, targetTenant);
@@ -98,7 +99,7 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
 
     it("should REJECT meridian contractor account logging into acme domain", async () => {
       const email = "dispatch@meridian.com";
-      const pass = "SupportV8#2026!Secure";
+      const pass = TEST_SEED_PASSWORD;
       const targetTenant = "acme";
 
       const result = await credentialStore.authenticate(email, pass, targetTenant);
@@ -110,7 +111,7 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
 
     it("should ALLOW same-tenant login for acme-movers admin to acme-movers domain", async () => {
       const email = "admin@acme-movers.com";
-      const pass = "SupportV8#2026!Secure";
+      const pass = TEST_SEED_PASSWORD;
       const targetTenant = "acme-movers";
 
       const result = await credentialStore.authenticate(email, pass, targetTenant);
@@ -123,7 +124,7 @@ describe("Strict Tenant Domain Isolation & Row-Level Security (RLS)", () => {
 
     it("should ALLOW same-tenant login for acme operator to acme domain", async () => {
       const email = "david.kim@acme.com";
-      const pass = "SupportV8#2026!Secure";
+      const pass = TEST_SEED_PASSWORD;
       const targetTenant = "acme";
 
       const result = await credentialStore.authenticate(email, pass, targetTenant);

@@ -84,31 +84,103 @@ jobs:
       - run:
           name: Build and push Docker image
           command: bash scripts/ci/build-support-image.sh
-  update-devops:
+  promote-prod:
+    # Moves the PRODUCTION pins. Argo CD deploys the supportv8 Application from
+    # servicev8-devops apps/prod/supportv8 @ main, so this commit IS the
+    # rollout. It pins the immutable digest of the image push-image built from
+    # this exact commit (tag web-<full sha>, never a mutable tag), via
+    # servicev8-devops ops/promote/promote.sh, which refuses to move a pin
+    # backwards (a slower build of an older commit loses) and retries push
+    # races on fresh main. The web, worker and chat-relay Deployments run the
+    # same image and always move together, in one devops commit.
     resource_class: redoosolutions/servicev8
     docker:
-      - image: cimg/base:stable
+      - image: cimg/base:2026.10-22.04@sha256:ee51fa245dab6c70e859c4a9abe32239fab54e76bab654b073f932645b813954
     steps:
+      # Full history: ancestry decides forward-only pins.
+      - checkout:
+          method: full
       - run:
-          name: Update ServiceV8 DevOps image tag
+          name: Install pinned kustomize
           command: |
+            set -euo pipefail
+            KUSTOMIZE_VERSION="v5.5.0"
+            KUSTOMIZE_SHA256="6703a3a70a0c47cf0b37694030b54f1175a9dfeb17b3818b623ed58b9dbc2a77"
+            curl --fail --show-error --location --max-time 120 --retry 3 --retry-delay 2 \
+              -o /tmp/kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+            printf '%s  %s\n' "$KUSTOMIZE_SHA256" /tmp/kustomize.tar.gz | sha256sum --check --strict -
+            tar -xzf /tmp/kustomize.tar.gz -C /tmp
+            sudo install -o root -g root -m 0755 /tmp/kustomize /usr/local/bin/kustomize
+            kustomize version
+      - run:
+          name: Resolve pushed image digest
+          command: |
+            set -euo pipefail
+            IMAGE="redoosolutions/supportv8"
             IMAGE_TAG="web-${CIRCLE_SHA1}"
-            git clone "https://${GITHUB_TOKEN}@github.com/kamoze/servicev8-devops.git" devops
-            cd devops
-            sed -i "s|image: redoosolutions/supportv8:.*|image: redoosolutions/supportv8:$IMAGE_TAG|g" apps/supportv8/deployment.yaml
-            sed -i "s|image: redoosolutions/supportv8:.*|image: redoosolutions/supportv8:$IMAGE_TAG|g" apps/supportv8/worker.yaml
-            if [ -f apps/supportv8/chat-relay.yaml ]; then
-              sed -i "s|image: redoosolutions/supportv8:.*|image: redoosolutions/supportv8:$IMAGE_TAG|g" apps/supportv8/chat-relay.yaml
+            : "${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}"
+            : "${DOCKERHUB_PASSWORD:?DOCKERHUB_PASSWORD is required}"
+            ACCEPT="application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json"
+            DIGEST=""
+            for attempt in 1 2 3 4 5; do
+              # Credentials go through stdin config, never argv.
+              TOKEN="$(printf 'user = "%s:%s"\n' "$DOCKERHUB_USERNAME" "$DOCKERHUB_PASSWORD" \
+                | curl -fsS -K - "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${IMAGE}:pull" | jq -r .token)" || TOKEN=""
+              if [ -n "$TOKEN" ] && [ "$TOKEN" != null ]; then
+                DIGEST="$(printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" \
+                  | curl -fsS -I -K - -H "Accept: ${ACCEPT}" "https://registry-1.docker.io/v2/${IMAGE}/manifests/${IMAGE_TAG}" \
+                  | tr -d '\r' | awk 'tolower($1)=="docker-content-digest:" {print $2}')" || DIGEST=""
+              fi
+              if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then break; fi
+              DIGEST=""
+              echo "digest for $IMAGE:$IMAGE_TAG not resolvable yet (attempt $attempt); retrying"
+              sleep $((attempt * 10))
+            done
+            [ -n "$DIGEST" ] || { echo "could not resolve digest for $IMAGE:$IMAGE_TAG"; exit 1; }
+            echo "$IMAGE:$IMAGE_TAG -> $DIGEST"
+            printf '%s\n' "$DIGEST" > /tmp/image-digest
+      - run:
+          name: Promote digest to production pins in servicev8-devops
+          command: |
+            set -euo pipefail
+            : "${GITHUB_TOKEN:?GITHUB_TOKEN is required}"
+            DIGEST="$(cat /tmp/image-digest)"
+            IMAGE_TAG="web-${CIRCLE_SHA1}"
+            APP_PATH="apps/prod/supportv8"
+            SRC="$PWD"
+            git clone --quiet "https://${GITHUB_TOKEN}@github.com/kamoze/servicev8-devops.git" /tmp/devops
+            git -C /tmp/devops config user.email "ci@servicev8.com"
+            git -C /tmp/devops config user.name "CircleCI Runner"
+            LEDGER="/tmp/devops/$APP_PATH/pins.lock"
+            [ -f "$LEDGER" ] || { echo "missing $APP_PATH/pins.lock in servicev8-devops"; exit 1; }
+
+            # A release hold in the ledger stops every pin move (the image stays built and pushed).
+            RELEASE_HOLD="$(sed -n 's/^# servicev8-release-hold:[[:space:]]*//p' "$LEDGER" | head -1)"
+            if [ -n "$RELEASE_HOLD" ]; then
+              echo "RELEASE HOLD: ${RELEASE_HOLD}. Built ${IMAGE_TAG}; leaving the production pins unchanged."
+              exit 0
             fi
-            git config user.email "ci@servicev8.com"
-            git config user.name "CircleCI Runner"
-            git add apps/supportv8/deployment.yaml apps/supportv8/worker.yaml
-            if [ -f apps/supportv8/chat-relay.yaml ]; then
-              git add apps/supportv8/chat-relay.yaml
-            fi
-            git commit -m "ci: update supportv8 image tag to $IMAGE_TAG" || echo "No changes to commit"
-            git remote set-url origin "https://${GITHUB_TOKEN}@github.com/kamoze/servicev8-devops.git"
-            git push origin main
+
+            PINS=(--pin "supportv8-web=${DIGEST}" --pin "supportv8-worker=${DIGEST}" --pin "supportv8-chat-relay=${DIGEST}")
+
+            rc=0
+            /tmp/devops/ops/promote/promote.sh \
+              --devops-dir /tmp/devops \
+              --app-path "$APP_PATH" \
+              --commit "$CIRCLE_SHA1" \
+              --build "<< pipeline.number >>" \
+              --source-repo "$SRC" \
+              --attempts 8 \
+              --message "promote(supportv8): ${IMAGE_TAG} web+worker+chat-relay ${DIGEST}
+
+            Source: kamoze/supportv8@${CIRCLE_SHA1}
+            Build: ${CIRCLE_BUILD_URL}" \
+              "${PINS[@]}" || rc=$?
+            case "$rc" in
+              0) ;;
+              3) echo "STALE BUILD: production already pins a newer commit; nothing promoted." ;;
+              *) exit "$rc" ;;
+            esac
 workflows:
   version: 2
   supportv8:
@@ -124,11 +196,14 @@ workflows:
               only:
                 - main
                 - master
-      - update-devops:
+      - promote-prod:
           context:
             - servicev8-prod
           requires:
             - push-image
+          # Serialize this repo's devops writes; promote.sh's rebase-and-retry
+          # loop handles collisions with other repos' writers.
+          serial-group: << pipeline.project.slug >>/devops-write
           filters:
             branches:
               only:

@@ -15,7 +15,7 @@ it('keeps all PR validation in CircleCI and deployment limited to main/master',(
   const jobs=workflow.slice(workflow.indexOf('workflows:'));
   const validation=jobs.slice(jobs.indexOf('      - build:'),jobs.indexOf('      - push-image:'));
   expect(validation).not.toContain('filters:');expect(validation).not.toContain('context:');
-  for(const name of ['push-image','update-devops']) expect(jobs.split('      - '+name+':')[1].split('\n      - ')[0]).toContain('only:\n                - main\n                - master');
+  for(const name of ['push-image','promote-prod']) expect(jobs.split('      - '+name+':')[1].split('\n      - ')[0]).toContain('only:\n                - main\n                - master');
   for(const name of ['action-gateway-writeback','interaction-ingress','mvp-intelligence-projections','retention-policy','support-intelligence-repository']) expect(workflow).toContain('test/'+name+'.postgres.test.ts');
 });
 it('uses matching trust only in the disposable CircleCI PostgreSQL service',()=>{
